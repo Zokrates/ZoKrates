@@ -1,0 +1,532 @@
+from "EMBED" import u64_to_bits, u32_to_bits, u16_to_bits, u8_to_bits, u8_from_bits, u16_from_bits, u32_from_bits, u64_from_bits;
+
+// Cast a boolean array of size 8 to an 8-bit unsigned integer (u8)
+def cast(bool[8] input) -> u8 {
+    return u8_from_bits(input);
+}
+
+// Cast a boolean array of size N to an array of 8-bit unsigned integers (u8) of size P
+// The following condition must be true `N == 8 * P`, otherwise the cast will fail
+def cast<N, P>(bool[N] input) -> u8[P] {
+    assert(N == 8 * P);
+    u8[P] mut r = [0; P];
+    for u32 i in 0..P {
+        r[i] = u8_from_bits(input[i * 8..(i + 1) * 8]);
+    }
+    return r;
+}
+
+// Cast a boolean array of size 16 to a 16-bit unsigned integer (u16)
+def cast(bool[16] input) -> u16 {
+    return u16_from_bits(input);
+}
+
+// Cast a boolean array of size N to an array of 16-bit unsigned integers (u16) of size P
+// The following condition must be true `N == 16 * P`, otherwise the cast will fail
+def cast<N, P>(bool[N] input) -> u16[P] {
+    assert(N == 16 * P);
+    u16[P] mut r = [0; P];
+    for u32 i in 0..P {
+        r[i] = u16_from_bits(input[i * 16..(i + 1) * 16]);
+    }
+    return r;
+}
+
+// Cast a boolean array of size 32 to a 32-bit unsigned integer (u32)
+def cast(bool[32] input) -> u32 {
+    return u32_from_bits(input);
+}
+
+// Cast a boolean array of size N to an array of 32-bit unsigned integers (u32) of size P
+// The following condition must be true `N == 32 * P`, otherwise the cast will fail
+def cast<N, P>(bool[N] input) -> u32[P] {
+    assert(N == 32 * P);
+    u32[P] mut r = [0; P];
+    for u32 i in 0..P {
+        r[i] = u32_from_bits(input[i * 32..(i + 1) * 32]);
+    }
+    return r;
+}
+
+// Cast a boolean array of size 64 to a 64-bit unsigned integer (u64)
+def cast(bool[64] input) -> u64 {
+    return u64_from_bits(input);
+}
+
+// Cast a boolean array of size N to an array of 64-bit unsigned integers (u64) of size P
+// The following condition must be true `N == 64 * P`, otherwise the cast will fail
+def cast<N, P>(bool[N] input) -> u64[P] {
+    assert(N == 64 * P);
+    u64[P] mut r = [0; P];
+    for u32 i in 0..P {
+        r[i] = u64_from_bits(input[i * 64..(i + 1) * 64]);
+    }
+    return r;
+}
+
+// Cast an 8-bit unsigned integer (u8) to a boolean array of size 8 (bool[8])
+def cast(u8 input) -> bool[8] {
+    return u8_to_bits(input);
+}
+
+// Cast an array of 8-bit unsigned integers (u8) of size N to a boolean array of size P
+// The following condition must be true `P == 8 * N`, otherwise the cast will fail
+def cast<N, P>(u8[N] input) -> bool[P] {
+    assert(P == 8 * N);
+    bool[P] mut r = [false; P];
+    for u32 i in 0..N {
+        bool[8] bits = u8_to_bits(input[i]);
+        for u32 j in 0..8 {
+            r[i * 8 + j] = bits[j];
+        }
+    }
+    return r;
+}
+
+// Cast an 8-bit unsigned integer (u8) to a field element
+def cast(u8 input) -> field {
+    bool[8] bits = u8_to_bits(input);
+    field mut r = 0;
+    for u32 i in 0..8 {
+        u32 exponent = 8 - i - 1;
+        r = r + (bits[i] ? 2 ** exponent : 0);
+    }
+    return r;
+}
+
+// Cast an array of 8-bit unsigned integers (u8) to an array of field elements
+def cast<N>(u8[N] input) -> field[N] {
+    field[N] mut r = [0; N];
+    for u32 i in 0..N {
+        r[i] = cast(input[i]);
+    }
+    return r;
+}
+
+// Upcast an 8-bit unsigned integer (u8) to a 16-bit unsigned integer (u16)
+def cast(u8 input) -> u16 {
+    bool[8] bits = u8_to_bits(input);
+    return u16_from_bits([...[false; 8], ...bits]);
+}
+
+// Cast an array of two 8-bit unsigned integers (u8[2]) to a 16-bit unsigned integer (u16)
+def cast(u8[2] input) -> u16 {
+    bool[16] bits = [
+        ...u8_to_bits(input[0]),
+        ...u8_to_bits(input[1])
+    ];
+    return u16_from_bits(bits);
+}
+
+// Cast an array of 8-bit unsigned integers (u8) of size N to an array of 16-bit unsigned integers (u16) of size P
+// The following condition must be true `N == 2 * P`, otherwise the cast will fail
+def cast<N, P>(u8[N] input) -> u16[P] {
+    assert(N == 2 * P);
+    u16[P] mut r = [0; P];
+    for u32 i in 0..P {
+        r[i] = cast(input[i * 2..(i + 1) * 2]);
+    }
+    return r;
+}
+
+// Upcast an 8-bit unsigned integer (u8) to a 32-bit unsigned integer (u32)
+def cast(u8 input) -> u32 {
+    bool[8] bits = u8_to_bits(input);
+    return u32_from_bits([...[false; 24], ...bits]);
+}
+
+// Cast an array of four 8-bit unsigned integers (u8[4]) to a 32-bit unsigned integer (u32)
+def cast(u8[4] input) -> u32 {
+    bool[32] bits = [
+        ...u8_to_bits(input[0]),
+        ...u8_to_bits(input[1]),
+        ...u8_to_bits(input[2]),
+        ...u8_to_bits(input[3])
+    ];
+    return u32_from_bits(bits);
+}
+
+// Cast an array of 8-bit unsigned integers (u8) of size N to an array of 32-bit unsigned integers (u32) of size P
+// The following condition must be true `N == 4 * P`, otherwise the cast will fail
+def cast<N, P>(u8[N] input) -> u32[P] {
+    assert(N == 4 * P);
+    u32[P] mut r = [0; P];
+    for u32 i in 0..P {
+        r[i] = cast(input[i * 4..(i + 1) * 4]);
+    }
+    return r;
+}
+
+// Upcast an 8-bit unsigned integer (u8) to a 64-bit unsigned integer (u64)
+def cast(u8 input) -> u64 {
+    bool[8] bits = u8_to_bits(input);
+    return u64_from_bits([...[false; 56], ...bits]);
+}
+
+// Cast an array of eight 8-bit unsigned integers (u8[8]) to a 64-bit unsigned integer (u64)
+def cast(u8[8] input) -> u64 {
+    bool[64] bits = [
+        ...u8_to_bits(input[0]),
+        ...u8_to_bits(input[1]),
+        ...u8_to_bits(input[2]),
+        ...u8_to_bits(input[3]),
+        ...u8_to_bits(input[4]),
+        ...u8_to_bits(input[5]),
+        ...u8_to_bits(input[6]),
+        ...u8_to_bits(input[7])
+    ];
+    return u64_from_bits(bits);
+}
+
+// Cast an array of 8-bit unsigned integers (u8) of size N to an array of 64-bit unsigned integers (u64) of size P
+// The following condition must be true `N == 8 * P`, otherwise the cast will fail
+def cast<N, P>(u8[N] input) -> u64[P] {
+    assert(N == 8 * P);
+    u64[P] mut r = [0; P];
+    for u32 i in 0..P {
+        r[i] = cast(input[i * 8..(i + 1) * 8]);
+    }
+    return r;
+}
+
+// Cast a 16-bit unsigned integer (u16) to a boolean array of size 16 (bool[16])
+def cast(u16 input) -> bool[16] {
+    return u16_to_bits(input);
+}
+
+// Cast an array of 16-bit unsigned integers (u16) of size N to a boolean array of size P
+// The following condition must be true `P == 16 * N`, otherwise the cast will fail
+def cast<N, P>(u16[N] input) -> bool[P] {
+    assert(P == 16 * N);
+    bool[P] mut r = [false; P];
+    for u32 i in 0..N {
+        bool[16] bits = u16_to_bits(input[i]);
+        for u32 j in 0..16 {
+            r[i * 16 + j] = bits[j];
+        }
+    }
+    return r;
+}
+
+// Cast a 16-bit unsigned integer (u16) to a field element
+def cast(u16 input) -> field {
+    bool[16] bits = u16_to_bits(input);
+    field mut r = 0;
+    for u32 i in 0..16 {
+        u32 exponent = 16 - i - 1;
+        r = r + (bits[i] ? 2 ** exponent : 0);
+    }
+    return r;
+}
+
+// Cast an array of 16-bit unsigned integers (u16) to an array of field elements
+def cast<N>(u16[N] input) -> field[N] {
+    field[N] mut r = [0; N];
+    for u32 i in 0..N {
+        r[i] = cast(input[i]);
+    }
+    return r;
+}
+
+// Cast a 16-bit unsigned integer (u16) to an array of two 8-bit unsigned integers (u8[2])
+def cast(u16 input) -> u8[2] {
+    bool[16] bits = u16_to_bits(input);
+    return [
+        u8_from_bits(bits[0..8]),
+        u8_from_bits(bits[8..16])
+    ];
+}
+
+// Cast an array of 16-bit unsigned integers (u16) of size N to an array of 8-bit unsigned integers of size P
+// The following condition must be true `P == 2 * N`, otherwise the cast will fail
+def cast<N, P>(u16[N] input) -> u8[P] {
+    assert(P == 2 * N);
+    u8[P] mut r = [0; P];
+    for u32 i in 0..N {
+        u8[2] t = cast(input[i]);
+        r[i * 2] = t[0];
+        r[i * 2 + 1] = t[1];
+    }
+    return r;
+}
+
+// Upcast a 16-bit unsigned integer (u16) to a 32-bit unsigned integer (u32)
+def cast(u16 input) -> u32 {
+    bool[16] bits = u16_to_bits(input);
+    return u32_from_bits([...[false; 16], ...bits]);
+}
+
+// Cast an array of two 16-bit unsigned integers (u16[2]) to a 32-bit unsigned integer (u32)
+def cast(u16[2] input) -> u32 {
+    bool[32] bits = [
+        ...u16_to_bits(input[0]),
+        ...u16_to_bits(input[1])
+    ];
+    return u32_from_bits(bits);
+}
+
+// Cast an array of 16-bit unsigned integers (u16) of size N to an array of 32-bit unsigned integers (u32) of size P
+// The following condition must be true `N == 2 * P`, otherwise the cast will fail
+def cast<N, P>(u16[N] input) -> u32[P] {
+    assert(N == 2 * P);
+    u32[P] mut r = [0; P];
+    for u32 i in 0..P {
+        r[i] = cast(input[i * 2..(i + 1) * 2]);
+    }
+    return r;
+}
+
+// Upcast a 16-bit unsigned integer (u16) to a 64-bit unsigned integer (u64)
+def cast(u16 input) -> u64 {
+    bool[16] bits = u16_to_bits(input);
+    return u64_from_bits([...[false; 48], ...bits]);
+}
+
+// Cast an array of four 16-bit unsigned integers (u16[4]) to a 64-bit unsigned integer (u64)
+def cast(u16[4] input) -> u64 {
+    bool[64] bits = [
+        ...u16_to_bits(input[0]),
+        ...u16_to_bits(input[1]),
+        ...u16_to_bits(input[2]),
+        ...u16_to_bits(input[3])
+    ];
+    return u64_from_bits(bits);
+}
+
+// Cast an array of 16-bit unsigned integers (u16) of size N to an array of 64-bit unsigned integers (u64) of size P
+// The following condition must be true `N == 4 * P`, otherwise the cast will fail
+def cast<N, P>(u16[N] input) -> u64[P] {
+    assert(N == 4 * P);
+    u64[P] mut r = [0; P];
+    for u32 i in 0..P {
+        r[i] = cast(input[i * 4..(i + 1) * 4]);
+    }
+    return r;
+}
+
+// Cast a 32-bit unsigned integer (u32) to a boolean array of size 32 (bool[32])
+def cast(u32 input) -> bool[32] {
+    return u32_to_bits(input);
+}
+
+// Cast an array of 32-bit unsigned integers (u32) of size N to a boolean array of size P
+// The following condition must be true `P == 32 * N`, otherwise the cast will fail
+def cast<N, P>(u32[N] input) -> bool[P] {
+    assert(P == 32 * N);
+    bool[P] mut r = [false; P];
+    for u32 i in 0..N {
+        bool[32] bits = u32_to_bits(input[i]);
+        for u32 j in 0..32 {
+            r[i * 32 + j] = bits[j];
+        }
+    }
+    return r;
+}
+
+// Cast a 32-bit unsigned integer (u32) to a field element
+def cast(u32 input) -> field {
+    bool[32] bits = u32_to_bits(input);
+    field mut r = 0;
+    for u32 i in 0..32 {
+        u32 exponent = 32 - i - 1;
+        r = r + (bits[i] ? 2 ** exponent : 0);
+    }
+    return r;
+}
+
+// Cast an array of 32-bit unsigned integers (u32) to an array of field elements
+def cast<N>(u32[N] input) -> field[N] {
+    field[N] mut r = [0; N];
+    for u32 i in 0..N {
+        r[i] = cast(input[i]);
+    }
+    return r;
+}
+
+// Cast a 32-bit unsigned integer (u32) to an array of four 8-bit unsigned integers (u8[4])
+def cast(u32 input) -> u8[4] {
+    bool[32] bits = u32_to_bits(input);
+    return [
+        u8_from_bits(bits[0..8]),
+        u8_from_bits(bits[8..16]),
+        u8_from_bits(bits[16..24]),
+        u8_from_bits(bits[24..32])
+    ];
+}
+
+// Cast an array of 32-bit unsigned integers (u32) of size N to an array of 8-bit unsigned integers of size P
+// The following condition must be true `P == 4 * N`, otherwise the cast will fail
+def cast<N, P>(u32[N] input) -> u8[P] {
+    assert(P == 4 * N);
+    u8[P] mut r = [0; P];
+    for u32 i in 0..N {
+        u8[4] t = cast(input[i]);
+        for u32 j in 0..4 {
+            r[i * 4 + j] = t[j];
+        }
+    }
+    return r;
+}
+
+// Cast a 32-bit unsigned integer (u32) to an array of two 16-bit unsigned integers (u16[2])
+def cast(u32 input) -> u16[2] {
+    bool[32] bits = u32_to_bits(input);
+    return [
+        u16_from_bits(bits[0..16]),
+        u16_from_bits(bits[16..32])
+    ];
+}
+
+// Cast an array of 32-bit unsigned integers (u32) of size N to an array of 16-bit unsigned integers of size P
+// The following condition must be true `P == 2 * N`, otherwise the cast will fail
+def cast<N, P>(u32[N] input) -> u16[P] {
+    assert(P == 2 * N);
+    u16[P] mut r = [0; P];
+    for u32 i in 0..N {
+        u16[2] t = cast(input[i]);
+        r[i * 2] = t[0];
+        r[i * 2 + 1] = t[1];
+    }
+    return r;
+}
+
+// Upcast a 32-bit unsigned integer (u32) to a 64-bit unsigned integer (u64)
+def cast(u32 input) -> u64 {
+    bool[32] bits = u32_to_bits(input);
+    return u64_from_bits([...[false; 32], ...bits]);
+}
+
+// Cast an array of two 32-bit unsigned integers (u32[2]) to a 64-bit unsigned integer (u64)
+def cast(u32[2] input) -> u64 {
+    bool[64] bits = [
+        ...u32_to_bits(input[0]),
+        ...u32_to_bits(input[1])
+    ];
+    return u64_from_bits(bits);
+}
+
+// Cast an array of 32-bit unsigned integers (u32) of size N to an array of 64-bit unsigned integers (u64) of size P
+// The following condition must be true `N == 2 * P`, otherwise the cast will fail
+def cast<N, P>(u32[N] input) -> u64[P] {
+    assert(N == 2 * P);
+    u64[P] mut r = [0; P];
+    for u32 i in 0..P {
+        r[i] = cast(input[i * 2..(i + 1) * 2]);
+    }
+    return r;
+}
+
+// Cast a 64-bit unsigned integer (u64) to a boolean array of size 64 (bool[64])
+def cast(u64 input) -> bool[64] {
+    return u64_to_bits(input);
+}
+
+// Cast an array of 64-bit unsigned integers (u64) of size N to a boolean array of size P
+// The following condition must be true `P == 64 * N`, otherwise the cast will fail
+def cast<N, P>(u64[N] input) -> bool[P] {
+    assert(P == 64 * N);
+    bool[P] mut r = [false; P];
+    for u32 i in 0..N {
+        bool[64] bits = u64_to_bits(input[i]);
+        for u32 j in 0..64 {
+            r[i * 64 + j] = bits[j];
+        }
+    }
+    return r;
+}
+
+// Cast 64-bit unsigned integer (u64) to a field element
+def cast(u64 input) -> field {
+    bool[64] bits = u64_to_bits(input);
+    field mut r = 0;
+    for u32 i in 0..64 {
+        u32 exponent = 64 - i - 1;
+        r = r + (bits[i] ? 2 ** exponent : 0);
+    }
+    return r;
+}
+
+// Cast an array of 64-bit unsigned integers (u64) to an array of field elements
+def cast<N>(u64[N] input) -> field[N] {
+    field[N] mut r = [0; N];
+    for u32 i in 0..N {
+        r[i] = cast(input[i]);
+    }
+    return r;
+}
+
+// Cast a 64-bit unsigned integer (u64) to an array of 8 8-bit unsigned integers (u8[8])
+def cast(u64 input) -> u8[8] {
+    bool[64] bits = u64_to_bits(input);
+    return [
+        u8_from_bits(bits[0..8]),
+        u8_from_bits(bits[8..16]),
+        u8_from_bits(bits[16..24]),
+        u8_from_bits(bits[24..32]),
+        u8_from_bits(bits[32..40]),
+        u8_from_bits(bits[40..48]),
+        u8_from_bits(bits[48..56]),
+        u8_from_bits(bits[56..64])
+    ];
+}
+
+// Cast an array of 64-bit unsigned integers (u64) of size N to an array of 8-bit unsigned integers of size P
+// The following condition must be true `P == 8 * N`, otherwise the cast will fail
+def cast<N, P>(u64[N] input) -> u8[P] {
+    assert(P == 8 * N);
+    u8[P] mut r = [0; P];
+    for u32 i in 0..N {
+        u8[8] t = cast(input[i]);
+        for u32 j in 0..8 {
+            r[i * 8 + j] = t[j];
+        }
+    }
+    return r;
+}
+
+// Cast a 64-bit unsigned integer (u64) to an array of 4 16-bit unsigned integers (u16[4])
+def cast(u64 input) -> u16[4] {
+    bool[64] bits = u64_to_bits(input);
+    return [
+        u16_from_bits(bits[0..16]),
+        u16_from_bits(bits[16..32]),
+        u16_from_bits(bits[32..48]),
+        u16_from_bits(bits[48..64])
+    ];
+}
+
+// Cast an array of 64-bit unsigned integers (u64) of size N to an array of 16-bit unsigned integers of size P
+// The following condition must be true `P == 4 * N`, otherwise the cast will fail
+def cast<N, P>(u64[N] input) -> u16[P] {
+    assert(P == 4 * N);
+    u16[P] mut r = [0; P];
+    for u32 i in 0..N {
+        u16[4] t = cast(input[i]);
+        for u32 j in 0..4 {
+            r[i * 4 + j] = t[j];
+        }
+    }
+    return r;
+}
+
+// Cast a 64-bit unsigned integer (u64) to an array of 2 32-bit unsigned integers (u32[2])
+def cast(u64 input) -> u32[2] {
+    bool[64] bits = u64_to_bits(input);
+    return [
+        u32_from_bits(bits[0..32]),
+        u32_from_bits(bits[32..64])
+    ];
+}
+
+// Cast an array of 64-bit unsigned integers (u64) of size N to an array of 32-bit unsigned integers of size P
+// The following condition must be true `P == 2 * N`, otherwise the cast will fail
+def cast<N, P>(u64[N] input) -> u32[P] {
+    assert(P == 2 * N);
+    u32[P] mut r = [0; P];
+    for u32 i in 0..N {
+        u32[2] t = cast(input[i]);
+        r[i * 2] = t[0];
+        r[i * 2 + 1] = t[1];
+    }
+    return r;
+}
