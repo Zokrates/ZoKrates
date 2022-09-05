@@ -89,6 +89,7 @@ type ConstantMap<'ast, T> =
 /// The global state of the program during semantic checks
 #[derive(Debug)]
 struct State<'ast, T> {
+    main_id: OwnedModuleId,
     /// The modules yet to be checked, which we consume as we explore the dependency tree
     modules: Modules<'ast>,
     /// The already checked modules, which we're returning at the end
@@ -166,8 +167,9 @@ impl<'ast, T: std::cmp::Ord> SymbolUnifier<'ast, T> {
 }
 
 impl<'ast, T: Field> State<'ast, T> {
-    fn new(modules: Modules<'ast>) -> Self {
+    fn new(modules: Modules<'ast>, main_id: OwnedModuleId) -> Self {
         State {
+            main_id,
             modules,
             typed_modules: BTreeMap::new(),
             types: BTreeMap::new(),
@@ -340,12 +342,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         program: Program<'ast>,
     ) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
-        let mut state = State::new(program.modules);
+        let main_id = program.main.clone();
 
+        let mut state = State::new(program.modules, main_id.clone());
         let mut errors = vec![];
 
         // recursively type-check modules starting with `main`
-        match self.check_module(&program.main, &mut state) {
+        match self.check_module(&main_id, &mut state) {
             Ok(()) => {}
             Err(e) => errors.extend(e),
         };
@@ -354,9 +357,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             return Err(errors);
         }
 
-        let main_id = program.main.clone();
-
-        Checker::check_single_main(state.typed_modules.get(&program.main).unwrap()).map_err(
+        Checker::check_single_main(state.typed_modules.get(&main_id).unwrap()).map_err(
             |inner| {
                 vec![Error {
                     inner,
@@ -762,24 +763,40 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             true => {}
                         };
 
-                        self.functions.insert(
-                            DeclarationFunctionKey::with_location(
-                                module_id.to_path_buf(),
-                                declaration.id,
-                            )
-                            .signature(funct.signature.clone()),
-                        );
-                        symbols.push(
-                            TypedFunctionSymbolDeclaration::new(
-                                DeclarationFunctionKey::with_location(
-                                    module_id.to_path_buf(),
-                                    declaration.id,
-                                )
-                                .signature(funct.signature.clone()),
-                                TypedFunctionSymbol::Here(funct),
-                            )
-                            .into(),
-                        );
+                        // parameters defined on a non-entrypoint function should not be set as private
+                        match (state.main_id != module_id || declaration.id != "main")
+                            && funct.arguments.iter().any(|a| a.private)
+                        {
+                            true => {
+                                errors.push(
+                                    ErrorInner {
+                                        pos: Some(pos),
+                                        message: "Private argument(s) are only allowed on the entrypoint function".into(),
+                                    }
+                                    .in_file(module_id),
+                                );
+                            }
+                            false => {
+                                self.functions.insert(
+                                    DeclarationFunctionKey::with_location(
+                                        module_id.to_path_buf(),
+                                        declaration.id,
+                                    )
+                                    .signature(funct.signature.clone()),
+                                );
+                                symbols.push(
+                                    TypedFunctionSymbolDeclaration::new(
+                                        DeclarationFunctionKey::with_location(
+                                            module_id.to_path_buf(),
+                                            declaration.id,
+                                        )
+                                        .signature(funct.signature.clone()),
+                                        TypedFunctionSymbol::Here(funct),
+                                    )
+                                    .into(),
+                                );
+                            }
+                        }
                     }
                     Err(e) => {
                         errors.extend(e.into_iter().map(|inner| inner.in_file(module_id)));

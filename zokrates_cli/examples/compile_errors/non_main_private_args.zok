@@ -1,0 +1,8 @@
+def mul(private field a) -> field { // `private` should not be allowed here
+    return a * a;
+}
+
+def main(private field a, field b) {
+    assert(mul(a) == b);
+    return;
+}
