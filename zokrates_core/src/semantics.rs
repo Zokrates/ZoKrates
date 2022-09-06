@@ -3772,10 +3772,9 @@ mod tests {
     fn function1() -> FunctionNode<'static> {
         let statements = vec![Statement::Return(None).mock()];
 
-        let arguments = vec![untyped::Parameter {
-            id: untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-            is_private: true,
-        }
+        let arguments = vec![untyped::Parameter::public(
+            untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+        )
         .mock()];
 
         let signature =
@@ -3902,6 +3901,7 @@ mod tests {
                 vec![("foo".into(), foo), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
+                (*MODULE_ID).clone(),
             );
 
             let mut checker: Checker<Bn128Field> = Checker::default();
@@ -3956,6 +3956,7 @@ mod tests {
 
             let mut state = State::<Bn128Field>::new(
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                (*MODULE_ID).clone(),
             );
 
             let mut checker: Checker<Bn128Field> = Checker::default();
@@ -3969,10 +3970,10 @@ mod tests {
 
         #[test]
         fn duplicate_function_declaration_generic() {
-            // def foo<P>(private field[P] a) {
+            // def foo<P>(field[P] a) {
             //   return;
             // }
-            // def foo(private field[3] a) {
+            // def foo(field[3] a) {
             //   return;
             // }
             //
@@ -3980,7 +3981,7 @@ mod tests {
 
             let mut f0 = function0();
 
-            f0.value.arguments = vec![untyped::Parameter::private(
+            f0.value.arguments = vec![untyped::Parameter::public(
                 untyped::Variable::immutable(
                     "a",
                     UnresolvedType::array(
@@ -4002,7 +4003,7 @@ mod tests {
 
             let mut f1 = function0();
 
-            f1.value.arguments = vec![untyped::Parameter::private(
+            f1.value.arguments = vec![untyped::Parameter::public(
                 untyped::Variable::immutable(
                     "a",
                     UnresolvedType::array(
@@ -4035,7 +4036,10 @@ mod tests {
                 ],
             };
 
-            let mut state = State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
+            let mut state = State::new(
+                vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                (*MODULE_ID).clone(),
+            );
 
             let mut checker: Checker<Bn128Field> = Checker::default();
             assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
@@ -4074,8 +4078,10 @@ mod tests {
                     ],
                 };
 
-                let mut state =
-                    State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
+                let mut state = State::new(
+                    vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                    (*MODULE_ID).clone(),
+                );
 
                 let mut checker: Checker<Bn128Field> = Checker::default();
                 assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
@@ -4128,8 +4134,10 @@ mod tests {
                     ],
                 };
 
-                let mut state =
-                    State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
+                let mut state = State::new(
+                    vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                    (*MODULE_ID).clone(),
+                );
 
                 let mut checker: Checker<Bn128Field> = Checker::default();
                 assert_eq!(
@@ -4169,6 +4177,7 @@ mod tests {
 
             let mut state = State::<Bn128Field>::new(
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                (*MODULE_ID).clone(),
             );
 
             let mut checker: Checker<Bn128Field> = Checker::default();
@@ -4218,6 +4227,7 @@ mod tests {
 
             let mut state = State::<Bn128Field>::new(
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                (*MODULE_ID).clone(),
             );
 
             let mut checker: Checker<Bn128Field> = Checker::default();
@@ -4261,6 +4271,7 @@ mod tests {
 
             let mut state = State::<Bn128Field>::new(
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                (*MODULE_ID).clone(),
             );
 
             let mut checker: Checker<Bn128Field> = Checker::default();
@@ -4312,6 +4323,7 @@ mod tests {
                 vec![((*MODULE_ID).clone(), main), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
+                (*MODULE_ID).clone(),
             );
 
             let mut checker: Checker<Bn128Field> = Checker::default();
@@ -4360,6 +4372,7 @@ mod tests {
                 vec![((*MODULE_ID).clone(), main), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
+                (*MODULE_ID).clone(),
             );
 
             let mut checker: Checker<Bn128Field> = Checker::default();
@@ -4390,7 +4403,7 @@ mod tests {
         #[test]
         fn undeclared_generic() {
             let modules = Modules::new();
-            let state = State::new(modules);
+            let state = State::new(modules, (*MODULE_ID).clone());
 
             let signature = UnresolvedSignature::new().inputs(vec![UnresolvedType::Array(
                 box UnresolvedType::FieldElement.mock(),
@@ -4410,7 +4423,7 @@ mod tests {
         fn success() {
             // <K, L, M>(field[L][K]) -> field[L][K]
             let modules = Modules::new();
-            let state = State::new(modules);
+            let state = State::new(modules, (*MODULE_ID).clone());
 
             let signature = UnresolvedSignature::new()
                 .generics(vec!["K".mock(), "L".mock(), "M".mock()])
@@ -4563,8 +4576,10 @@ mod tests {
         ];
         let module = Module { symbols };
 
-        let mut state =
-            State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
+        let mut state = State::<Bn128Field>::new(
+            vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+            (*MODULE_ID).clone(),
+        );
 
         let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
@@ -4658,8 +4673,10 @@ mod tests {
         ];
         let module = Module { symbols };
 
-        let mut state =
-            State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
+        let mut state = State::<Bn128Field>::new(
+            vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+            (*MODULE_ID).clone(),
+        );
 
         let mut checker: Checker<Bn128Field> = Checker::default();
         assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
@@ -4692,7 +4709,7 @@ mod tests {
         .mock();
 
         let modules = Modules::new();
-        let state = State::new(modules);
+        let state = State::new(modules, (*MODULE_ID).clone());
 
         let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
@@ -4771,7 +4788,7 @@ mod tests {
         };
 
         let modules = Modules::new();
-        let state = State::new(modules);
+        let state = State::new(modules, (*MODULE_ID).clone());
 
         let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
@@ -4818,7 +4835,7 @@ mod tests {
         .mock();
 
         let modules = Modules::new();
-        let state = State::new(modules);
+        let state = State::new(modules, (*MODULE_ID).clone());
 
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), functions);
         assert_eq!(
@@ -4857,7 +4874,7 @@ mod tests {
         .mock();
 
         let modules = Modules::new();
-        let state = State::new(modules);
+        let state = State::new(modules, (*MODULE_ID).clone());
 
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
@@ -4929,8 +4946,10 @@ mod tests {
             ],
         };
 
-        let mut state =
-            State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
+        let mut state = State::<Bn128Field>::new(
+            vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+            (*MODULE_ID).clone(),
+        );
 
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
@@ -5025,8 +5044,10 @@ mod tests {
             ],
         };
 
-        let mut state =
-            State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
+        let mut state = State::<Bn128Field>::new(
+            vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+            (*MODULE_ID).clone(),
+        );
 
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
@@ -5066,7 +5087,7 @@ mod tests {
         .mock();
 
         let modules = Modules::new();
-        let state = State::new(modules);
+        let state = State::new(modules, (*MODULE_ID).clone());
 
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
@@ -5099,7 +5120,7 @@ mod tests {
         .mock();
 
         let modules = Modules::new();
-        let state = State::new(modules);
+        let state = State::new(modules, (*MODULE_ID).clone());
 
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
@@ -5136,7 +5157,7 @@ mod tests {
         ]);
 
         let modules = Modules::new();
-        let state = State::new(modules);
+        let state = State::new(modules, (*MODULE_ID).clone());
 
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
@@ -5430,6 +5451,7 @@ mod tests {
 
             let mut state = State::<Bn128Field>::new(
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                (*MODULE_ID).clone(),
             );
 
             let mut checker: Checker<Bn128Field> = Checker::default();
@@ -5447,7 +5469,7 @@ mod tests {
             fn empty_def() {
                 // an empty struct should be allowed to be defined
                 let modules = Modules::new();
-                let state = State::new(modules);
+                let state = State::new(modules, (*MODULE_ID).clone());
 
                 let declaration: StructDefinitionNode = StructDefinition {
                     generics: vec![],
@@ -5473,7 +5495,7 @@ mod tests {
             fn valid_def() {
                 // a valid struct should be allowed to be defined
                 let modules = Modules::new();
-                let state = State::new(modules);
+                let state = State::new(modules, (*MODULE_ID).clone());
 
                 let declaration: StructDefinitionNode = StructDefinition {
                     generics: vec![],
@@ -5517,7 +5539,7 @@ mod tests {
             fn duplicate_member_def() {
                 // definition of a struct with a duplicate member should be rejected
                 let modules = Modules::new();
-                let state = State::new(modules);
+                let state = State::new(modules, (*MODULE_ID).clone());
 
                 let declaration: StructDefinitionNode = StructDefinition {
                     generics: vec![],
@@ -5594,6 +5616,7 @@ mod tests {
 
                 let mut state = State::<Bn128Field>::new(
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                    (*MODULE_ID).clone(),
                 );
 
                 assert!(Checker::default()
@@ -5653,6 +5676,7 @@ mod tests {
 
                 let mut state = State::<Bn128Field>::new(
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                    (*MODULE_ID).clone(),
                 );
 
                 assert!(Checker::default()
@@ -5686,6 +5710,7 @@ mod tests {
 
                 let mut state = State::<Bn128Field>::new(
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                    (*MODULE_ID).clone(),
                 );
 
                 assert!(Checker::default()
@@ -5737,6 +5762,7 @@ mod tests {
 
                 let mut state = State::<Bn128Field>::new(
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
+                    (*MODULE_ID).clone(),
                 );
 
                 assert!(Checker::default()
@@ -6153,7 +6179,7 @@ mod tests {
 
             let mut foo_field = function0();
 
-            foo_field.value.arguments = vec![untyped::Parameter::private(
+            foo_field.value.arguments = vec![untyped::Parameter::public(
                 untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
             )
             .mock()];
@@ -6165,7 +6191,7 @@ mod tests {
 
             let mut foo_u32 = function0();
 
-            foo_u32.value.arguments = vec![untyped::Parameter::private(
+            foo_u32.value.arguments = vec![untyped::Parameter::public(
                 untyped::Variable::immutable("a", UnresolvedType::Uint(32).mock()).mock(),
             )
             .mock()];
