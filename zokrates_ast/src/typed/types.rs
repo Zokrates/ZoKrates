@@ -56,11 +56,6 @@ impl<'ast> From<GenericIdentifier<'ast>> for CoreIdentifier<'ast> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct ConcreteTypes {
-    pub inner: Vec<ConcreteType>,
-}
-
 impl<'ast> GenericIdentifier<'ast> {
     pub fn without_name() -> Self {
         Self {
@@ -323,18 +318,6 @@ impl<'ast, T> From<ConcreteStructMember> for StructMember<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> From<ConcreteStructMember> for DeclarationStructMember<'ast, T> {
-    fn from(t: ConcreteStructMember) -> Self {
-        try_from_g_struct_member(t).unwrap()
-    }
-}
-
-impl<'ast, T: Field> From<DeclarationStructMember<'ast, T>> for StructMember<'ast, T> {
-    fn from(t: DeclarationStructMember<'ast, T>) -> Self {
-        try_from_g_struct_member(t).unwrap()
-    }
-}
-
 #[allow(clippy::derive_hash_xor_eq)]
 #[derive(Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
 pub struct GArrayType<S> {
@@ -494,12 +477,6 @@ impl<'ast, T> From<ConcreteArrayType> for DeclarationArrayType<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> From<DeclarationArrayType<'ast, T>> for ArrayType<'ast, T> {
-    fn from(t: DeclarationArrayType<'ast, T>) -> Self {
-        try_from_g_array_type(t).unwrap()
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct GStructType<S> {
     #[serde(flatten)]
@@ -575,12 +552,6 @@ impl<'ast, T> From<ConcreteStructType> for StructType<'ast, T> {
 
 impl<'ast, T> From<ConcreteStructType> for DeclarationStructType<'ast, T> {
     fn from(t: ConcreteStructType) -> Self {
-        try_from_g_struct_type(t).unwrap()
-    }
-}
-
-impl<'ast, T: Field> From<DeclarationStructType<'ast, T>> for StructType<'ast, T> {
-    fn from(t: DeclarationStructType<'ast, T>) -> Self {
         try_from_g_struct_type(t).unwrap()
     }
 }
@@ -841,12 +812,6 @@ impl<'ast, T> From<ConcreteType> for DeclarationType<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> From<DeclarationType<'ast, T>> for Type<'ast, T> {
-    fn from(t: DeclarationType<'ast, T>) -> Self {
-        try_from_g_type(t).unwrap()
-    }
-}
-
 impl<S, U: Into<S>> From<(GType<S>, U)> for GArrayType<S> {
     fn from(tup: (GType<S>, U)) -> Self {
         GArrayType {
@@ -1075,12 +1040,6 @@ impl<'ast, T> From<ConcreteFunctionKey<'ast>> for DeclarationFunctionKey<'ast, T
     }
 }
 
-impl<'ast, T: Field> From<DeclarationFunctionKey<'ast, T>> for FunctionKey<'ast, T> {
-    fn from(k: DeclarationFunctionKey<'ast, T>) -> Self {
-        try_from_g_function_key(k).unwrap()
-    }
-}
-
 impl<'ast, S> GFunctionKey<'ast, S> {
     pub fn with_location<T: Into<OwnedTypedModuleId>, U: Into<FunctionIdentifier<'ast>>>(
         module: T,
@@ -1181,7 +1140,7 @@ pub fn check_type<'ast, T, S: Clone + PartialEq + PartialEq<u32>>(
 
 impl<'ast, T: Field> From<CanonicalConstantIdentifier<'ast>> for UExpression<'ast, T> {
     fn from(c: CanonicalConstantIdentifier<'ast>) -> Self {
-        UExpression::identifier(Identifier::from(CoreIdentifier::Constant(c)).into())
+        UExpression::identifier(Identifier::from(CoreIdentifier::Constant(c)))
             .annotate(UBitwidth::B32)
     }
 }
@@ -1454,12 +1413,6 @@ pub mod signature {
 
     impl<'ast, T> From<ConcreteSignature> for DeclarationSignature<'ast, T> {
         fn from(s: ConcreteSignature) -> Self {
-            try_from_g_signature(s).unwrap()
-        }
-    }
-
-    impl<'ast, T: Field> From<DeclarationSignature<'ast, T>> for Signature<'ast, T> {
-        fn from(s: DeclarationSignature<'ast, T>) -> Self {
             try_from_g_signature(s).unwrap()
         }
     }

@@ -1958,7 +1958,7 @@ impl<'ast, T: Field> Expr<'ast, T> for IntExpression<'ast, T> {
     }
 
     fn as_inner(&self) -> &Self::Inner {
-        &self
+        self
     }
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
