@@ -1,11 +1,9 @@
-use crate::constants::{FLATTENED_CODE_DEFAULT_PATH, SMTLIB2_DEFAULT_PATH};
+use crate::cli_constants::{FLATTENED_CODE_DEFAULT_PATH, SMTLIB2_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
-use zokrates_core::ir;
-use zokrates_core::ir::smtlib2::SMTLib2Display;
-use zokrates_core::ir::ProgEnum;
+use zokrates_ast::ir::{self, smtlib2::SMTLib2Display, ProgEnum};
 use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -49,11 +47,16 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_smtlib2<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_smtlib2<T: Field, I: Iterator<Item = ir::Statement<T>>>(
+    ir_prog: ir::ProgIterator<T, I>,
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
     println!("Generating SMTLib2...");
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let mut output_file = File::create(output_path).unwrap();
+
+    let ir_prog = ir_prog.collect();
 
     output_file
         .write(format!("{}", SMTLib2Display(&ir_prog)).as_bytes())

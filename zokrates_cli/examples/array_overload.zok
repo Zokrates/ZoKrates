@@ -1,8 +1,11 @@
-def foo(field[2] a) -> bool:
-    return true
+def foo(field[2] a) -> bool {
+    return true;
+}
 
-def foo(field[1] a) -> bool:
-    return true
+def foo(field[1] a) -> bool {
+    return true;
+}
 
-def main() -> bool:
-    return foo([1])
+def main() -> bool {
+    return foo([1]);
+}

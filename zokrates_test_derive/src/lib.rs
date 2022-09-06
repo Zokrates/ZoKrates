@@ -13,7 +13,7 @@ pub fn write_tests(base: &str) {
     let mut writer = BufWriter::new(test_file);
 
     for p in glob(base.join("**/*.json").to_str().unwrap()).unwrap() {
-        write_test(&mut writer, &p.unwrap(), &base);
+        write_test(&mut writer, &p.unwrap(), base);
     }
 }
 
@@ -28,9 +28,9 @@ fn write_test<W: Write>(test_file: &mut W, test_path: &Path, base_path: &Path) {
             .unwrap()
             .display()
             .to_string()
-            .replace("/", "_")
+            .replace('/', "_")
             .replace(".json", "")
-            .replace(".", "")
+            .replace('.', "")
     );
 
     write!(

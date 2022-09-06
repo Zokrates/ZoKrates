@@ -6,7 +6,7 @@ ZoKrates currently exposes two primitive types and two complex types:
 
 ### `field`
 
-This is the most basic type in ZoKrates, and it represents a field element with positive integer values in `[0,  p - 1]` where `p` is a (large) prime number. Standard arithmetic operations are supported; note that [division in the finite field](https://en.wikipedia.org/wiki/Finite_field_arithmetic) behaves differently than in the case of integers.
+This is the most basic type in ZoKrates, and it represents a field element with positive integer values in `[0,  p - 1]` where `p` is a (large) prime number.
 
 As an example, `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` when working with the [ALT_BN128](../toolbox/proving_schemes.md#curves) curve supported by Ethereum.
 
@@ -16,7 +16,8 @@ While `field` values mostly behave like unsigned integers, one should keep in mi
 {{#include ../../../zokrates_cli/examples/book/field_overflow.zok}}
 ```
 
-Note that for field elements, the division operation multiplies the numerator with the denominator's inverse field element. The results coincide with integer divisions for cases with remainder 0, but differ otherwise.
+Note that [division in the finite field](https://en.wikipedia.org/wiki/Finite_field_arithmetic) behaves differently than in the case of integers.
+For field elements, the division operation multiplies the numerator with the denominator's inverse field element. The results coincide with integer divisions for cases with remainder 0, but differ otherwise.
 
 ### `bool`
 
@@ -70,8 +71,8 @@ ZoKrates offers a special shorthand syntax to initialize an array with a constan
 
 The following code provides examples for declaration and initialization:
 ```zokrates
-    field[3] a = [1, 2, 3] // initialize a field array with field values
-    bool[13] b = [false; 13] // initialize a bool array with value false
+field[3] a = [1, 2, 3]; // initialize a field array with field values
+bool[13] b = [false; 13]; // initialize a bool array with value false
 ```
 
 #### Multidimensional Arrays
@@ -94,21 +95,30 @@ ZoKrates provides some syntactic sugar to retrieve subsets of arrays.
 The spread operator `...` applied to an array copies the elements of the existing array.
 This can be used to conveniently compose new arrays, as shown in the following example:
 ```
-field[3] a = [1, 2, 3]
-field[4] c = [...a, 4] // initialize an array copying values from `a`, followed by 4
+field[3] a = [1, 2, 3];
+field[4] c = [...a, 4]; // initialize an array copying values from `a`, followed by 4
 ```
 
 ##### Slices
 An array can also be assigned to by creating a copy of a subset of an existing array.
 This operation is called slicing, and the following example shows how to slice in ZoKrates:
 ```
-field[3] a = [1, 2, 3]
-field[2] b = a[1..3]   // initialize an array copying a slice from `a`
+field[3] a = [1, 2, 3];
+field[2] b = a[1..3];   // initialize an array copying a slice from `a`
 ```
 
+### Tuples
+A tuple is a composite datatype representing a numbered collection of values.
+The following code shows an example of how to use tuples.
+
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/tuples.zok}}
+```
+
+In tuple types and values, the trailing comma is optional, unless the tuple contains a single element, in which case it is mandatory.
+
 ### Structs
-A struct is a composite datatype representing a named collection of variables. Structs can be generic over constants, in order to wrap arrays of generic size. For more details on generic array sizes, see [constant generics](../language/generics.md)
-The contained variables can be of any type.
+A struct is a composite datatype representing a named collection of values. Structs can be generic over constants, in order to wrap arrays of generic size. For more details on generic array sizes, see [constant generics](../language/generics.md). The contained variables can be of any type.
 
 The following code shows an example of how to use structs.
 
@@ -122,10 +132,12 @@ A struct definition starts with the `struct` keyword followed by a name. Afterwa
 
 ```zokrates
 struct Point {
-	field x
-	field y
+    field x;
+    field y;
 }
 ```
+
+Note that two struct definitions with the same members still introduce two entirely different types. For example, they cannot be compared with each other.
 
 #### Declaration and Initialization
 
@@ -142,4 +154,14 @@ The variables within a struct instance, the so called members, can be accessed t
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/struct_assign.zok}}
+```
+
+### Type aliases
+
+Type aliases can be defined for any existing type. This can be useful for readability, or to specialize generic types.
+
+Note that type aliases are just syntactic sugar: in the type system, a type and its alias are exactly equivalent. For example, they can be compared.
+
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/type_aliases.zok}}
 ```

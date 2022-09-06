@@ -1,9 +1,7 @@
-prime_field!(
-    b"258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177",
-    "bw6_761"
-);
-
-#[cfg(feature = "ark")]
 use ark_bw6_761::BW6_761;
-#[cfg(feature = "ark")]
+
+use crate::G2Type;
+
+prime_field!("bw6_761", BW6_761, G2Type::Fq);
+
 ark_extensions!(BW6_761);

@@ -1,0 +1,6 @@
+const u32 N = 2;
+const (field[N], bool) A = ([1; N], true);
+
+def main() -> (field[N], bool) {
+    return A;
+}

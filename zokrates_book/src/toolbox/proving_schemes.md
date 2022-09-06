@@ -23,12 +23,11 @@ When not using the default, the CLI flag has to be provided for the following co
 
 ZoKrates supports different proving schemes. We identify the schemes by the reference to the paper that introduced them. Currently the options available are:
 
-| Scheme | CLI flag | Curves | Universal |
-| ---- | -------- | ------ | ------------|
-| [G16](https://eprint.iacr.org/2016/260) | `--proving-scheme g16` | ALTBN_128, BLS12_381 | No |
-| [GM17](https://eprint.iacr.org/2017/540) | `--proving-scheme gm17` | ALTBN_128, BLS12_377, BW6_761 | No |
-| [Marlin](https://eprint.iacr.org/2019/1047) | `--proving-scheme marlin` | ALTBN_128, BLS12_377, BW6_761 | Yes |
-| [PGHR13](https://eprint.iacr.org/2013/279) | `--proving-scheme pghr13` | ALTBN_128 | No |
+| Scheme | CLI flag | Curves                                   | Universal |
+| ---- | -------- |------------------------------------------| ------------|
+| [G16](https://eprint.iacr.org/2016/260) | `--proving-scheme g16` | ALTBN_128, BLS12_381                     | No |
+| [GM17](https://eprint.iacr.org/2017/540) | `--proving-scheme gm17` | ALTBN_128, BLS12_381, BLS12_377, BW6_761 | No |
+| [Marlin](https://eprint.iacr.org/2019/1047) | `--proving-scheme marlin` | ALTBN_128, BLS12_381, BLS12_377, BW6_761 | Yes |
 
 All schemes have a circuit-specific setup phase called `setup`. Universal schemes also feature a preliminary, circuit-agnostic step called `universal-setup`. The advantage of universal schemes is that only the `universal-setup` step requires trust, so that it can be run a single time and reused trustlessly for many programs.
 
@@ -45,11 +44,10 @@ When not using the default, the CLI flag has to be provided for the following co
 
 ZoKrates supports multiple backends. The options are the following:
 
-| Backend | CLI flag | Proving schemes | Curves |
-| ---- | -------- | --------------- | ------ |
-| Bellman | `--backend bellman` | G16 | ALTBN_128, BLS12_381 |
-| Libsnark | `--backend libsnark` | GM17, PGHR13 | ALTBN_128 |
-| Ark | `--backend ark` | GM17 | ALTBN_128, BLS12_377, BW6_761 |
+| Backend | CLI flag | Proving schemes   | Curves                                   |
+| ---- | -------- |-------------------|------------------------------------------|
+| Bellman | `--backend bellman` | G16               | ALTBN_128, BLS12_381                     |
+| Ark | `--backend ark` | G16, GM17, MARLIN | ALTBN_128, BLS12_381, BLS12_377, BW6_761 |
 
 Default: `bellman`
 
@@ -58,12 +56,6 @@ When not using the default, the CLI flag has to be provided for the following co
 - `setup`
 - `generate-proof`
 - `verify`
-
-To include libsnark in the build, compile ZoKrates from [source](https://github.com/ZoKrates/ZoKrates/) with the `libsnark` feature:
-```bash
-cargo +nightly -Z package-features build --release --package zokrates_cli --features="libsnark"
-```
- Note, that this is only tested for Linux. If you are on another OS, consider using our Docker container, which includes a libsnark installation.
 
 ## G16 malleability
 

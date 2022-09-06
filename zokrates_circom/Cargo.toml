@@ -1,0 +1,17 @@
+[package]
+name = "zokrates_circom"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+zokrates_core = { version = "0.7", path = "../zokrates_core", default-features = false }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
+zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-features = false }
+byteorder = "1.4.3"
+
+[dev-dependencies]
+pretty_assertions = "1.2.1"
+zkutil = "0.5.0"
+bellman_ce = { version = "^0.3" }

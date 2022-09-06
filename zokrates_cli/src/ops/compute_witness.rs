@@ -1,14 +1,16 @@
-use crate::constants::{ABI_SPEC_DEFAULT_PATH, FLATTENED_CODE_DEFAULT_PATH, WITNESS_DEFAULT_PATH};
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use serde_json::from_reader;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read};
 use std::path::Path;
 use zokrates_abi::Encode;
-use zokrates_core::ir;
-use zokrates_core::ir::ProgEnum;
-use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType};
+use zokrates_ast::ir::{self, ProgEnum};
+use zokrates_ast::typed::{
+    abi::Abi,
+    types::{ConcreteSignature, ConcreteType, GTupleType},
+};
+use zokrates_circom::write_witness;
 use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -21,7 +23,7 @@ pub fn subcommand() -> App<'static, 'static> {
             .value_name("FILE")
             .takes_value(true)
             .required(false)
-            .default_value(FLATTENED_CODE_DEFAULT_PATH)
+            .default_value(cli_constants::FLATTENED_CODE_DEFAULT_PATH)
         ).arg(Arg::with_name("abi-spec")
         .short("s")
         .long("abi-spec")
@@ -29,15 +31,22 @@ pub fn subcommand() -> App<'static, 'static> {
         .value_name("FILE")
         .takes_value(true)
         .required(false)
-        .default_value(ABI_SPEC_DEFAULT_PATH)
+        .default_value(cli_constants::ABI_SPEC_DEFAULT_PATH)
     ).arg(Arg::with_name("output")
         .short("o")
         .long("output")
-        .help("Path of the output file")
+        .help("Path of the output witness file")
         .value_name("FILE")
         .takes_value(true)
         .required(false)
-        .default_value(WITNESS_DEFAULT_PATH)
+        .default_value(cli_constants::WITNESS_DEFAULT_PATH)
+    ).arg(Arg::with_name("circom-witness")
+        .long("circom-witness")
+        .help("Path of the output circom witness file")
+        .value_name("FILE")
+        .takes_value(true)
+        .required(false)
+        .default_value(cli_constants::CIRCOM_WITNESS_DEFAULT_PATH)
     ).arg(Arg::with_name("arguments")
         .short("a")
         .long("arguments")
@@ -76,16 +85,13 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
+    ir_prog: ir::ProgIterator<T, I>,
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
     println!("Computing witness...");
 
     let verbose = sub_matches.is_present("verbose");
-
-    // print deserialized flattened program if in verbose mode
-    if verbose {
-        println!("{}", ir_prog);
-    }
-
     let is_stdin = sub_matches.is_present("stdin");
     let is_abi = sub_matches.is_present("abi");
 
@@ -105,11 +111,10 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
             abi.signature()
         }
         false => ConcreteSignature::new()
-            .inputs(vec![
-                ConcreteType::FieldElement;
-                ir_prog.main.arguments.len()
-            ])
-            .outputs(vec![ConcreteType::FieldElement; ir_prog.main.returns.len()]),
+            .inputs(vec![ConcreteType::FieldElement; ir_prog.arguments.len()])
+            .output(ConcreteType::Tuple(GTupleType::new(
+                vec![ConcreteType::FieldElement; ir_prog.return_count],
+            ))),
     };
 
     use zokrates_abi::Inputs;
@@ -143,7 +148,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                     }
                     Err(_) => Err(String::from("???")),
                 },
-                false => match ir_prog.arguments_count() {
+                false => match ir_prog.arguments.len() {
                     0 => Ok(Inputs::Raw(vec![])),
                     _ => match stdin.read_to_string(&mut input) {
                         Ok(_) => {
@@ -162,16 +167,18 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
     }
     .map_err(|e| format!("Could not parse argument: {}", e))?;
 
-    let interpreter = ir::Interpreter::default();
+    let interpreter = zokrates_interpreter::Interpreter::default();
+
+    let public_inputs = ir_prog.public_inputs();
 
     let witness = interpreter
-        .execute(&ir_prog, &arguments.encode())
+        .execute_with_log_stream(ir_prog, &arguments.encode(), &mut std::io::stdout())
         .map_err(|e| format!("Execution failed: {}", e))?;
 
     use zokrates_abi::Decode;
 
     let results_json_value: serde_json::Value =
-        zokrates_abi::Values::decode(witness.return_values(), signature.outputs).into_serde_json();
+        zokrates_abi::Value::decode(witness.return_values(), *signature.output).into_serde_json();
 
     if verbose {
         println!("\nWitness: \n{}\n", results_json_value);
@@ -187,6 +194,16 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
     witness
         .write(writer)
         .map_err(|why| format!("Could not save witness: {:?}", why))?;
+
+    // write circom witness to file
+    let wtns_path = Path::new(sub_matches.value_of("circom-witness").unwrap());
+    let wtns_file = File::create(&wtns_path)
+        .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
+
+    let mut writer = BufWriter::new(wtns_file);
+
+    write_witness(&mut writer, witness, public_inputs)
+        .map_err(|why| format!("Could not save circom witness: {:?}", why))?;
 
     println!("Witness file written to '{}'", output_path.display());
     Ok(())

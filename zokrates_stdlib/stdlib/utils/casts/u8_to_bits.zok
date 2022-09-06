@@ -1,4 +1,5 @@
-from "EMBED" import u8_to_bits
+from "EMBED" import u8_to_bits;
 
-def main(u8 a) -> bool[8]:
-    return u8_to_bits(a)
+def main(u8 a) -> bool[8] {
+    return u8_to_bits(a);
+}

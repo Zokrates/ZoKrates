@@ -1,0 +1,4 @@
+def main(field input) -> field {
+    field divisor = [input, 0] != [input, 1] ? 0 : 1;
+    return input / divisor;
+}

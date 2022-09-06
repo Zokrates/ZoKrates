@@ -1,17 +1,14 @@
-FROM zokrates/env:latest as build
+FROM zokrates/env:20.04 as build
 
-ENV WITH_LIBSNARK=1
 WORKDIR /build
 
 COPY . src
 RUN cd src; ./build_release.sh
 
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 ENV ZOKRATES_HOME=/home/zokrates/.zokrates
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgmp3-dev \
-    && useradd -u 1000 -m zokrates
+RUN useradd -u 1000 -m zokrates
 
 USER zokrates
 WORKDIR /home/zokrates

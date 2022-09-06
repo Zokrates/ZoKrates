@@ -1,9 +1,0 @@
-from "field" import FIELD_MAX
-
-// as p - 1 is greater than p/2, comparing to it should fail
-// /!\ should be called with a = 0
-
-def main(field a) -> bool:
-  field p = FIELD_MAX + a
-  // we added a = 0 to prevent the condition to be evaluated at compile time
-  return a < p

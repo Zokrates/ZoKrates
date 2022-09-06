@@ -1,20 +1,19 @@
-import "hashes/sha256/512bit" as sha256
-import "utils/casts/u32_to_bits" as u32_to_bits
+import "hashes/sha256/512bit" as sha256;
+import "utils/casts/u32_to_bits" as u32_to_bits;
 
 // Reveal a bit from a 512 bit value, and return it with the corresponding hash
 // for that value.
 //
 // WARNING, once enough bits have been revealed it is possible to brute force
 // the remaining preimage bits.
-
-def main(private u32[16] preimage, u32 bitNum) -> (u32[8], bool):
-  // Convert the preimage to bits
-  bool[512] preimageBits = [false; 512]
-  for u32 i in 0..16 do
-    bool[32] val = u32_to_bits(preimage[i])
-    for u32 bit in 0..32 do
-      preimageBits[i*32+bit] = val[bit]
-    endfor
-  endfor
-  
-  return sha256(preimage[0..8], preimage[8..16]), preimageBits[bitNum]
+def main(private u32[16] preimage, u32 bitNum) -> (u32[8], bool) {
+    // Convert the preimage to bits
+    bool[512] mut preimageBits = [false; 512];
+    for u32 i in 0..16 {
+        bool[32] val = u32_to_bits(preimage[i]);
+        for u32 bit in 0..32 {
+            preimageBits[i*32 + bit] = val[bit];
+        }
+    }
+    return (sha256(preimage[0..8], preimage[8..16]), preimageBits[bitNum]);
+}

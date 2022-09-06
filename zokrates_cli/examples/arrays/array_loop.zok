@@ -1,7 +1,8 @@
-def main() -> u32:
-	u32[3] a = [1, 2, 3]
-	u32 c = 0
-	for u32 i in 0..3 do
-		c = c + a[i]
-	endfor
-	return c
+def main() -> u32 {
+    u32[3] a = [1, 2, 3];
+    u32 mut c = 0;
+    for u32 i in 0..3 {
+        c = c + a[i];
+    }
+    return c;
+}

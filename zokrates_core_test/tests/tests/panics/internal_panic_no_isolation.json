@@ -1,34 +1,30 @@
 {
-    "entry_point": "./tests/tests/panics/internal_panic.zok",
-    "curves": ["Bn128"],
-	"tests": [
-        {
-            "input": {
-                "values": [
-                    "1"
-                ]
-            },
-            "output": {
-				"Ok": {
-					"values": ["1"] 
-				}
-            }
-        },
-        {
-            "input": {
-                "values": [
-                    "0"
-                ]
-            },
-            "output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "0",
-						"right": "1",
-                        "message": "Division by zero"
-					}
-				}
-            }
+  "entry_point": "./tests/tests/panics/internal_panic.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["1"]
+      },
+      "output": {
+        "Ok": {
+          "value": "1"
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": "Inverse"
+          }
+        }
+      }
+    }
+  ]
 }

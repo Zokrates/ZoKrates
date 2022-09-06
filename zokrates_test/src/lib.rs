@@ -2,14 +2,14 @@
 extern crate serde_derive;
 
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-use zokrates_core::ir;
-use zokrates_core::{
-    compile::{compile, CompileConfig},
-    typed_absy::ConcreteType,
-};
+use zokrates_ast::typed::types::GTupleType;
+use zokrates_ast::typed::ConcreteSignature;
+use zokrates_ast::typed::ConcreteType;
+use zokrates_core::compile::{compile, CompileConfig};
+
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
@@ -27,6 +27,7 @@ struct Tests {
     pub curves: Option<Vec<Curve>>,
     pub max_constraint_count: Option<usize>,
     pub config: Option<CompileConfig>,
+    pub abi: Option<bool>,
     pub tests: Vec<Test>,
 }
 
@@ -42,24 +43,18 @@ struct Test {
     pub output: TestResult,
 }
 
-type TestResult = Result<Output, ir::Error>;
+type TestResult = Result<Output, zokrates_interpreter::Error>;
 
-#[derive(PartialEq, Debug)]
-struct ComparableResult<T>(Result<Vec<T>, ir::Error>);
-
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 struct Output {
-    values: Vec<Val>,
+    value: Val,
 }
 
 type Val = serde_json::Value;
 
 fn try_parse_raw_val<T: Field>(s: serde_json::Value) -> Result<T, ()> {
     match s {
-        serde_json::Value::String(s) => {
-            let radix = if s.starts_with("0x") { 16 } else { 10 };
-            T::try_from_str(s.trim_start_matches("0x"), radix).map_err(|_| ())
-        }
+        serde_json::Value::String(s) => T::try_from_dec_str(&s).map_err(|_| ()),
         _ => Err(()),
     }
 }
@@ -72,36 +67,13 @@ fn try_parse_abi_val<T: Field>(
     zokrates_abi::parse_strict_json(s, types).map(|v| v.encode())
 }
 
-impl<T: Field> From<ir::ExecutionResult<T>> for ComparableResult<T> {
-    fn from(r: ir::ExecutionResult<T>) -> ComparableResult<T> {
-        ComparableResult(r.map(|v| v.return_values()))
-    }
-}
-
-impl<T: Field> From<TestResult> for ComparableResult<T> {
-    fn from(r: TestResult) -> ComparableResult<T> {
-        ComparableResult(r.map(|v| {
-            v.values
-                .into_iter()
-                .map(|v| try_parse_raw_val(v).unwrap())
-                .collect()
-        }))
-    }
-}
-
-fn compare<T: Field>(result: ir::ExecutionResult<T>, expected: TestResult) -> Result<(), String> {
-    // extract outputs from result
-    let result = ComparableResult::from(result);
-    // deserialize expected result
-    let expected = ComparableResult::from(expected);
-
+fn compare(
+    result: Result<Output, zokrates_interpreter::Error>,
+    expected: TestResult,
+) -> Result<(), String> {
     if result != expected {
-        return Err(format!(
-            "Expected {:?} but found {:?}",
-            expected.0, result.0
-        ));
+        return Err(format!("Expected {:?} but found {:?}", expected, result));
     }
-
     Ok(())
 }
 
@@ -149,32 +121,52 @@ fn compile_and_run<T: Field>(t: Tests) {
     let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
     let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
-    let artifacts = compile::<T, _>(code, entry_point.clone(), Some(&resolver), &config).unwrap();
+    let arena = typed_arena::Arena::new();
 
-    let bin = artifacts.prog();
-    let abi = artifacts.abi();
+    let artifacts = compile::<T, _>(
+        code.clone(),
+        entry_point.clone(),
+        Some(&resolver),
+        config,
+        &arena,
+    )
+    .unwrap();
+
+    let (bin, abi) = artifacts.into_inner();
+    // here we do want the program in memory because we want to run many tests on it
+    let bin = bin.collect();
 
     if let Some(target_count) = t.max_constraint_count {
         let count = bin.constraint_count();
 
-        if count > target_count {
-            panic!(
-                "{} exceeded max constraint count (actual={}, max={}, p={:.2}% of max)",
-                entry_point.display(),
-                count,
-                target_count,
-                (count as f32) / (target_count as f32) * 100_f32
-            );
-        }
+        assert!(
+            count <= target_count,
+            "{} exceeded max constraint count (actual={}, max={}, p={:.2}% of max)",
+            entry_point.display(),
+            count,
+            target_count,
+            (count as f32) / (target_count as f32) * 100_f32
+        );
     };
 
-    let interpreter = zokrates_core::ir::Interpreter::default();
+    let interpreter = zokrates_interpreter::Interpreter::default();
+    let with_abi = t.abi.unwrap_or(true);
 
     for test in t.tests.into_iter() {
-        let with_abi = test.abi.unwrap_or(false);
+        let with_abi = test.abi.unwrap_or(with_abi);
+
+        let signature = if with_abi {
+            abi.signature()
+        } else {
+            ConcreteSignature::new()
+                .inputs(vec![ConcreteType::FieldElement; bin.arguments.len()])
+                .output(ConcreteType::Tuple(GTupleType::new(
+                    vec![ConcreteType::FieldElement; bin.return_count],
+                )))
+        };
 
         let input = if with_abi {
-            try_parse_abi_val(test.input.values, abi.signature().inputs).unwrap()
+            try_parse_abi_val(test.input.values, signature.inputs.clone()).unwrap()
         } else {
             test.input
                 .values
@@ -185,15 +177,19 @@ fn compile_and_run<T: Field>(t: Tests) {
                 .unwrap()
         };
 
-        let output = interpreter.execute(bin, &input);
+        let output = interpreter.execute(bin.clone(), &input);
+
+        use zokrates_abi::Decode;
+
+        let output: Result<Output, zokrates_interpreter::Error> = output.map(|witness| Output {
+            value: zokrates_abi::Value::decode(witness.return_values(), *signature.output.clone())
+                .into_serde_json(),
+        });
 
         if let Err(e) = compare(output, test.output) {
-            let mut code = File::open(&entry_point).unwrap();
-            let mut s = String::new();
-            code.read_to_string(&mut s).unwrap();
             let context = format!(
                 "\n{}\nCalled on curve {} with input ({})\n",
-                s,
+                code,
                 T::name(),
                 input
                     .iter()

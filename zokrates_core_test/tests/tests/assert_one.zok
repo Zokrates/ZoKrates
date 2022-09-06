@@ -1,3 +1,4 @@
-def main(field a):
-	assert(a == 1)
-	return
+def main(field a) {
+	assert(a == 1);
+	return;
+}

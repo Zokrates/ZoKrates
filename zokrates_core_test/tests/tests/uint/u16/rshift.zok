@@ -1,2 +1,3 @@
-def main(u16 x) -> u16:
-    return x >> 1
+def main(u16 x) -> u16 {
+    return x >> 1;
+}

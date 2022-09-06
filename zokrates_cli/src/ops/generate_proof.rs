@@ -1,21 +1,19 @@
-use crate::constants;
-use crate::helpers::*;
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
-use zokrates_core::ir;
-use zokrates_core::ir::ProgEnum;
 #[cfg(feature = "ark")]
-use zokrates_core::proof_system::ark::Ark;
+use zokrates_ark::Ark;
+use zokrates_ast::ir::{self, ProgEnum};
 #[cfg(feature = "bellman")]
-use zokrates_core::proof_system::bellman::Bellman;
-#[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::libsnark::Libsnark;
-#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
-use zokrates_core::proof_system::*;
+use zokrates_bellman::Bellman;
+use zokrates_common::constants;
+use zokrates_common::helpers::*;
 use zokrates_field::Field;
+#[cfg(any(feature = "bellman", feature = "ark"))]
+use zokrates_proof_systems::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("generate-proof")
@@ -28,7 +26,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::WITNESS_DEFAULT_PATH),
+                .default_value(cli_constants::WITNESS_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("proving-key-path")
@@ -38,7 +36,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::PROVING_KEY_DEFAULT_PATH),
+                .default_value(cli_constants::PROVING_KEY_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("proof-path")
@@ -48,7 +46,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::JSON_PROOF_PATH),
+                .default_value(cli_constants::JSON_PROOF_PATH),
         )
         .arg(
             Arg::with_name("input")
@@ -58,7 +56,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::FLATTENED_CODE_DEFAULT_PATH),
+                .default_value(cli_constants::FLATTENED_CODE_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("backend")
@@ -67,8 +65,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Backend to use")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::BACKENDS)
-                .default_value(constants::BELLMAN),
+                .possible_values(cli_constants::BACKENDS)
+                .default_value(constants::ARK),
         )
         .arg(
             Arg::with_name("proving-scheme")
@@ -78,7 +76,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::SCHEMES)
+                .possible_values(cli_constants::SCHEMES)
                 .default_value(constants::G16),
         )
 }
@@ -91,62 +89,59 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut reader = BufReader::new(program_file);
     let prog = ProgEnum::deserialize(&mut reader)?;
 
-    let parameters = Parameters::try_from((
-        sub_matches.value_of("backend").unwrap(),
-        match prog {
-            ProgEnum::Bn128Program(_) => constants::BN128,
-            ProgEnum::Bls12_381Program(_) => constants::BLS12_381,
-            ProgEnum::Bls12_377Program(_) => constants::BLS12_377,
-            ProgEnum::Bw6_761Program(_) => constants::BW6_761,
-        },
-        sub_matches.value_of("proving-scheme").unwrap(),
-    ))?;
+    let curve_parameter = CurveParameter::try_from(prog.curve())?;
+
+    let backend_parameter = BackendParameter::try_from(sub_matches.value_of("backend").unwrap())?;
+    let scheme_parameter =
+        SchemeParameter::try_from(sub_matches.value_of("proving-scheme").unwrap())?;
+
+    let parameters = Parameters(backend_parameter, curve_parameter, scheme_parameter);
 
     match parameters {
         #[cfg(feature = "bellman")]
         Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, G16, Bellman>(p, sub_matches),
-            ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, G16, Bellman>(p, sub_matches),
+            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, G16, Bellman>(p, sub_matches),
+            ProgEnum::Bls12_381Program(p) => {
+                cli_generate_proof::<_, _, G16, Bellman>(p, sub_matches)
+            }
             _ => unreachable!(),
+        },
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, _, SchemeParameter::G16) => match prog {
+            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
+            ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
+            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
+            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
-            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, GM17, Ark>(p, sub_matches),
-            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, GM17, Ark>(p, sub_matches),
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17, Ark>(p, sub_matches),
-            _ => unreachable!(),
+            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
+            ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
+            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
+            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
-            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, Marlin, Ark>(p, sub_matches),
-            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, Marlin, Ark>(p, sub_matches),
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, Marlin, Ark>(p, sub_matches),
-            _ => unreachable!(),
+            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches),
+            ProgEnum::Bls12_381Program(p) => {
+                cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches)
+            }
+            ProgEnum::Bls12_377Program(p) => {
+                cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches)
+            }
+            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches),
         },
-        #[cfg(feature = "libsnark")]
-        Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
-            match prog {
-                ProgEnum::Bn128Program(p) => {
-                    cli_generate_proof::<_, GM17, Libsnark>(p, sub_matches)
-                }
-                _ => unreachable!(),
-            }
-        }
-        #[cfg(feature = "libsnark")]
-        Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::PGHR13) => {
-            match prog {
-                ProgEnum::Bn128Program(p) => {
-                    cli_generate_proof::<_, PGHR13, Libsnark>(p, sub_matches)
-                }
-                _ => unreachable!(),
-            }
-        }
         _ => unreachable!(),
     }
 }
 
-fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
-    program: ir::Prog<T>,
+fn cli_generate_proof<
+    T: Field,
+    I: Iterator<Item = ir::Statement<T>>,
+    S: Scheme<T>,
+    B: Backend<T, S>,
+>(
+    program: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Generating proof...");
@@ -174,7 +169,8 @@ fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     let proof = B::generate_proof(program, witness, pk);
     let mut proof_file = File::create(proof_path).unwrap();
 
-    let proof = serde_json::to_string_pretty(&proof).unwrap();
+    let proof =
+        serde_json::to_string_pretty(&TaggedProof::<T, S>::new(proof.proof, proof.inputs)).unwrap();
     proof_file
         .write(proof.as_bytes())
         .map_err(|why| format!("Could not write to {}: {}", proof_path.display(), why))?;

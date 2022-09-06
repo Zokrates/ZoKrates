@@ -1,0 +1,4 @@
+def main(bool a, bool b) -> field {
+    field x = a ? 1 : b ? 2 : 3; // (a ? 1 : (b ? 2 : 3))
+    return x;
+}

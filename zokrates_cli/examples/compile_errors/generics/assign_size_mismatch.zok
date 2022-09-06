@@ -1,8 +1,9 @@
-def foo<N>(field[N] a) -> bool:
-	field[3] b = a
-	return true
+def foo<N>(field[N] a) -> bool {
+    field[3] b = a;
+    return true;
+}
 
-
-def main(field[1] a):
-	assert(foo(a))
-	return
+def main(field[1] a) {
+    assert(foo(a));
+    return;
+}

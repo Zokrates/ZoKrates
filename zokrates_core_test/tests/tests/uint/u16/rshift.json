@@ -8,7 +8,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["0x0800"]
+          "value": "0x0800"
         }
       }
     },
@@ -18,7 +18,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["0x7fff"]
+          "value": "0x7fff"
         }
       }
     }

@@ -1,35 +1,56 @@
 [package]
 name = "zokrates_cli"
-version = "0.7.5"
+version = "0.8.1"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>", "Thibaut Schaeffer <thibaut@schaeff.fr>"]
 repository = "https://github.com/Zokrates/ZoKrates.git"
 edition = "2018"
 
 [features]
 default = ["bellman", "ark"]
-libsnark = ["zokrates_core/libsnark"]
-bellman = ["zokrates_core/bellman"]
-ark = ["zokrates_core/ark"]
+bellman = ["zokrates_bellman", "zokrates_core/bellman", "zokrates_common/bellman"]
+ark = ["zokrates_ark", "zokrates_core/ark", "zokrates_common/ark"]
 
 [dependencies]
 log = "0.4"
 env_logger = "0.9.0"
 cfg-if = "0.1"
 clap = "2.26.2"
-bincode = "0.8.0"
+serde_cbor = "0.11.2"
 regex = "0.2"
-zokrates_field = { version = "0.4", path = "../zokrates_field", default-features = false }
+zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
 zokrates_abi = { version = "0.1", path = "../zokrates_abi" }
-zokrates_core = { version = "0.6", path = "../zokrates_core", default-features = false }
+zokrates_core = { version = "0.7", path = "../zokrates_core", default-features = false }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", default-features = false }
+zokrates_circom = { version = "0.1", path = "../zokrates_circom", default-features = false }
+typed-arena = "1.4.1"
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
-serde_json = "1.0"
+zokrates_common = { version = "0.1", path = "../zokrates_common", default-features = false }
+serde_json = { version = "1.0", features = ["preserve_order"] }
+serde = { version = "1.0", features = ["derive"] }
 dirs = "3.0.1"
 lazy_static = "1.4.0"
+byteorder = "1"
+rand_0_4 = { version = "0.4", package = "rand" }
+rand_0_8 = { version = "0.8", package = "rand" }
+hex = "0.3.1"
+blake2 = "0.8.1"
+sha2 = "0.10.0"
+
+# Backends
+zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
+zokrates_ark = { version = "0.1", path = "../zokrates_ark", default-features = false, optional = true }
+zokrates_bellman = { version = "0.1", path = "../zokrates_bellman", default-features = false, optional = true }
 
 [dev-dependencies]
 glob = "0.2.11"
 assert_cli = "0.5"
 tempdir = "0.3"
+zokrates_solidity_test = { version = "0.1", path = "../zokrates_solidity_test", default-features = false }
+ethabi = "17.0.0"
+primitive-types = { version = "0.11", features = ["rlp"] }
+fs_extra = "1.1.0"
+pretty_assertions = "1.2.1"
 
 [build-dependencies]
 fs_extra = "1.1.0"

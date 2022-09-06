@@ -1,6 +1,7 @@
-def main():
-	// declare and define `my_variable`
-	field my_variable = 2
-	// redefine `my_variable`
-	my_variable = 3
-	return
+def main() {
+    // declare and define `my_variable`
+    field mut my_variable = 2;
+    // redefine `my_variable`
+    my_variable = 3;
+    return;
+}

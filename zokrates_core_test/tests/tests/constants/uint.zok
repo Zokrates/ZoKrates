@@ -1,4 +1,5 @@
-const u32 ONE = 0x00000001
+const u32 ONE = 0x00000001;
 
-def main() -> u32:
-    return ONE
+def main() -> u32 {
+    return ONE;
+}

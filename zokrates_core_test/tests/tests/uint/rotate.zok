@@ -1,9 +1,11 @@
-import "utils/casts/u32_to_bits" as to_bits
-import "utils/casts/u32_from_bits" as from_bits
+import "utils/casts/u32_to_bits" as to_bits;
+import "utils/casts/u32_from_bits" as from_bits;
 
-def right_rotate_4(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	return from_bits([...b[28..], ...b[..28]])
+def right_rotate<N>(u32 e) -> u32 {
+    bool[32] b = to_bits(e);
+    return from_bits([...b[32-N..], ...b[..32-N]]);
+}
 
-def main(u32 e) -> u32:
-	return right_rotate_4(e)
+def main(u32 e) -> u32 {
+    return right_rotate::<4>(e);
+}

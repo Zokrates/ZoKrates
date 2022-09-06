@@ -1,7 +1,9 @@
-def id<N>() -> u32:
-	return N
+def id<N>() -> u32 {
+    return N;
+}
 
-def main():
-	assert(id::<5>() == 5)
-	assert(id::<6>() == 6)
-	return
+def main() {
+    assert(id::<5>() == 5);
+    assert(id::<6>() == 6);
+    return;
+}

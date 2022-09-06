@@ -1,4 +1,5 @@
-from "field" import FIELD_MIN, FIELD_MAX, FIELD_SIZE_IN_BITS
+from "field" import FIELD_MIN, FIELD_MAX, FIELD_SIZE_IN_BITS;
 
-def main() -> (field, field, u32):
-    return FIELD_MIN, FIELD_MAX, FIELD_SIZE_IN_BITS
+def main() -> (field, field, u32) {
+    return (FIELD_MIN, FIELD_MAX, FIELD_SIZE_IN_BITS);
+}

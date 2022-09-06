@@ -20,15 +20,6 @@ cargo test --release
 Integration tests are excluded from `cargo test` by default.
 They are defined in the `zokrates_cli` crate in `integration.rs` and use the test cases specified in `zokrates_cli/tests/code`.
 
-Before running integration tests, make sure:
-1. You have [solc](https://github.com/ethereum/solc-js) installed and in your `$PATH`.
-
-    Solc can conveniently be installed through `npm` by running
-    ```
-    npm install -g solc
-    ```
-2. You have an Ethereum node running on localhost with a JSON-RPC interface on the default port 8545 (`http://localhost:8545`).
-
 Integration tests can then be run with the following command:
 
 ```

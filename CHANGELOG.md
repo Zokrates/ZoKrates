@@ -4,6 +4,157 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.8.1] - 2022-08-22
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.1 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Error out at compile time if the type of a logged value could not be inferred (#1209, @dark64)
+- Add `backend` option in `zokrates-js`, bring back bellman, add a log writer to support printing logs in js (#1199, @dark64)
+- Fix padding bug in keccak implementation, add support for keccak-224 and sha3-224 (#1197, @dark64)
+- Update syntax highlighters (#1195, @schaeff)
+- Avoid validity checks on the deserialization of the proving key to improve proving time (#1192, @dark64)
+
+## [0.8.0] - 2022-07-07
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.0 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Drop support for PGHR13 proving scheme (#1181, @schaeff)
+- Use signature output for constant parameter inference (#1172, @dark64)
+- Add log statements to the language (#1171, @schaeff)
+- Remove multiple returns (#1170, @dark64)
+- Introduce the `mut` keyword and make variables immutable by default (#1168, @schaeff)
+- Drop support for libsnark (#1153, @schaeff)
+- Split codebase into smaller crates (#1151, @schaeff)
+- Introduce curly bracket based syntax, use a semicolon to separate statements, change the syntax of `if-else` expression (#1121, @dark64)
+- Optionally export snarkjs artifacts (#1143, @schaeff)
+- Fix constant inlining for tuples (#1169, @dark64)
+- Change the default backend to `ark` in the CLI (#1165, @dark64)
+
+## [0.7.14] - 2022-05-31
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.14 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Add curve and scheme to the verification key and proof, detect these parameters on `verify`, `print-proof`, and `export-verifier` (#1152, @schaeff)
+- Fix `one_liner.sh` script not resolving latest github tag (#1146, @dark64)
+- Fix instructions to build from source (#1141, @schaeff)
+- Fix keccak padding issue, allow arbitrary input size (#1139, @dark64)
+- Fix tuple assignment when rhs is a conditional (#1138, @dark64)
+
+## [0.7.13] - 2022-04-18
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.13 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Add proof formatting utility to zokrates-js (#1131, @dark64)
+- Fix panic in some range checks over unsigned integers (#1129, @schaeff)
+- Support selection of scheme and curve in `zokrates-js` (#1057, @dark64)
+
+## [0.7.12] - 2022-04-11
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.12 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Handle unconstrained variables gracefully (#1120, @schaeff)
+- Show the constraint count after successful compilation (again!) (#1119, @schaeff)
+- Add support for EVM verification of the Marlin proof system (#1103, @nirvantyagi)
+- Output structured data for Marlin artifacts (#1035, @schaeff)
+- Add sha256 with padding for arbitrary input size to stdlib (#1114, @dark64)
+- Add support for tuples (#1081, @schaeff)
+- Fix encoding issue causing invalid values on u64 inputs in js environment (#1098, @dark64)
+- Use optimized range check in assertions (#1080, @dark64)
+
+## [0.7.11] - 2022-01-21
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.11 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Improve Merkle tree examples (#1077, @schaeff)
+- Support for the `groth16` scheme using the ark backend, support the usage of the `bls12_381` curve with the `gm17` and `marlin` scheme (#1071, @dark64)
+- Fix out of memory issues in `zokrates-js` (#1083, @dark64)
+- Improve `inspect` command to include information about constraint count and curve (#1072, @dark64)
+
+## [0.7.10] - 2021-12-16
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.10 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Fix building issue with `aarch64-apple-darwin` target (M1) (#1074, @dark64)
+
+## [0.7.9] - 2021-12-14
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.9 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Add support for trusted setup ceremony using multi-party contribution (MPC) protocol (#1044, @dark64)
+- Use ark-ff under the hood for optimized field operations (#1061, @schaeff)
+- Reduce compiler memory usage using iterators, change the serialization format to CBOR (#1041, @schaeff)
+- Improve the performance of the bit decomposition solver (#1062, @schaeff)
+
+## [0.7.8] - 2021-11-23
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.8 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Fix reduction of constants (#1050, @schaeff)
+- Implement type aliasing (#982, @dark64)
+- Remove confusing returns (#1037, @schaeff)
+- Reduce cost of dynamic comparison (#1025, @schaeff)
+- Fix false positives and false negatives in struct generic inference (#1016, @schaeff)
+- Make field to uint casts truncate values bigger than uint max (#997, @dark64)
+- Add Marlin proving scheme to the backend table in the book (#1034, @schaeff)
+- Fail at compile time when complex types are known not to be equal (#1032, @schaeff)
+- Allow more postfix expressions, exit gracefully when trying to call anything else than an identifier (#1030, @schaeff)
+- Add optional message to assert statement (#1012, @dark64)
+- Introduce ternary operator (#1010, @dark64)
+
+## [0.7.7] - 2021-10-04
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.7 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Reduce the deployment cost of the g16 and pghr13 verifiers (#1008, @m1cm1c)
+- Make operators table more clear in the book (#1017, @dark64)
+- Allow calls in constant definitions (#975, @schaeff)
+- Handle out of bound accesses gracefully (#1013, @schaeff)
+- Improve error message on unconstrained variable detection (#1015, @dark64)
+- Apply propagation in ZIR (#957, @dark64)
+- Fail on mistyped constants (#974, @schaeff)
+- Graceful error handling on unconstrained variable detection (#977, @dark64)
+- Fix incorrect propagation of spreads (#987, @schaeff)
+- Add range semantics to docs (#992, @dark64)
+- Fix invalid cast to `usize` which caused wrong values in 32-bit environments (#998, @dark64)
+
+## [0.7.6] - 2021-08-16
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.6 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Fix stack overflow when testing equality on large arrays (#969, @schaeff)
+- Make the stdlib `unpack` function safe against overflows of bit decompositions for any size of output, introduce `unpack_unchecked` for cases that do not require determinism (#955, @schaeff)
+- Add explicit function generic parameters to docs (#962, @schaeff)
+- Add gm17 verifier to stdlib for bw6_761 (#948, @schaeff)
+- Enable constant generics on structs (#945, @schaeff)
+- Use constants in the standard library, make `mimcSponge` implementation generic (#942, @dark64)
+- Fix constant range check in uint lt check (#954, @schaeff)
+- Add compiler logs (#950, @schaeff)
+- Fix state corruption in the constant inliner (#949, @schaeff)
+- Fix abi encoder bug for struct values where the members are encoded in the wrong order (#947, @schaeff)
+- Bump Solidity version to latest breaking release and use Solidity's ABI v2. This means that the `export-verifier` CLI flag to choose the ABI coder was removed. (#844, @leonardoalt)
+
 ## [0.7.5] - 2021-07-10
 
 ### Release

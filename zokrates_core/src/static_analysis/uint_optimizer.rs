@@ -1,7 +1,8 @@
-use crate::embed::FlatEmbed;
-use crate::zir::folder::*;
-use crate::zir::*;
 use std::collections::HashMap;
+use std::ops::{BitAnd, Shl, Shr};
+use zokrates_ast::common::FlatEmbed;
+use zokrates_ast::zir::folder::*;
+use zokrates_ast::zir::*;
 use zokrates_field::Field;
 
 #[derive(Default)]
@@ -54,22 +55,15 @@ fn force_no_reduce<T: Field>(e: UExpression<T>) -> UExpression<T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
-    fn fold_field_expression(
+    fn fold_select_expression<E: Expr<'ast, T> + Fold<'ast, T> + Select<'ast, T>>(
         &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> FieldElementExpression<'ast, T> {
-        match e {
-            FieldElementExpression::Select(a, box i) => {
-                let a = a
-                    .into_iter()
-                    .map(|e| self.fold_field_expression(e))
-                    .collect();
-                let i = self.fold_uint_expression(i);
+        _: &E::Ty,
+        e: SelectExpression<'ast, T, E>,
+    ) -> SelectOrExpression<'ast, T, E> {
+        let array = e.array.into_iter().map(|e| e.fold(self)).collect();
+        let index = e.index.fold(self);
 
-                FieldElementExpression::Select(a, box force_reduce(i))
-            }
-            _ => fold_field_expression(self, e),
-        }
+        SelectOrExpression::Select(SelectExpression::new(array, force_reduce(index)))
     }
 
     fn fold_boolean_expression(
@@ -77,15 +71,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         match e {
-            BooleanExpression::Select(a, box i) => {
-                let a = a
-                    .into_iter()
-                    .map(|e| self.fold_boolean_expression(e))
-                    .collect();
-                let i = self.fold_uint_expression(i);
-
-                BooleanExpression::Select(a, box force_reduce(i))
-            }
             BooleanExpression::UintEq(box left, box right) => {
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
@@ -112,24 +97,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let right = force_reduce(right);
 
                 BooleanExpression::UintLe(box left, box right)
-            }
-            BooleanExpression::UintGt(box left, box right) => {
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
-
-                let left = force_reduce(left);
-                let right = force_reduce(right);
-
-                BooleanExpression::UintGt(box left, box right)
-            }
-            BooleanExpression::UintGe(box left, box right) => {
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
-
-                let left = force_reduce(left);
-                let right = force_reduce(right);
-
-                BooleanExpression::UintGe(box left, box right)
             }
             e => fold_boolean_expression(self, e),
         }
@@ -160,12 +127,15 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .cloned()
                     .unwrap_or_else(|| panic!("identifier should have been defined: {}", id)),
             ),
-            Select(values, box index) => {
+            Select(e) => {
+                let index = *e.index;
+                let array = e.array;
+
                 let index = self.fold_uint_expression(index);
 
                 let index = force_reduce(index);
 
-                let values: Vec<_> = values
+                let values: Vec<_> = array
                     .into_iter()
                     .map(|v| force_no_reduce(self.fold_uint_expression(v)))
                     .collect();
@@ -366,16 +336,12 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 // reduce both terms
                 let e = self.fold_uint_expression(e);
 
-                let e_max: u128 = e
-                    .metadata
-                    .clone()
-                    .unwrap()
-                    .max
-                    .to_dec_string()
-                    .parse()
-                    .unwrap();
+                let e_max: num_bigint::BigUint = e.metadata.as_ref().unwrap().max.to_biguint();
+                let max = e_max
+                    .shl(by as usize)
+                    .bitand(&(2_u128.pow(range as u32) - 1).into());
 
-                let max = T::from((e_max << by) & (2_u128.pow(range as u32) - 1));
+                let max = T::try_from(max).unwrap();
 
                 UExpression::left_shift(force_reduce(e), by).with_max(max)
             }
@@ -383,32 +349,26 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 // reduce both terms
                 let e = self.fold_uint_expression(e);
 
-                let e_max: u128 = e
-                    .metadata
-                    .clone()
-                    .unwrap()
-                    .max
-                    .to_dec_string()
-                    .parse()
-                    .unwrap();
+                let e_max: num_bigint::BigUint = e.metadata.as_ref().unwrap().max.to_biguint();
+                let max = e_max
+                    .bitand(&(2_u128.pow(range as u32) - 1).into())
+                    .shr(by as usize);
 
-                let max = (e_max & (2_u128.pow(range as u32) - 1)) >> by;
-
-                let max = T::from(max);
+                let max = T::try_from(max).unwrap();
 
                 UExpression::right_shift(force_reduce(e), by).with_max(max)
             }
-            IfElse(box condition, box consequence, box alternative) => {
-                let condition = self.fold_boolean_expression(condition);
-                let consequence = self.fold_uint_expression(consequence);
-                let alternative = self.fold_uint_expression(alternative);
+            Conditional(e) => {
+                let condition = self.fold_boolean_expression(*e.condition);
+                let consequence = e.consequence.fold(self);
+                let alternative = e.alternative.fold(self);
 
                 let consequence_max = consequence.metadata.clone().unwrap().max;
                 let alternative_max = alternative.metadata.clone().unwrap().max;
 
                 let max = std::cmp::max(consequence_max.to_biguint(), alternative_max.to_biguint());
 
-                UExpression::if_else(
+                UExpression::conditional(
                     condition,
                     force_no_reduce(consequence),
                     force_no_reduce(alternative),
@@ -456,78 +416,91 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
             ZirStatement::MultipleDefinition(
                 lhs,
                 ZirExpressionList::EmbedCall(embed, generics, arguments),
-            ) => match embed {
-                FlatEmbed::U64FromBits => {
-                    assert_eq!(lhs.len(), 1);
-                    self.register(
-                        lhs[0].clone(),
-                        UMetadata {
-                            max: T::from(2).pow(64) - T::from(1),
-                            should_reduce: ShouldReduce::False,
-                        },
-                    );
+            ) => {
+                match embed {
+                    FlatEmbed::U64FromBits => {
+                        assert_eq!(lhs.len(), 1);
+                        self.register(
+                            lhs[0].clone(),
+                            UMetadata {
+                                max: T::from(2).pow(64) - T::from(1),
+                                should_reduce: ShouldReduce::False,
+                            },
+                        );
+                    }
+                    FlatEmbed::U32FromBits => {
+                        assert_eq!(lhs.len(), 1);
+                        self.register(
+                            lhs[0].clone(),
+                            UMetadata {
+                                max: T::from(2).pow(32) - T::from(1),
+                                should_reduce: ShouldReduce::False,
+                            },
+                        );
+                    }
+                    FlatEmbed::U16FromBits => {
+                        assert_eq!(lhs.len(), 1);
+                        self.register(
+                            lhs[0].clone(),
+                            UMetadata {
+                                max: T::from(2).pow(16) - T::from(1),
+                                should_reduce: ShouldReduce::False,
+                            },
+                        );
+                    }
+                    FlatEmbed::U8FromBits => {
+                        assert_eq!(lhs.len(), 1);
+                        self.register(
+                            lhs[0].clone(),
+                            UMetadata {
+                                max: T::from(2).pow(8) - T::from(1),
+                                should_reduce: ShouldReduce::False,
+                            },
+                        );
+                    }
+                    _ => {}
+                };
 
-                    vec![ZirStatement::MultipleDefinition(
-                        lhs,
-                        ZirExpressionList::EmbedCall(embed, generics, arguments),
-                    )]
+                match embed {
+                    FlatEmbed::U8ToBits
+                    | FlatEmbed::U16ToBits
+                    | FlatEmbed::U32ToBits
+                    | FlatEmbed::U64ToBits => {
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::EmbedCall(
+                                embed,
+                                generics,
+                                arguments
+                                    .into_iter()
+                                    .map(|e| match e {
+                                        ZirExpression::Uint(e) => {
+                                            let e = self.fold_uint_expression(e);
+                                            let e = force_reduce(e);
+                                            ZirExpression::Uint(e)
+                                        }
+                                        e => self.fold_expression(e),
+                                    })
+                                    .collect(),
+                            ),
+                        )]
+                    }
+                    _ => {
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::EmbedCall(
+                                embed,
+                                generics,
+                                arguments
+                                    .into_iter()
+                                    .map(|e| self.fold_expression(e))
+                                    .collect(),
+                            ),
+                        )]
+                    }
                 }
-                FlatEmbed::U32FromBits => {
-                    assert_eq!(lhs.len(), 1);
-                    self.register(
-                        lhs[0].clone(),
-                        UMetadata {
-                            max: T::from(2).pow(32) - T::from(1),
-                            should_reduce: ShouldReduce::False,
-                        },
-                    );
-
-                    vec![ZirStatement::MultipleDefinition(
-                        lhs,
-                        ZirExpressionList::EmbedCall(embed, generics, arguments),
-                    )]
-                }
-                FlatEmbed::U16FromBits => {
-                    assert_eq!(lhs.len(), 1);
-                    self.register(
-                        lhs[0].clone(),
-                        UMetadata {
-                            max: T::from(2).pow(16) - T::from(1),
-                            should_reduce: ShouldReduce::False,
-                        },
-                    );
-                    vec![ZirStatement::MultipleDefinition(
-                        lhs,
-                        ZirExpressionList::EmbedCall(embed, generics, arguments),
-                    )]
-                }
-                FlatEmbed::U8FromBits => {
-                    assert_eq!(lhs.len(), 1);
-                    self.register(
-                        lhs[0].clone(),
-                        UMetadata {
-                            max: T::from(2).pow(8) - T::from(1),
-                            should_reduce: ShouldReduce::False,
-                        },
-                    );
-                    vec![ZirStatement::MultipleDefinition(
-                        lhs,
-                        ZirExpressionList::EmbedCall(embed, generics, arguments),
-                    )]
-                }
-                _ => vec![ZirStatement::MultipleDefinition(
-                    lhs,
-                    ZirExpressionList::EmbedCall(
-                        embed,
-                        generics,
-                        arguments
-                            .into_iter()
-                            .map(|e| self.fold_expression(e))
-                            .collect(),
-                    ),
-                )],
-            },
-            ZirStatement::Assertion(BooleanExpression::UintEq(box left, box right)) => {
+            }
+            ZirStatement::Assertion(BooleanExpression::UintEq(box left, box right), metadata) => {
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
 
@@ -535,10 +508,29 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let left = force_reduce(left);
                 let right = force_reduce(right);
 
-                vec![ZirStatement::Assertion(BooleanExpression::UintEq(
-                    box left, box right,
-                ))]
+                vec![ZirStatement::Assertion(
+                    BooleanExpression::UintEq(box left, box right),
+                    metadata,
+                )]
             }
+            ZirStatement::Log(l, e) => vec![ZirStatement::Log(
+                l,
+                e.into_iter()
+                    .map(|(t, e)| {
+                        (
+                            t,
+                            e.into_iter()
+                                .map(|e| match e {
+                                    ZirExpression::Uint(e) => {
+                                        force_reduce(self.fold_uint_expression(e)).into()
+                                    }
+                                    e => self.fold_expression(e),
+                                })
+                                .collect(),
+                        )
+                    })
+                    .collect(),
+            )],
             s => fold_statement(self, s),
         }
     }
@@ -727,7 +719,7 @@ mod tests {
 
     #[test]
     fn right_shift() {
-        fn right_shift_test(e_max: u128, by: u32, output_max: u32) {
+        fn right_shift_test<U: Into<Bn128Field>>(e_max: U, by: u32, output_max: u32) {
             let left = e_with_max(e_max);
 
             let right = by;
@@ -738,19 +730,19 @@ mod tests {
 
             assert_eq!(
                 UintOptimizer::new()
-                    .fold_uint_expression(UExpression::right_shift(left.clone(), right.clone())),
+                    .fold_uint_expression(UExpression::right_shift(left.clone(), right)),
                 UExpression::right_shift(left_expected, right_expected).with_max(output_max)
             );
         }
 
         right_shift_test(0xff_u128, 2, 0xff >> 2);
         right_shift_test(2, 2, 2 >> 2);
-        right_shift_test(0xffffffffffff_u128, 2, 0xffffffff >> 2);
+        right_shift_test(Bn128Field::max_unique_value(), 2, 0xffffffff >> 2);
     }
 
     #[test]
     fn left_shift() {
-        fn left_shift_test(e_max: u128, by: u32, output_max: u32) {
+        fn left_shift_test<U: Into<Bn128Field>>(e_max: U, by: u32, output_max: u32) {
             let left = e_with_max(e_max);
 
             let right = by;
@@ -761,14 +753,14 @@ mod tests {
 
             assert_eq!(
                 UintOptimizer::new()
-                    .fold_uint_expression(UExpression::left_shift(left.clone(), right.clone())),
+                    .fold_uint_expression(UExpression::left_shift(left.clone(), right)),
                 UExpression::left_shift(left_expected, right_expected).with_max(output_max)
             );
         }
 
         left_shift_test(0xff_u128, 2, 0xff << 2);
         left_shift_test(2, 2, 2 << 2);
-        left_shift_test(0xffffffffffff_u128, 2, 0xffffffff << 2);
+        left_shift_test(Bn128Field::max_unique_value(), 2, 0xffffffff << 2);
     }
 
     #[test]
@@ -784,7 +776,7 @@ mod tests {
 
         assert_eq!(
             UintOptimizer::new()
-                .fold_uint_expression(UExpression::if_else(
+                .fold_uint_expression(UExpression::conditional(
                     BooleanExpression::Value(true),
                     consequence,
                     alternative

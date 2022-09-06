@@ -1,0 +1,47 @@
+from "utils/casts.zok" import cast;
+
+// bool[8]  -> u8
+// bool[N]  -> u8[P]
+// bool[16] -> u16
+// bool[N]  -> u16[P]
+// bool[32] -> u32
+// bool[N]  -> u32[P]
+// bool[64] -> u64
+// bool[N]  -> u64[P]
+
+def main() {
+    bool[8] bits = [true, false, true, false, true, false, true, false];
+
+    // bool[8] -> u8
+    u8 v0 = cast(bits);
+    assert(v0 == 0xAA);
+
+    // bool[16] -> u8[2]
+    u8[2] v1 = cast([...bits, ...[true; 8]]);
+    assert(v1 == [0xAA, 0xFF]);
+
+    // bool[16] -> u16
+    u16 v2 = cast([...bits, ...[true; 8]]);
+    assert(v2 == 0xAAFF);
+
+    // bool[32] -> u16[2]
+    u16[2] v3 = cast([...bits, ...[true; 8], ...[false; 8], ...[true; 8]]);
+    assert(v3 == [0xAAFF, 0x00FF]);
+
+    // bool[32] -> u32
+    u32 v4 = cast([...bits, ...[true; 8], ...[false; 8], ...[true; 8]]);
+    assert(v4 == 0xAAFF00FF);
+
+    // bool[64] -> u32[2]
+    u32[2] v5 = cast([...bits, ...[false; 16], ...[true; 8], ...[true; 24], ...[false; 8]]);
+    assert(v5 == [0xAA0000FF, 0xFFFFFF00]);
+
+    // bool[64] -> u64
+    u64 v6 = cast([...bits, ...[false; 24], ...[true; 8], ...[false; 24]]);
+    assert(v6 == 0xAA000000FF000000);
+
+    // bool[128] -> u64[2]
+    u64[2] v7 = cast([...bits, ...[false; 56], ...[true; 56], ...[false; 8]]);
+    assert(v7 == [0xAA00000000000000, 0xFFFFFFFFFFFFFF00]);
+    return;
+}

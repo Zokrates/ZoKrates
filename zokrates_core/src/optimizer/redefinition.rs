@@ -36,31 +36,33 @@
 //     - `q == k * v if v isn't in i`: insert `v` into `i` and return `c_0`
 //     - otherwise return `c_0`
 
-use crate::flat_absy::flat_variable::FlatVariable;
-use crate::ir::folder::{fold_function, Folder};
-use crate::ir::LinComb;
-use crate::ir::*;
 use std::collections::{HashMap, HashSet};
+use zokrates_ast::flat::Variable;
+use zokrates_ast::ir::folder::{fold_statement, Folder};
+use zokrates_ast::ir::LinComb;
+use zokrates_ast::ir::*;
 use zokrates_field::Field;
+use zokrates_interpreter::Interpreter;
 
 #[derive(Debug)]
-pub struct RedefinitionOptimizer<T: Field> {
+pub struct RedefinitionOptimizer<T> {
     /// Map of renamings for reassigned variables while processing the program.
-    substitution: HashMap<FlatVariable, CanonicalLinComb<T>>,
+    substitution: HashMap<Variable, CanonicalLinComb<T>>,
     /// Set of variables that should not be substituted
-    ignore: HashSet<FlatVariable>,
+    pub ignore: HashSet<Variable>,
 }
 
-impl<T: Field> RedefinitionOptimizer<T> {
-    fn new() -> Self {
+impl<T> RedefinitionOptimizer<T> {
+    pub fn init<I: IntoIterator<Item = Statement<T>>>(p: &ProgIterator<T, I>) -> Self {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
-            ignore: HashSet::new(),
+            ignore: vec![Variable::one()]
+                .into_iter()
+                .chain(p.arguments.iter().map(|p| p.id))
+                .chain(p.returns())
+                .into_iter()
+                .collect(),
         }
-    }
-
-    pub fn optimize(p: Prog<T>) -> Prog<T> {
-        RedefinitionOptimizer::new().fold_module(p)
     }
 }
 
@@ -140,9 +142,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                         // unwrap inputs to their constant value
                         let inputs: Vec<_> = inputs.into_iter().map(|i| i.unwrap()).collect();
                         // run the solver
-                        let outputs = Interpreter::default()
-                            .execute_solver(&d.solver, &inputs)
-                            .unwrap();
+                        let outputs = Interpreter::execute_solver(&d.solver, &inputs).unwrap();
                         assert_eq!(outputs.len(), d.outputs.len());
 
                         // insert the results in the substitution
@@ -157,7 +157,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                         let inputs: Vec<_> = inputs
                             .into_iter()
                             .map(|i| {
-                                i.map(|v| LinComb::summand(v, FlatVariable::one()).into())
+                                i.map(|v| LinComb::summand(v, Variable::one()).into())
                                     .unwrap_or_else(|q| q)
                             })
                             .collect();
@@ -169,6 +169,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     }
                 }
             }
+            s => fold_statement(self, s),
         }
     }
 
@@ -176,7 +177,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
         match lc
             .0
             .iter()
-            .any(|(variable, _)| self.substitution.get(&variable).is_some())
+            .any(|(variable, _)| self.substitution.get(variable).is_some())
         {
             true =>
             // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
@@ -193,27 +194,12 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
             false => lc,
         }
     }
-
-    fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
-        // to prevent the optimiser from replacing user input, add it to the ignored set
-        self.ignore.insert(a);
-        a
-    }
-
-    fn fold_function(&mut self, fun: Function<T>) -> Function<T> {
-        // to prevent the optimiser from replacing outputs, add them to the ignored set
-        self.ignore.extend(fun.returns.iter().cloned());
-
-        // to prevent the optimiser from replacing ~one, add it to the ignored set
-        self.ignore.insert(FlatVariable::one());
-
-        fold_function(self, fun)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use zokrates_ast::flat::Parameter;
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -223,48 +209,47 @@ mod tests {
         //    z = y
         //    return z
 
-        let x = FlatVariable::new(0);
-        let y = FlatVariable::new(1);
-        let z = FlatVariable::new(2);
+        let x = Parameter::public(Variable::new(0));
+        let y = Variable::new(1);
+        let out = Variable::public(0);
 
-        let f: Function<Bn128Field> = Function {
-            id: "foo".to_string(),
+        let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],
-            statements: vec![Statement::definition(y, x), Statement::definition(z, y)],
-            returns: vec![z],
+            statements: vec![
+                Statement::definition(y, x.id),
+                Statement::definition(out, y),
+            ],
+            return_count: 1,
         };
 
-        let optimized: Function<Bn128Field> = Function {
-            id: "foo".to_string(),
+        let optimized: Prog<Bn128Field> = Prog {
             arguments: vec![x],
-            statements: vec![Statement::definition(z, x)],
-            returns: vec![z],
+            statements: vec![Statement::definition(out, x.id)],
+            return_count: 1,
         };
 
-        let mut optimizer = RedefinitionOptimizer::new();
-        assert_eq!(optimizer.fold_function(f), optimized);
+        let mut optimizer = RedefinitionOptimizer::init(&p);
+        assert_eq!(optimizer.fold_program(p), optimized);
     }
 
     #[test]
     fn keep_one() {
         // def main(x):
         //    one = x
-        //    return one
 
-        let one = FlatVariable::one();
-        let x = FlatVariable::new(1);
+        let one = Variable::one();
+        let x = Parameter::public(Variable::new(0));
 
-        let f: Function<Bn128Field> = Function {
-            id: "foo".to_string(),
+        let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],
-            statements: vec![Statement::definition(one, x)],
-            returns: vec![x],
+            statements: vec![Statement::definition(one, x.id)],
+            return_count: 1,
         };
 
-        let optimized = f.clone();
+        let optimized = p.clone();
 
-        let mut optimizer = RedefinitionOptimizer::new();
-        assert_eq!(optimizer.fold_function(f), optimized);
+        let mut optimizer = RedefinitionOptimizer::init(&p);
+        assert_eq!(optimizer.fold_program(p), optimized);
     }
 
     #[test]
@@ -273,7 +258,7 @@ mod tests {
         //    y = x
         //    z = y
         //    z == y
-        //    return z
+        //    ~out_0 = z
 
         // ->
 
@@ -281,30 +266,33 @@ mod tests {
         //    x == x // will be eliminated as a tautology
         //    return x
 
-        let x = FlatVariable::new(0);
-        let y = FlatVariable::new(1);
-        let z = FlatVariable::new(2);
+        let x = Parameter::public(Variable::new(0));
+        let y = Variable::new(1);
+        let z = Variable::new(2);
+        let out = Variable::public(0);
 
-        let f: Function<Bn128Field> = Function {
-            id: "foo".to_string(),
+        let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],
             statements: vec![
-                Statement::definition(y, x),
+                Statement::definition(y, x.id),
                 Statement::definition(z, y),
                 Statement::constraint(z, y),
+                Statement::definition(out, z),
             ],
-            returns: vec![z],
+            return_count: 1,
         };
 
-        let optimized: Function<Bn128Field> = Function {
-            id: "foo".to_string(),
+        let optimized: Prog<Bn128Field> = Prog {
             arguments: vec![x],
-            statements: vec![Statement::definition(z, x), Statement::constraint(z, x)],
-            returns: vec![z],
+            statements: vec![
+                Statement::constraint(x.id, x.id),
+                Statement::definition(out, x.id),
+            ],
+            return_count: 1,
         };
 
-        let mut optimizer = RedefinitionOptimizer::new();
-        assert_eq!(optimizer.fold_function(f), optimized);
+        let mut optimizer = RedefinitionOptimizer::init(&p);
+        assert_eq!(optimizer.fold_program(p), optimized);
     }
 
     #[test]
@@ -314,44 +302,47 @@ mod tests {
         //    t = 1
         //    z = y
         //    w = t
-        //    return z, w
+        //    ~out_0 = z
+        //    ~out_1 = w
 
         // ->
 
         // def main(x):
         //  return x, 1
 
-        let x = FlatVariable::new(0);
-        let y = FlatVariable::new(1);
-        let z = FlatVariable::new(2);
-        let t = FlatVariable::new(3);
-        let w = FlatVariable::new(4);
+        let x = Parameter::public(Variable::new(0));
+        let y = Variable::new(1);
+        let z = Variable::new(2);
+        let t = Variable::new(3);
+        let w = Variable::new(4);
+        let out_1 = Variable::public(0);
+        let out_0 = Variable::public(1);
 
-        let f: Function<Bn128Field> = Function {
-            id: "foo".to_string(),
+        let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],
             statements: vec![
-                Statement::definition(y, x),
+                Statement::definition(y, x.id),
                 Statement::definition(t, Bn128Field::from(1)),
                 Statement::definition(z, y),
                 Statement::definition(w, t),
+                Statement::definition(out_0, z),
+                Statement::definition(out_1, w),
             ],
-            returns: vec![z, w],
+            return_count: 2,
         };
 
-        let optimized: Function<Bn128Field> = Function {
-            id: "foo".to_string(),
+        let optimized: Prog<Bn128Field> = Prog {
             arguments: vec![x],
             statements: vec![
-                Statement::definition(z, x),
-                Statement::definition(w, Bn128Field::from(1)),
+                Statement::definition(out_0, x.id),
+                Statement::definition(out_1, Bn128Field::from(1)),
             ],
-            returns: vec![z, w],
+            return_count: 2,
         };
 
-        let mut optimizer = RedefinitionOptimizer::new();
+        let mut optimizer = RedefinitionOptimizer::init(&p);
 
-        assert_eq!(optimizer.fold_function(f), optimized);
+        assert_eq!(optimizer.fold_program(p), optimized);
     }
 
     #[test]
@@ -361,62 +352,65 @@ mod tests {
         //     b = a + x + y
         //     c = b + x + y
         //     2*c == 6*x + 6*y
-        //     r = a + b + c
-        //     return r
+        //     ~out_0 = a + b + c
 
         // ->
 
         // def main(x, y) -> (1):
         //    1*x + 1*y + 2*x + 2*y + 3*x + 3*y == 6*x + 6*y // will be eliminated as a tautology
-        //    return 6*x + 6*y
+        //    ~out_0 = 6*x + 6*y
 
-        let x = FlatVariable::new(0);
-        let y = FlatVariable::new(1);
-        let a = FlatVariable::new(2);
-        let b = FlatVariable::new(3);
-        let c = FlatVariable::new(4);
-        let r = FlatVariable::new(5);
+        let x = Parameter::public(Variable::new(0));
+        let y = Parameter::public(Variable::new(1));
+        let a = Variable::new(2);
+        let b = Variable::new(3);
+        let c = Variable::new(4);
+        let r = Variable::public(0);
 
-        let f: Function<Bn128Field> = Function {
-            id: "foo".to_string(),
+        let p: Prog<Bn128Field> = Prog {
             arguments: vec![x, y],
             statements: vec![
-                Statement::definition(a, LinComb::from(x) + LinComb::from(y)),
-                Statement::definition(b, LinComb::from(a) + LinComb::from(x) + LinComb::from(y)),
-                Statement::definition(c, LinComb::from(b) + LinComb::from(x) + LinComb::from(y)),
+                Statement::definition(a, LinComb::from(x.id) + LinComb::from(y.id)),
+                Statement::definition(
+                    b,
+                    LinComb::from(a) + LinComb::from(x.id) + LinComb::from(y.id),
+                ),
+                Statement::definition(
+                    c,
+                    LinComb::from(b) + LinComb::from(x.id) + LinComb::from(y.id),
+                ),
                 Statement::constraint(
                     LinComb::summand(2, c),
-                    LinComb::summand(6, x) + LinComb::summand(6, y),
+                    LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
                 ),
                 Statement::definition(r, LinComb::from(a) + LinComb::from(b) + LinComb::from(c)),
             ],
-            returns: vec![r],
+            return_count: 1,
         };
 
-        let expected: Function<Bn128Field> = Function {
-            id: "foo".to_string(),
+        let expected: Prog<Bn128Field> = Prog {
             arguments: vec![x, y],
             statements: vec![
                 Statement::constraint(
-                    LinComb::summand(6, x) + LinComb::summand(6, y),
-                    LinComb::summand(6, x) + LinComb::summand(6, y),
+                    LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
+                    LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
                 ),
                 Statement::definition(
                     r,
-                    LinComb::summand(1, x)
-                        + LinComb::summand(1, y)
-                        + LinComb::summand(2, x)
-                        + LinComb::summand(2, y)
-                        + LinComb::summand(3, x)
-                        + LinComb::summand(3, y),
+                    LinComb::summand(1, x.id)
+                        + LinComb::summand(1, y.id)
+                        + LinComb::summand(2, x.id)
+                        + LinComb::summand(2, y.id)
+                        + LinComb::summand(3, x.id)
+                        + LinComb::summand(3, y.id),
                 ),
             ],
-            returns: vec![r],
+            return_count: 1,
         };
 
-        let mut optimizer = RedefinitionOptimizer::new();
+        let mut optimizer = RedefinitionOptimizer::init(&p);
 
-        let optimized = optimizer.fold_function(f);
+        let optimized = optimizer.fold_program(p);
 
         assert_eq!(optimized, expected);
     }
@@ -435,27 +429,26 @@ mod tests {
         //     z = x
         //     return
 
-        let x = FlatVariable::new(0);
-        let y = FlatVariable::new(1);
-        let z = FlatVariable::new(2);
+        let x = Parameter::public(Variable::new(0));
+        let y = Parameter::public(Variable::new(1));
+        let z = Variable::new(2);
 
-        let f: Function<Bn128Field> = Function {
-            id: "main".to_string(),
+        let p: Prog<Bn128Field> = Prog {
             arguments: vec![x, y],
             statements: vec![
                 Statement::definition(
                     z,
-                    QuadComb::from_linear_combinations(LinComb::from(x), LinComb::from(y)),
+                    QuadComb::from_linear_combinations(LinComb::from(x.id), LinComb::from(y.id)),
                 ),
-                Statement::definition(z, LinComb::from(x)),
+                Statement::definition(z, LinComb::from(x.id)),
             ],
-            returns: vec![],
+            return_count: 0,
         };
 
-        let optimized = f.clone();
+        let optimized = p.clone();
 
-        let mut optimizer = RedefinitionOptimizer::new();
-        assert_eq!(optimizer.fold_function(f), optimized);
+        let mut optimizer = RedefinitionOptimizer::init(&p);
+        assert_eq!(optimizer.fold_program(p), optimized);
     }
 
     #[test]
@@ -469,21 +462,20 @@ mod tests {
 
         // unchanged
 
-        let x = FlatVariable::new(0);
+        let x = Parameter::public(Variable::new(0));
 
-        let f: Function<Bn128Field> = Function {
-            id: "foo".to_string(),
+        let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],
             statements: vec![
-                Statement::constraint(x, Bn128Field::from(1)),
-                Statement::constraint(x, Bn128Field::from(2)),
+                Statement::constraint(x.id, Bn128Field::from(1)),
+                Statement::constraint(x.id, Bn128Field::from(2)),
             ],
-            returns: vec![x],
+            return_count: 1,
         };
 
-        let optimized = f.clone();
+        let optimized = p.clone();
 
-        let mut optimizer = RedefinitionOptimizer::new();
-        assert_eq!(optimizer.fold_function(f), optimized);
+        let mut optimizer = RedefinitionOptimizer::init(&p);
+        assert_eq!(optimizer.fold_program(p), optimized);
     }
 }

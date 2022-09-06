@@ -1,18 +1,22 @@
 struct Foo {
-    field a
+    field a;
 }
 
-def mutate(field a) -> field:
-    a = a + 1
-    return a
+def mutate(field mut a) -> field {
+    a = a + 1;
+    return a;
+}
 
-def mutate(Foo f) -> Foo:
-    f.a = f.a + 1
-    return f
+def mutate(Foo mut f) -> Foo {
+    f.a = f.a + 1;
+    return f;
+}
 
-def mutate(field[1] f) -> field[1]:
-    f[0] = f[0] + 1
-    return f
+def mutate(field[1] mut f) -> field[1] {
+    f[0] = f[0] + 1;
+    return f;
+}
 
-def main(field[1] f, Foo g, field h) -> (field[1], field[1], Foo, Foo, field, field):
-    return mutate(f), f, mutate(g), g, mutate(h), h 
+def main(field[1] f, Foo g, field h) -> (field[1], field[1], Foo, Foo, field, field) {
+    return (mutate(f), f, mutate(g), g, mutate(h), h);
+}

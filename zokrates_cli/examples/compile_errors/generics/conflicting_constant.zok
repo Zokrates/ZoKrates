@@ -1,7 +1,9 @@
-const u32 N = 42
+const u32 N = 42;
 
-def foo<N>(field[N] a) -> bool:
-    return true
+def foo<N>(field[N] a) -> bool {
+    return true;
+}
 
-def main():
-    return
+def main() {
+    return;
+}

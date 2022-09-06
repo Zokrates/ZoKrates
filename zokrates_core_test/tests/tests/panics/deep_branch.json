@@ -1,66 +1,49 @@
 {
-    "entry_point": "./tests/tests/panics/deep_branch.zok",
-    "curves": ["Bn128"],
-    "config": {
-        "allow_unconstrained_variables": false,
-        "isolate_branches": true
-    },
-	"tests": [
-        {
-            "input": {
-                "values": [
-                    "1", "1", "1"
-                ]
-            },
-            "output": {
-				"Ok": {
-                    "values": [
-                        "1", "1", "1"
-                    ]
-                }
-            }
-        },
-        {
-            "input": {
-                "values": [
-                    "0", "0", "0"
-                ]
-            },
-            "output": {
-				"Ok": {
-                    "values": [
-                        "0", "0", "0"
-                    ]
-                }
-            }
-        },
-        {
-            "input": {
-                "values": [
-                    "0", "1", "0"
-                ]
-            },
-            "output": {
-				"Ok": {
-                    "values": [
-                        "0", "1", "0"
-                    ]
-                }
-            }
-        },
-        {
-            "input": {
-                "values": [
-                    "1", "0", "1"
-                ]
-            },
-            "output": {
-				"Ok": {
-                    "values": [
-                        "1", "0", "1"
-                    ]
-                }
-            }
+  "entry_point": "./tests/tests/panics/deep_branch.zok",
+  "curves": ["Bn128"],
+  "config": {
+    "isolate_branches": true
+  },
+  "tests": [
+    {
+      "input": {
+        "values": [[true, true, true]]
+      },
+      "output": {
+        "Ok": {
+          "value": [true, true, true]
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": [[false, false, false]]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, false, false]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [[false, true, false]]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, true, false]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [[true, false, true]]
+      },
+      "output": {
+        "Ok": {
+          "value": [true, false, true]
+        }
+      }
+    }
+  ]
 }

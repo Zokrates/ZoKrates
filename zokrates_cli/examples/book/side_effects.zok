@@ -1,9 +1,11 @@
-def incr(field a) -> field:
-    a = a + 1
-    return a
+def incr(field mut a) -> field {
+    a = a + 1;
+    return a;
+}
 
-def main():
-    field x = 1
-    field res = incr(x)
-    assert(x == 1) // x has not changed
-    return
+def main() {
+    field x = 1;
+    field res = incr(x);
+    assert(x == 1); // x has not changed
+    return;
+}

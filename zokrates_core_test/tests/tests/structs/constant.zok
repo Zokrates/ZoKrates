@@ -1,8 +1,9 @@
 struct State {
-	u32[16] memory
+	u32[16] memory;
 }
 
-def main():
-	State s = State { memory: [0; 16] }
-	s.memory[0] = 0x00000001
-	return
+def main() {
+	State mut s = State { memory: [0; 16] };
+	s.memory[0] = 0x00000001;
+	return;
+}

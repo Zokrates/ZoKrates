@@ -1,0 +1,9 @@
+def yes() -> bool {
+    return true;
+}
+
+const bool TRUE = yes();
+
+def main() {
+    return;
+}

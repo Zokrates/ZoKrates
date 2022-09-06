@@ -4,22 +4,21 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use crate::absy::*;
 use crate::compile::parse_module;
 use crate::compile::{CompileErrorInner, CompileErrors};
-use crate::embed::FlatEmbed;
-use crate::parser::Position;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
+use zokrates_ast::untyped::*;
 
-use crate::absy::types::UnresolvedType;
 use typed_arena::Arena;
+use zokrates_ast::common::FlatEmbed;
+use zokrates_ast::untyped::types::UnresolvedType;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Error {
     pos: Option<(Position, Position)>,
     message: String,
@@ -148,6 +147,10 @@ impl Importer {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::Unpack),
                 },
+                "bit_array_le" => SymbolDeclaration {
+                    id: symbol.get_alias(),
+                    symbol: Symbol::Flat(FlatEmbed::BitArrayLe),
+                },
                 "u64_to_bits" => SymbolDeclaration {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::U64ToBits),
@@ -227,7 +230,7 @@ impl Importer {
                                     new_location.clone(),
                                     resolver,
                                     modules,
-                                    &arena,
+                                    arena,
                                 )?;
 
                                 assert!(modules.insert(new_location.clone(), compiled).is_none());
@@ -235,7 +238,7 @@ impl Importer {
                         };
 
                         SymbolDeclaration {
-                            id: &alias,
+                            id: alias,
                             symbol: Symbol::There(
                                 SymbolImport::with_id_in_module(symbol.id, new_location)
                                     .start_end(pos.0, pos.1),

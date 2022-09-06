@@ -1,9 +1,10 @@
-def main(bool[3] a) -> (field[3]):
-	bool[3] c = [true, true || false, true]
-	a[1] = true || a[2]
-	a[2] = a[0]
-	field[3] result = [0; 3]
-	for u32 i in 0..3 do
-		result[i] = if a[i] then 33 else 0 fi
-	endfor
-	return result
+def main(bool[3] mut a) -> field[3] {
+    bool[3] c = [true, true || false, true];
+    a[1] = true || a[2];
+    a[2] = a[0];
+    field[3] mut result = [0; 3];
+    for u32 i in 0..3 {
+        result[i] = a[i] ? 33 : 0;
+    }
+    return result;
+}

@@ -6,7 +6,7 @@ executors:
       image: ubuntu-2004:202101-01
   macos:
     macos:
-      xcode: 12.4.0
+      xcode: 13.4.1
 
 jobs:
   build:
@@ -18,23 +18,36 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
-      - restore_cache:
-          keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Build
-          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
-      - save_cache:
-          paths:
-            - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
-          key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+          command: RUSTFLAGS="-D warnings" ./build.sh
+      - save-sccache-cache
   test:
+    docker:
+      - image: zokrates/env:latest
+    resource_class: xlarge
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - setup-sccache
+      - restore-sccache-cache
+      - run:
+          name: Check format
+          command: cargo fmt --all -- --check
+      - run:
+          name: Run clippy
+          no_output_timeout: 1h
+          command: cargo clippy -j 4 -- -D warnings
+      - run:
+          name: Run tests
+          no_output_timeout: 1h
+          command: RUSTFLAGS="-D warnings" ./test.sh
+      - save-sccache-cache
+  wasm_test:
     docker:
       - image: zokrates/env:latest
     resource_class: large
@@ -43,51 +56,14 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
-      - restore_cache:
-          keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Check format
-          command: cargo fmt --all -- --check
-      - run:
-          name: Run clippy
-          command: cargo clippy -- -D warnings
-      - run:
-          name: Run tests
-          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
-      # - run:
-      #     name: Generate code coverage report
-      #     command: ./scripts/cov.sh
-  cpp_format:
-    docker:
-      - image: zokrates/env:latest
-    steps:
-      - checkout
-      - run:
-          name: Check cpp format (clang-format)
-          command: run-clang-format.py -r $(pwd)/zokrates_core/lib
-  wasm_test:
-    docker:
-      - image: zokrates/env:latest
-    steps:
-      - checkout
-      - run:
-          name: Version information
-          command: rustc --version; cargo --version; rustup --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
-      - restore_cache:
-          keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Test on firefox
           command: |
-            cd zokrates_core
-            wasm-pack test --firefox --headless -- --no-default-features --features "wasm bellman"
+            cd zokrates_test
+            wasm-pack test --firefox --headless
+      - save-sccache-cache
   integration_test:
     docker:
       - image: zokrates/env:latest
@@ -98,42 +74,50 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
-      - restore_cache:
-          keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Run integration tests
           no_output_timeout: "30m"
-          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./integration_test.sh
+          command: RUSTFLAGS="-D warnings" ./integration_test.sh
+      - save-sccache-cache
   deploy:
     docker:
-      - image: circleci/python:latest-node
+      - image: cimg/python:3.8-node
+    resource_class: large
     steps:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
           name: Release
-          no_output_timeout: "30m"
+          no_output_timeout: "1h"
           command: ./scripts/release.sh
   zokrates_js_build:
     docker:
       - image: zokrates/env:latest
-    steps:
-      - checkout
-      - run:
-          name: Build
-          command: cd zokrates_js && npm run build:dev
-  zokrates_js_test:
-    docker:
-      - image: zokrates/env:latest
+    resource_class: large
     working_directory: ~/project/zokrates_js
     steps:
       - checkout:
           path: ~/project
+      - setup-sccache
+      - restore-sccache-cache
+      - run:
+          name: Build
+          no_output_timeout: "30m"
+          command: npm ci && npm run build:dev && npm pack --dry-run
+      - save-sccache-cache
+  zokrates_js_test:
+    docker:
+      - image: zokrates/env:latest
+    resource_class: large
+    working_directory: ~/project/zokrates_js
+    steps:
+      - checkout:
+          path: ~/project
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Check format
           command: cargo fmt --all -- --check
@@ -142,7 +126,9 @@ jobs:
           command: cargo clippy -- -D warnings
       - run:
           name: Run tests
-          command: npm run test
+          no_output_timeout: "30m"
+          command: npm ci && npm run test
+      - save-sccache-cache
   cross_build:
     parameters:
       os:
@@ -158,17 +144,14 @@ jobs:
     executor: << parameters.os >>
     steps:
       - checkout
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
       - when:
          condition: << parameters.add-target >>
          steps:
            - run: rustup target add << parameters.target >>
       - run:
           name: Build
-          no_output_timeout: "30m"
-          command: << parameters.build-with >> build --target << parameters.target >> --release
+          no_output_timeout: "1h"
+          command: RUSTFLAGS="--remap-path-prefix=$PWD=" << parameters.build-with >> build --package zokrates_cli --target << parameters.target >> --release
       - tar_artifacts:
           target: << parameters.target >>
   publish_artifacts:
@@ -180,12 +163,7 @@ jobs:
       - run:
           name: "Publish artifacts on GitHub"
           command: |
-            go get github.com/github-release/github-release
-            github-release release \
-                -s ${GH_TOKEN} \
-                -u ${CIRCLE_PROJECT_USERNAME} \
-                -r ${CIRCLE_PROJECT_REPONAME} \
-                -t ${CIRCLE_TAG} || true
+            go install github.com/github-release/github-release@latest
             find /tmp/artifacts -type f -name *.tar.gz -exec basename {} \; | xargs -I {} github-release upload \
               -s ${GH_TOKEN} \
               -u ${CIRCLE_PROJECT_USERNAME} \
@@ -195,6 +173,32 @@ jobs:
               -f /tmp/artifacts/{}
 
 commands:
+  setup-sccache:
+    steps:
+      - run:
+          name: Install sccache
+          command: |
+            apt-get install -y pkg-config libssl-dev
+            curl -o- -sSLf https://github.com/mozilla/sccache/releases/download/0.2.14/sccache-0.2.14-x86_64-unknown-linux-musl.tar.gz | tar xzf -
+            mv sccache-0.2.14-x86_64-unknown-linux-musl/sccache /usr/local/cargo/bin/sccache
+            echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
+            echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
+  restore-sccache-cache:
+    steps:
+      - restore_cache:
+          name: Restore sccache cache
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+  save-sccache-cache:
+    steps:
+      - save_cache:
+          name: Save sccache cache
+          # We use {{ epoch }} to always upload a fresh cache:
+          # Of course, restore_cache will not find this exact key,
+          # but it will fall back to the closest key (aka the most recent).
+          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          paths:
+            - "~/.cache/sccache"
   install_rust:
     steps:
       - run:
@@ -205,8 +209,8 @@ commands:
   install_cross:
     steps:
       - run:
-          name: Install rust-embedded/cross
-          command: cargo install --git https://github.com/rust-embedded/cross
+          name: Install cross
+          command: cargo install cross --git https://github.com/cross-rs/cross
   tar_artifacts:
     parameters:
       target:
@@ -240,7 +244,6 @@ workflows:
     jobs:
       - build
       - test
-      - cpp_format
       - wasm_test
       - integration_test
       - zokrates_js_build
@@ -273,18 +276,18 @@ workflows:
               target:
                 - x86_64-apple-darwin
       - cross_build:
-          <<: *tag-only
-          pre-steps:
-            - install_rust
-          build-with: SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version) cargo
-          add-target: true
-          matrix:
-            alias: cross-build-apple-silicon
-            parameters:
-              os:
-                - macos
-              target:
-                - aarch64-apple-darwin
+         <<: *tag-only
+         pre-steps:
+           - install_rust
+         build-with: SDKROOT=$(xcrun -sdk macosx12.3 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx12.3 --show-sdk-platform-version) cargo
+         add-target: true
+         matrix:
+           alias: cross-build-apple-silicon
+           parameters:
+             os:
+               - macos
+             target:
+               - aarch64-apple-darwin
       - publish_artifacts:
           <<: *tag-only
           requires:
@@ -299,7 +302,6 @@ workflows:
           requires:
             - build
             - test
-            - cpp_format
             - wasm_test
             - integration_test
             - zokrates_js_build

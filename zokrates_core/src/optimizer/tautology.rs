@@ -5,22 +5,13 @@
 //
 // This makes the assumption that ~one has value 1, as should be guaranteed by the verifier
 
-use crate::ir::folder::fold_statement;
-use crate::ir::folder::Folder;
-use crate::ir::*;
+use zokrates_ast::ir::folder::fold_statement;
+use zokrates_ast::ir::folder::Folder;
+use zokrates_ast::ir::*;
 use zokrates_field::Field;
 
-pub struct TautologyOptimizer {}
-
-impl TautologyOptimizer {
-    fn new() -> TautologyOptimizer {
-        TautologyOptimizer {}
-    }
-
-    pub fn optimize<T: Field>(p: Prog<T>) -> Prog<T> {
-        TautologyOptimizer::new().fold_module(p)
-    }
-}
+#[derive(Default)]
+pub struct TautologyOptimizer;
 
 impl<T: Field> Folder<T> for TautologyOptimizer {
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {

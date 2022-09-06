@@ -87,7 +87,7 @@ Based on that Victor can run the setup phase and export a verifier smart contrac
 {{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:18:19}}
 ```
 
-`setup` creates a `verifiation.key` file and a `proving.key` file. Victor gives the proving key to Peggy.
+`setup` creates a `verification.key` file and a `proving.key` file. Victor gives the proving key to Peggy.
 
 `export-verifier` creates a `verifier.sol` contract that contains our verification key and a function `verifyTx`. Victor deploys this smart contract to the Ethereum network.
 

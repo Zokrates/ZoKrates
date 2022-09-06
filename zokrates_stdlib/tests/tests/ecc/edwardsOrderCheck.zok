@@ -1,29 +1,30 @@
-import "ecc/edwardsOrderCheck" as orderCheck
-from "ecc/babyjubjubParams" import BABYJUBJUB_PARAMS
+import "ecc/edwardsOrderCheck" as orderCheck;
+from "ecc/babyjubjubParams" import BABYJUBJUB_PARAMS;
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto
-def testOrderCheckTrue() -> bool:
-	field testU = 17324563846726889236817837922625232543153115346355010501047597319863650987830
-	field testV = 20022170825455209233733649024450576091402881793145646502279487074566492066831
+def testOrderCheckTrue() -> bool {
+    field testU = 17324563846726889236817837922625232543153115346355010501047597319863650987830;
+    field testV = 20022170825455209233733649024450576091402881793145646502279487074566492066831;
 
-	bool out = orderCheck([testU, testV], BABYJUBJUB_PARAMS)
-	assert(out)
+    bool out = orderCheck([testU, testV], BABYJUBJUB_PARAMS);
+    assert(out);
 
-	return true
+    return true;
+}
 
-def testOrderCheckFalse() -> bool:
-	field testU = 4342719913949491028786768530115087822524712248835451589697801404893164183326
-	field testV = 4826523245007015323400664741523384119579596407052839571721035538011798951543
+def testOrderCheckFalse() -> bool {
+    field testU = 4342719913949491028786768530115087822524712248835451589697801404893164183326;
+    field testV = 4826523245007015323400664741523384119579596407052839571721035538011798951543;
 
-	bool out = orderCheck([testU, testV], BABYJUBJUB_PARAMS)
-	assert(!out)
+    bool out = orderCheck([testU, testV], BABYJUBJUB_PARAMS);
+    assert(!out);
 
-	return true
+    return true;
+}
 
-def main():
-
-	assert(testOrderCheckFalse())
-	assert(testOrderCheckTrue())
-
-	return
+def main() {
+    assert(testOrderCheckFalse());
+    assert(testOrderCheckTrue());
+    return;
+}

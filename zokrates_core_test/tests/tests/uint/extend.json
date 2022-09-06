@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/uint/extend.zok",
-	"max_constraint_count": 2280,
-	"tests": []
+  "entry_point": "./tests/tests/uint/extend.zok",
+  "max_constraint_count": 2280,
+  "tests": []
 }

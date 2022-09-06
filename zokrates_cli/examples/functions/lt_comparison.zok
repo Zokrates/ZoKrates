@@ -1,17 +1,22 @@
-def lt(field a,field b) -> bool:
-    return a < b
+def lt(field a,field b) -> bool {
+    return a < b;
+}
 
-def cutoff() -> field:
-    return 31337
+def cutoff() -> field {
+    return 31337;
+}
 
-def getThing(u32 index) -> field:
-	field[6] a = [13, 23, 43, 53, 73, 83]
-	return a[index]
+def getThing(u32 index) -> field {
+    field[6] a = [13, 23, 43, 53, 73, 83];
+    return a[index];
+}
 
-def cubeThing(field thing) -> field:
-    return thing**3
+def cubeThing(field thing) -> field {
+    return thing**3;
+}
 
-def main(u32 index) -> bool:
-    field thing = getThing(index)
-    thing = cubeThing(thing)
-    return lt(cutoff(), thing)
+def main(u32 index) -> bool {
+    field mut thing = getThing(index);
+    thing = cubeThing(thing);
+    return lt(cutoff(), thing);
+}

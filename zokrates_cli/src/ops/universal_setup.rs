@@ -1,15 +1,16 @@
-use crate::constants;
-use crate::helpers::*;
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 #[cfg(feature = "ark")]
-use zokrates_core::proof_system::ark::Ark;
-#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
-use zokrates_core::proof_system::*;
-use zokrates_field::{Bls12_377Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_ark::Ark;
+use zokrates_common::constants;
+use zokrates_common::helpers::*;
+use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+#[cfg(any(feature = "bellman", feature = "ark"))]
+use zokrates_proof_systems::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("universal-setup")
@@ -21,7 +22,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Curve to be used in the universal setup")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::CURVES)
+                .possible_values(cli_constants::CURVES)
                 .default_value(constants::BN128),
         )
         .arg(
@@ -32,7 +33,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::UNIVERSAL_SETUP_DEFAULT_PATH),
+                .default_value(cli_constants::UNIVERSAL_SETUP_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("proving-scheme")
@@ -41,7 +42,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Proving scheme to use in the setup")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::UNIVERSAL_SCHEMES)
+                .possible_values(cli_constants::UNIVERSAL_SCHEMES)
                 .default_value(constants::MARLIN),
         )
         .arg(
@@ -51,7 +52,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Size of the trusted setup passed as an exponent. For example, 8 for 2**8")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::UNIVERSAL_SETUP_DEFAULT_SIZE),
+                .default_value(cli_constants::UNIVERSAL_SETUP_DEFAULT_SIZE),
         )
 }
 
@@ -64,16 +65,20 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     match parameters {
         #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
+            cli_universal_setup::<Bn128Field, Marlin, Ark>(sub_matches)
+        }
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::MARLIN) => {
+            cli_universal_setup::<Bls12_381Field, Marlin, Ark>(sub_matches)
+        }
+        #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => {
             cli_universal_setup::<Bls12_377Field, Marlin, Ark>(sub_matches)
         }
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => {
             cli_universal_setup::<Bw6_761Field, Marlin, Ark>(sub_matches)
-        }
-        #[cfg(feature = "ark")]
-        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
-            cli_universal_setup::<Bn128Field, Marlin, Ark>(sub_matches)
         }
         _ => unreachable!(),
     }

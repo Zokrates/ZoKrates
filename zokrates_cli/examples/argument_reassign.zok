@@ -1,6 +1,8 @@
-def sub(field a) -> field:
-  a = a + 3
-  return a
+def sub(field mut a) -> field {
+    a = a + 3;
+    return a;
+}
 
-def main() -> field:
-   return sub(4)
+def main() -> field {
+    return sub(4);
+}

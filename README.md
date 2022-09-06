@@ -44,3 +44,12 @@ You can enable zokrates git hooks locally by running:
 ```sh
 git config core.hooksPath .githooks
 ```
+
+### `{js,json,ts}` formatting
+
+We enforce strict formatting of `.{js,json,ts}` files in CI. This check is not included in the git hooks. If you modify such a file, you can ensure its formatting is correct by running:
+
+```
+npm i -g prettier
+prettier --write "./**/*.{js,ts,json}" --ignore-path .gitignore
+```

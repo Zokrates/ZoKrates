@@ -1,2 +1,3 @@
-def main(u8 x, u8 y) -> u8:
-    return x | y
+def main(u8 x, u8 y) -> u8 {
+    return x | y;
+}

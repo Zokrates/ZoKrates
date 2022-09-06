@@ -1,4 +1,5 @@
-const u32[2] A = [1]
+const u32[2] A = [1];
 
-def main() -> u32[2]:
-    return A
+def main() -> u32[2] {
+    return A;
+}

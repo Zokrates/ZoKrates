@@ -5,7 +5,7 @@ pub enum Inputs<T> {
     Abi(Values<T>),
 }
 
-impl<T: From<usize>> Encode<T> for Inputs<T> {
+impl<T: Field> Encode<T> for Inputs<T> {
     fn encode(self) -> Vec<T> {
         match self {
             Inputs::Raw(v) => v,
@@ -15,11 +15,11 @@ impl<T: From<usize>> Encode<T> for Inputs<T> {
 }
 
 use std::fmt;
-use zokrates_core::typed_absy::types::{ConcreteType, UBitwidth};
+use zokrates_ast::typed::types::{ConcreteType, UBitwidth};
 
 use zokrates_field::Field;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Json(String),
     Conversion(String),
@@ -46,10 +46,11 @@ pub enum Value<T> {
     Boolean(bool),
     Array(Vec<Value<T>>),
     Struct(Vec<(String, Value<T>)>),
+    Tuple(Vec<Value<T>>),
 }
 
 #[derive(PartialEq, Debug)]
-pub struct Values<T>(Vec<Value<T>>);
+pub struct Values<T>(pub Vec<Value<T>>);
 
 impl<T: Field> fmt::Display for Value<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -76,6 +77,22 @@ impl<T: Field> fmt::Display for Value<T> {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            Value::Tuple(elements) => {
+                write!(f, "(")?;
+                match elements.len() {
+                    1 => write!(f, "{},", elements[0]),
+                    _ => write!(
+                        f,
+                        "{}",
+                        elements
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                }?;
+                write!(f, ")")
+            }
         }
     }
 }
@@ -90,16 +107,17 @@ pub trait Decode<T> {
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self;
 }
 
-impl<T: From<usize>> Encode<T> for Value<T> {
+impl<T: Field> Encode<T> for Value<T> {
     fn encode(self) -> Vec<T> {
         match self {
             Value::Field(t) => vec![t],
-            Value::U8(t) => vec![T::from(t as usize)],
-            Value::U16(t) => vec![T::from(t as usize)],
-            Value::U32(t) => vec![T::from(t as usize)],
-            Value::U64(t) => vec![T::from(t as usize)],
-            Value::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
+            Value::U8(v) => vec![T::from(v)],
+            Value::U16(v) => vec![T::from(v)],
+            Value::U32(v) => vec![T::from(v)],
+            Value::U64(v) => vec![T::from(v)],
+            Value::Boolean(b) => vec![T::from(b)],
             Value::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
+            Value::Tuple(t) => t.into_iter().flat_map(|v| v.encode()).collect(),
             Value::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
         }
     }
@@ -170,11 +188,23 @@ impl<T: Field> Decode<T> for Value<T> {
                     })
                     .collect(),
             ),
+            ConcreteType::Tuple(tuple_type) => Value::Tuple(
+                tuple_type
+                    .elements
+                    .into_iter()
+                    .scan(0, |state, ty| {
+                        let new_state = *state + ty.get_primitive_count();
+                        let res = Value::decode(raw[*state..new_state].to_vec(), ty);
+                        *state = new_state;
+                        Some(res)
+                    })
+                    .collect(),
+            ),
         }
     }
 }
 
-impl<T: From<usize>> Encode<T> for Values<T> {
+impl<T: Field> Encode<T> for Values<T> {
     fn encode(self) -> Vec<T> {
         self.0.into_iter().flat_map(|v| v.encode()).collect()
     }
@@ -191,6 +221,9 @@ impl<T: Field> Value<T> {
             Value::Boolean(b) => serde_json::Value::Bool(b),
             Value::Array(a) => {
                 serde_json::Value::Array(a.into_iter().map(|e| e.into_serde_json()).collect())
+            }
+            Value::Tuple(t) => {
+                serde_json::Value::Array(t.into_iter().map(|e| e.into_serde_json()).collect())
             }
             Value::Struct(s) => serde_json::Value::Object(
                 s.into_iter()
@@ -244,7 +277,7 @@ fn parse_value<T: Field>(
             .map_err(|_| Error::Type(format!("Could not parse `{}` to u64 type", s))),
         (ConcreteType::Boolean, serde_json::Value::Bool(b)) => Ok(Value::Boolean(b)),
         (ConcreteType::Array(array_type), serde_json::Value::Array(a)) => {
-            let size = array_type.size;
+            let size = *array_type.size;
             if a.len() != size as usize {
                 Err(Error::Type(format!(
                     "Expected array of size {}, found array of size {}",
@@ -256,6 +289,22 @@ fn parse_value<T: Field>(
                     .map(|v| parse_value(v, *array_type.ty.clone()))
                     .collect::<Result<_, _>>()
                     .map(Value::Array)
+            }
+        }
+        (ConcreteType::Tuple(tuple_type), serde_json::Value::Array(a)) => {
+            let size = tuple_type.elements.len();
+            if a.len() != size {
+                Err(Error::Type(format!(
+                    "Expected tuple of size {}, found array of size {}",
+                    size,
+                    a.len()
+                )))
+            } else {
+                a.into_iter()
+                    .zip(tuple_type.elements.iter())
+                    .map(|(v, ty)| parse_value(v, ty.clone()))
+                    .collect::<Result<_, _>>()
+                    .map(Value::Tuple)
             }
         }
         (ConcreteType::Struct(struct_type), serde_json::Value::Object(mut o)) => {
@@ -331,9 +380,7 @@ pub fn parse_strict_json<T: Field>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_core::typed_absy::types::{
-        ConcreteStructMember, ConcreteStructType, ConcreteType,
-    };
+    use zokrates_ast::typed::types::{ConcreteStructMember, ConcreteStructType, ConcreteType};
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -413,11 +460,8 @@ mod tests {
     fn array() {
         let s = "[[true, false]]";
         assert_eq!(
-            parse_strict::<Bn128Field>(
-                s,
-                vec![ConcreteType::array((ConcreteType::Boolean, 2usize))]
-            )
-            .unwrap(),
+            parse_strict::<Bn128Field>(s, vec![ConcreteType::array((ConcreteType::Boolean, 2u32))])
+                .unwrap(),
             Values(vec![Value::Array(vec![
                 Value::Boolean(true),
                 Value::Boolean(false)
@@ -545,39 +589,39 @@ mod tests {
 
         #[test]
         fn fields() {
-            let v = Values(vec![Value::Field(1), Value::Field(2)]);
-            assert_eq!(v.encode(), vec![1, 2]);
+            let v = Values::<Bn128Field>(vec![Value::Field(1.into()), Value::Field(2.into())]);
+            assert_eq!(v.encode(), vec![1.into(), 2.into()]);
         }
 
         #[test]
         fn u8s() {
-            let v = Values::<usize>(vec![Value::U8(1), Value::U8(2)]);
-            assert_eq!(v.encode(), vec![1, 2]);
+            let v = Values::<Bn128Field>(vec![Value::U8(1), Value::U8(2)]);
+            assert_eq!(v.encode(), vec![1.into(), 2.into()]);
         }
 
         #[test]
         fn bools() {
-            let v: Values<usize> = Values(vec![Value::Boolean(true), Value::Boolean(false)]);
-            assert_eq!(v.encode(), vec![1, 0]);
+            let v: Values<Bn128Field> = Values(vec![Value::Boolean(true), Value::Boolean(false)]);
+            assert_eq!(v.encode(), vec![1.into(), 0.into()]);
         }
 
         #[test]
         fn array() {
-            let v: Values<usize> = Values(vec![Value::Array(vec![
+            let v: Values<Bn128Field> = Values(vec![Value::Array(vec![
                 Value::Boolean(true),
                 Value::Boolean(false),
             ])]);
-            assert_eq!(v.encode(), vec![1, 0]);
+            assert_eq!(v.encode(), vec![1.into(), 0.into()]);
         }
 
         #[test]
         fn struc() {
-            let v: Values<usize> = Values(vec![Value::Struct(
-                vec![("a".to_string(), Value::Field(42))]
+            let v: Values<Bn128Field> = Values(vec![Value::Struct(
+                vec![("a".to_string(), Value::Field(42.into()))]
                     .into_iter()
                     .collect(),
             )]);
-            assert_eq!(v.encode(), vec![42]);
+            assert_eq!(v.encode(), vec![42.into()]);
         }
     }
 }

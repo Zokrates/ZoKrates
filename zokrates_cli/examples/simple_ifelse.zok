@@ -1,7 +1,0 @@
-// simple ifelse example
-// x = 2 -> 2 + 1 + 2**3 = 11
-// x = 5 -> 5 + 5 + 5**3 = 135
-def main(field x) -> field:
-  field y = if x < 3 then 1 else 5 fi
-  field z = if y < x then x**3 else y**3 fi
-  return x + y + z

@@ -1,16 +1,25 @@
 {
-    "entry_point": "./tests/tests/constants/mixed.zok",
-    "max_constraint_count": 6,
-    "tests": [
-        {
-            "input": {
-                "values": []
+  "entry_point": "./tests/tests/constants/mixed.zok",
+  "max_constraint_count": 6,
+  "tests": [
+    {
+      "input": {
+        "values": []
+      },
+      "output": {
+        "Ok": {
+          "value": [
+            {
+              "a": ["1", "2"],
+              "b": true
             },
-            "output": {
-                "Ok": {
-                    "values": ["1", "2", "1", "3", "4", "0"]
-                }
+            {
+              "a": ["3", "4"],
+              "b": false
             }
+          ]
         }
-    ]
+      }
+    }
+  ]
 }

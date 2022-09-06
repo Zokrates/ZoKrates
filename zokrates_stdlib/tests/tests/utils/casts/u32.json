@@ -1,0 +1,17 @@
+{
+  "entry_point": "./tests/tests/utils/casts/u32.zok",
+  "max_constraint_count": 0,
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": []
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 struct A<N> {}
 
-def main():
-    return
+def main() {
+    return;
+}

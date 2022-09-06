@@ -1,0 +1,16 @@
+{
+  "entry_point": "./tests/tests/constants/tuple.zok",
+  "max_constraint_count": 3,
+  "tests": [
+    {
+      "input": {
+        "values": []
+      },
+      "output": {
+        "Ok": {
+          "value": [["1", "1"], true]
+        }
+      }
+    }
+  ]
+}

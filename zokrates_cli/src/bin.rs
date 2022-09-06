@@ -9,8 +9,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod constants;
-mod helpers;
+mod cli_constants;
 mod ops;
 
 use clap::{App, AppSettings, Arg};
@@ -43,35 +42,41 @@ fn cli() -> Result<(), String> {
         )
         .subcommands(vec![
             compile::subcommand(),
+            inspect::subcommand(),
             check::subcommand(),
             compute_witness::subcommand(),
             #[cfg(feature = "ark")]
             universal_setup::subcommand(),
-            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+            #[cfg(feature = "bellman")]
+            mpc::subcommand(),
+            #[cfg(any(feature = "bellman", feature = "ark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
-            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+            #[cfg(any(feature = "bellman", feature = "ark"))]
             generate_proof::subcommand(),
             generate_smtlib2::subcommand(),
             print_proof::subcommand(),
-            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+            #[cfg(any(feature = "bellman", feature = "ark"))]
             verify::subcommand()])
         .get_matches();
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => compile::exec(sub_matches),
+        ("inspect", Some(sub_matches)) => inspect::exec(sub_matches),
         ("check", Some(sub_matches)) => check::exec(sub_matches),
         ("compute-witness", Some(sub_matches)) => compute_witness::exec(sub_matches),
         #[cfg(feature = "ark")]
         ("universal-setup", Some(sub_matches)) => universal_setup::exec(sub_matches),
-        #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+        #[cfg(feature = "bellman")]
+        ("mpc", Some(sub_matches)) => mpc::exec(sub_matches),
+        #[cfg(any(feature = "bellman", feature = "ark"))]
         ("setup", Some(sub_matches)) => setup::exec(sub_matches),
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),
-        #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+        #[cfg(any(feature = "bellman", feature = "ark"))]
         ("generate-proof", Some(sub_matches)) => generate_proof::exec(sub_matches),
         ("generate-smtlib2", Some(sub_matches)) => generate_smtlib2::exec(sub_matches),
         ("print-proof", Some(sub_matches)) => print_proof::exec(sub_matches),
-        #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+        #[cfg(any(feature = "bellman", feature = "ark"))]
         ("verify", Some(sub_matches)) => verify::exec(sub_matches),
         _ => unreachable!(),
     }
@@ -115,8 +120,8 @@ mod tests {
     use std::fs::File;
     use std::io::{BufReader, Read};
     use std::string::String;
+    use typed_arena::Arena;
     use zokrates_core::compile::{compile, CompilationArtifacts, CompileConfig};
-    use zokrates_core::ir;
     use zokrates_field::Bn128Field;
     use zokrates_fs_resolver::FileSystemResolver;
 
@@ -126,13 +131,24 @@ mod tests {
 
         builder
             .spawn(|| {
-                for p in glob("./examples/**/!(*.sh)").expect("Failed to read glob pattern") {
+                for p in glob("./examples/**/*").expect("Failed to read glob pattern") {
                     let path = match p {
                         Ok(x) => x,
                         Err(why) => panic!("Error: {:?}", why),
                     };
 
                     if !path.is_file() {
+                        continue;
+                    }
+
+                    let extension = path.extension();
+
+                    // we can ignore scripts (`*.sh˙) and files with no extension
+                    if ["", "sh"].contains(
+                        &extension
+                            .map(|e| e.to_str().unwrap_or_default())
+                            .unwrap_or_default(),
+                    ) {
                         continue;
                     }
 
@@ -150,11 +166,15 @@ mod tests {
 
                     let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
                     let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
+
+                    let arena = Arena::new();
+
                     let res = compile::<Bn128Field, _>(
                         source,
                         path,
                         Some(&resolver),
-                        &CompileConfig::default(),
+                        CompileConfig::default(),
+                        &arena,
                     );
                     assert_eq!(res.is_err(), should_error);
                 }
@@ -185,13 +205,21 @@ mod tests {
             let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
             let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
-            let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
+            let arena = Arena::new();
 
-            let interpreter = ir::Interpreter::default();
+            let artifacts: CompilationArtifacts<Bn128Field, _> = compile(
+                source,
+                path,
+                Some(&resolver),
+                CompileConfig::default(),
+                &arena,
+            )
+            .unwrap();
+
+            let interpreter = zokrates_interpreter::Interpreter::default();
 
             let _ = interpreter
-                .execute(&artifacts.prog(), &[Bn128Field::from(0)])
+                .execute(artifacts.prog(), &[Bn128Field::from(0)])
                 .unwrap();
         }
     }
@@ -217,12 +245,20 @@ mod tests {
             let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
             let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
-            let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
+            let arena = Arena::new();
 
-            let interpreter = ir::Interpreter::default();
+            let artifacts: CompilationArtifacts<Bn128Field, _> = compile(
+                source,
+                path,
+                Some(&resolver),
+                CompileConfig::default(),
+                &arena,
+            )
+            .unwrap();
 
-            let res = interpreter.execute(&artifacts.prog(), &[Bn128Field::from(0)]);
+            let interpreter = zokrates_interpreter::Interpreter::default();
+
+            let res = interpreter.execute(artifacts.prog(), &[Bn128Field::from(0)]);
 
             assert!(res.is_err());
         }

@@ -1,14 +1,15 @@
 struct Bar<N> {
-	field[N] c
-	bool d
+    field[N] c;
+    bool d;
 }
 
 struct Foo<P> {
-	Bar<P> a
-	bool b
+    Bar<P> a;
+    bool b;
 }
 
-def main() -> (Foo<2>):
-	Foo<2>[2] f = [Foo { a: Bar { c: [0, 0], d: false }, b: true}, Foo { a: Bar {c: [0, 0], d: false}, b: true}]
-	f[0].a.c = [42, 43]
-	return f[0]
+def main() -> Foo<2> {
+    Foo<2>[2] mut f = [Foo { a: Bar { c: [0, 0], d: false }, b: true}, Foo { a: Bar {c: [0, 0], d: false}, b: true }];
+    f[0].a.c = [42, 43];
+    return f[0];
+}

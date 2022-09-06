@@ -1,13 +1,14 @@
-import "./IVconstants" as IVconstants
-import "./shaRoundNoBoolCheck" as sha256
+import "./IVconstants" as IVconstants;
+import "./shaRoundNoBoolCheck" as sha256;
 
 // A function that takes 4 bool[256] arrays as inputs
 // and applies 2 rounds of sha256 compression.
 // It returns an array of 256 bool.
-def main(bool[256] a, bool[256] b, bool[256] c, bool[256] d) -> (bool[256]):
+def main(bool[256] a, bool[256] b, bool[256] c, bool[256] d) -> bool[256] {
 
-    bool[256] IV = IVconstants()
-    bool[256] digest1 = sha256(a, b, IV)
-    bool[256] digest2 = sha256(c, d, digest1)
+    bool[256] IV = IVconstants();
+    bool[256] digest1 = sha256(a, b, IV);
+    bool[256] digest2 = sha256(c, d, digest1);
 
-    return digest2
+    return digest2;
+}

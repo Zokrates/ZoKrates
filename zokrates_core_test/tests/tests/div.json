@@ -1,0 +1,65 @@
+{
+  "entry_point": "./tests/tests/div.zok",
+  "max_constraint_count": 3,
+  "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0", "0"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "4",
+            "right": "2",
+            "error": "Inverse"
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["1", "0"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "4",
+            "right": "2",
+            "error": "Inverse"
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0", "1"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2", "2"]
+      },
+      "output": {
+        "Ok": {
+          "value": "1"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["4", "2"]
+      },
+      "output": {
+        "Ok": {
+          "value": "2"
+        }
+      }
+    }
+  ]
+}

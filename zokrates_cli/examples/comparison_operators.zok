@@ -1,8 +1,9 @@
 // comparison operator example
-def main(field x) -> field:
-  field y = if x >= 3 then 1 else 5 fi
-  field z = if y <= x then x**3 else y**3 fi
-  y = if x < 3 then 2 else 6 fi
-  z = if y > z then 1 else 2 fi
-  x = if x == x then x else y fi
-  return x + y + z
+def main(field mut x) -> field {
+    field mut y = x >= 3 ? 1 : 5;
+    field mut z = y <= x ? x**3 : y**3;
+    y = x < 3 ? 2 : 6;
+    z = y > z ? 1 : 2;
+    x = x == x ? x : y;
+    return x + y + z;
+}

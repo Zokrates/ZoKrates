@@ -1,0 +1,64 @@
+from "utils/casts.zok" import cast;
+
+// u16    -> bool[16]
+// u16[N] -> bool[P]
+// u16    -> field
+// u16[N] -> field[N]
+// u16    -> u8[2]
+// u16[N] -> u8[P]
+// u16    -> u32
+// u16[2] -> u32
+// u16[N] -> u32[P]
+// u16    -> u64
+// u16[4] -> u64
+// u16[N] -> u64[P]
+
+def main() {
+    // u16 -> bool[16]
+    bool[16] v0 = cast(0xFFFF);
+    assert(v0 == [true; 16]);
+
+    // u16[N] -> bool[P]
+    bool[32] v1 = cast([0xFFFF, 0x00FF]);
+    assert(v1 == [...[true; 16], ...[false; 8], ...[true; 8]]);
+
+    // u16 -> field
+    field v2 = cast(0x1234);
+    assert(v2 == 4660);
+
+    field[2] v3 = cast([0x1234, 0x5678]);
+    assert(v3 == [4660, 22136]);
+
+    // u16 -> u8[2]
+    u8[2] v4 = cast(0x1234);
+    assert(v4 == [0x12, 0x34]);
+
+    // u16[N] -> u8[P]
+    u8[4] v5 = cast([0x1234, 0x5678]);
+    assert(v5 == [0x12, 0x34, 0x56, 0x78]);
+
+    // u16 -> u32
+    u32 v6 = cast(0xFFFF);
+    assert(v6 == 0x0000FFFF);
+
+    // u16[2] -> u32
+    u32 v7 = cast([0x1234, 0x5678]);
+    assert(v7 == 0x12345678);
+
+    // u16[4] -> u32[2]
+    u32[2] v8 = cast([0x1234, 0x5678, 0x8765, 0x4321]);
+    assert(v8 == [0x12345678, 0x87654321]);
+
+    // u16 -> u64
+    u64 v9 = cast(0xFFFF);
+    assert(v9 == 0x000000000000FFFF);
+
+    // u16[4] -> u64
+    u64 v10 = cast([0x1234, 0x5678, 0x8765, 0x4321]);
+    assert(v10 == 0x1234567887654321);
+
+    // u16[8] -> u64[2]
+    u64[2] v11 = cast([0xFFFF; 8]);
+    assert(v11 == [0xFFFFFFFFFFFFFFFF; 2]);
+    return;
+}

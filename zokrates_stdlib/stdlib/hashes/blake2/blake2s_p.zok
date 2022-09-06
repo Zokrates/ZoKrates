@@ -1,13 +1,13 @@
 // https://tools.ietf.org/html/rfc7693
 
-import "utils/casts/u32_to_bits"
-import "utils/casts/u32_from_bits"
+import "utils/casts/u32_to_bits";
+import "utils/casts/u32_from_bits";
 
 // Initialization Vector, section 2.6.
 const u32[8] IV = [
     0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
     0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19
-]
+];
 
 // Message Schedule SIGMA, section 2.7.
 const u32[10][16] SIGMA = [
@@ -21,58 +21,62 @@ const u32[10][16] SIGMA = [
     [13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10],
     [6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5],
     [10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0]
-]
+];
 
 // right rotation
-def rotr32<N>(u32 x) -> u32:
-    return (x >> N) | (x << (32 - N))
+def rotr32<N>(u32 x) -> u32 {
+    return (x >> N) | (x << (32 - N));
+}
 
 // change endianness
-def swap_u32(u32 val) -> u32:
+def swap_u32(u32 val) -> u32 {
     return (val << 24) | \
           ((val <<  8) & 0x00ff0000) | \
           ((val >>  8) & 0x0000ff00) | \
-          ((val >> 24) & 0x000000ff)
+          ((val >> 24) & 0x000000ff);
+}
 
 
-def mixing_g(u32[16] v, u32 a, u32 b, u32 c, u32 d, u32 x, u32 y) -> (u32[16]):
-    v[a] = (v[a] + v[b] + x)
-    v[d] = rotr32::<16>(v[d] ^ v[a])
-    v[c] = (v[c] + v[d])
-    v[b] = rotr32::<12>(v[b] ^ v[c])
-    v[a] = (v[a] + v[b] + y)
-    v[d] = rotr32::<8>(v[d] ^ v[a])
-    v[c] = (v[c] + v[d])
-    v[b] = rotr32::<7>(v[b] ^ v[c])
-    return v
+def mixing_g(u32[16] mut v, u32 a, u32 b, u32 c, u32 d, u32 x, u32 y) -> u32[16] {
+    v[a] = (v[a] + v[b] + x);
+    v[d] = rotr32::<16>(v[d] ^ v[a]);
+    v[c] = (v[c] + v[d]);
+    v[b] = rotr32::<12>(v[b] ^ v[c]);
+    v[a] = (v[a] + v[b] + y);
+    v[d] = rotr32::<8>(v[d] ^ v[a]);
+    v[c] = (v[c] + v[d]);
+    v[b] = rotr32::<7>(v[b] ^ v[c]);
+    return v;
+}
 
-def blake2s_compression(u32[8] h, u32[16] m, u32[2] t, bool last) -> (u32[8]):
-    u32[16] v = [...h, ...IV]
+def blake2s_compression(u32[8] mut h, u32[16] m, u32[2] t, bool last) -> u32[8] {
+    u32[16] mut v = [...h, ...IV];
 
-    v[12] = v[12] ^ t[0]
-    v[13] = v[13] ^ t[1]
-    v[14] = if last then v[14] ^ 0xFFFFFFFF else v[14] fi
+    v[12] = v[12] ^ t[0];
+    v[13] = v[13] ^ t[1];
+    v[14] = last ? v[14] ^ 0xFFFFFFFF : v[14];
 
-    for u32 i in 0..10 do
-        u32[16] s = SIGMA[i]
-        v = mixing_g(v, 0, 4,  8, 12, m[s[0]],  m[s[1]])
-        v = mixing_g(v, 1, 5,  9, 13, m[s[2]],  m[s[3]])
-        v = mixing_g(v, 2, 6, 10, 14, m[s[4]],  m[s[5]])
-        v = mixing_g(v, 3, 7, 11, 15, m[s[6]],  m[s[7]])
-        v = mixing_g(v, 0, 5, 10, 15, m[s[8]],  m[s[9]])
-        v = mixing_g(v, 1, 6, 11, 12, m[s[10]], m[s[11]])
-        v = mixing_g(v, 2, 7,  8, 13, m[s[12]], m[s[13]])
-        v = mixing_g(v, 3, 4,  9, 14, m[s[14]], m[s[15]])
-    endfor
+    for u32 i in 0..10 {
+        u32[16] s = SIGMA[i];
+        v = mixing_g(v, 0, 4,  8, 12, m[s[0]],  m[s[1]]);
+        v = mixing_g(v, 1, 5,  9, 13, m[s[2]],  m[s[3]]);
+        v = mixing_g(v, 2, 6, 10, 14, m[s[4]],  m[s[5]]);
+        v = mixing_g(v, 3, 7, 11, 15, m[s[6]],  m[s[7]]);
+        v = mixing_g(v, 0, 5, 10, 15, m[s[8]],  m[s[9]]);
+        v = mixing_g(v, 1, 6, 11, 12, m[s[10]], m[s[11]]);
+        v = mixing_g(v, 2, 7,  8, 13, m[s[12]], m[s[13]]);
+        v = mixing_g(v, 3, 4,  9, 14, m[s[14]], m[s[15]]);
+    }
 
-    for u32 i in 0..8 do
-        h[i] = h[i] ^ v[i] ^ v[i + 8]
-    endfor
+    for u32 i in 0..8 {
+        h[i] = h[i] ^ v[i] ^ v[i + 8];
+    }
 
-    return h
+    return h;
+}
 
-def main<K>(u32[K][16] input, u32[2] p) -> (u32[8]):
-    u32[8] h = [
+def main<K>(u32[K][16] mut input, u32[2] p) -> u32[8] {
+    u32[8] mut h = [
         IV[0] ^ 0x01010000 ^ 0x00000020,
         IV[1],
         IV[2],
@@ -81,32 +85,33 @@ def main<K>(u32[K][16] input, u32[2] p) -> (u32[8]):
         IV[5],
         IV[6] ^ swap_u32(p[0]),
         IV[7] ^ swap_u32(p[1])
-    ]
+    ];
 
-    u32 t0 = 0
-    u32 t1 = 0
+    u32 mut t0 = 0;
+    u32 mut t1 = 0;
 
     // change endianness of inputs from big endian to little endian
-    for u32 i in 0..K do
-        for u32 j in 0..16 do
-            input[i][j] = swap_u32(input[i][j])
-        endfor
-    endfor
+    for u32 i in 0..K {
+        for u32 j in 0..16 {
+            input[i][j] = swap_u32(input[i][j]);
+        }
+    }
 
-    for u32 i in 0..K-1 do
-        t0 = (i + 1) * 64
-        t1 = if t0 == 0 then t1 + 1 else t1 fi
-        h = blake2s_compression(h, input[i], [t0, t1], false)
-    endfor
+    for u32 i in 0..K-1 {
+        t0 = (i + 1) * 64;
+        t1 = t0 == 0 ? t1 + 1 : t1;
+        h = blake2s_compression(h, input[i], [t0, t1], false);
+    }
 
-    t0 = t0 + 64
-    t1 = if t0 == 0 then t1 + 1 else t1 fi
+    t0 = t0 + 64;
+    t1 = t0 == 0 ? t1 + 1 : t1;
 
-    h = blake2s_compression(h, input[K - 1], [t0, t1], true)
+    h = blake2s_compression(h, input[K - 1], [t0, t1], true);
 
     // change endianness of output from little endian to big endian
-    for u32 i in 0..8 do
-        h[i] = swap_u32(h[i])
-    endfor
+    for u32 i in 0..8 {
+        h[i] = swap_u32(h[i]);
+    }
 
-    return h
+    return h;
+}

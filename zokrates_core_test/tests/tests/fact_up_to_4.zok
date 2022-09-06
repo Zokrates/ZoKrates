@@ -1,10 +1,11 @@
-import "utils/casts/u32_to_field" as to_field
+import "utils/casts/u32_to_field" as to_field;
 
-def main(field x) -> field:
-    field f = 1
-    field counter = 0
-    for u32 i in 1..5 do
-        f = if counter == x then f else f * to_field(i) fi
-        counter = if counter == x then counter else counter + 1 fi
-    endfor
-    return f
+def main(field x) -> field {
+    field mut f = 1;
+    field mut counter = 0;
+    for u32 i in 1..5 {
+        f = counter == x ? f : f * to_field(i);
+        counter = counter == x ? counter : counter + 1;
+    }
+    return f;
+}

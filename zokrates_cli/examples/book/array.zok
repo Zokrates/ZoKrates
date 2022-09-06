@@ -1,10 +1,11 @@
-def main() -> field:
-    field[3] a = [1, 2, 3] // initialize a field array with field values
-    a[2] = 4               // set a member to a value
-    field[4] b = [42; 4]   // initialize an array of 4 values all equal to 42
-    field[4] c = [...a, 4] // initialize an array copying values from `a`, followed by 4
-    field[2] d = a[1..3]   // initialize an array copying a slice from `a`
-    bool[3] e = [true, true || false, true] // initialize a boolean array
-    u32 SIZE = 3
-    field[SIZE] f = [1, 2, 3] // initialize a field array with a size that's a compile-time constant
-    return a[0] + b[1] + c[2]
+def main() -> field {
+    field[3] mut a = [1, 2, 3]; // initialize a field array with field values
+    a[2] = 4;               // set a member to a value
+    field[4] b = [42; 4];   // initialize an array of 4 values all equal to 42
+    field[4] c = [...a, 4]; // initialize an array copying values from `a`, followed by 4
+    field[2] d = a[1..3];   // initialize an array copying a slice from `a`
+    bool[3] e = [true, true || false, true]; // initialize a boolean array
+    u32 SIZE = 3;
+    field[SIZE] f = [1, 2, 3]; // initialize a field array with a size that's a compile-time constant
+    return a[0] + b[1] + c[2];
+}

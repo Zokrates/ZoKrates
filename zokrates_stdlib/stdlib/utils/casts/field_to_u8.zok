@@ -1,5 +1,8 @@
-from "EMBED" import unpack, u8_from_bits
+from "field" import FIELD_SIZE_IN_BITS;
+import "utils/pack/bool/unpack";
+import "utils/casts/u8_from_bits";
 
-def main(field i) -> u8:
-    bool[8] bits = unpack(i)
-    return u8_from_bits(bits)
+def main(field input) -> u8 {
+    bool[FIELD_SIZE_IN_BITS] bits = unpack(input);
+    return u8_from_bits(bits[FIELD_SIZE_IN_BITS-8..]);
+}

@@ -1,20 +1,21 @@
-import "utils/pack/bool/nonStrictUnpack256" as unpack256
+import "utils/pack/bool/nonStrictUnpack256" as unpack256;
 
 // Compress JubJub Curve Point to 256bit array using big endianness bit order
 // Python reference code from pycrypto:
 // def compress(self):
-// 	x = self.x.n
-// 	y = self.y.n
-// 	return int.to_bytes(y | ((x & 1) << 255), 32, "big")
+//     x = self.x.n
+//     y = self.y.n
+//     return int.to_bytes(y | ((x & 1) << 255), 32, "big")
 
-def main(field[2] pt)  -> bool[256]:
-	field x = pt[0]
-	field y = pt[1]
+def main(field[2] pt)  -> bool[256] {
+    field x = pt[0];
+    field y = pt[1];
 
-	bool[256] xBits = unpack256(x)
-	bool[256] yBits = unpack256(y)
+    bool[256] xBits = unpack256(x);
+    bool[256] mut yBits = unpack256(y);
 
-	bool sign = xBits[255]
-	yBits[0] = sign
+    bool sign = xBits[255];
+    yBits[0] = sign;
 
-	return yBits
+    return yBits;
+}

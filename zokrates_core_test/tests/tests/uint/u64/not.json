@@ -8,7 +8,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["0xfffffffffffffffe"]
+          "value": "0xfffffffffffffffe"
         }
       }
     },
@@ -18,7 +18,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["0x0000000000000000"]
+          "value": "0x0000000000000000"
         }
       }
     }

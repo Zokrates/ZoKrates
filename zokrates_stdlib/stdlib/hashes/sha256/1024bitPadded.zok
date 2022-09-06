@@ -1,8 +1,8 @@
-import "./1536bit" as sha256
+import "./1536bit" as sha256;
 
 // A function that takes four u32[8] array as input, concatenates them, pads the result,
 // and returns the sha256 output as a u32[8]
-def main(u32[8] a, u32[8] b, u32[8] c, u32[8] d) -> u32[8]:
+def main(u32[8] a, u32[8] b, u32[8] c, u32[8] d) -> u32[8] {
 
     // Hash is computed on the full 1024bit block size
     // padding does not fit in the first two blocks
@@ -16,7 +16,7 @@ def main(u32[8] a, u32[8] b, u32[8] c, u32[8] d) -> u32[8]:
         0x00000000,
         0x00000000,
         0x00000000
-    ]
+    ];
 
     u32[8] dummyblock2 = [ \
         0x00000000,
@@ -27,6 +27,7 @@ def main(u32[8] a, u32[8] b, u32[8] c, u32[8] d) -> u32[8]:
         0x00000000,
         0x00000000,
         0x00000400
-    ]
+    ];
 
-    return sha256(a, b, c, d, dummyblock1, dummyblock2)
+    return sha256(a, b, c, d, dummyblock1, dummyblock2);
+}

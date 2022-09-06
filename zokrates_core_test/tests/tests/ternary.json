@@ -1,0 +1,36 @@
+{
+  "entry_point": "./tests/tests/ternary.zok",
+  "max_constraint_count": 6,
+  "tests": [
+    {
+      "input": {
+        "values": [true, false]
+      },
+      "output": {
+        "Ok": {
+          "value": "1"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [false, true]
+      },
+      "output": {
+        "Ok": {
+          "value": "2"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [false, false]
+      },
+      "output": {
+        "Ok": {
+          "value": "3"
+        }
+      }
+    }
+  ]
+}

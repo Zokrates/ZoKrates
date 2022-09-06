@@ -1,8 +1,9 @@
-def main() -> u32:
-    u32 res = 0
-    for u32 i in 0..4 do
-    	for u32 j in i..5 do
-        	res = res + i
-        endfor
-    endfor
-    return res
+def main() -> u32 {
+    u32 mut res = 0;
+    for u32 i in 0..4 {
+        for u32 j in i..5 {
+            res = res + i;
+        }
+    }
+    return res;
+}
