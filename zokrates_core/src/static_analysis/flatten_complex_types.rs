@@ -271,11 +271,10 @@ impl<'ast, T: Field> Flattener<T> {
 
     fn fold_identifier_expression<E: Expr<'ast, T>>(
         &mut self,
-        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
         ty: &E::ConcreteTy,
         e: typed::IdentifierExpression<'ast, E>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
-        fold_identifier_expression::<T, E>(self, statements_buffer, ty, e)
+        fold_identifier_expression::<T, E>(self, ty, e)
     }
 
     fn fold_array_expression(
@@ -482,11 +481,9 @@ fn fold_array_expression_inner<'ast, T: Field>(
                 .for_each(|s| f.fold_statement(statements_buffer, s));
             f.fold_array_expression(statements_buffer, *block.value)
         }
-        typed::ArrayExpressionInner::Identifier(id) => f.fold_identifier_expression(
-            statements_buffer,
-            &ConcreteArrayType::new(ty.clone(), size),
-            id,
-        ),
+        typed::ArrayExpressionInner::Identifier(id) => {
+            f.fold_identifier_expression(&ConcreteArrayType::new(ty.clone(), size), id)
+        }
         typed::ArrayExpressionInner::Value(exprs) => {
             let exprs: Vec<_> = exprs
                 .into_iter()
@@ -553,9 +550,7 @@ fn fold_struct_expression_inner<'ast, T: Field>(
                 .for_each(|s| f.fold_statement(statements_buffer, s));
             f.fold_struct_expression(statements_buffer, *block.value)
         }
-        typed::StructExpressionInner::Identifier(id) => {
-            f.fold_identifier_expression(statements_buffer, ty, id)
-        }
+        typed::StructExpressionInner::Identifier(id) => f.fold_identifier_expression(ty, id),
         typed::StructExpressionInner::Value(exprs) => exprs
             .into_iter()
             .flat_map(|e| f.fold_expression(statements_buffer, e))
@@ -588,9 +583,7 @@ fn fold_tuple_expression_inner<'ast, T: Field>(
                 .for_each(|s| f.fold_statement(statements_buffer, s));
             f.fold_tuple_expression(statements_buffer, *block.value)
         }
-        typed::TupleExpressionInner::Identifier(id) => {
-            f.fold_identifier_expression(statements_buffer, ty, id)
-        }
+        typed::TupleExpressionInner::Identifier(id) => f.fold_identifier_expression(ty, id),
         typed::TupleExpressionInner::Value(exprs) => exprs
             .into_iter()
             .flat_map(|e| f.fold_expression(statements_buffer, e))
@@ -802,7 +795,6 @@ fn fold_conditional_expression<'ast, T: Field, E: Flatten<'ast, T>>(
 
 fn fold_identifier_expression<'ast, T: Field, E: Expr<'ast, T>>(
     f: &mut Flattener<T>,
-    statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     ty: &E::ConcreteTy,
     e: typed::IdentifierExpression<'ast, E>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
@@ -820,7 +812,7 @@ fn fold_field_expression<'ast, T: Field>(
     match e {
         typed::FieldElementExpression::Number(n) => zir::FieldElementExpression::Number(n),
         typed::FieldElementExpression::Identifier(id) => f
-            .fold_identifier_expression(statements_buffer, &typed::ConcreteType::FieldElement, id)
+            .fold_identifier_expression(&typed::ConcreteType::FieldElement, id)
             .pop()
             .unwrap()
             .try_into()
@@ -950,7 +942,7 @@ fn fold_boolean_expression<'ast, T: Field>(
         }
         typed::BooleanExpression::Value(v) => zir::BooleanExpression::Value(v),
         typed::BooleanExpression::Identifier(id) => f
-            .fold_identifier_expression(statements_buffer, &typed::ConcreteType::Boolean, id)
+            .fold_identifier_expression(&typed::ConcreteType::Boolean, id)
             .pop()
             .unwrap()
             .try_into()
@@ -1068,13 +1060,11 @@ fn fold_uint_expression_inner<'ast, T: Field>(
                 .into_inner()
         }
         typed::UExpressionInner::Value(v) => zir::UExpressionInner::Value(v),
-        typed::UExpressionInner::Identifier(id) => zir::UExpression::try_from(
-            f.fold_identifier_expression(statements_buffer, &bitwidth, id)
-                .pop()
-                .unwrap(),
-        )
-        .unwrap()
-        .into_inner(),
+        typed::UExpressionInner::Identifier(id) => {
+            zir::UExpression::try_from(f.fold_identifier_expression(&bitwidth, id).pop().unwrap())
+                .unwrap()
+                .into_inner()
+        }
         typed::UExpressionInner::Add(box left, box right) => {
             let left = f.fold_uint_expression(statements_buffer, left);
             let right = f.fold_uint_expression(statements_buffer, right);
