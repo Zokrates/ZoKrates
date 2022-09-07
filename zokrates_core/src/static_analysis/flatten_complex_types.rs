@@ -57,6 +57,56 @@ fn flatten_identifier_rec<'ast>(
     }
 }
 
+fn flatten_identifier_to_expression_rec<'ast, T: Field>(
+    id: zir::SourceIdentifier<'ast>,
+    ty: &typed::types::ConcreteType,
+) -> Vec<zir::ZirExpression<'ast, T>> {
+    match ty {
+        typed::ConcreteType::Int => unreachable!(),
+        typed::ConcreteType::FieldElement => {
+            vec![zir::FieldElementExpression::Identifier(zir::Identifier::Source(id)).into()]
+        }
+        typed::ConcreteType::Boolean => {
+            vec![zir::BooleanExpression::Identifier(zir::Identifier::Source(id)).into()]
+        }
+        typed::ConcreteType::Uint(bitwidth) => {
+            vec![
+                zir::UExpressionInner::Identifier(zir::Identifier::Source(id))
+                    .annotate(bitwidth.to_usize())
+                    .into(),
+            ]
+        }
+        typed::ConcreteType::Array(array_type) => (0..*array_type.size)
+            .flat_map(|i| {
+                flatten_identifier_to_expression_rec(
+                    zir::SourceIdentifier::Select(box id.clone(), i),
+                    &array_type.ty,
+                )
+            })
+            .collect(),
+        typed::types::ConcreteType::Struct(members) => members
+            .iter()
+            .flat_map(|struct_member| {
+                flatten_identifier_to_expression_rec(
+                    zir::SourceIdentifier::Member(box id.clone(), struct_member.id.clone()),
+                    &struct_member.ty,
+                )
+            })
+            .collect(),
+        typed::types::ConcreteType::Tuple(tuple_ty) => tuple_ty
+            .elements
+            .iter()
+            .enumerate()
+            .flat_map(|(i, ty)| {
+                flatten_identifier_to_expression_rec(
+                    zir::SourceIdentifier::Element(box id.clone(), i as u32),
+                    ty,
+                )
+            })
+            .collect(),
+    }
+}
+
 trait Flatten<'ast, T: Field> {
     fn flatten(
         self,
@@ -798,10 +848,7 @@ fn fold_identifier_expression<'ast, T: Field, E: Expr<'ast, T>>(
     ty: E::ConcreteTy,
     e: typed::IdentifierExpression<'ast, E>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
-    flatten_identifier_rec(f.fold_name(e.id), &ty.into_type())
-        .into_iter()
-        .map(|v| v.into())
-        .collect()
+    flatten_identifier_to_expression_rec(f.fold_name(e.id), &ty.into_type())
 }
 
 fn fold_field_expression<'ast, T: Field>(

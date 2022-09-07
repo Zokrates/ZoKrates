@@ -44,16 +44,6 @@ pub struct ZirFunction<'ast, T> {
     pub signature: Signature,
 }
 
-impl<'ast, T: Field> From<Variable<'ast>> for ZirExpression<'ast, T> {
-    fn from(v: Variable<'ast>) -> Self {
-        match v._type {
-            Type::FieldElement => FieldElementExpression::Identifier(v.id).into(),
-            Type::Boolean => BooleanExpression::Identifier(v.id).into(),
-            Type::Uint(bitwidth) => UExpressionInner::Identifier(v.id).annotate(bitwidth).into(),
-        }
-    }
-}
-
 impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(
