@@ -271,10 +271,10 @@ impl<'ast, T: Field> Flattener<T> {
 
     fn fold_identifier_expression<E: Expr<'ast, T>>(
         &mut self,
-        ty: &E::ConcreteTy,
+        ty: E::ConcreteTy,
         e: typed::IdentifierExpression<'ast, E>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
-        fold_identifier_expression::<T, E>(self, ty, e)
+        fold_identifier_expression(self, ty, e)
     }
 
     fn fold_array_expression(
@@ -375,7 +375,7 @@ impl<'ast, T: Field> Flattener<T> {
     fn fold_array_expression_inner(
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
-        ty: &typed::types::ConcreteType,
+        ty: typed::types::ConcreteType,
         size: u32,
         e: typed::ArrayExpressionInner<'ast, T>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
@@ -385,7 +385,7 @@ impl<'ast, T: Field> Flattener<T> {
     fn fold_struct_expression_inner(
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
-        ty: &typed::types::ConcreteStructType,
+        ty: typed::types::ConcreteStructType,
         e: typed::StructExpressionInner<'ast, T>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         fold_struct_expression_inner(self, statements_buffer, ty, e)
@@ -394,7 +394,7 @@ impl<'ast, T: Field> Flattener<T> {
     fn fold_tuple_expression_inner(
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
-        ty: &typed::types::ConcreteTupleType,
+        ty: typed::types::ConcreteTupleType,
         e: typed::TupleExpressionInner<'ast, T>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         fold_tuple_expression_inner(self, statements_buffer, ty, e)
@@ -469,7 +469,7 @@ fn fold_statement<'ast, T: Field>(
 fn fold_array_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
-    ty: &typed::types::ConcreteType,
+    ty: typed::types::ConcreteType,
     size: u32,
     array: typed::ArrayExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
@@ -482,7 +482,7 @@ fn fold_array_expression_inner<'ast, T: Field>(
             f.fold_array_expression(statements_buffer, *block.value)
         }
         typed::ArrayExpressionInner::Identifier(id) => {
-            f.fold_identifier_expression(&ConcreteArrayType::new(ty.clone(), size), id)
+            f.fold_identifier_expression(ConcreteArrayType::new(ty, size), id)
         }
         typed::ArrayExpressionInner::Value(exprs) => {
             let exprs: Vec<_> = exprs
@@ -539,7 +539,7 @@ fn fold_array_expression_inner<'ast, T: Field>(
 fn fold_struct_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
-    ty: &typed::types::ConcreteStructType,
+    ty: typed::types::ConcreteStructType,
     struc: typed::StructExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
     match struc {
@@ -572,7 +572,7 @@ fn fold_struct_expression_inner<'ast, T: Field>(
 fn fold_tuple_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
-    ty: &typed::types::ConcreteTupleType,
+    ty: typed::types::ConcreteTupleType,
     tuple: typed::TupleExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
     match tuple {
@@ -795,10 +795,10 @@ fn fold_conditional_expression<'ast, T: Field, E: Flatten<'ast, T>>(
 
 fn fold_identifier_expression<'ast, T: Field, E: Expr<'ast, T>>(
     f: &mut Flattener<T>,
-    ty: &E::ConcreteTy,
+    ty: E::ConcreteTy,
     e: typed::IdentifierExpression<'ast, E>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
-    flatten_identifier_rec(f.fold_name(e.id), &ty.clone().into_type())
+    flatten_identifier_rec(f.fold_name(e.id), &ty.into_type())
         .into_iter()
         .map(|v| v.into())
         .collect()
@@ -812,7 +812,7 @@ fn fold_field_expression<'ast, T: Field>(
     match e {
         typed::FieldElementExpression::Number(n) => zir::FieldElementExpression::Number(n),
         typed::FieldElementExpression::Identifier(id) => f
-            .fold_identifier_expression(&typed::ConcreteType::FieldElement, id)
+            .fold_identifier_expression(typed::ConcreteType::FieldElement, id)
             .pop()
             .unwrap()
             .try_into()
@@ -942,7 +942,7 @@ fn fold_boolean_expression<'ast, T: Field>(
         }
         typed::BooleanExpression::Value(v) => zir::BooleanExpression::Value(v),
         typed::BooleanExpression::Identifier(id) => f
-            .fold_identifier_expression(&typed::ConcreteType::Boolean, id)
+            .fold_identifier_expression(typed::ConcreteType::Boolean, id)
             .pop()
             .unwrap()
             .try_into()
@@ -1061,7 +1061,7 @@ fn fold_uint_expression_inner<'ast, T: Field>(
         }
         typed::UExpressionInner::Value(v) => zir::UExpressionInner::Value(v),
         typed::UExpressionInner::Identifier(id) => {
-            zir::UExpression::try_from(f.fold_identifier_expression(&bitwidth, id).pop().unwrap())
+            zir::UExpression::try_from(f.fold_identifier_expression(bitwidth, id).pop().unwrap())
                 .unwrap()
                 .into_inner()
         }
@@ -1225,7 +1225,7 @@ fn fold_array_expression<'ast, T: Field>(
     let size: u32 = e.size().try_into().unwrap();
     f.fold_array_expression_inner(
         statements_buffer,
-        &typed::types::ConcreteType::try_from(e.inner_type().clone()).unwrap(),
+        typed::types::ConcreteType::try_from(e.inner_type().clone()).unwrap(),
         size,
         e.into_inner(),
     )
@@ -1238,7 +1238,7 @@ fn fold_struct_expression<'ast, T: Field>(
 ) -> Vec<zir::ZirExpression<'ast, T>> {
     f.fold_struct_expression_inner(
         statements_buffer,
-        &typed::types::ConcreteStructType::try_from(e.ty().clone()).unwrap(),
+        typed::types::ConcreteStructType::try_from(e.ty().clone()).unwrap(),
         e.into_inner(),
     )
 }
@@ -1250,7 +1250,7 @@ fn fold_tuple_expression<'ast, T: Field>(
 ) -> Vec<zir::ZirExpression<'ast, T>> {
     f.fold_tuple_expression_inner(
         statements_buffer,
-        &typed::types::ConcreteTupleType::try_from(e.ty().clone()).unwrap(),
+        typed::types::ConcreteTupleType::try_from(e.ty().clone()).unwrap(),
         e.into_inner(),
     )
 }
