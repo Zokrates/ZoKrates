@@ -745,7 +745,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
             }
             Symbol::Here(SymbolDefinition::Function(f)) => {
-                match self.check_function(f, module_id, state) {
+                match self.check_function(declaration.id, f, module_id, state) {
                     Ok(funct) => {
                         match symbol_unifier
                             .insert_function(declaration.id, funct.signature.clone())
@@ -763,40 +763,24 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             true => {}
                         };
 
-                        // parameters defined on a non-entrypoint function should not be set as private
-                        match (state.main_id != module_id || declaration.id != "main")
-                            && funct.arguments.iter().any(|a| a.private)
-                        {
-                            true => {
-                                errors.push(
-                                    ErrorInner {
-                                        pos: Some(pos),
-                                        message: "Private argument(s) are only allowed on the entrypoint function".into(),
-                                    }
-                                    .in_file(module_id),
-                                );
-                            }
-                            false => {
-                                self.functions.insert(
-                                    DeclarationFunctionKey::with_location(
-                                        module_id.to_path_buf(),
-                                        declaration.id,
-                                    )
-                                    .signature(funct.signature.clone()),
-                                );
-                                symbols.push(
-                                    TypedFunctionSymbolDeclaration::new(
-                                        DeclarationFunctionKey::with_location(
-                                            module_id.to_path_buf(),
-                                            declaration.id,
-                                        )
-                                        .signature(funct.signature.clone()),
-                                        TypedFunctionSymbol::Here(funct),
-                                    )
-                                    .into(),
-                                );
-                            }
-                        }
+                        self.functions.insert(
+                            DeclarationFunctionKey::with_location(
+                                module_id.to_path_buf(),
+                                declaration.id,
+                            )
+                            .signature(funct.signature.clone()),
+                        );
+                        symbols.push(
+                            TypedFunctionSymbolDeclaration::new(
+                                DeclarationFunctionKey::with_location(
+                                    module_id.to_path_buf(),
+                                    declaration.id,
+                                )
+                                .signature(funct.signature.clone()),
+                                TypedFunctionSymbol::Here(funct),
+                            )
+                            .into(),
+                        );
                     }
                     Err(e) => {
                         errors.extend(e.into_iter().map(|inner| inner.in_file(module_id)));
@@ -1112,6 +1096,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
     fn check_function(
         &mut self,
+        id: Identifier<'ast>,
         funct_node: FunctionNode<'ast>,
         module_id: &ModuleId,
         state: &State<'ast, T>,
@@ -1160,6 +1145,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     let arg = arg.value;
 
+                    // parameters defined on a non-entrypoint function should not have visibility modifiers
+                    if (state.main_id != module_id || id != "main") && arg.is_private.is_some() {
+                        errors.push(ErrorInner {
+                            pos: Some(pos),
+                            message:
+                                "Visibility modifiers on arguments are only allowed on the entrypoint function"
+                                    .into(),
+                        });
+                    }
+
                     let decl_v = DeclarationVariable::new(
                         self.id_in_this_scope(arg.id.value.id),
                         decl_ty.clone(),
@@ -1190,7 +1185,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     arguments_checked.push(DeclarationParameter {
                         id: decl_v,
-                        private: arg.is_private,
+                        private: arg.is_private.unwrap_or(false),
                     });
                 }
 
@@ -3768,12 +3763,13 @@ mod tests {
         .mock()
     }
 
-    /// Helper function to create: (private field a) { return; }
+    /// Helper function to create: (field a) { return; }
     fn function1() -> FunctionNode<'static> {
         let statements = vec![Statement::Return(None).mock()];
 
-        let arguments = vec![untyped::Parameter::public(
+        let arguments = vec![untyped::Parameter::new(
             untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+            None,
         )
         .mock()];
 
@@ -3981,7 +3977,7 @@ mod tests {
 
             let mut f0 = function0();
 
-            f0.value.arguments = vec![untyped::Parameter::public(
+            f0.value.arguments = vec![untyped::Parameter::new(
                 untyped::Variable::immutable(
                     "a",
                     UnresolvedType::array(
@@ -3991,6 +3987,7 @@ mod tests {
                     .mock(),
                 )
                 .mock(),
+                None,
             )
             .mock()];
             f0.value.signature = UnresolvedSignature::new()
@@ -4003,7 +4000,7 @@ mod tests {
 
             let mut f1 = function0();
 
-            f1.value.arguments = vec![untyped::Parameter::public(
+            f1.value.arguments = vec![untyped::Parameter::new(
                 untyped::Variable::immutable(
                     "a",
                     UnresolvedType::array(
@@ -4013,6 +4010,7 @@ mod tests {
                     .mock(),
                 )
                 .mock(),
+                None,
             )
             .mock()];
             f1.value.signature = UnresolvedSignature::new().inputs(vec![UnresolvedType::array(
@@ -4154,7 +4152,7 @@ mod tests {
             // def foo() {
             //   return;
             // }
-            // def foo(a) {
+            // def foo(field a) {
             //   return;
             // }
             //
@@ -4713,7 +4711,7 @@ mod tests {
 
         let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
-            checker.check_function(foo, &*MODULE_ID, &state),
+            checker.check_function("foo", foo, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"i\" is undefined".into()
@@ -4792,7 +4790,7 @@ mod tests {
 
         let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
-            checker.check_function(foo, &*MODULE_ID, &state),
+            checker.check_function("foo", foo, &*MODULE_ID, &state),
             Ok(foo_checked)
         );
     }
@@ -4839,7 +4837,7 @@ mod tests {
 
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), functions);
         assert_eq!(
-            checker.check_function(bar, &*MODULE_ID, &state),
+            checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message:
@@ -4878,7 +4876,7 @@ mod tests {
 
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
-            checker.check_function(bar, &*MODULE_ID, &state),
+            checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -5091,7 +5089,7 @@ mod tests {
 
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
-            checker.check_function(bar, &*MODULE_ID, &state),
+            checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -5124,7 +5122,7 @@ mod tests {
 
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
-            checker.check_function(bar, &*MODULE_ID, &state),
+            checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"a\" is undefined".into()
@@ -5162,7 +5160,7 @@ mod tests {
         let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
             checker
-                .check_function(f, &*MODULE_ID, &state)
+                .check_function("main", f, &*MODULE_ID, &state)
                 .unwrap_err()[0]
                 .message,
             "Duplicate name in function definition: `a` was previously declared as an argument, a generic parameter or a constant"
@@ -5171,7 +5169,7 @@ mod tests {
 
     #[test]
     fn duplicate_main_function() {
-        // def main(a) -> field {
+        // def main(field a) -> field {
         //   return 1;
         // }
         // def main() -> field {
@@ -5182,10 +5180,9 @@ mod tests {
         let main1_statements: Vec<StatementNode> =
             vec![Statement::Return(Some(Expression::IntConstant(1usize.into()).mock())).mock()];
 
-        let main1_arguments = vec![zokrates_ast::untyped::Parameter {
-            id: untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-            is_private: false,
-        }
+        let main1_arguments = vec![zokrates_ast::untyped::Parameter::public(
+            untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+        )
         .mock()];
 
         let main2_statements: Vec<StatementNode> =
@@ -6179,8 +6176,9 @@ mod tests {
 
             let mut foo_field = function0();
 
-            foo_field.value.arguments = vec![untyped::Parameter::public(
+            foo_field.value.arguments = vec![untyped::Parameter::new(
                 untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                None,
             )
             .mock()];
             foo_field.value.statements =
@@ -6191,8 +6189,9 @@ mod tests {
 
             let mut foo_u32 = function0();
 
-            foo_u32.value.arguments = vec![untyped::Parameter::public(
+            foo_u32.value.arguments = vec![untyped::Parameter::new(
                 untyped::Variable::immutable("a", UnresolvedType::Uint(32).mock()).mock(),
+                None,
             )
             .mock()];
             foo_u32.value.statements =
