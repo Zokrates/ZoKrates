@@ -1,5 +1,6 @@
 use crate::common::FormatString;
 use crate::typed::ConcreteType;
+use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
@@ -25,9 +26,14 @@ pub use crate::common::Variable;
 
 pub use self::witness::Witness;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Derivative)]
+#[derivative(Hash, PartialEq, Eq)]
 pub enum Statement<T> {
-    Constraint(QuadComb<T>, LinComb<T>, Option<RuntimeError>),
+    Constraint(
+        QuadComb<T>,
+        LinComb<T>,
+        #[derivative(Hash = "ignore")] Option<RuntimeError>,
+    ),
     Directive(Directive<T>),
     Log(FormatString, Vec<(ConcreteType, Vec<LinComb<T>>)>),
 }
@@ -74,7 +80,16 @@ impl<T: Field> fmt::Display for Directive<T> {
 impl<T: Field> fmt::Display for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Statement::Constraint(ref quad, ref lin, _) => write!(f, "{} == {}", quad, lin),
+            Statement::Constraint(ref quad, ref lin, ref error) => write!(
+                f,
+                "{} == {}{}",
+                quad,
+                lin,
+                error
+                    .as_ref()
+                    .map(|e| format!(" // {}", e))
+                    .unwrap_or_else(|| "".to_string())
+            ),
             Statement::Directive(ref s) => write!(f, "{}", s),
             Statement::Log(ref s, ref expressions) => write!(
                 f,
