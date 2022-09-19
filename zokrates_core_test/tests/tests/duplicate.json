@@ -1,0 +1,6 @@
+{
+  "entry_point": "./tests/tests/duplicate.zok",
+  "max_constraint_count": 1,
+  "curves": ["Bn128"],
+  "tests": []
+}
