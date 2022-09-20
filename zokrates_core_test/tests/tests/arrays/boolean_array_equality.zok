@@ -1,5 +1,5 @@
-// this should cost 1000 for input constraint, and then 1 per chunk of 253 booleans (for bn128), so here 5
-// total 1005
+// this should cost 1000 for input constraint, and then 1 per chunk of 253 booleans (for bn128), so here 4
+// total 1004
 
 const u32 SIZE = 1000;
 
