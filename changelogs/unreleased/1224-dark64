@@ -1,1 +1,1 @@
-Disallow the use of the `private` keyword on non-entrypoint functions
+Disallow the use of the `private` and `public` keywords on non-entrypoint functions
