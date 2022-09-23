@@ -117,6 +117,8 @@ mod tests {
     };
     use zokrates_field::DummyCurveField;
 
+    use crate::utils::macros::{a, a_id, conditional, f, select, u_32};
+
     use super::*;
 
     #[test]
@@ -126,76 +128,24 @@ mod tests {
         // [x[0] ? 2**1 : 0 + x[1] ? 2**0 : 0] == [y[0] ? 2**1 : 0 + y[1] ? 2**0 : 0]
         // a single field is sufficient, as the prime we're working with is 3 bits long, so we can pack up to 2 bits
 
-        let e: BooleanExpression<DummyCurveField> = BooleanExpression::ArrayEq(EqExpression::new(
-            ArrayExpressionInner::Identifier("x".into()).annotate(Type::Boolean, 2u32),
-            ArrayExpressionInner::Identifier("y".into()).annotate(Type::Boolean, 2u32),
-        ));
+        let x = x.clone();
+        let y = x.clone();
+
+        let e: BooleanExpression<DummyCurveField> =
+            BooleanExpression::ArrayEq(EqExpression::new(x.clone(), y.clone()));
 
         let expected = BooleanExpression::ArrayEq(EqExpression::new(
-            ArrayExpressionInner::Value(ArrayValue(vec![TypedExpression::from(
-                FieldElementExpression::Add(
-                    box FieldElementExpression::Conditional(ConditionalExpression::new(
-                        BooleanExpression::Select(SelectExpression::new(
-                            ArrayExpressionInner::Identifier("x".into())
-                                .annotate(Type::Boolean, 2u32),
-                            UExpressionInner::Value(0).annotate(UBitwidth::B32),
-                        )),
-                        FieldElementExpression::Pow(
-                            box FieldElementExpression::Number(DummyCurveField::from(2)),
-                            box UExpressionInner::Value(1).annotate(UBitwidth::B32),
-                        ),
-                        FieldElementExpression::Number(DummyCurveField::zero()),
-                        ConditionalKind::Ternary,
-                    )),
-                    box FieldElementExpression::Conditional(ConditionalExpression::new(
-                        BooleanExpression::Select(SelectExpression::new(
-                            ArrayExpressionInner::Identifier("x".into())
-                                .annotate(Type::Boolean, 2u32),
-                            UExpressionInner::Value(1).annotate(UBitwidth::B32),
-                        )),
-                        FieldElementExpression::Pow(
-                            box FieldElementExpression::Number(DummyCurveField::from(2)),
-                            box UExpressionInner::Value(0).annotate(UBitwidth::B32),
-                        ),
-                        FieldElementExpression::Number(DummyCurveField::zero()),
-                        ConditionalKind::Ternary,
-                    )),
-                ),
-            )
-            .into()]))
-            .annotate(Type::FieldElement, 1u32),
-            ArrayExpressionInner::Value(ArrayValue(vec![TypedExpression::from(
-                FieldElementExpression::Add(
-                    box FieldElementExpression::Conditional(ConditionalExpression::new(
-                        BooleanExpression::Select(SelectExpression::new(
-                            ArrayExpressionInner::Identifier("y".into())
-                                .annotate(Type::Boolean, 2u32),
-                            UExpressionInner::Value(0).annotate(UBitwidth::B32),
-                        )),
-                        FieldElementExpression::Pow(
-                            box FieldElementExpression::Number(DummyCurveField::from(2)),
-                            box UExpressionInner::Value(1).annotate(UBitwidth::B32),
-                        ),
-                        FieldElementExpression::Number(DummyCurveField::zero()),
-                        ConditionalKind::Ternary,
-                    )),
-                    box FieldElementExpression::Conditional(ConditionalExpression::new(
-                        BooleanExpression::Select(SelectExpression::new(
-                            ArrayExpressionInner::Identifier("y".into())
-                                .annotate(Type::Boolean, 2u32),
-                            UExpressionInner::Value(1).annotate(UBitwidth::B32),
-                        )),
-                        FieldElementExpression::Pow(
-                            box FieldElementExpression::Number(DummyCurveField::from(2)),
-                            box UExpressionInner::Value(0).annotate(UBitwidth::B32),
-                        ),
-                        FieldElementExpression::Number(DummyCurveField::zero()),
-                        ConditionalKind::Ternary,
-                    )),
-                ),
-            )
-            .into()]))
-            .annotate(Type::FieldElement, 1u32),
+            a([
+                conditional::<DummyCurveField, FieldElementExpression<_>, _>(
+                    select::<_, BooleanExpression<_>, _, _>(x.clone(), 0u32),
+                    f(2).pow(u_32(1)),
+                    f(0),
+                ) + conditional(select(x.clone(), 1u32), f(2).pow(u_32(0)), f(0)),
+            ]),
+            a([
+                conditional(select(y.clone(), 0u32), f(2).pow(u_32(1)), f(0))
+                    + conditional(select(y.clone(), 1u32), f(2).pow(u_32(0)), f(0)),
+            ]),
         ));
 
         let res = BooleanArrayComparator::default().fold_boolean_expression(e);
@@ -209,108 +159,26 @@ mod tests {
         // should become
         // [x[0] ? 2**2 : 0 + x[1] ? 2**1 : 0, x[2] ? 2**0 : 0] == [y[0] ? 2**2 : 0 + y[1] ? 2**1 : 0 y[2] ? 2**0 : 0]
 
-        let e: BooleanExpression<DummyCurveField> = BooleanExpression::ArrayEq(EqExpression::new(
-            ArrayExpressionInner::Identifier("x".into()).annotate(Type::Boolean, 3u32),
-            ArrayExpressionInner::Identifier("y".into()).annotate(Type::Boolean, 3u32),
-        ));
+        let x = a_id("x").annotate(Type::Boolean, 3u32);
+        let y = a_id("x").annotate(Type::Boolean, 3u32);
+
+        let e: BooleanExpression<DummyCurveField> =
+            BooleanExpression::ArrayEq(EqExpression::new(x.clone(), y.clone()));
 
         let expected = BooleanExpression::ArrayEq(EqExpression::new(
-            ArrayExpressionInner::Value(ArrayValue(vec![
-                TypedExpression::from(FieldElementExpression::Add(
-                    box FieldElementExpression::Conditional(ConditionalExpression::new(
-                        BooleanExpression::Select(SelectExpression::new(
-                            ArrayExpressionInner::Identifier("x".into())
-                                .annotate(Type::Boolean, 3u32),
-                            UExpressionInner::Value(0).annotate(UBitwidth::B32),
-                        )),
-                        FieldElementExpression::Pow(
-                            box FieldElementExpression::Number(DummyCurveField::from(2)),
-                            box UExpressionInner::Value(1).annotate(UBitwidth::B32),
-                        ),
-                        FieldElementExpression::Number(DummyCurveField::zero()),
-                        ConditionalKind::Ternary,
-                    )),
-                    box FieldElementExpression::Conditional(ConditionalExpression::new(
-                        BooleanExpression::Select(SelectExpression::new(
-                            ArrayExpressionInner::Identifier("x".into())
-                                .annotate(Type::Boolean, 3u32),
-                            UExpressionInner::Value(1).annotate(UBitwidth::B32),
-                        )),
-                        FieldElementExpression::Pow(
-                            box FieldElementExpression::Number(DummyCurveField::from(2)),
-                            box UExpressionInner::Value(0).annotate(UBitwidth::B32),
-                        ),
-                        FieldElementExpression::Number(DummyCurveField::zero()),
-                        ConditionalKind::Ternary,
-                    )),
-                ))
-                .into(),
-                TypedExpression::from(FieldElementExpression::Conditional(
-                    ConditionalExpression::new(
-                        BooleanExpression::Select(SelectExpression::new(
-                            ArrayExpressionInner::Identifier("x".into())
-                                .annotate(Type::Boolean, 3u32),
-                            UExpressionInner::Value(2).annotate(UBitwidth::B32),
-                        )),
-                        FieldElementExpression::Pow(
-                            box FieldElementExpression::Number(DummyCurveField::from(2)),
-                            box UExpressionInner::Value(0).annotate(UBitwidth::B32),
-                        ),
-                        FieldElementExpression::Number(DummyCurveField::zero()),
-                        ConditionalKind::Ternary,
-                    ),
-                ))
-                .into(),
-            ]))
-            .annotate(Type::FieldElement, 2u32),
-            ArrayExpressionInner::Value(ArrayValue(vec![
-                TypedExpression::from(FieldElementExpression::Add(
-                    box FieldElementExpression::Conditional(ConditionalExpression::new(
-                        BooleanExpression::Select(SelectExpression::new(
-                            ArrayExpressionInner::Identifier("y".into())
-                                .annotate(Type::Boolean, 3u32),
-                            UExpressionInner::Value(0).annotate(UBitwidth::B32),
-                        )),
-                        FieldElementExpression::Pow(
-                            box FieldElementExpression::Number(DummyCurveField::from(2)),
-                            box UExpressionInner::Value(1).annotate(UBitwidth::B32),
-                        ),
-                        FieldElementExpression::Number(DummyCurveField::zero()),
-                        ConditionalKind::Ternary,
-                    )),
-                    box FieldElementExpression::Conditional(ConditionalExpression::new(
-                        BooleanExpression::Select(SelectExpression::new(
-                            ArrayExpressionInner::Identifier("y".into())
-                                .annotate(Type::Boolean, 3u32),
-                            UExpressionInner::Value(1).annotate(UBitwidth::B32),
-                        )),
-                        FieldElementExpression::Pow(
-                            box FieldElementExpression::Number(DummyCurveField::from(2)),
-                            box UExpressionInner::Value(0).annotate(UBitwidth::B32),
-                        ),
-                        FieldElementExpression::Number(DummyCurveField::zero()),
-                        ConditionalKind::Ternary,
-                    )),
-                ))
-                .into(),
-                TypedExpression::from(FieldElementExpression::Conditional(
-                    ConditionalExpression::new(
-                        BooleanExpression::Select(SelectExpression::new(
-                            ArrayExpressionInner::Identifier("y".into())
-                                .annotate(Type::Boolean, 3u32),
-                            UExpressionInner::Value(2).annotate(UBitwidth::B32),
-                        )),
-                        FieldElementExpression::Pow(
-                            box FieldElementExpression::Number(DummyCurveField::from(2)),
-                            box UExpressionInner::Value(0).annotate(UBitwidth::B32),
-                        ),
-                        FieldElementExpression::Number(DummyCurveField::zero()),
-                        ConditionalKind::Ternary,
-                    ),
-                ))
-                .into(),
-            ]))
-            .annotate(Type::FieldElement, 2u32),
+            a([
+                conditional::<DummyCurveField, FieldElementExpression<_>, _>(
+                    select::<_, BooleanExpression<_>, _, _>(x.clone(), 0u32),
+                    f(2).pow(u_32(1)),
+                    f(0),
+                ) + conditional(select(x.clone(), 1u32), f(2).pow(u_32(0)), f(0)),
+                conditional(select(x.clone(), 2u32), f(2).pow(u_32(0)), f(0)),
+            ]),
+            a([
+                conditional(select(y.clone(), 0u32), f(2).pow(u_32(1)), f(0))
+                    + conditional(select(y.clone(), 1u32), f(2).pow(u_32(0)), f(0)),
+                conditional(select(y.clone(), 2u32), f(2).pow(u_32(0)), f(0)),
+            ]),
         ));
 
         let res = BooleanArrayComparator::default().fold_boolean_expression(e);

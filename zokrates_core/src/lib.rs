@@ -7,3 +7,4 @@ mod macros;
 mod optimizer;
 mod semantics;
 mod static_analysis;
+pub mod utils;
