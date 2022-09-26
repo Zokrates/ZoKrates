@@ -109,15 +109,10 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
 
 #[cfg(test)]
 mod tests {
-    use num::Zero;
-    use zokrates_ast::typed::{
-        ArrayExpressionInner, ArrayValue, BooleanExpression, ConditionalExpression,
-        ConditionalKind, EqExpression, FieldElementExpression, SelectExpression, Type,
-        TypedExpression, UBitwidth, UExpressionInner,
-    };
+    use zokrates_ast::typed::{BooleanExpression, EqExpression, FieldElementExpression, Type};
     use zokrates_field::DummyCurveField;
 
-    use crate::utils::macros::{a, a_id, conditional, f, select, u_32};
+    use zokrates_ast::typed::utils::{a, a_id, conditional, f, select, u_32};
 
     use super::*;
 
@@ -128,19 +123,16 @@ mod tests {
         // [x[0] ? 2**1 : 0 + x[1] ? 2**0 : 0] == [y[0] ? 2**1 : 0 + y[1] ? 2**0 : 0]
         // a single field is sufficient, as the prime we're working with is 3 bits long, so we can pack up to 2 bits
 
-        let x = x.clone();
-        let y = x.clone();
+        let x = a_id("x").annotate(Type::Boolean, 2u32);
+        let y = a_id("x").annotate(Type::Boolean, 2u32);
 
         let e: BooleanExpression<DummyCurveField> =
             BooleanExpression::ArrayEq(EqExpression::new(x.clone(), y.clone()));
 
         let expected = BooleanExpression::ArrayEq(EqExpression::new(
             a([
-                conditional::<DummyCurveField, FieldElementExpression<_>, _>(
-                    select::<_, BooleanExpression<_>, _, _>(x.clone(), 0u32),
-                    f(2).pow(u_32(1)),
-                    f(0),
-                ) + conditional(select(x.clone(), 1u32), f(2).pow(u_32(0)), f(0)),
+                conditional(select(x.clone(), 0u32), f(2).pow(u_32(1)), f(0))
+                    + conditional(select(x.clone(), 1u32), f(2).pow(u_32(0)), f(0)),
             ]),
             a([
                 conditional(select(y.clone(), 0u32), f(2).pow(u_32(1)), f(0))
@@ -167,11 +159,8 @@ mod tests {
 
         let expected = BooleanExpression::ArrayEq(EqExpression::new(
             a([
-                conditional::<DummyCurveField, FieldElementExpression<_>, _>(
-                    select::<_, BooleanExpression<_>, _, _>(x.clone(), 0u32),
-                    f(2).pow(u_32(1)),
-                    f(0),
-                ) + conditional(select(x.clone(), 1u32), f(2).pow(u_32(0)), f(0)),
+                conditional(select(x.clone(), 0u32), f(2).pow(u_32(1)), f(0))
+                    + conditional(select(x.clone(), 1u32), f(2).pow(u_32(0)), f(0)),
                 conditional(select(x.clone(), 2u32), f(2).pow(u_32(0)), f(0)),
             ]),
             a([

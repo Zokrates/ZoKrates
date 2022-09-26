@@ -88,8 +88,6 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     program: &TypedProgram<'ast, T>,
     versions: &'a mut Versions<'ast>,
 ) -> InlineResult<'ast, T> {
-    use std::convert::TryFrom;
-
     use zokrates_ast::typed::Typed;
     let output_type = output.clone().into_type();
 
