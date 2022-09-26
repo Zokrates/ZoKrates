@@ -211,7 +211,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::main_import_directive))]
     pub struct MainImportDirective<'ast> {
-        pub source: AnyString<'ast>,
+        pub source: QString<'ast>,
         pub alias: Option<IdentifierExpression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -229,7 +229,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::from_import_directive))]
     pub struct FromImportDirective<'ast> {
-        pub source: AnyString<'ast>,
+        pub source: QString<'ast>,
         pub symbols: Vec<ImportSymbol<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -371,7 +371,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::log_statement))]
     pub struct LogStatement<'ast> {
-        pub format_string: AnyString<'ast>,
+        pub format_string: QString<'ast>,
         pub expressions: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -387,10 +387,18 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
-    #[pest_ast(rule(Rule::string))]
-    pub struct AnyString<'ast> {
+    #[pest_ast(rule(Rule::raw_string))]
+    pub struct RawString<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
+    #[pest_ast(rule(Rule::quoted_string))]
+    pub struct QString<'ast> {
+        pub raw: RawString<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -399,7 +407,7 @@ mod ast {
     #[pest_ast(rule(Rule::assertion_statement))]
     pub struct AssertionStatement<'ast> {
         pub expression: Expression<'ast>,
-        pub message: Option<AnyString<'ast>>,
+        pub message: Option<QString<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -1178,9 +1186,12 @@ mod tests {
                 pragma: None,
                 declarations: vec![
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
-                        source: AnyString {
-                            value: String::from("foo"),
-                            span: Span::new(source, 17, 20).unwrap()
+                        source: QString {
+                            raw: RawString {
+                                value: String::from("foo"),
+                                span: Span::new(source, 17, 20).unwrap()
+                            },
+                            span: Span::new(source, 16, 21).unwrap()
                         },
                         alias: None,
                         span: Span::new(source, 9, 21).unwrap()
@@ -1243,9 +1254,12 @@ mod tests {
                 pragma: None,
                 declarations: vec![
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
-                        source: AnyString {
-                            value: String::from("foo"),
-                            span: Span::new(source, 17, 20).unwrap()
+                        source: QString {
+                            raw: RawString {
+                                value: String::from("foo"),
+                                span: Span::new(source, 17, 20).unwrap()
+                            },
+                            span: Span::new(source, 16, 21).unwrap()
                         },
                         alias: None,
                         span: Span::new(source, 9, 21).unwrap()
@@ -1332,9 +1346,12 @@ mod tests {
                 pragma: None,
                 declarations: vec![
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
-                        source: AnyString {
-                            value: String::from("foo"),
-                            span: Span::new(source, 17, 20).unwrap()
+                        source: QString {
+                            raw: RawString {
+                                value: String::from("foo"),
+                                span: Span::new(source, 17, 20).unwrap()
+                            },
+                            span: Span::new(source, 16, 21).unwrap()
                         },
                         alias: None,
                         span: Span::new(source, 9, 21).unwrap()

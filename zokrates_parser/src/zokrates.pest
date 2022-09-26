@@ -2,9 +2,9 @@ file = { SOI ~ pragma? ~ symbol_declaration* ~ EOI }
 
 pragma = { "#pragma" ~ "curve" ~ curve }
 curve = @{ (ASCII_ALPHANUMERIC | "_") * }
-string = @{(!"\"" ~ ANY)*}
+raw_string = @{(!"\"" ~ ANY)*}
+quoted_string = ${ "\"" ~ raw_string ~ "\"" }
 semicolon = _{";"}
-quoted_string = _{ "\"" ~ string ~ "\"" }
 
 symbol_declaration = { (((import_directive | const_definition | type_definition) ~ semicolon) | (ty_struct_definition | function_definition)) }
 
