@@ -1132,7 +1132,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     // for declaration signatures, generics cannot be ignored
                     generics.0.insert(
                         generic.clone(),
-                        UExpressionInner::Identifier(self.id_in_this_scope(generic.name()).into())
+                        UExpression::identifier(self.id_in_this_scope(generic.name()).into())
                             .annotate(UBitwidth::B32),
                     );
 
@@ -2362,28 +2362,22 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Some(info) => {
                         let id = info.id;
                         match info.ty.clone() {
-                            Type::Boolean => Ok(BooleanExpression::Identifier(id.into()).into()),
-                            Type::Uint(bitwidth) => Ok(UExpressionInner::Identifier(id.into())
-                                .annotate(bitwidth)
-                                .into()),
+                            Type::Boolean => Ok(BooleanExpression::identifier(id.into()).into()),
+                            Type::Uint(bitwidth) => {
+                                Ok(UExpression::identifier(id.into()).annotate(bitwidth).into())
+                            }
                             Type::FieldElement => {
-                                Ok(FieldElementExpression::Identifier(id.into()).into())
+                                Ok(FieldElementExpression::identifier(id.into()).into())
                             }
-                            Type::Array(array_type) => {
-                                Ok(ArrayExpressionInner::Identifier(id.into())
-                                    .annotate(*array_type.ty, *array_type.size)
-                                    .into())
-                            }
-                            Type::Struct(members) => {
-                                Ok(StructExpressionInner::Identifier(id.into())
-                                    .annotate(members)
-                                    .into())
-                            }
-                            Type::Tuple(tuple_ty) => {
-                                Ok(TupleExpressionInner::Identifier(id.into())
-                                    .annotate(tuple_ty)
-                                    .into())
-                            }
+                            Type::Array(array_type) => Ok(ArrayExpression::identifier(id.into())
+                                .annotate(*array_type.ty, *array_type.size)
+                                .into()),
+                            Type::Struct(members) => Ok(StructExpression::identifier(id.into())
+                                .annotate(members)
+                                .into()),
+                            Type::Tuple(tuple_ty) => Ok(TupleExpression::identifier(id.into())
+                                .annotate(tuple_ty)
+                                .into()),
                             Type::Int => unreachable!(),
                         }
                     }
@@ -4515,7 +4509,7 @@ mod tests {
             checker.check_statement(statement, &*MODULE_ID, &TypeMap::new()),
             Ok(TypedStatement::definition(
                 typed::Variable::field_element("a").into(),
-                FieldElementExpression::Identifier("b".into()).into()
+                FieldElementExpression::identifier("b".into()).into()
             ))
         );
     }
@@ -4752,7 +4746,7 @@ mod tests {
                 UBitwidth::B32,
             )
             .into(),
-            UExpressionInner::Identifier(
+            UExpression::identifier(
                 CoreIdentifier::Source(ShadowedIdentifier::shadow("i", 1)).into(),
             )
             .annotate(UBitwidth::B32)

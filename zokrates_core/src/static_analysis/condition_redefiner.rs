@@ -1,7 +1,7 @@
 use zokrates_ast::typed::{
     folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
-    ConditionalOrExpression, CoreIdentifier, Expr, Identifier, Type, TypedExpression, TypedProgram,
-    TypedStatement, Variable,
+    ConditionalOrExpression, CoreIdentifier, Expr, Id, Identifier, Type, TypedExpression,
+    TypedProgram, TypedStatement, Variable,
 };
 use zokrates_field::Field;
 
@@ -70,7 +70,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
                     TypedExpression::from(condition),
                 ));
                 self.index += 1;
-                BooleanExpression::Identifier(condition_id)
+                BooleanExpression::identifier(condition_id)
             }
         };
 
@@ -123,7 +123,7 @@ mod tests {
         let s = TypedStatement::definition(
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
-                BooleanExpression::Identifier("c".into()),
+                BooleanExpression::identifier("c".into()),
                 FieldElementExpression::Number(Bn128Field::from(1)),
                 FieldElementExpression::Number(Bn128Field::from(2)),
                 ConditionalKind::IfElse,
@@ -144,8 +144,8 @@ mod tests {
         // field foo = if #CONDITION_0 { 1 } else { 2 };
 
         let condition = BooleanExpression::And(
-            box BooleanExpression::Identifier("c".into()),
-            box BooleanExpression::Identifier("d".into()),
+            box BooleanExpression::identifier("c".into()),
+            box BooleanExpression::identifier("d".into()),
         );
 
         let s = TypedStatement::definition(
@@ -171,7 +171,7 @@ mod tests {
             TypedStatement::definition(
                 Variable::field_element("foo").into(),
                 FieldElementExpression::conditional(
-                    BooleanExpression::Identifier(CoreIdentifier::Condition(0).into()),
+                    BooleanExpression::identifier(CoreIdentifier::Condition(0).into()),
                     FieldElementExpression::Number(Bn128Field::from(1)),
                     FieldElementExpression::Number(Bn128Field::from(2)),
                     ConditionalKind::IfElse,
@@ -203,13 +203,13 @@ mod tests {
         // };
 
         let condition_0 = BooleanExpression::And(
-            box BooleanExpression::Identifier("c".into()),
-            box BooleanExpression::Identifier("d".into()),
+            box BooleanExpression::identifier("c".into()),
+            box BooleanExpression::identifier("d".into()),
         );
 
         let condition_1 = BooleanExpression::And(
-            box BooleanExpression::Identifier("e".into()),
-            box BooleanExpression::Identifier("f".into()),
+            box BooleanExpression::identifier("e".into()),
+            box BooleanExpression::identifier("f".into()),
         );
 
         let s = TypedStatement::definition(
@@ -244,9 +244,9 @@ mod tests {
             TypedStatement::definition(
                 Variable::field_element("foo").into(),
                 FieldElementExpression::conditional(
-                    BooleanExpression::Identifier(CoreIdentifier::Condition(0).into()),
+                    BooleanExpression::identifier(CoreIdentifier::Condition(0).into()),
                     FieldElementExpression::conditional(
-                        BooleanExpression::Identifier(CoreIdentifier::Condition(1).into()),
+                        BooleanExpression::identifier(CoreIdentifier::Condition(1).into()),
                         FieldElementExpression::Number(Bn128Field::from(1)),
                         FieldElementExpression::Number(Bn128Field::from(2)),
                         ConditionalKind::IfElse,
@@ -285,23 +285,23 @@ mod tests {
         // };
 
         let condition_0 = BooleanExpression::And(
-            box BooleanExpression::Identifier("c".into()),
-            box BooleanExpression::Identifier("d".into()),
+            box BooleanExpression::identifier("c".into()),
+            box BooleanExpression::identifier("d".into()),
         );
 
         let condition_1 = BooleanExpression::And(
-            box BooleanExpression::Identifier("e".into()),
-            box BooleanExpression::Identifier("f".into()),
+            box BooleanExpression::identifier("e".into()),
+            box BooleanExpression::identifier("f".into()),
         );
 
         let condition_2 = BooleanExpression::And(
-            box BooleanExpression::Identifier("e".into()),
-            box BooleanExpression::Identifier("f".into()),
+            box BooleanExpression::identifier("e".into()),
+            box BooleanExpression::identifier("f".into()),
         );
 
-        let condition_id_0 = BooleanExpression::Identifier(CoreIdentifier::Condition(0).into());
-        let condition_id_1 = BooleanExpression::Identifier(CoreIdentifier::Condition(1).into());
-        let condition_id_2 = BooleanExpression::Identifier(CoreIdentifier::Condition(2).into());
+        let condition_id_0 = BooleanExpression::identifier(CoreIdentifier::Condition(0).into());
+        let condition_id_1 = BooleanExpression::identifier(CoreIdentifier::Condition(1).into());
+        let condition_id_2 = BooleanExpression::identifier(CoreIdentifier::Condition(2).into());
 
         let s = TypedStatement::definition(
             Variable::field_element("foo").into(),
