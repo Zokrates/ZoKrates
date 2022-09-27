@@ -131,7 +131,7 @@ mod tests {
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(
-                FieldElementExpression::Identifier(Identifier::from(const_id)).into(),
+                FieldElementExpression::identifier(Identifier::from(const_id)).into(),
             )],
             signature: DeclarationSignature::new()
                 .inputs(vec![])
@@ -191,7 +191,7 @@ mod tests {
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(
-                BooleanExpression::Identifier(Identifier::from(const_id.clone())).into(),
+                BooleanExpression::identifier(Identifier::from(const_id.clone())).into(),
             )],
             signature: DeclarationSignature::new()
                 .inputs(vec![])
@@ -249,7 +249,7 @@ mod tests {
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(
-                UExpressionInner::Identifier(Identifier::from(const_id.clone()))
+                UExpression::identifier(Identifier::from(const_id.clone()))
                     .annotate(UBitwidth::B32)
                     .into(),
             )],
@@ -313,13 +313,13 @@ mod tests {
             statements: vec![TypedStatement::Return(
                 FieldElementExpression::Add(
                     FieldElementExpression::select(
-                        ArrayExpressionInner::Identifier(Identifier::from(const_id.clone()))
+                        ArrayExpression::identifier(Identifier::from(const_id.clone()))
                             .annotate(GType::FieldElement, 2u32),
                         UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
                     )
                     .into(),
                     FieldElementExpression::select(
-                        ArrayExpressionInner::Identifier(Identifier::from(const_id.clone()))
+                        ArrayExpression::identifier(Identifier::from(const_id.clone()))
                             .annotate(GType::FieldElement, 2u32),
                         UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
                     )
@@ -398,7 +398,7 @@ mod tests {
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(
-                FieldElementExpression::Identifier(Identifier::from(const_b_id.clone())).into(),
+                FieldElementExpression::identifier(Identifier::from(const_b_id.clone())).into(),
             )],
             signature: DeclarationSignature::new()
                 .inputs(vec![])
@@ -425,7 +425,7 @@ mod tests {
                             const_b_id.clone(),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 TypedExpression::FieldElement(FieldElementExpression::Add(
-                                    box FieldElementExpression::Identifier(Identifier::from(
+                                    box FieldElementExpression::identifier(Identifier::from(
                                         const_a_id.clone(),
                                     )),
                                     box FieldElementExpression::Number(Bn128Field::from(1)),
@@ -515,7 +515,7 @@ mod tests {
                 TypedConstantSymbolDeclaration::new(
                     bar_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
-                        TypedExpression::FieldElement(FieldElementExpression::Identifier(
+                        TypedExpression::FieldElement(FieldElementExpression::identifier(
                             foo_const_id.clone().into(),
                         )),
                         DeclarationType::FieldElement,
@@ -557,7 +557,7 @@ mod tests {
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
                         statements: vec![TypedStatement::Return(
-                            FieldElementExpression::Identifier(Identifier::from(
+                            FieldElementExpression::identifier(Identifier::from(
                                 main_const_id.clone(),
                             ))
                             .into(),
@@ -587,7 +587,7 @@ mod tests {
                 TypedConstantSymbolDeclaration::new(
                     main_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
-                        TypedExpression::FieldElement(FieldElementExpression::Identifier(
+                        TypedExpression::FieldElement(FieldElementExpression::identifier(
                             foo_const_id.into(),
                         )),
                         DeclarationType::FieldElement,
@@ -603,7 +603,7 @@ mod tests {
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
                         statements: vec![TypedStatement::Return(
-                            FieldElementExpression::Identifier(Identifier::from(
+                            FieldElementExpression::identifier(Identifier::from(
                                 main_const_id.clone(),
                             ))
                             .into(),
@@ -745,7 +745,7 @@ mod tests {
                     main_baz_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
                         TypedExpression::Array(
-                            ArrayExpressionInner::Identifier(main_bar_const_id.clone().into())
+                            ArrayExpression::identifier(main_bar_const_id.clone().into())
                                 .annotate(Type::FieldElement, main_foo_const_id.clone()),
                         ),
                         DeclarationType::Array(DeclarationArrayType::new(
@@ -764,7 +764,7 @@ mod tests {
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
                         statements: vec![TypedStatement::Return(
-                            FieldElementExpression::Identifier(Identifier::from(
+                            FieldElementExpression::identifier(Identifier::from(
                                 main_foo_const_id.clone(),
                             ))
                             .into(),
@@ -820,7 +820,7 @@ mod tests {
                     main_baz_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
                         TypedExpression::Array(
-                            ArrayExpressionInner::Identifier(main_bar_const_id.into())
+                            ArrayExpression::identifier(main_bar_const_id.into())
                                 .annotate(Type::FieldElement, main_foo_const_id.clone()),
                         ),
                         DeclarationType::Array(DeclarationArrayType::new(
@@ -839,7 +839,7 @@ mod tests {
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
                         statements: vec![TypedStatement::Return(
-                            FieldElementExpression::Identifier(Identifier::from(
+                            FieldElementExpression::identifier(Identifier::from(
                                 main_foo_const_id.clone(),
                             ))
                             .into(),

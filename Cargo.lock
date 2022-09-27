@@ -3025,6 +3025,7 @@ dependencies = [
  "ark-bls12-377",
  "cfg-if 0.1.10",
  "csv",
+ "derivative",
  "num-bigint 0.2.6",
  "pairing_ce",
  "serde",
