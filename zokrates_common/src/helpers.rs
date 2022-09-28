@@ -7,6 +7,7 @@ pub enum CurveParameter {
     Bls12_381,
     Bls12_377,
     Bw6_761,
+    Pallas,
 }
 
 impl std::fmt::Display for CurveParameter {
@@ -18,6 +19,7 @@ impl std::fmt::Display for CurveParameter {
             Bls12_381 => write!(f, "bls12_381"),
             Bls12_377 => write!(f, "bls12_377"),
             Bw6_761 => write!(f, "bw6_761"),
+            Pallas => write!(f, "pallas"),
         }
     }
 }

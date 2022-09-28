@@ -28,6 +28,7 @@ ark-bn254 = { version = "^0.3.0", features = ["curve"], default-features = false
 ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = false }
 ark-bls12-381 = { version = "^0.3.0", features = ["curve"] }
 ark-bw6-761 = { version = "^0.3.0", default-features = false }
+ark-pallas = { version = "^0.3.0", features = ["curve"] }
 ark-serialize = { version = "^0.3.0", default-features = false }
 
 [dev-dependencies]

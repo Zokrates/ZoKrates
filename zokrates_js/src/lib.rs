@@ -25,7 +25,9 @@ use zokrates_core::compile::{
     compile as core_compile, CompilationArtifacts, CompileConfig, CompileError,
 };
 use zokrates_core::imports::Error;
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_field::{
+    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField,
+};
 use zokrates_proof_systems::groth16::G16;
 use zokrates_proof_systems::{
     Backend, Marlin, NonUniversalBackend, NonUniversalScheme, Proof, Scheme,
@@ -454,6 +456,9 @@ pub fn compile(
         CurveParameter::Bw6_761 => {
             internal::compile::<Bw6_761Field>(source, location, resolve_callback, config)
         }
+        CurveParameter::Pallas => {
+            internal::compile::<PallasField>(source, location, resolve_callback, config)
+        }
     }
 }
 
@@ -603,6 +608,10 @@ pub fn universal_setup(curve: JsValue, size: u32) -> Result<Vec<u8>, JsValue> {
         CurveParameter::Bw6_761 => {
             Ok(internal::universal_setup_of_size::<Bw6_761Field, Marlin, Ark>(size))
         }
+        c => Err(JsValue::from(format!(
+            "Curve `{}` is not supported for universal setups",
+            c
+        ))),
     }
 }
 
@@ -746,18 +755,21 @@ pub fn verify(vk: JsValue, proof: JsValue, options: JsValue) -> Result<JsValue, 
             CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, G16, Ark>(vk, proof),
             CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, G16, Ark>(vk, proof),
             CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, G16, Ark>(vk, proof),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::GM17) => match curve {
             CurveParameter::Bn128 => internal::verify::<Bn128Field, GM17, Ark>(vk, proof),
             CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, GM17, Ark>(vk, proof),
             CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, GM17, Ark>(vk, proof),
             CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, GM17, Ark>(vk, proof),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::MARLIN) => match curve {
             CurveParameter::Bn128 => internal::verify::<Bn128Field, Marlin, Ark>(vk, proof),
             CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, Marlin, Ark>(vk, proof),
             CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, Marlin, Ark>(vk, proof),
             CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, Marlin, Ark>(vk, proof),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         _ => Err(JsValue::from_str("Unsupported options")),
     }

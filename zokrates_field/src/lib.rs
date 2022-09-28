@@ -32,7 +32,6 @@ pub trait BellmanFieldExtensions {
     fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr;
     fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
 }
-
 pub trait ArkFieldExtensions {
     /// An associated type to be able to operate with ark ff traits
     type ArkEngine: ark_ec::PairingEngine;
@@ -146,7 +145,7 @@ mod prime_field {
             use std::fmt::{Debug, Display};
             use std::ops::{Add, Div, Mul, Sub};
 
-            type Fr = <$v as ark_ec::PairingEngine>::Fr;
+            type Fr = $v;
 
             #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash)]
             pub struct FieldPrime {
@@ -632,8 +631,10 @@ pub mod bls12_377;
 pub mod bls12_381;
 pub mod bn128;
 pub mod bw6_761;
+pub mod pallas;
 
 pub use bls12_377::FieldPrime as Bls12_377Field;
 pub use bls12_381::FieldPrime as Bls12_381Field;
 pub use bn128::FieldPrime as Bn128Field;
 pub use bw6_761::FieldPrime as Bw6_761Field;
+pub use pallas::FieldPrime as PallasField;
