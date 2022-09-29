@@ -5,11 +5,11 @@ prime_field!("bn128", <Bn254 as PairingEngine>::Fr, G2Type::Fq2);
 
 ark_extensions!(Bn254);
 
-#[cfg(feature = "bellman")]
+#[cfg(feature = "bellman_extensions")]
 use bellman_ce::pairing::bn256::{Bn256, Fq2};
 
 use crate::G2Type;
-#[cfg(feature = "bellman")]
+#[cfg(feature = "bellman_extensions")]
 bellman_extensions!(Bn256, Fq2);
 
 #[cfg(test)]
@@ -291,7 +291,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "bellman")]
+    #[cfg(feature = "bellman_extensions")]
     mod bellman {
         use super::*;
 

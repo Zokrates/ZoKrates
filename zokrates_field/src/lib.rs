@@ -4,9 +4,7 @@
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 
-extern crate num_bigint;
-
-#[cfg(feature = "bellman")]
+#[cfg(feature = "bellman_extensions")]
 use bellman_ce::pairing::{ff::ScalarEngine, Engine};
 
 use num_bigint::BigUint;
@@ -23,7 +21,7 @@ pub trait Pow<RHS> {
     fn pow(self, _: RHS) -> Self::Output;
 }
 
-#[cfg(feature = "bellman")]
+#[cfg(feature = "bellman_extensions")]
 pub trait BellmanFieldExtensions {
     /// An associated type to be able to operate with Bellman ff traits
     type BellmanEngine: Engine;
@@ -31,6 +29,15 @@ pub trait BellmanFieldExtensions {
     fn from_bellman(e: <Self::BellmanEngine as ScalarEngine>::Fr) -> Self;
     fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr;
     fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
+}
+
+#[cfg(feature = "bellperson_extensions")]
+pub trait BellpersonFieldExtensions {
+    /// An associated type to be able to operate with Bellperson ff traits
+    type BellpersonField: ff::PrimeField;
+
+    fn from_bellperson(e: Self::BellpersonField) -> Self;
+    fn into_bellperson(self) -> Self::BellpersonField;
 }
 pub trait ArkFieldExtensions {
     /// An associated type to be able to operate with ark ff traits
@@ -573,7 +580,7 @@ mod prime_field {
         };
     }
 
-    #[cfg(feature = "bellman")]
+    #[cfg(feature = "bellman_extensions")]
     macro_rules! bellman_extensions {
         ($bellman_type:ty, $fq2_type:ident) => {
             use crate::BellmanFieldExtensions;
@@ -608,6 +615,29 @@ mod prime_field {
         };
     }
 
+    #[cfg(feature = "bellperson")]
+    macro_rules! bellperson_extensions {
+        ($bellperson_type:ty) => {
+            use crate::BellpersonFieldExtensions;
+
+            impl BellpersonFieldExtensions for FieldPrime {
+                type BellpersonField = $bellperson_type;
+
+                fn from_bellperson(e: Self::BellpersonField) -> Self {
+                    use ff::PrimeField;
+                    let res = e.to_repr().to_vec();
+                    Self::from_byte_vector(res)
+                }
+
+                fn into_bellperson(self) -> Self::BellpersonField {
+                    use ff::PrimeField;
+                    let s = self.to_dec_string();
+                    Self::BellpersonField::from_str_vartime(&s).unwrap()
+                }
+            }
+        };
+    }
+
     macro_rules! ark_extensions {
         ($ark_type:ty) => {
             use crate::ArkFieldExtensions;
@@ -632,9 +662,11 @@ pub mod bls12_381;
 pub mod bn128;
 pub mod bw6_761;
 pub mod pallas;
+pub mod vesta;
 
 pub use bls12_377::FieldPrime as Bls12_377Field;
 pub use bls12_381::FieldPrime as Bls12_381Field;
 pub use bn128::FieldPrime as Bn128Field;
 pub use bw6_761::FieldPrime as Bw6_761Field;
 pub use pallas::FieldPrime as PallasField;
+pub use vesta::FieldPrime as VestaField;

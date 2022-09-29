@@ -45,7 +45,7 @@ pub type Fr = String;
 pub type Fq = String;
 pub type Fq2 = (String, String);
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct G1Affine(pub Fq, pub Fq);
 
 #[derive(Serialize, Deserialize, Clone)]

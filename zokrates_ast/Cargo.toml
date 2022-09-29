@@ -5,7 +5,7 @@ edition = "2021"
 
 [features]
 default = ["bellman", "ark"]
-bellman = ["zokrates_field/bellman", "pairing_ce", "zokrates_embed/bellman"]
+bellman = ["zokrates_field/bellman_extensions", "pairing_ce", "zokrates_embed/bellman"]
 ark = ["ark-bls12-377", "zokrates_embed/ark"]
 
 [dependencies]

@@ -1,0 +1,28 @@
+[package]
+name = "zokrates_bellperson"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+wasm = ["bellperson/wasm"]
+
+[dependencies]
+zokrates_field = { version = "0.5", path = "../zokrates_field", features = ["bellperson_extensions"] }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
+zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
+
+bellperson = { package = "bellperson", version = "^0.22", default-features = false, features = ["groth16"] }
+rand_0_4 = { version = "0.4", package = "rand" }#
+getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
+hex = "0.4.2"
+pairing = "0.22"
+
+nova-snark = { version = "0.8.1" }
+
+[dev-dependencies]
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter" }
+
+
+
+
+
