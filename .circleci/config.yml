@@ -187,7 +187,7 @@ commands:
     steps:
       - restore_cache:
           name: Restore sccache cache
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+          key: sccache-cache-stable-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
   save-sccache-cache:
     steps:
       - save_cache:

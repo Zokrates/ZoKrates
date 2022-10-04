@@ -304,7 +304,7 @@ mod tests {
                 ],
             };
 
-            test(program, vec![PallasField::from(0)], 3);
+            test(program, vec![PallasField::from(0), PallasField::from(1)], 3);
         }
     }
 }
