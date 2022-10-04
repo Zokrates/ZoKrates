@@ -11,7 +11,7 @@ use zokrates_common::constants::BN128;
 use zokrates_common::helpers::CurveParameter;
 use zokrates_core::compile::{compile, CompileConfig, CompileError};
 use zokrates_field::{
-    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField,
+    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField, VestaField,
 };
 use zokrates_fs_resolver::FileSystemResolver;
 
@@ -84,6 +84,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         CurveParameter::Bls12_381 => cli_compile::<Bls12_381Field>(sub_matches),
         CurveParameter::Bw6_761 => cli_compile::<Bw6_761Field>(sub_matches),
         CurveParameter::Pallas => cli_compile::<PallasField>(sub_matches),
+        CurveParameter::Vesta => cli_compile::<VestaField>(sub_matches),
     }
 }
 

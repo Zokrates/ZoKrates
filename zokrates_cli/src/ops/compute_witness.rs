@@ -82,6 +82,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         ProgEnum::Bls12_377Program(p) => cli_compute(p, sub_matches),
         ProgEnum::Bls12_381Program(p) => cli_compute(p, sub_matches),
         ProgEnum::Bw6_761Program(p) => cli_compute(p, sub_matches),
+        ProgEnum::PallasProgram(p) => cli_compute(p, sub_matches),
+        ProgEnum::VestaProgram(p) => cli_compute(p, sub_matches),
     }
 }
 

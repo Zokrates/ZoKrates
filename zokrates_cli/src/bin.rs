@@ -49,6 +49,8 @@ fn cli() -> Result<(), String> {
             universal_setup::subcommand(),
             #[cfg(feature = "bellman")]
             mpc::subcommand(),
+            #[cfg(feature = "bellperson")]
+            nova::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
@@ -69,6 +71,8 @@ fn cli() -> Result<(), String> {
         ("universal-setup", Some(sub_matches)) => universal_setup::exec(sub_matches),
         #[cfg(feature = "bellman")]
         ("mpc", Some(sub_matches)) => mpc::exec(sub_matches),
+        #[cfg(feature = "bellperson")]
+        ("nova", Some(sub_matches)) => nova::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark"))]
         ("setup", Some(sub_matches)) => setup::exec(sub_matches),
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),

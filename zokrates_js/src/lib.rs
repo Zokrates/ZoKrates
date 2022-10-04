@@ -26,7 +26,7 @@ use zokrates_core::compile::{
 };
 use zokrates_core::imports::Error;
 use zokrates_field::{
-    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField,
+    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField, VestaField,
 };
 use zokrates_proof_systems::groth16::G16;
 use zokrates_proof_systems::{
@@ -459,6 +459,9 @@ pub fn compile(
         CurveParameter::Pallas => {
             internal::compile::<PallasField>(source, location, resolve_callback, config)
         }
+        CurveParameter::Vesta => {
+            internal::compile::<VestaField>(source, location, resolve_callback, config)
+        }
     }
 }
 
@@ -478,6 +481,8 @@ pub fn compute_witness(
         ProgEnum::Bls12_381Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
         ProgEnum::Bls12_377Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
         ProgEnum::Bw6_761Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
+        ProgEnum::PallasProgram(p) => internal::compute::<_>(p, abi, args, config, log_callback),
+        ProgEnum::VestaProgram(p) => internal::compute::<_>(p, abi, args, config, log_callback),
     }
 }
 
@@ -549,12 +554,14 @@ pub fn setup(program: &[u8], options: JsValue) -> Result<JsValue, JsValue> {
             ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
             ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
             ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::GM17) => match prog {
             ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
             ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
             ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
             ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         _ => Err(JsValue::from_str("Unsupported options")),
     }
@@ -581,6 +588,7 @@ pub fn setup_with_srs(srs: &[u8], program: &[u8], options: JsValue) -> Result<Js
             ProgEnum::Bls12_381Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
             ProgEnum::Bls12_377Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
             ProgEnum::Bw6_761Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         _ => Err(JsValue::from_str("Given scheme is not universal")),
     }
@@ -661,6 +669,7 @@ pub fn generate_proof(
                 internal::generate_proof::<_, G16, Ark>(p, witness, pk)
             }
             ProgEnum::Bw6_761Program(p) => internal::generate_proof::<_, G16, Ark>(p, witness, pk),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::GM17) => match prog {
             ProgEnum::Bn128Program(p) => internal::generate_proof::<_, GM17, Ark>(p, witness, pk),
@@ -671,6 +680,7 @@ pub fn generate_proof(
                 internal::generate_proof::<_, GM17, Ark>(p, witness, pk)
             }
             ProgEnum::Bw6_761Program(p) => internal::generate_proof::<_, GM17, Ark>(p, witness, pk),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::MARLIN) => match prog {
             ProgEnum::Bn128Program(p) => internal::generate_proof::<_, Marlin, Ark>(p, witness, pk),
@@ -683,6 +693,7 @@ pub fn generate_proof(
             ProgEnum::Bw6_761Program(p) => {
                 internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
             }
+            _ => Err(JsValue::from_str("Not supported")),
         },
         _ => Err(JsValue::from_str("Unsupported options")),
     }

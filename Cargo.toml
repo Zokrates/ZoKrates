@@ -17,7 +17,6 @@ members = [
     "zokrates_embed",
     "zokrates_bellman",
     "zokrates_bellperson",
-    "zokrates_nova",
     "zokrates_proof_systems",
     "zokrates_js",
     "zokrates_circom"

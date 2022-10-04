@@ -5,8 +5,8 @@ authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>", "Guillaume Ballet <gballet@
 edition = "2021"
 
 [features]
-default = ["bellman_extensions"]
-bellperson_extensions = ["bellperson", "pairing", "ff", "pasta_curves"]
+default = ["bellman_extensions", "bellperson_extensions"]
+bellperson_extensions = ["bellperson", "pairing", "ff", "pasta_curves", "nova-snark"]
 bellman_extensions = ["bellman_ce"]
 
 [dependencies]
@@ -27,6 +27,7 @@ bellperson = { version = "0.22", default-features = false, optional = true }
 pairing = { version = "0.22", default-features = false, optional = true }
 ff = { version = "0.12.0", default-features = false, optional = true }
 pasta_curves = { version = "0.4.0", features = ["repr-c"], optional = true }
+nova-snark = { version = "0.8.1", optional = true }
 
 # ark
 ark-ff = { version = "^0.3.0", default-features = false }
