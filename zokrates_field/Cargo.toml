@@ -5,7 +5,7 @@ authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>", "Guillaume Ballet <gballet@
 edition = "2021"
 
 [features]
-default = ["bellman_extensions", "bellperson_extensions"]
+default = ["bellman_extensions"]
 bellperson_extensions = ["bellperson", "pairing", "ff", "pasta_curves", "nova-snark"]
 bellman_extensions = ["bellman_ce"]
 
