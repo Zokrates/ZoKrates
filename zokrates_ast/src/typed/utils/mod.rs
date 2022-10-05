@@ -1,15 +1,17 @@
 use super::{
     ArrayExpression, ArrayExpressionInner, ArrayValue, BooleanExpression, Conditional,
-    ConditionalKind, Expr, FieldElementExpression, Identifier, Select, Typed, TypedExpression,
+    ConditionalKind, Expr, FieldElementExpression, Id, Identifier, Select, Typed, TypedExpression,
     TypedExpressionOrSpread, UBitwidth, UExpression, UExpressionInner,
 };
+
+use zokrates_field::Field;
 
 pub fn f<'ast, T, U: TryInto<T>>(v: U) -> FieldElementExpression<'ast, T> {
     FieldElementExpression::Number(v.try_into().map_err(|_| ()).unwrap())
 }
 
-pub fn a_id<'ast, T, I: TryInto<Identifier<'ast>>>(v: I) -> ArrayExpressionInner<'ast, T> {
-    ArrayExpressionInner::Identifier(v.try_into().map_err(|_| ()).unwrap())
+pub fn a_id<'ast, T: Field, I: TryInto<Identifier<'ast>>>(v: I) -> ArrayExpressionInner<'ast, T> {
+    ArrayExpression::identifier(v.try_into().map_err(|_| ()).unwrap())
 }
 
 pub fn a<
