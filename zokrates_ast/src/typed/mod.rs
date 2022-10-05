@@ -675,6 +675,28 @@ impl<'ast, T: fmt::Display> fmt::Display for DefinitionRhs<'ast, T> {
     }
 }
 
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+pub enum TypedAssemblyStatement<'ast, T> {
+    Assignment(TypedAssignee<'ast, T>, FieldElementExpression<'ast, T>),
+    Constraint(
+        FieldElementExpression<'ast, T>,
+        FieldElementExpression<'ast, T>,
+    ),
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedAssemblyStatement<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            TypedAssemblyStatement::Assignment(ref lhs, ref rhs) => {
+                write!(f, "{} <-- {}", lhs, rhs)
+            }
+            TypedAssemblyStatement::Constraint(ref lhs, ref rhs) => {
+                write!(f, "{} === {}", lhs, rhs)
+            }
+        }
+    }
+}
+
 /// A statement in a `TypedFunction`
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
@@ -695,6 +717,7 @@ pub enum TypedStatement<'ast, T> {
         ConcreteGenericsAssignment<'ast>,
     ),
     PopCallLog,
+    Assembly(Vec<TypedAssemblyStatement<'ast, T>>),
 }
 
 impl<'ast, T> TypedStatement<'ast, T> {
@@ -716,6 +739,14 @@ impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
                 for s in statements {
                     s.fmt_indented(f, depth + 1)?;
                     writeln!(f)?;
+                }
+                write!(f, "{}}}", "\t".repeat(depth))
+            }
+            TypedStatement::Assembly(statements) => {
+                write!(f, "{}", "\t".repeat(depth))?;
+                writeln!(f, "asm {{")?;
+                for s in statements {
+                    writeln!(f, "{}{}", "\t".repeat(depth + 1), s)?;
                 }
                 write!(f, "{}}}", "\t".repeat(depth))
             }
@@ -766,6 +797,13 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                 generics,
             ),
             TypedStatement::PopCallLog => write!(f, "// POP CALL",),
+            TypedStatement::Assembly(ref statements) => {
+                writeln!(f, "asm {{")?;
+                for s in statements {
+                    writeln!(f, "\t\t{}", s)?;
+                }
+                write!(f, "\t}}")
+            }
         }
     }
 }
@@ -1173,6 +1211,73 @@ pub enum FieldElementExpression<'ast, T> {
     Select(SelectExpression<'ast, T, Self>),
     Element(ElementExpression<'ast, T, Self>),
 }
+
+impl<'ast, T: Clone> From<TypedAssignee<'ast, T>> for TupleExpression<'ast, T> {
+    fn from(assignee: TypedAssignee<'ast, T>) -> Self {
+        match assignee {
+            TypedAssignee::Identifier(v) => {
+                let inner = TupleExpressionInner::Identifier(v.id);
+                match v._type {
+                    GType::Tuple(tuple_ty) => inner.annotate(tuple_ty),
+                    _ => unreachable!(),
+                }
+            }
+            TypedAssignee::Select(box a, box index) => TupleExpression::select(a.into(), index),
+            TypedAssignee::Member(box a, id) => TupleExpression::member(a.into(), id),
+            TypedAssignee::Element(box a, index) => TupleExpression::element(a.into(), index),
+        }
+    }
+}
+
+impl<'ast, T: Clone> From<TypedAssignee<'ast, T>> for StructExpression<'ast, T> {
+    fn from(assignee: TypedAssignee<'ast, T>) -> Self {
+        match assignee {
+            TypedAssignee::Identifier(v) => {
+                let inner = StructExpressionInner::Identifier(v.id);
+                match v._type {
+                    GType::Struct(struct_ty) => inner.annotate(struct_ty),
+                    _ => unreachable!(),
+                }
+            }
+            TypedAssignee::Select(box a, box index) => StructExpression::select(a.into(), index),
+            TypedAssignee::Member(box a, id) => StructExpression::member(a.into(), id),
+            TypedAssignee::Element(box a, index) => StructExpression::element(a.into(), index),
+        }
+    }
+}
+
+impl<'ast, T: Clone> From<TypedAssignee<'ast, T>> for ArrayExpression<'ast, T> {
+    fn from(assignee: TypedAssignee<'ast, T>) -> Self {
+        match assignee {
+            TypedAssignee::Identifier(v) => {
+                let inner = ArrayExpressionInner::Identifier(v.id);
+                match v._type {
+                    GType::Array(array_ty) => inner.annotate(*array_ty.ty, *array_ty.size),
+                    _ => unreachable!(),
+                }
+            }
+            TypedAssignee::Select(box a, box index) => ArrayExpression::select(a.into(), index),
+            TypedAssignee::Member(box a, id) => ArrayExpression::member(a.into(), id),
+            TypedAssignee::Element(box a, index) => ArrayExpression::element(a.into(), index),
+        }
+    }
+}
+
+impl<'ast, T: Clone> From<TypedAssignee<'ast, T>> for FieldElementExpression<'ast, T> {
+    fn from(assignee: TypedAssignee<'ast, T>) -> Self {
+        match assignee {
+            TypedAssignee::Identifier(v) => FieldElementExpression::Identifier(v.id),
+            TypedAssignee::Element(box a, index) => {
+                FieldElementExpression::element(a.into(), index)
+            }
+            TypedAssignee::Member(box a, id) => FieldElementExpression::member(a.into(), id),
+            TypedAssignee::Select(box a, box index) => {
+                FieldElementExpression::select(a.into(), index)
+            }
+        }
+    }
+}
+
 impl<'ast, T> Add for FieldElementExpression<'ast, T> {
     type Output = Self;
 
@@ -1208,6 +1313,9 @@ impl<'ast, T> Div for FieldElementExpression<'ast, T> {
 impl<'ast, T> FieldElementExpression<'ast, T> {
     pub fn pow(self, other: UExpression<'ast, T>) -> Self {
         FieldElementExpression::Pow(box self, box other)
+    }
+    pub fn is_quadratic(&self) -> bool {
+        true // TODO: implement
     }
 }
 

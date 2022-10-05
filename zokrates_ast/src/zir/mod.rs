@@ -21,6 +21,7 @@ use zokrates_field::Field;
 
 pub use self::folder::Folder;
 pub use self::identifier::{Identifier, SourceIdentifier};
+use serde::{Deserialize, Serialize};
 
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -34,11 +35,13 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
     }
 }
 /// A typed function
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub struct ZirFunction<'ast, T> {
     /// Arguments of the function
+    #[serde(borrow)]
     pub arguments: Vec<Parameter<'ast>>,
     /// Vector of statements that are executed when running the function
+    #[serde(borrow)]
     pub statements: Vec<ZirStatement<'ast, T>>,
     /// function signature
     pub signature: Signature,
@@ -88,7 +91,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirFunction<'ast, T> {
 
 pub type ZirAssignee<'ast> = Variable<'ast>;
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub enum RuntimeError {
     SourceAssertion(String),
     SelectRangeCheck,
@@ -113,8 +116,70 @@ impl RuntimeError {
     }
 }
 
+// #[derive(Clone, PartialEq, Hash, Eq, Debug)]
+// pub struct ZirBlock<'ast, T> {
+//     pub statements: Vec<ZirStatement<'ast, T>>,
+//     pub value: FieldElementExpression<'ast, T>,
+// }
+//
+// impl<'ast, T> ZirBlock<'ast, T> {
+//     pub fn new(
+//         statements: Vec<ZirStatement<'ast, T>>,
+//         value: FieldElementExpression<'ast, T>,
+//     ) -> Self {
+//         Self { statements, value }
+//     }
+// }
+// impl<'ast, T: fmt::Display> fmt::Display for ZirBlock<'ast, T> {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(
+//             f,
+//             "{{\n{}\n}}",
+//             self.statements
+//                 .iter()
+//                 .map(|s| s.to_string())
+//                 .chain(std::iter::once(self.value.to_string()))
+//                 .collect::<Vec<_>>()
+//                 .join("\n")
+//         )
+//     }
+// }
+
+#[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
+pub enum ZirAssemblyStatement<'ast, T> {
+    Assignment(
+        #[serde(borrow)] Vec<ZirAssignee<'ast>>,
+        ZirFunction<'ast, T>,
+    ),
+    Constraint(
+        FieldElementExpression<'ast, T>,
+        FieldElementExpression<'ast, T>,
+    ),
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ZirAssemblyStatement::Assignment(ref lhs, ref rhs) => {
+                write!(
+                    f,
+                    "{} <-- {}",
+                    lhs.iter()
+                        .map(|a| a.id.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    rhs
+                )
+            }
+            ZirAssemblyStatement::Constraint(ref lhs, ref rhs) => {
+                write!(f, "{} === {}", lhs, rhs)
+            }
+        }
+    }
+}
+
 /// A statement in a `ZirFunction`
-#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
 pub enum ZirStatement<'ast, T> {
     Return(Vec<ZirExpression<'ast, T>>),
     Definition(ZirAssignee<'ast>, ZirExpression<'ast, T>),
@@ -129,6 +194,7 @@ pub enum ZirStatement<'ast, T> {
         FormatString,
         Vec<(ConcreteType, Vec<ZirExpression<'ast, T>>)>,
     ),
+    Assembly(#[serde(borrow)] Vec<ZirAssemblyStatement<'ast, T>>),
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
@@ -142,15 +208,19 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
         write!(f, "{}", "\t".repeat(depth))?;
         match self {
             ZirStatement::Return(ref exprs) => {
-                write!(
-                    f,
-                    "return {};",
-                    exprs
-                        .iter()
-                        .map(|e| e.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
+                write!(f, "return")?;
+                if exprs.len() > 0 {
+                    write!(
+                        f,
+                        " {}",
+                        exprs
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )?;
+                }
+                write!(f, ";")
             }
             ZirStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "{} = {};", lhs, rhs)
@@ -166,7 +236,7 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                     s.fmt_indented(f, depth + 1)?;
                     writeln!(f)?;
                 }
-                write!(f, "{}}};", "\t".repeat(depth))
+                write!(f, "{}}}", "\t".repeat(depth))
             }
             ZirStatement::Assertion(ref e, ref error) => {
                 write!(f, "assert({}", e)?;
@@ -200,6 +270,13 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            ZirStatement::Assembly(statements) => {
+                writeln!(f, "asm {{")?;
+                for s in statements {
+                    writeln!(f, "{}{}", "\t".repeat(depth + 1), s)?;
+                }
+                write!(f, "{}}}", "\t".repeat(depth))
+            }
         }
     }
 }
@@ -208,8 +285,9 @@ pub trait Typed {
     fn get_type(&self) -> Type;
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub struct ConditionalExpression<'ast, T, E> {
+    #[serde(borrow)]
     pub condition: Box<BooleanExpression<'ast, T>>,
     pub consequence: Box<E>,
     pub alternative: Box<E>,
@@ -235,9 +313,10 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for ConditionalExpress
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub struct SelectExpression<'ast, T, E> {
     pub array: Vec<E>,
+    #[serde(borrow)]
     pub index: Box<UExpression<'ast, T>>,
 }
 
@@ -266,11 +345,11 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for SelectExpression<'
 }
 
 /// A typed expression
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub enum ZirExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
-    Uint(UExpression<'ast, T>),
+    Uint(#[serde(borrow)] UExpression<'ast, T>),
 }
 
 impl<'ast, T: Field> From<BooleanExpression<'ast, T>> for ZirExpression<'ast, T> {
@@ -343,15 +422,20 @@ pub trait MultiTyped {
     fn get_types(&self) -> &Vec<Type>;
 }
 
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub enum ZirExpressionList<'ast, T> {
-    EmbedCall(FlatEmbed, Vec<u32>, Vec<ZirExpression<'ast, T>>),
+    EmbedCall(
+        FlatEmbed,
+        Vec<u32>,
+        #[serde(borrow)] Vec<ZirExpression<'ast, T>>,
+    ),
 }
 
 /// An expression of type `field`
-#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
 pub enum FieldElementExpression<'ast, T> {
     Number(T),
+    #[serde(borrow)]
     Identifier(Identifier<'ast>),
     Select(SelectExpression<'ast, T, Self>),
     Add(
@@ -372,15 +456,16 @@ pub enum FieldElementExpression<'ast, T> {
     ),
     Pow(
         Box<FieldElementExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
+        #[serde(borrow)] Box<UExpression<'ast, T>>,
     ),
     Conditional(ConditionalExpression<'ast, T, FieldElementExpression<'ast, T>>),
 }
 
 /// An expression of type `bool`
-#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
 pub enum BooleanExpression<'ast, T> {
     Value(bool),
+    #[serde(borrow)]
     Identifier(Identifier<'ast>),
     Select(SelectExpression<'ast, T, Self>),
     FieldLt(

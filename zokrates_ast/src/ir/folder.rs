@@ -4,8 +4,8 @@ use super::*;
 use crate::common::Variable;
 use zokrates_field::Field;
 
-pub trait Folder<T: Field>: Sized {
-    fn fold_program(&mut self, p: Prog<T>) -> Prog<T> {
+pub trait Folder<'ast, T: Field>: Sized {
+    fn fold_program(&mut self, p: Prog<'ast, T>) -> Prog<'ast, T> {
         fold_program(self, p)
     }
 
@@ -17,7 +17,7 @@ pub trait Folder<T: Field>: Sized {
         fold_variable(self, v)
     }
 
-    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
+    fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
         fold_statement(self, s)
     }
 
@@ -29,12 +29,15 @@ pub trait Folder<T: Field>: Sized {
         fold_quadratic_combination(self, es)
     }
 
-    fn fold_directive(&mut self, d: Directive<T>) -> Directive<T> {
+    fn fold_directive(&mut self, d: Directive<'ast, T>) -> Directive<'ast, T> {
         fold_directive(self, d)
     }
 }
 
-pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
+pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    p: Prog<'ast, T>,
+) -> Prog<'ast, T> {
     Prog {
         arguments: p
             .arguments
@@ -50,7 +53,10 @@ pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
     }
 }
 
-pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec<Statement<T>> {
+pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: Statement<'ast, T>,
+) -> Vec<Statement<'ast, T>> {
     match s {
         Statement::Constraint(quad, lin, message) => vec![Statement::Constraint(
             f.fold_quadratic_combination(quad),
@@ -74,7 +80,10 @@ pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec
     }
 }
 
-pub fn fold_linear_combination<T: Field, F: Folder<T>>(f: &mut F, e: LinComb<T>) -> LinComb<T> {
+pub fn fold_linear_combination<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: LinComb<T>,
+) -> LinComb<T> {
     LinComb(
         e.0.into_iter()
             .map(|(variable, coefficient)| (f.fold_variable(variable), coefficient))
@@ -82,7 +91,7 @@ pub fn fold_linear_combination<T: Field, F: Folder<T>>(f: &mut F, e: LinComb<T>)
     )
 }
 
-pub fn fold_quadratic_combination<T: Field, F: Folder<T>>(
+pub fn fold_quadratic_combination<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: QuadComb<T>,
 ) -> QuadComb<T> {
@@ -92,7 +101,10 @@ pub fn fold_quadratic_combination<T: Field, F: Folder<T>>(
     }
 }
 
-pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: Directive<T>) -> Directive<T> {
+pub fn fold_directive<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    ds: Directive<'ast, T>,
+) -> Directive<'ast, T> {
     Directive {
         inputs: ds
             .inputs
@@ -104,13 +116,13 @@ pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: Directive<T>) -> Di
     }
 }
 
-pub fn fold_argument<T: Field, F: Folder<T>>(f: &mut F, a: Parameter) -> Parameter {
+pub fn fold_argument<'ast, T: Field, F: Folder<'ast, T>>(f: &mut F, a: Parameter) -> Parameter {
     Parameter {
         id: f.fold_variable(a.id),
         private: a.private,
     }
 }
 
-pub fn fold_variable<T: Field, F: Folder<T>>(_f: &mut F, v: Variable) -> Variable {
+pub fn fold_variable<'ast, T: Field, F: Folder<'ast, T>>(_f: &mut F, v: Variable) -> Variable {
     v
 }

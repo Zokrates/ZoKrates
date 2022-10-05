@@ -280,6 +280,7 @@ impl<'ast> From<pest::Statement<'ast>> for untyped::StatementNode<'ast> {
             pest::Statement::Assertion(s) => untyped::StatementNode::from(s),
             pest::Statement::Return(s) => untyped::StatementNode::from(s),
             pest::Statement::Log(s) => untyped::StatementNode::from(s),
+            pest::Statement::Assembly(s) => untyped::StatementNode::from(s),
         }
     }
 }
@@ -340,6 +341,32 @@ impl<'ast> From<pest::IterationStatement<'ast>> for untyped::StatementNode<'ast>
             statement.statements.into_iter().map(|s| s.into()).collect();
 
         untyped::Statement::For(index, from, to, statements).span(statement.span)
+    }
+}
+
+impl<'ast> From<pest::AssemblyStatement<'ast>> for untyped::StatementNode<'ast> {
+    fn from(statement: pest::AssemblyStatement<'ast>) -> untyped::StatementNode<'ast> {
+        use crate::untyped::NodeValue;
+
+        let statements = statement
+            .inner
+            .into_iter()
+            .map(|s| match s {
+                pest::AssemblyStatementInner::Assignment(a) => {
+                    untyped::AssemblyStatement::Assignment(
+                        a.assignee.into(),
+                        a.expression.into(),
+                        matches!(a.operator, pest::AssignmentOperator::AssignConstrain),
+                    )
+                    .span(a.span)
+                }
+                pest::AssemblyStatementInner::Constraint(c) => {
+                    untyped::AssemblyStatement::Constraint(c.lhs.into(), c.rhs.into()).span(c.span)
+                }
+            })
+            .collect();
+
+        untyped::Statement::Assembly(statements).span(statement.span)
     }
 }
 

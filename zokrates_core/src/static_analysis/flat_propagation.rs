@@ -14,8 +14,8 @@ struct Propagator<T> {
     constants: HashMap<Variable, T>,
 }
 
-impl<T: Field> Folder<T> for Propagator<T> {
-    fn fold_statement(&mut self, s: FlatStatement<T>) -> Vec<FlatStatement<T>> {
+impl<'ast, T: Field> Folder<'ast, T> for Propagator<T> {
+    fn fold_statement(&mut self, s: FlatStatement<'ast, T>) -> Vec<FlatStatement<'ast, T>> {
         match s {
             FlatStatement::Definition(var, expr) => match self.fold_expression(expr) {
                 FlatExpression::Number(n) => {

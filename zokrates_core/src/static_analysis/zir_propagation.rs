@@ -3,7 +3,7 @@ use std::fmt;
 use zokrates_ast::zir::types::UBitwidth;
 use zokrates_ast::zir::{
     result_folder::*, Conditional, ConditionalExpression, ConditionalOrExpression, Expr,
-    SelectExpression, SelectOrExpression,
+    SelectExpression, SelectOrExpression, ZirAssemblyStatement,
 };
 use zokrates_ast::zir::{
     BooleanExpression, FieldElementExpression, Identifier, RuntimeError, UExpression,
@@ -42,6 +42,9 @@ pub struct ZirPropagator<'ast, T> {
 }
 
 impl<'ast, T: Field> ZirPropagator<'ast, T> {
+    pub fn with_constants(constants:  Constants<'ast, T>) -> Self {
+        Self { constants }
+    }
     pub fn propagate(p: ZirProgram<T>) -> Result<ZirProgram<T>, Error> {
         ZirPropagator::default().fold_program(p)
     }
@@ -49,6 +52,24 @@ impl<'ast, T: Field> ZirPropagator<'ast, T> {
 
 impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
     type Error = Error;
+
+    fn fold_assembly_statement(
+        &mut self,
+        s: ZirAssemblyStatement<'ast, T>,
+    ) -> Result<ZirAssemblyStatement<'ast, T>, Self::Error> {
+        match s {
+            ZirAssemblyStatement::Assignment(assignees, function) => {
+                for a in &assignees {
+                    self.constants.remove(&a.id);
+                }
+                Ok(ZirAssemblyStatement::Assignment(
+                    assignees,
+                    self.fold_function(function)?,
+                ))
+            }
+            s => fold_assembly_statement(self, s),
+        }
+    }
 
     fn fold_statement(
         &mut self,

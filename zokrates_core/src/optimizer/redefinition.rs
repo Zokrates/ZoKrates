@@ -53,7 +53,9 @@ pub struct RedefinitionOptimizer<T> {
 }
 
 impl<T> RedefinitionOptimizer<T> {
-    pub fn init<I: IntoIterator<Item = Statement<T>>>(p: &ProgIterator<T, I>) -> Self {
+    pub fn init<'ast, I: IntoIterator<Item = Statement<'ast, T>>>(
+        p: &ProgIterator<'ast, T, I>,
+    ) -> Self {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
             ignore: vec![Variable::one()]
@@ -66,8 +68,8 @@ impl<T> RedefinitionOptimizer<T> {
     }
 }
 
-impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
-    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
+impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<T> {
+    fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
         match s {
             Statement::Constraint(quad, lin, message) => {
                 let quad = self.fold_quadratic_combination(quad);

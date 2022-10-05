@@ -43,8 +43,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_inspect<T: Field, I: Iterator<Item = ir::Statement<T>>>(
-    ir_prog: ir::ProgIterator<T, I>,
+fn cli_inspect<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
+    ir_prog: ir::ProgIterator<'a, T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     let ir_prog: ir::Prog<T> = ir_prog.collect();

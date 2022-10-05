@@ -3,6 +3,7 @@ use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum RuntimeError {
+    UnsatisfiedConstraint,
     BellmanConstraint,
     BellmanOneBinding,
     BellmanInputBinding,
@@ -63,6 +64,7 @@ impl fmt::Display for RuntimeError {
         use RuntimeError::*;
 
         let msg = match self {
+            UnsatisfiedConstraint => "Constraint is unsatisfied",
             BellmanConstraint => "Bellman constraint is unsatisfied",
             BellmanOneBinding => "Bellman ~one binding is unsatisfied",
             BellmanInputBinding => "Bellman input binding is unsatisfied",

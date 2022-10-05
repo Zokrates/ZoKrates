@@ -9,6 +9,7 @@ use crate::untyped::{
     types::{UnresolvedSignature, UnresolvedType},
     ConstantGenericNode, Expression,
 };
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use zokrates_field::Field;
 
@@ -28,7 +29,7 @@ cfg_if::cfg_if! {
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum FlatEmbed {
     BitArrayLe,
     Unpack,
@@ -317,8 +318,8 @@ impl FlatEmbed {
 /// - constraint system variables
 /// - arguments
 #[cfg(feature = "bellman")]
-pub fn sha256_round<T: Field>(
-) -> FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>> {
+pub fn sha256_round<'ast, T: Field>(
+) -> FlatFunctionIterator<'ast, T, impl IntoIterator<Item = FlatStatement<'ast, T>>> {
     use zokrates_field::Bn128Field;
     assert_eq!(T::id(), Bn128Field::id());
 
@@ -420,9 +421,9 @@ pub fn sha256_round<T: Field>(
 }
 
 #[cfg(feature = "ark")]
-pub fn snark_verify_bls12_377<T: Field>(
+pub fn snark_verify_bls12_377<'ast, T: Field>(
     n: usize,
-) -> FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>> {
+) -> FlatFunctionIterator<'ast, T, impl IntoIterator<Item = FlatStatement<'ast, T>>> {
     use zokrates_field::Bw6_761Field;
     assert_eq!(T::id(), Bw6_761Field::id());
 
@@ -546,9 +547,9 @@ fn use_variable(
 /// # Remarks
 /// * the return value of the `FlatFunction` is not deterministic if `bit_width >= T::get_required_bits()`
 ///   as some elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
-pub fn unpack_to_bitwidth<T: Field>(
+pub fn unpack_to_bitwidth<'ast, T: Field>(
     bit_width: usize,
-) -> FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>> {
+) -> FlatFunctionIterator<'ast, T, impl IntoIterator<Item = FlatStatement<'ast, T>>> {
     let mut counter = 0;
 
     let mut layout = HashMap::new();

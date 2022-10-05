@@ -220,6 +220,38 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Error> {
         match s {
+            TypedStatement::Assembly(statements) => {
+                let mut assembly_statement_buffer = vec![];
+                let mut statement_buffer = vec![];
+
+                for s in statements {
+                    match self.fold_assembly_statement(s)? {
+                        TypedAssemblyStatement::Assignment(assignee, expr) => {
+                            // invalidate the cache
+                            let v = self
+                                .try_get_constant_mut(&assignee)
+                                .map(|(v, _)| v)
+                                .unwrap_or_else(|v| v);
+
+                            match self.constants.remove(&v.id) {
+                                Some(c) => {
+                                    statement_buffer.push(TypedStatement::Definition(
+                                        v.clone().into(),
+                                        c.into(),
+                                    ));
+                                }
+                                None => {}
+                            }
+                            assembly_statement_buffer
+                                .push(TypedAssemblyStatement::Assignment(assignee, expr));
+                        }
+                        s => assembly_statement_buffer.push(s),
+                    }
+                }
+
+                statement_buffer.push(TypedStatement::Assembly(assembly_statement_buffer));
+                Ok(statement_buffer)
+            }
             // propagation to the defined variable if rhs is a constant
             TypedStatement::Definition(assignee, DefinitionRhs::Expression(expr)) => {
                 let assignee = self.fold_assignee(assignee)?;

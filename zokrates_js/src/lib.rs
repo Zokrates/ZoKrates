@@ -349,13 +349,14 @@ mod internal {
     }
 
     pub fn setup_universal<
+        'a,
         T: Field,
-        I: IntoIterator<Item = ir::Statement<T>>,
+        I: IntoIterator<Item = ir::Statement<'a, T>>,
         S: UniversalScheme<T> + Serialize,
         B: UniversalBackend<T, S>,
     >(
         srs: &[u8],
-        program: ir::ProgIterator<T, I>,
+        program: ir::ProgIterator<'a, T, I>,
     ) -> Result<JsValue, JsValue> {
         let keypair = B::setup(srs.to_vec(), program).map_err(|e| JsValue::from_str(&e))?;
         Ok(JsValue::from_serde(&TaggedKeypair::<T, S>::new(keypair)).unwrap())

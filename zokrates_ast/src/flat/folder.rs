@@ -4,8 +4,8 @@ use super::*;
 use crate::common::Variable;
 use zokrates_field::Field;
 
-pub trait Folder<T: Field>: Sized {
-    fn fold_program(&mut self, p: FlatProg<T>) -> FlatProg<T> {
+pub trait Folder<'ast, T: Field>: Sized {
+    fn fold_program(&mut self, p: FlatProg<'ast, T>) -> FlatProg<'ast, T> {
         fold_program(self, p)
     }
 
@@ -17,7 +17,7 @@ pub trait Folder<T: Field>: Sized {
         fold_variable(self, v)
     }
 
-    fn fold_statement(&mut self, s: FlatStatement<T>) -> Vec<FlatStatement<T>> {
+    fn fold_statement(&mut self, s: FlatStatement<'ast, T>) -> Vec<FlatStatement<'ast, T>> {
         fold_statement(self, s)
     }
 
@@ -25,12 +25,15 @@ pub trait Folder<T: Field>: Sized {
         fold_expression(self, e)
     }
 
-    fn fold_directive(&mut self, d: FlatDirective<T>) -> FlatDirective<T> {
+    fn fold_directive(&mut self, d: FlatDirective<'ast, T>) -> FlatDirective<'ast, T> {
         fold_directive(self, d)
     }
 }
 
-pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: FlatProg<T>) -> FlatProg<T> {
+pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    p: FlatProg<'ast, T>,
+) -> FlatProg<'ast, T> {
     FlatProg {
         arguments: p
             .arguments
@@ -46,10 +49,10 @@ pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: FlatProg<T>) -> FlatPr
     }
 }
 
-pub fn fold_statement<T: Field, F: Folder<T>>(
+pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    s: FlatStatement<T>,
-) -> Vec<FlatStatement<T>> {
+    s: FlatStatement<'ast, T>,
+) -> Vec<FlatStatement<'ast, T>> {
     match s {
         FlatStatement::Condition(left, right, error) => vec![FlatStatement::Condition(
             f.fold_expression(left),
@@ -70,7 +73,7 @@ pub fn fold_statement<T: Field, F: Folder<T>>(
     }
 }
 
-pub fn fold_expression<T: Field, F: Folder<T>>(
+pub fn fold_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: FlatExpression<T>,
 ) -> FlatExpression<T> {
@@ -89,7 +92,10 @@ pub fn fold_expression<T: Field, F: Folder<T>>(
     }
 }
 
-pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: FlatDirective<T>) -> FlatDirective<T> {
+pub fn fold_directive<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    ds: FlatDirective<'ast, T>,
+) -> FlatDirective<'ast, T> {
     FlatDirective {
         inputs: ds
             .inputs
@@ -101,13 +107,13 @@ pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: FlatDirective<T>) -
     }
 }
 
-pub fn fold_argument<T: Field, F: Folder<T>>(f: &mut F, a: Parameter) -> Parameter {
+pub fn fold_argument<'ast, T: Field, F: Folder<'ast, T>>(f: &mut F, a: Parameter) -> Parameter {
     Parameter {
         id: f.fold_variable(a.id),
         private: a.private,
     }
 }
 
-pub fn fold_variable<T: Field, F: Folder<T>>(_f: &mut F, v: Variable) -> Variable {
+pub fn fold_variable<'ast, T: Field, F: Folder<'ast, T>>(_f: &mut F, v: Variable) -> Variable {
     v
 }

@@ -699,7 +699,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     is_mutable: false,
                                 };
                                 assert_eq!(self.scope.level, 0);
-                                assert!(!self.scope.insert(id, info));
+                                assert!(!self.scope.insert(id.into(), info));
                                 assert!(state
                                     .constants
                                     .entry(module_id.to_path_buf())
@@ -895,7 +895,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             is_mutable: false,
                                         };
                                         assert_eq!(self.scope.level, 0);
-                                        assert!(!self.scope.insert(id, info));
+                                        assert!(!self.scope.insert(id.into(), info));
 
                                         state
                                             .constants
@@ -1130,12 +1130,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     // for declaration signatures, generics cannot be ignored
                     generics.0.insert(
                         generic.clone(),
-                        UExpressionInner::Identifier(self.id_in_this_scope(generic.name()).into())
+                        UExpressionInner::Identifier(self.id_in_this_scope(generic.name().into()).into())
                             .annotate(UBitwidth::B32),
                     );
 
                     //we don't have to check for conflicts here, because this was done when checking the signature
-                    self.insert_into_scope(generic.name(), Type::Uint(UBitwidth::B32), false);
+                    self.insert_into_scope(generic.name().into(), Type::Uint(UBitwidth::B32), false);
                 }
 
                 for (arg, decl_ty) in funct.arguments.into_iter().zip(s.inputs.iter()) {
@@ -1144,7 +1144,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let arg = arg.value;
 
                     let decl_v = DeclarationVariable::new(
-                        self.id_in_this_scope(arg.id.value.id),
+                        self.id_in_this_scope(arg.id.value.id.into()),
                         decl_ty.clone(),
                         arg.id.value.is_mutable,
                     );
@@ -1161,7 +1161,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         ty,
                         is_mutable,
                     };
-                    match self.scope.insert(id, info) {
+                    match self.scope.insert(id.into(), info) {
                         false => {}
                         true => {
                             errors.push(ErrorInner {
@@ -1651,10 +1651,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
             .map_err(|e| vec![e])?;
 
         // insert into the scope and ignore whether shadowing happened
-        self.insert_into_scope(v.value.id, ty.clone(), v.value.is_mutable);
+        self.insert_into_scope(v.value.id.into(), ty.clone(), v.value.is_mutable);
 
         Ok(Variable::new(
-            self.id_in_this_scope(v.value.id),
+            self.id_in_this_scope(v.value.id.into()),
             ty,
             v.value.is_mutable,
         ))
@@ -1770,6 +1770,87 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
     }
 
+    fn check_assembly_statement(
+        &mut self,
+        stat: AssemblyStatementNode<'ast>,
+        module_id: &ModuleId,
+        types: &TypeMap<'ast, T>,
+    ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, ErrorInner> {
+        let pos = stat.pos();
+
+        match stat.value {
+            AssemblyStatement::Assignment(assignee, expression, constrained) => {
+                let assignee = self.check_assignee(assignee, module_id, types)?;
+                let checked_e = self.check_expression(expression, module_id, types)?;
+
+                let e = match checked_e {
+                    TypedExpression::FieldElement(e) => Ok(e),
+                    TypedExpression::Int(e) => Ok(FieldElementExpression::try_from_int(e).unwrap()), // todo: handle properly
+                    _ => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: "Only field element expressions are allowed in the assembly"
+                            .to_string(),
+                    }),
+                }?;
+
+                let e = FieldElementExpression::block(vec![], e);
+                match constrained {
+                    true => {
+                        if !e.is_quadratic() {
+                            return Err(ErrorInner {
+                                pos: Some(pos),
+                                message: "Non quadratic constraints are not allowed".to_string(),
+                            });
+                        }
+                        match assignee.get_type() {
+                            Type::FieldElement => Ok(vec![
+                                TypedAssemblyStatement::Assignment(assignee.clone(), e.clone()),
+                                TypedAssemblyStatement::Constraint(assignee.into(), e),
+                            ]),
+                            _ => Err(ErrorInner {
+                                pos: Some(pos),
+                                message: "Assignee must be of type `field`".to_string(),
+                            }),
+                        }
+                    }
+                    false => Ok(vec![TypedAssemblyStatement::Assignment(assignee, e)]),
+                }
+            }
+            AssemblyStatement::Constraint(lhs, rhs) => {
+                let lhs = self.check_expression(lhs, module_id, types)?;
+                let rhs = self.check_expression(rhs, module_id, types)?;
+                match (lhs, rhs) {
+                    (TypedExpression::FieldElement(lhs), TypedExpression::FieldElement(rhs)) => {
+                        Ok(vec![TypedAssemblyStatement::Constraint(lhs, rhs)])
+                    }
+                    (TypedExpression::FieldElement(lhs), TypedExpression::Int(rhs)) => {
+                        Ok(vec![TypedAssemblyStatement::Constraint(
+                            lhs,
+                            FieldElementExpression::try_from_int(rhs).unwrap(),
+                        )])
+                    }
+                    (TypedExpression::Int(lhs), TypedExpression::FieldElement(rhs)) => {
+                        Ok(vec![TypedAssemblyStatement::Constraint(
+                            FieldElementExpression::try_from_int(lhs).unwrap(),
+                            rhs,
+                        )])
+                    }
+                    (TypedExpression::Int(lhs), TypedExpression::Int(rhs)) => {
+                        Ok(vec![TypedAssemblyStatement::Constraint(
+                            FieldElementExpression::try_from_int(lhs).unwrap(),
+                            FieldElementExpression::try_from_int(rhs).unwrap(),
+                        )])
+                    }
+                    _ => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: "Only field element expressions are allowed in the assembly"
+                            .to_string(),
+                    }),
+                }
+            }
+        }
+    }
+
     fn check_statement(
         &mut self,
         stat: StatementNode<'ast>,
@@ -1779,6 +1860,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let pos = stat.pos();
 
         match stat.value {
+            Statement::Assembly(statements) => {
+                let mut checked_statements = vec![];
+                for s in statements {
+                    checked_statements.push(
+                        self.check_assembly_statement(s, module_id, types)
+                            .map_err(|e| vec![e])?,
+                    );
+                }
+                Ok(TypedStatement::Assembly(
+                    checked_statements.into_iter().flatten().collect(),
+                ))
+            }
             Statement::Log(l, expressions) => {
                 let l = FormatString::from(l);
 
@@ -1901,10 +1994,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .map_err(|e| vec![e])?;
 
                 // insert the lhs into the scope and ignore whether shadowing happened
-                self.insert_into_scope(var.value.id, var_ty.clone(), var.value.is_mutable);
+                self.insert_into_scope(var.value.id.into(), var_ty.clone(), var.value.is_mutable);
 
                 let var = Variable::new(
-                    self.id_in_this_scope(var.value.id),
+                    self.id_in_this_scope(var.value.id.into()),
                     var_ty.clone(),
                     var.value.is_mutable,
                 );
@@ -2037,7 +2130,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let pos = assignee.pos();
         // check that the assignee is declared
         match assignee.value {
-            Assignee::Identifier(variable_name) => match self.scope.get(&variable_name) {
+            Assignee::Identifier(variable_name) => match self.scope.get(&variable_name.into()) {
                 Some(info) => match info.is_mutable {
                     false => Err(ErrorInner {
                         pos: Some(assignee.pos()),
@@ -2346,7 +2439,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::BooleanConstant(b) => Ok(BooleanExpression::Value(b).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
-                match self.scope.get(&name) {
+                match self.scope.get(&name.into()) {
                     Some(info) => {
                         let id = info.id;
                         match info.ty.clone() {
@@ -3615,11 +3708,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
         is_mutable: bool,
     ) -> bool {
         let info = IdentifierInfo {
-            id: self.id_in_this_scope(id),
+            id: self.id_in_this_scope(id.clone()),
             ty,
             is_mutable,
         };
-        self.scope.insert(id, info)
+        self.scope.insert(id.into(), info)
     }
 
     fn find_functions(

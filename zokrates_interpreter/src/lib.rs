@@ -24,21 +24,22 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<T: Field, I: IntoIterator<Item = Statement<T>>>(
+    pub fn execute<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>>(
         &self,
-        program: ProgIterator<T, I>,
+        program: ProgIterator<'ast, T, I>,
         inputs: &[T],
     ) -> ExecutionResult<T> {
         self.execute_with_log_stream(program, inputs, &mut std::io::sink())
     }
 
     pub fn execute_with_log_stream<
+        'ast,
         W: std::io::Write,
         T: Field,
-        I: IntoIterator<Item = Statement<T>>,
+        I: IntoIterator<Item = Statement<'ast, T>>,
     >(
         &self,
-        program: ProgIterator<T, I>,
+        program: ProgIterator<'ast, T, I>,
         inputs: &[T],
         log_stream: &mut W,
     ) -> ExecutionResult<T> {
@@ -142,9 +143,9 @@ impl Interpreter {
             .collect()
     }
 
-    fn check_inputs<T: Field, I: IntoIterator<Item = Statement<T>>, U>(
+    fn check_inputs<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>, U>(
         &self,
-        program: &ProgIterator<T, I>,
+        program: &ProgIterator<'ast, T, I>,
         inputs: &[U],
     ) -> Result<(), Error> {
         if program.arguments.len() == inputs.len() {
@@ -157,11 +158,18 @@ impl Interpreter {
         }
     }
 
-    pub fn execute_solver<T: Field>(solver: &Solver, inputs: &[T]) -> Result<Vec<T>, String> {
+    pub fn execute_solver<'ast, T: Field>(
+        solver: &Solver<'ast, T>,
+        inputs: &[T],
+    ) -> Result<Vec<T>, String> {
         let (expected_input_count, expected_output_count) = solver.get_signature();
         assert_eq!(inputs.len(), expected_input_count);
 
         let res = match solver {
+            Solver::Zir(func) => {
+                // TODO: implement evaluation of the function
+                vec![inputs[1].checked_div(&inputs[0]).unwrap()]
+            }
             Solver::ConditionEq => match inputs[0].is_zero() {
                 true => vec![T::zero(), T::one()],
                 false => vec![

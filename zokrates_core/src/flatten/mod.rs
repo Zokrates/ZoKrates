@@ -9,7 +9,8 @@ mod utils;
 
 use self::utils::flat_expression_from_bits;
 use zokrates_ast::zir::{
-    ConditionalExpression, SelectExpression, ShouldReduce, UMetadata, ZirExpressionList,
+    ConditionalExpression, SelectExpression, ShouldReduce, UMetadata, ZirAssemblyStatement,
+    ZirExpressionList,
 };
 use zokrates_interpreter::Interpreter;
 
@@ -32,7 +33,7 @@ use zokrates_ast::zir::{
 };
 use zokrates_field::Field;
 
-type FlatStatements<T> = VecDeque<FlatStatement<T>>;
+type FlatStatements<'ast, T> = VecDeque<FlatStatement<'ast, T>>;
 
 /// Flattens a function
 ///
@@ -64,14 +65,14 @@ pub fn from_function_and_config<T: Field>(
 
 pub struct FlattenerIteratorInner<'ast, T> {
     pub statements: VecDeque<ZirStatement<'ast, T>>,
-    pub statements_flattened: FlatStatements<T>,
+    pub statements_flattened: FlatStatements<'ast, T>,
     pub flattener: Flattener<'ast, T>,
 }
 
-pub type FlattenerIterator<'ast, T> = FlatProgIterator<T, FlattenerIteratorInner<'ast, T>>;
+pub type FlattenerIterator<'ast, T> = FlatProgIterator<'ast, T, FlattenerIteratorInner<'ast, T>>;
 
 impl<'ast, T: Field> Iterator for FlattenerIteratorInner<'ast, T> {
-    type Item = FlatStatement<T>;
+    type Item = FlatStatement<'ast, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.statements_flattened.is_empty() {
@@ -127,7 +128,7 @@ trait Flatten<'ast, T: Field>:
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
     ) -> Self::Output;
 }
 
@@ -137,7 +138,7 @@ impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
     ) -> Self::Output {
         flattener.flatten_field_expression(statements_flattened, self)
     }
@@ -149,7 +150,7 @@ impl<'ast, T: Field> Flatten<'ast, T> for UExpression<'ast, T> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
     ) -> Self::Output {
         flattener.flatten_uint_expression(statements_flattened, self)
     }
@@ -161,7 +162,7 @@ impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
     ) -> Self::Output {
         flattener.flatten_boolean_expression(statements_flattened, self)
     }
@@ -227,7 +228,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     fn define(
         &mut self,
         e: FlatExpression<T>,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
     ) -> Variable {
         match e {
             FlatExpression::Identifier(id) => id,
@@ -276,7 +277,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     #[must_use]
     fn constant_le_check(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         a: &[FlatExpression<T>],
         b: &[bool],
     ) -> Vec<FlatExpression<T>> {
@@ -381,7 +382,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * A FlatExpression which evaluates to `1` if `left == right`, `0` otherwise
     fn eq_check(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         left: FlatExpression<T>,
         right: FlatExpression<T>,
     ) -> FlatExpression<T> {
@@ -434,7 +435,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `b` - the big-endian bit decomposition of the upper bound of the range
     fn enforce_constant_le_check_bits(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         a: &[FlatExpression<T>],
         c: &[bool],
         error: RuntimeError,
@@ -464,7 +465,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `c` - the constant upper bound of the range
     fn enforce_constant_le_check(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         e: FlatExpression<T>,
         c: T,
         error: RuntimeError,
@@ -500,7 +501,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `c` - the constant upper bound of the range
     fn enforce_constant_lt_check(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         e: FlatExpression<T>,
         c: T,
         error: RuntimeError,
@@ -519,9 +520,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     fn make_conditional(
         &mut self,
-        statements: FlatStatements<T>,
+        statements: FlatStatements<'ast, T>,
         condition: FlatExpression<T>,
-    ) -> FlatStatements<T> {
+    ) -> FlatStatements<'ast, T> {
         statements
             .into_iter()
             .flat_map(|s| match s {
@@ -582,7 +583,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * U is the type of the expression
     fn flatten_conditional_expression<U: Flatten<'ast, T>>(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         e: ConditionalExpression<'ast, T, U>,
     ) -> FlatUExpression<T> {
         let condition = *e.condition;
@@ -680,7 +681,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * a `FlatExpression` which evaluates to `1` if `0 <= e < c`, and to `0` otherwise
     fn constant_lt_check(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         e: FlatExpression<T>,
         c: T,
     ) -> FlatExpression<T> {
@@ -704,7 +705,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * a `FlatExpression` which evaluates to `1` if `0 <= e <= c`, and to `0` otherwise
     fn constant_field_le_check(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         e: FlatExpression<T>,
         c: T,
     ) -> FlatExpression<T> {
@@ -745,7 +746,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     #[must_use]
     fn le_check(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         lhs_flattened: FlatExpression<T>,
         rhs_flattened: FlatExpression<T>,
         bit_width: usize,
@@ -768,7 +769,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     #[must_use]
     fn lt_check(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         lhs_flattened: FlatExpression<T>,
         rhs_flattened: FlatExpression<T>,
         bit_width: usize,
@@ -827,7 +828,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * in order to preserve composability.
     fn flatten_boolean_expression(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         expression: BooleanExpression<'ast, T>,
     ) -> FlatExpression<T> {
         match expression {
@@ -1033,7 +1034,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `param_expressions` - Arguments of this call
     fn flatten_embed_call(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         embed: FlatEmbed,
         generics: Vec<u32>,
         param_expressions: Vec<ZirExpression<'ast, T>>,
@@ -1134,9 +1135,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     fn flatten_embed_call_aux(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         params: Vec<FlatUExpression<T>>,
-        funct: FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>>,
+        funct: FlatFunctionIterator<'ast, T, impl IntoIterator<Item = FlatStatement<'ast, T>>>,
     ) -> Vec<FlatUExpression<T>> {
         let mut replacement_map = HashMap::new();
 
@@ -1219,7 +1220,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `expr` - `ZirExpression` that will be flattened.
     fn flatten_expression(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         expr: ZirExpression<'ast, T>,
     ) -> FlatUExpression<T> {
         match expr {
@@ -1235,7 +1236,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     fn default_xor(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         left: UExpression<'ast, T>,
         right: UExpression<'ast, T>,
     ) -> FlatUExpression<T> {
@@ -1296,7 +1297,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     fn euclidean_division(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         target_bitwidth: UBitwidth,
         left: UExpression<'ast, T>,
         right: UExpression<'ast, T>,
@@ -1382,7 +1383,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `expr` - `UExpression` that will be flattened.
     fn flatten_uint_expression(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         expr: UExpression<'ast, T>,
     ) -> FlatUExpression<T> {
         // the bitwidth for this type of uint (8, 16 or 32)
@@ -1875,7 +1876,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         e: &FlatUExpression<T>,
         from: usize,
         to: usize,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         error: RuntimeError,
     ) -> Vec<FlatExpression<T>> {
         assert!(from <= T::get_required_bits());
@@ -1969,7 +1970,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     fn flatten_select_expression<U: Flatten<'ast, T>>(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         e: SelectExpression<'ast, T, U>,
     ) -> FlatUExpression<T> {
         let array = e.array;
@@ -2033,7 +2034,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `expr` - `FieldElementExpression` that will be flattened.
     fn flatten_field_expression(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         expr: FieldElementExpression<'ast, T>,
     ) -> FlatExpression<T> {
         match expr {
@@ -2221,6 +2222,35 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    fn flatten_assembly_statement(
+        &mut self,
+        statements_flattened: &mut FlatStatements<'ast, T>,
+        stat: ZirAssemblyStatement<'ast, T>,
+    ) {
+        match stat {
+            ZirAssemblyStatement::Assignment(assignees, function) => {
+                let outputs: Vec<Variable> = assignees
+                    .iter()
+                    .map(|a| self.use_variable(a)) /*self.layout.get(&a.id).cloned().unwrap()*/
+                    .collect();
+                let inputs: Vec<FlatExpression<T>> = function
+                    .arguments
+                    .iter()
+                    .cloned()
+                    .map(|p| self.layout.get(&p.id.id).cloned().unwrap().into())
+                    .collect();
+                let directive = FlatDirective::new(outputs, Solver::Zir(function), inputs);
+                statements_flattened.push_back(FlatStatement::Directive(directive));
+            }
+            ZirAssemblyStatement::Constraint(lhs, rhs) => {
+                let lhs = self.flatten_field_expression(statements_flattened, lhs);
+                let rhs = self.flatten_field_expression(statements_flattened, rhs);
+
+                self.flatten_equality_assertion(statements_flattened, lhs, rhs, RuntimeError::UnsatisfiedConstraint)
+            }
+        }
+    }
+
     /// Flattens a statement
     ///
     /// # Arguments
@@ -2229,10 +2259,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `stat` - `ZirStatement` that will be flattened.
     fn flatten_statement(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         stat: ZirStatement<'ast, T>,
     ) {
         match stat {
+            ZirStatement::Assembly(statements) => {
+                for s in statements {
+                    self.flatten_assembly_statement(statements_flattened, s);
+                }
+            }
             ZirStatement::Return(exprs) => {
                 #[allow(clippy::needless_collect)]
                 // clippy suggests to not collect here, but `statements_flattened` is borrowed in the iterator,
@@ -2633,12 +2668,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `statements_flattened` - `FlatStatements<T>` Vector where new flattened statements can be added.
+    /// * `statements_flattened` - `FlatStatements<'ast, T>` Vector where new flattened statements can be added.
     /// * `lhs` - `FlatExpression<T>` Left-hand side of the equality expression.
     /// * `rhs` - `FlatExpression<T>` Right-hand side of the equality expression.
     fn flatten_equality_assertion(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
         lhs: FlatExpression<T>,
         rhs: FlatExpression<T>,
         error: RuntimeError,
@@ -2667,11 +2702,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// # Arguments
     ///
     /// * `e` - `FlatExpression<T>` Expression to be assigned to an identifier.
-    /// * `statements_flattened` - `FlatStatements<T>` Vector where new flattened statements can be added.
+    /// * `statements_flattened` - `FlatStatements<'ast, T>` Vector where new flattened statements can be added.
     fn identify_expression(
         &mut self,
         e: FlatExpression<T>,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
     ) -> FlatExpression<T> {
         match e.is_linear() {
             true => e,
@@ -2710,7 +2745,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     fn use_parameter(
         &mut self,
         parameter: &ZirParameter<'ast>,
-        statements_flattened: &mut FlatStatements<T>,
+        statements_flattened: &mut FlatStatements<'ast, T>,
     ) -> Parameter {
         let variable = self.use_variable(&parameter.id);
 

@@ -51,7 +51,7 @@ pub struct GenericIdentifier<'ast> {
 impl<'ast> From<GenericIdentifier<'ast>> for CoreIdentifier<'ast> {
     fn from(g: GenericIdentifier<'ast>) -> CoreIdentifier<'ast> {
         // generic identifiers are always declared in the function scope, which is shadow 0
-        CoreIdentifier::Source(ShadowedIdentifier::shadow(g.name(), 0))
+        CoreIdentifier::Source(ShadowedIdentifier::shadow(std::borrow::Cow::Borrowed(g.name()), 0))
     }
 }
 
@@ -119,9 +119,10 @@ pub struct SpecializationError;
 
 pub type ConstantIdentifier<'ast> = &'ast str;
 
-#[derive(Clone, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CanonicalConstantIdentifier<'ast> {
     pub module: OwnedTypedModuleId,
+    #[serde(borrow)]
     pub id: ConstantIdentifier<'ast>,
 }
 

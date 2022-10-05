@@ -1,7 +1,8 @@
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use zokrates_ast::typed::types::UBitwidth;
 use zokrates_ast::typed::{self, Expr, Typed};
-use zokrates_ast::zir::{self, Select};
+use zokrates_ast::zir::{self, Folder, Select};
 use zokrates_field::Field;
 
 use std::convert::{TryFrom, TryInto};
@@ -224,6 +225,14 @@ impl<'ast, T: Field> Flattener<T> {
         }
     }
 
+    fn fold_assembly_statement(
+        &mut self,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+        s: typed::TypedAssemblyStatement<'ast, T>,
+    ) -> zir::ZirAssemblyStatement<'ast, T> {
+        fold_assembly_statement(self, statements_buffer, s)
+    }
+
     fn fold_statement(
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
@@ -393,12 +402,102 @@ impl<'ast, T: Field> Flattener<T> {
     }
 }
 
+#[derive(Default)]
+pub struct ArgumentFinder<'ast, T> {
+    pub identifiers: HashSet<zir::Identifier<'ast>>,
+    _phantom: PhantomData<T>,
+}
+
+impl<'ast, T: Field> Folder<'ast, T> for ArgumentFinder<'ast, T> {
+    fn fold_name(&mut self, n: zir::Identifier<'ast>) -> zir::Identifier<'ast> {
+        self.identifiers.insert(n.clone());
+        n
+    }
+    fn fold_statement(&mut self, s: zir::ZirStatement<'ast, T>) -> Vec<zir::ZirStatement<'ast, T>> {
+        match s {
+            zir::ZirStatement::Definition(assignee, expr) => {
+                let assignee = self.fold_assignee(assignee);
+                let expr = self.fold_expression(expr);
+                self.identifiers.remove(&assignee.id);
+                vec![zir::ZirStatement::Definition(assignee, expr)]
+            }
+            zir::ZirStatement::MultipleDefinition(assignees, list) => {
+                let assignees: Vec<zir::ZirAssignee<'ast>> = assignees
+                    .into_iter()
+                    .map(|v| self.fold_assignee(v))
+                    .collect();
+                let list = self.fold_expression_list(list);
+                for a in &assignees {
+                    self.identifiers.remove(&a.id);
+                }
+                vec![zir::ZirStatement::MultipleDefinition(assignees, list)]
+            }
+            s => zir::folder::fold_statement(self, s),
+        }
+    }
+}
+
+fn fold_assembly_statement<'ast, T: Field>(
+    f: &mut Flattener<T>,
+    statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    s: typed::TypedAssemblyStatement<'ast, T>,
+) -> zir::ZirAssemblyStatement<'ast, T> {
+    match s {
+        typed::TypedAssemblyStatement::Assignment(a, e) => {
+            let mut statements_buffer: Vec<zir::ZirStatement<'ast, T>> = vec![];
+            let a = f.fold_assignee(a);
+            let e = f.fold_field_expression(&mut statements_buffer, e);
+            statements_buffer.push(zir::ZirStatement::Return(vec![
+                zir::ZirExpression::FieldElement(e),
+            ]));
+
+            let mut finder = ArgumentFinder::default();
+            let mut statements_buffer: Vec<zir::ZirStatement<'ast, T>> = statements_buffer
+                .into_iter()
+                .rev()
+                .map(|s| finder.fold_statement(s))
+                .flatten()
+                .collect();
+            statements_buffer.reverse();
+
+            let function = zir::ZirFunction {
+                signature: zir::types::Signature::default()
+                    .inputs(vec![zir::Type::FieldElement; finder.identifiers.len()])
+                    .outputs(a.iter().map(|a| a.get_type()).collect()),
+                arguments: finder
+                    .identifiers
+                    .into_iter()
+                    .map(|id| zir::Parameter {
+                        id: zir::Variable::field_element(id),
+                        private: false,
+                    })
+                    .collect(),
+                statements: statements_buffer,
+            };
+
+            zir::ZirAssemblyStatement::Assignment(a, function)
+        }
+        typed::TypedAssemblyStatement::Constraint(lhs, rhs) => {
+            let lhs = f.fold_field_expression(statements_buffer, lhs);
+            let rhs = f.fold_field_expression(statements_buffer, rhs);
+            zir::ZirAssemblyStatement::Constraint(lhs, rhs)
+        }
+    }
+}
+
 fn fold_statement<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     s: typed::TypedStatement<'ast, T>,
 ) {
     let res = match s {
+        typed::TypedStatement::Assembly(statements) => {
+            let statements = statements
+                .into_iter()
+                .map(|s| f.fold_assembly_statement(statements_buffer, s))
+                .collect();
+            vec![zir::ZirStatement::Assembly(statements)]
+        }
         typed::TypedStatement::Return(expression) => vec![zir::ZirStatement::Return(
             f.fold_expression(statements_buffer, expression),
         )],

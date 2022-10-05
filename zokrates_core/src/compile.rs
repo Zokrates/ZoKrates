@@ -25,13 +25,13 @@ use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
-pub struct CompilationArtifacts<T, I: IntoIterator<Item = ir::Statement<T>>> {
-    prog: ir::ProgIterator<T, I>,
+pub struct CompilationArtifacts<'ast, T, I: IntoIterator<Item = ir::Statement<'ast, T>>> {
+    prog: ir::ProgIterator<'ast, T, I>,
     abi: Abi,
 }
 
-impl<T, I: IntoIterator<Item = ir::Statement<T>>> CompilationArtifacts<T, I> {
-    pub fn prog(self) -> ir::ProgIterator<T, I> {
+impl<'ast, T, I: IntoIterator<Item = ir::Statement<'ast, T>>> CompilationArtifacts<'ast, T, I> {
+    pub fn prog(self) -> ir::ProgIterator<'ast, T, I> {
         self.prog
     }
 
@@ -39,11 +39,11 @@ impl<T, I: IntoIterator<Item = ir::Statement<T>>> CompilationArtifacts<T, I> {
         &self.abi
     }
 
-    pub fn into_inner(self) -> (ir::ProgIterator<T, I>, Abi) {
+    pub fn into_inner(self) -> (ir::ProgIterator<'ast, T, I>, Abi) {
         (self.prog, self.abi)
     }
 
-    pub fn collect(self) -> CompilationArtifacts<T, Vec<ir::Statement<T>>> {
+    pub fn collect(self) -> CompilationArtifacts<'ast, T, Vec<ir::Statement<'ast, T>>> {
         CompilationArtifacts {
             prog: self.prog.collect(),
             abi: self.abi,
@@ -201,8 +201,10 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     resolver: Option<&dyn Resolver<E>>,
     config: CompileConfig,
     arena: &'ast Arena<String>,
-) -> Result<CompilationArtifacts<T, impl IntoIterator<Item = ir::Statement<T>> + 'ast>, CompileErrors>
-{
+) -> Result<
+    CompilationArtifacts<'ast, T, impl IntoIterator<Item = ir::Statement<'ast, T>> + 'ast>,
+    CompileErrors,
+> {
     let (typed_ast, abi): (zokrates_ast::zir::ZirProgram<'_, T>, _) =
         check_with_arena(source, location, resolver, &config, arena)?;
 

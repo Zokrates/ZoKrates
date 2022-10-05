@@ -56,6 +56,13 @@ pub trait Folder<'ast, T: Field>: Sized {
         self.fold_variable(a)
     }
 
+    fn fold_assembly_statement(
+        &mut self,
+        s: ZirAssemblyStatement<'ast, T>,
+    ) -> ZirAssemblyStatement<'ast, T> {
+        fold_assembly_statement(self, s)
+    }
+
     fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
         fold_statement(self, s)
     }
@@ -127,6 +134,24 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 }
 
+pub fn fold_assembly_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: ZirAssemblyStatement<'ast, T>,
+) -> ZirAssemblyStatement<'ast, T> {
+    match s {
+        ZirAssemblyStatement::Assignment(assignees, function) => {
+            let assignees = assignees.into_iter().map(|a| f.fold_assignee(a)).collect();
+            let function = f.fold_function(function);
+            ZirAssemblyStatement::Assignment(assignees, function)
+        }
+        ZirAssemblyStatement::Constraint(lhs, rhs) => {
+            let lhs = f.fold_field_expression(lhs);
+            let rhs = f.fold_field_expression(rhs);
+            ZirAssemblyStatement::Constraint(lhs, rhs)
+        }
+    }
+}
+
 pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: ZirStatement<'ast, T>,
@@ -163,6 +188,12 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
             l,
             e.into_iter()
                 .map(|(t, e)| (t, e.into_iter().map(|e| f.fold_expression(e)).collect()))
+                .collect(),
+        ),
+        ZirStatement::Assembly(statements) => ZirStatement::Assembly(
+            statements
+                .into_iter()
+                .map(|s| f.fold_assembly_statement(s))
                 .collect(),
         ),
     };
