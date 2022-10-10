@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
-## [0.8.3] - 2022-10-10
+## [0.8.3] - 2022-10-11
 
 ### Release
 - https://github.com/Zokrates/ZoKrates/releases/tag/0.8.3 <!-- markdown-link-check-disable-line -->

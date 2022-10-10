@@ -3143,7 +3143,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_core_test"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "zokrates_test",
  "zokrates_test_derive",
