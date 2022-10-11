@@ -223,13 +223,10 @@ impl<'ast> From<pest::Parameter<'ast>> for untyped::ParameterNode<'ast> {
     fn from(param: pest::Parameter<'ast>) -> untyped::ParameterNode<'ast> {
         use crate::untyped::NodeValue;
 
-        let is_private = param
-            .visibility
-            .map(|v| match v {
-                pest::Visibility::Private(_) => true,
-                pest::Visibility::Public(_) => false,
-            })
-            .unwrap_or(false);
+        let is_private = param.visibility.map(|v| match v {
+            pest::Visibility::Private(_) => true,
+            pest::Visibility::Public(_) => false,
+        });
 
         let is_mutable = param.mutable.is_some();
 
@@ -949,9 +946,10 @@ mod tests {
                                 .into(),
                             )
                             .into(),
-                            untyped::Parameter::public(
+                            untyped::Parameter::new(
                                 untyped::Variable::mutable("b", UnresolvedType::Boolean.mock())
-                                    .into(),
+                                    .mock(),
+                                None,
                             )
                             .into(),
                         ],

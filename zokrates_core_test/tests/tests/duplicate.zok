@@ -1,0 +1,4 @@
+def main(field a) {
+    assert(a == 0);
+    assert(a == 0);
+}
