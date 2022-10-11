@@ -60,6 +60,7 @@ declare module "zokrates-js" {
     snarkjs?: {
       program: Uint8Array;
     };
+    constraint_count: number;
   }
 
   export interface SetupKeypair {

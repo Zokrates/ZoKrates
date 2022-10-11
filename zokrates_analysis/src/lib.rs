@@ -1,3 +1,5 @@
+#![feature(box_patterns, box_syntax)]
+
 //! Module containing static analysis
 //!
 //! @file mod.rs
@@ -32,14 +34,14 @@ use self::reducer::reduce_program;
 use self::struct_concretizer::StructConcretizer;
 use self::uint_optimizer::UintOptimizer;
 use self::variable_write_remover::VariableWriteRemover;
-use crate::compile::CompileConfig;
-use crate::static_analysis::constant_resolver::ConstantResolver;
-use crate::static_analysis::dead_code::DeadCodeEliminator;
-use crate::static_analysis::panic_extractor::PanicExtractor;
-use crate::static_analysis::zir_propagation::ZirPropagator;
+use crate::constant_resolver::ConstantResolver;
+use crate::dead_code::DeadCodeEliminator;
+use crate::panic_extractor::PanicExtractor;
+pub use crate::zir_propagation::ZirPropagator;
 use std::fmt;
 use zokrates_ast::typed::{abi::Abi, TypedProgram};
 use zokrates_ast::zir::ZirProgram;
+use zokrates_common::CompileConfig;
 use zokrates_field::Field;
 
 #[derive(Debug)]

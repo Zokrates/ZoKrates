@@ -37,8 +37,6 @@ impl<'ast> VariableWriteRemover {
                     let inner_ty = base.inner_type();
                     let size = base.size();
 
-                    use std::convert::TryInto;
-
                     let size: u32 = size.try_into().unwrap();
 
                     let head = indices.remove(0);

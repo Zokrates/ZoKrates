@@ -1,6 +1,6 @@
 // A folder to inline all constant definitions down to a single literal and register them in the state for later use.
 
-use crate::static_analysis::reducer::{
+use crate::reducer::{
     constants_reader::ConstantsReader, reduce_function, ConstantDefinitions, Error,
 };
 use std::collections::{BTreeMap, HashSet};

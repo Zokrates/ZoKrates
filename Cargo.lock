@@ -2998,6 +2998,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "zokrates_analysis"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "csv",
+ "lazy_static",
+ "log",
+ "num 0.1.42",
+ "num-bigint 0.2.6",
+ "pretty_assertions 0.6.1",
+ "reduce",
+ "serde",
+ "serde_json",
+ "typed-arena",
+ "zokrates_ast",
+ "zokrates_common",
+ "zokrates_embed",
+ "zokrates_field",
+ "zokrates_fs_resolver",
+ "zokrates_pest_ast",
+]
+
+[[package]]
 name = "zokrates_ark"
 version = "0.1.1"
 dependencies = [
@@ -3113,8 +3136,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "zokrates_codegen"
+version = "0.1.0"
+dependencies = [
+ "zokrates_ast",
+ "zokrates_common",
+ "zokrates_embed",
+ "zokrates_field",
+ "zokrates_interpreter",
+]
+
+[[package]]
 name = "zokrates_common"
 version = "0.1.1"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "zokrates_core"
@@ -3131,7 +3168,9 @@ dependencies = [
  "serde",
  "serde_json",
  "typed-arena",
+ "zokrates_analysis",
  "zokrates_ast",
+ "zokrates_codegen",
  "zokrates_common",
  "zokrates_embed",
  "zokrates_field",
@@ -3208,6 +3247,7 @@ dependencies = [
  "pairing_ce",
  "serde",
  "zokrates_abi",
+ "zokrates_analysis",
  "zokrates_ast",
  "zokrates_embed",
  "zokrates_field",

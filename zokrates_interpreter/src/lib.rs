@@ -82,7 +82,7 @@ impl Interpreter {
                         }
                         _ => Self::execute_solver(&d.solver, &inputs),
                     }
-                    .map_err(|_| Error::Solver)?;
+                    .map_err(|e| Error::Solver(e))?;
 
                     for (i, o) in d.outputs.iter().enumerate() {
                         witness.insert(*o, res[i].clone());
@@ -167,8 +167,49 @@ impl Interpreter {
 
         let res = match solver {
             Solver::Zir(func) => {
-                // TODO: implement evaluation of the function
-                vec![inputs[1].checked_div(&inputs[0]).unwrap()]
+                use zokrates_ast::zir::result_folder::ResultFolder;
+
+                assert!(func
+                    .arguments
+                    .iter()
+                    .all(|a| a.id._type == zokrates_ast::zir::Type::FieldElement));
+                assert_eq!(func.arguments.len(), inputs.len());
+
+                let constants = func
+                    .arguments
+                    .iter()
+                    .zip(inputs)
+                    .map(|(a, v)| {
+                        (
+                            a.id.id.clone(),
+                            zokrates_ast::zir::FieldElementExpression::Number(v.clone()).into(),
+                        )
+                    })
+                    .collect();
+
+                let mut propagator = zokrates_analysis::ZirPropagator::with_constants(constants);
+
+                let folded_function = propagator
+                    .fold_function(func.clone())
+                    .map_err(|e| e.to_string())?;
+
+                assert!(folded_function.statements.len() == 1);
+                let res = if let zokrates_ast::zir::ZirStatement::Return(v) =
+                    folded_function.statements[0].clone()
+                {
+                    v.into_iter()
+                        .map(|v| match v {
+                            zokrates_ast::zir::ZirExpression::FieldElement(
+                                zokrates_ast::zir::FieldElementExpression::Number(n),
+                            ) => n,
+                            _ => unreachable!(),
+                        })
+                        .collect()
+                } else {
+                    unreachable!()
+                };
+
+                res
             }
             Solver::ConditionEq => match inputs[0].is_zero() {
                 true => vec![T::zero(), T::one()],
@@ -284,7 +325,7 @@ pub struct EvaluationError;
 #[derive(PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum Error {
     UnsatisfiedConstraint { error: Option<RuntimeError> },
-    Solver,
+    Solver(String),
     WrongInputCount { expected: usize, received: usize },
     LogStream,
 }
@@ -327,7 +368,7 @@ impl fmt::Display for Error {
                     _ => write!(f, ""),
                 }
             }
-            Error::Solver => write!(f, ""),
+            Error::Solver(ref e) => write!(f, "Solver error: `{}`", e),
             Error::WrongInputCount { expected, received } => write!(
                 f,
                 "Program takes {} input{} but was passed {} value{}",

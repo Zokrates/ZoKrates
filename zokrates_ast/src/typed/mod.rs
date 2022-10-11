@@ -1315,7 +1315,40 @@ impl<'ast, T> FieldElementExpression<'ast, T> {
         FieldElementExpression::Pow(box self, box other)
     }
     pub fn is_quadratic(&self) -> bool {
-        true // TODO: implement
+        match self {
+            FieldElementExpression::Mult(box left, box right) => {
+                left.is_linear() && right.is_linear()
+            }
+            _ => false,
+        }
+    }
+
+    fn is_linear(&self) -> bool {
+        match self {
+            FieldElementExpression::Block(_) => false,
+            FieldElementExpression::Number(_) => true,
+            FieldElementExpression::Identifier(_) => true,
+            FieldElementExpression::Add(box left, box right) => {
+                left.is_linear() && right.is_linear()
+            }
+            FieldElementExpression::Sub(box left, box right) => {
+                left.is_linear() && right.is_linear()
+            }
+            FieldElementExpression::Mult(box left, box right) => match (left, right) {
+                (FieldElementExpression::Number(_), _) => true,
+                (_, FieldElementExpression::Number(_)) => true,
+                _ => false,
+            },
+            FieldElementExpression::Div(_, _) => false,
+            FieldElementExpression::Pow(_, _) => false,
+            FieldElementExpression::Conditional(_) => false,
+            FieldElementExpression::Neg(_) => true,
+            FieldElementExpression::Pos(_) => true,
+            FieldElementExpression::FunctionCall(_) => false,
+            FieldElementExpression::Member(_) => true,
+            FieldElementExpression::Select(_) => true,
+            FieldElementExpression::Element(_) => true,
+        }
     }
 }
 

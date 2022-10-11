@@ -3,24 +3,23 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use crate::flatten::from_function_and_config;
 use crate::imports::{self, Importer};
 use crate::macros;
 use crate::optimizer::optimize;
 use crate::semantics::{self, Checker};
-use crate::static_analysis::{self, analyse};
 use macros::process_macros;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 use typed_arena::Arena;
+use zokrates_analysis::{self, analyse};
 use zokrates_ast::ir::{self, from_flat::from_flat};
 use zokrates_ast::typed::abi::Abi;
 use zokrates_ast::untyped::{Module, OwnedModuleId, Program};
 use zokrates_ast::zir::ZirProgram;
-use zokrates_common::Resolver;
+use zokrates_codegen::from_function_and_config;
+use zokrates_common::{CompileConfig, Resolver};
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
@@ -67,7 +66,7 @@ pub enum CompileErrorInner {
     MacroError(macros::Error),
     SemanticError(semantics::ErrorInner),
     ReadError(io::Error),
-    AnalysisError(static_analysis::Error),
+    AnalysisError(zokrates_analysis::Error),
 }
 
 impl CompileErrorInner {
@@ -142,8 +141,8 @@ impl From<semantics::Error> for CompileError {
     }
 }
 
-impl From<static_analysis::Error> for CompileErrorInner {
-    fn from(error: static_analysis::Error) -> Self {
+impl From<zokrates_analysis::Error> for CompileErrorInner {
+    fn from(error: zokrates_analysis::Error) -> Self {
         CompileErrorInner::AnalysisError(error)
     }
 }
@@ -170,26 +169,6 @@ impl fmt::Display for CompileErrorInner {
             }
             CompileErrorInner::AnalysisError(ref e) => write!(f, "\n\t{}", e),
         }
-    }
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
-pub struct CompileConfig {
-    #[serde(default)]
-    pub isolate_branches: bool,
-    #[serde(default)]
-    pub debug: bool,
-}
-
-impl CompileConfig {
-    pub fn isolate_branches(mut self, flag: bool) -> Self {
-        self.isolate_branches = flag;
-        self
-    }
-
-    pub fn debug(mut self, debug: bool) -> Self {
-        self.debug = debug;
-        self
     }
 }
 

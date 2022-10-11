@@ -16,8 +16,9 @@ module.exports = (pkg) => {
         {
           program: ptr.program(),
           abi: ptr.abi(),
+          constraint_count: ptr.constraint_count(),
         },
-        snarkjs ? { snarkjs: { program: ptr.snarkjs_program() } } : {}
+        snarkjs ? { snarkjs: { program: ptr.snarkjs_program() } } : {},
       );
       ptr.free();
       return result;

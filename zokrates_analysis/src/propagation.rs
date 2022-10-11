@@ -404,7 +404,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 match embed_call.arguments.iter().all(|a| a.is_constant()) {
                     true => {
                         let r: Option<TypedExpression<'ast, T>> = match embed_call.embed {
-                            FlatEmbed::BitArrayLe => Ok(None), // todo
+                            FlatEmbed::FieldToBoolUnsafe => Ok(None), // todo
+                            FlatEmbed::BitArrayLe => Ok(None),        // todo
                             FlatEmbed::U64FromBits => Ok(Some(process_u_from_bits(
                                 &embed_call.arguments,
                                 UBitwidth::B64,

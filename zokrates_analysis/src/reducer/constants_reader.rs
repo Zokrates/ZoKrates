@@ -1,6 +1,6 @@
 // given a (partial) map of values for program constants, replace where applicable constants by their value
 
-use crate::static_analysis::reducer::ConstantDefinitions;
+use crate::reducer::ConstantDefinitions;
 use zokrates_ast::typed::{
     folder::*, ArrayExpression, ArrayExpressionInner, ArrayType, BooleanExpression, CoreIdentifier,
     DeclarationConstant, Expr, FieldElementExpression, Identifier, StructExpression,

@@ -8,8 +8,8 @@ readme = "README.md"
 
 [features]
 default = ["ark", "bellman"]
-ark = ["zokrates_ast/ark", "zokrates_embed/ark", "zokrates_common/ark", "zokrates_interpreter/ark"]
-bellman = ["zokrates_ast/bellman", "zokrates_embed/bellman", "zokrates_common/bellman", "zokrates_interpreter/bellman"]
+ark = ["zokrates_ast/ark", "zokrates_embed/ark", "zokrates_common/ark", "zokrates_interpreter/ark", "zokrates_codegen/ark", "zokrates_analysis/ark"]
+bellman = ["zokrates_ast/bellman", "zokrates_embed/bellman", "zokrates_common/bellman", "zokrates_interpreter/bellman", "zokrates_codegen/bellman", "zokrates_analysis/bellman"]
 
 [dependencies]
 log = "0.4"
@@ -27,6 +27,8 @@ zokrates_pest_ast = { version = "0.3.0", path = "../zokrates_pest_ast" }
 zokrates_common = { version = "0.1", path = "../zokrates_common", default-features = false }
 zokrates_embed = { version = "0.1.0", path = "../zokrates_embed", default-features = false }
 zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", default-features = false }
+zokrates_codegen = { version = "0.1", path = "../zokrates_codegen", default-features = false }
+zokrates_analysis = { version = "0.1", path = "../zokrates_analysis", default-features = false }
 zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
 csv = "1"
 

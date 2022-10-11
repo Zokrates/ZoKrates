@@ -1130,12 +1130,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     // for declaration signatures, generics cannot be ignored
                     generics.0.insert(
                         generic.clone(),
-                        UExpressionInner::Identifier(self.id_in_this_scope(generic.name().into()).into())
-                            .annotate(UBitwidth::B32),
+                        UExpressionInner::Identifier(
+                            self.id_in_this_scope(generic.name().into()).into(),
+                        )
+                        .annotate(UBitwidth::B32),
                     );
 
                     //we don't have to check for conflicts here, because this was done when checking the signature
-                    self.insert_into_scope(generic.name().into(), Type::Uint(UBitwidth::B32), false);
+                    self.insert_into_scope(
+                        generic.name().into(),
+                        Type::Uint(UBitwidth::B32),
+                        false,
+                    );
                 }
 
                 for (arg, decl_ty) in funct.arguments.into_iter().zip(s.inputs.iter()) {

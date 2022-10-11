@@ -31,7 +31,7 @@ impl fmt::Display for Error {
             Error::DivisionByZero => {
                 write!(f, "Division by zero detected in zir during static analysis",)
             }
-            Error::AssertionFailed(err) => write!(f, "{}", err),
+            Error::AssertionFailed(err) => write!(f, "Assertion failed: `{}`", err),
         }
     }
 }
@@ -42,7 +42,7 @@ pub struct ZirPropagator<'ast, T> {
 }
 
 impl<'ast, T: Field> ZirPropagator<'ast, T> {
-    pub fn with_constants(constants:  Constants<'ast, T>) -> Self {
+    pub fn with_constants(constants: Constants<'ast, T>) -> Self {
         Self { constants }
     }
     pub fn propagate(p: ZirProgram<T>) -> Result<ZirProgram<T>, Error> {
@@ -613,22 +613,28 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         e: ConditionalExpression<'ast, T, E>,
     ) -> Result<ConditionalOrExpression<'ast, T, E>, Self::Error> {
         let condition = self.fold_boolean_expression(*e.condition)?;
-        let consequence = e.consequence.fold(self)?;
-        let alternative = e.alternative.fold(self)?;
 
-        match (condition, consequence, alternative) {
-            (_, consequence, alternative) if consequence == alternative => Ok(
-                ConditionalOrExpression::Expression(consequence.into_inner()),
-            ),
-            (BooleanExpression::Value(true), consequence, _) => Ok(
-                ConditionalOrExpression::Expression(consequence.into_inner()),
-            ),
-            (BooleanExpression::Value(false), _, alternative) => Ok(
-                ConditionalOrExpression::Expression(alternative.into_inner()),
-            ),
-            (condition, consequence, alternative) => Ok(ConditionalOrExpression::Conditional(
-                ConditionalExpression::new(condition, consequence, alternative),
+        match condition {
+            BooleanExpression::Value(true) => Ok(ConditionalOrExpression::Expression(
+                e.consequence.fold(self)?.into_inner(),
             )),
+            BooleanExpression::Value(false) => Ok(ConditionalOrExpression::Expression(
+                e.alternative.fold(self)?.into_inner(),
+            )),
+            condition => {
+                let consequence = e.consequence.fold(self)?;
+                let alternative = e.alternative.fold(self)?;
+
+                if consequence == alternative {
+                    Ok(ConditionalOrExpression::Expression(
+                        consequence.into_inner(),
+                    ))
+                } else {
+                    Ok(ConditionalOrExpression::Conditional(
+                        ConditionalExpression::new(condition, consequence, alternative),
+                    ))
+                }
+            }
         }
     }
 }

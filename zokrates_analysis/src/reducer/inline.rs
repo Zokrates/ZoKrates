@@ -26,9 +26,9 @@
 // - The body of the function is in SSA form
 // - The return value(s) are assigned to internal variables
 
-use crate::static_analysis::reducer::Output;
-use crate::static_analysis::reducer::ShallowTransformer;
-use crate::static_analysis::reducer::Versions;
+use crate::reducer::Output;
+use crate::reducer::ShallowTransformer;
+use crate::reducer::Versions;
 
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::types::{ConcreteGenericsAssignment, IntoType};
@@ -88,8 +88,6 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     program: &TypedProgram<'ast, T>,
     versions: &'a mut Versions<'ast>,
 ) -> InlineResult<'ast, T> {
-    use std::convert::TryFrom;
-
     use zokrates_ast::typed::Typed;
     let output_type = output.clone().into_type();
 

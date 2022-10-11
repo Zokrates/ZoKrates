@@ -36,7 +36,7 @@ use zokrates_field::Field;
 use self::constants_writer::ConstantsWriter;
 use self::shallow_ssa::ShallowTransformer;
 
-use crate::static_analysis::propagation::{Constants, Propagator};
+use crate::propagation::{Constants, Propagator};
 
 use std::fmt;
 

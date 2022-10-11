@@ -51,7 +51,10 @@ pub struct GenericIdentifier<'ast> {
 impl<'ast> From<GenericIdentifier<'ast>> for CoreIdentifier<'ast> {
     fn from(g: GenericIdentifier<'ast>) -> CoreIdentifier<'ast> {
         // generic identifiers are always declared in the function scope, which is shadow 0
-        CoreIdentifier::Source(ShadowedIdentifier::shadow(std::borrow::Cow::Borrowed(g.name()), 0))
+        CoreIdentifier::Source(ShadowedIdentifier::shadow(
+            std::borrow::Cow::Borrowed(g.name()),
+            0,
+        ))
     }
 }
 

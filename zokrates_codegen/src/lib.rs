@@ -1,3 +1,5 @@
+#![feature(box_patterns, box_syntax)]
+
 //! Module containing the `Flattener` to process a program that is R1CS-able.
 //!
 //! @file flatten.rs
@@ -14,7 +16,6 @@ use zokrates_ast::zir::{
 };
 use zokrates_interpreter::Interpreter;
 
-use crate::compile::CompileConfig;
 use std::collections::{
     hash_map::{Entry, HashMap},
     VecDeque,
@@ -31,6 +32,7 @@ use zokrates_ast::zir::{
     UExpression, UExpressionInner, Variable as ZirVariable, ZirExpression, ZirFunction,
     ZirStatement,
 };
+use zokrates_common::CompileConfig;
 use zokrates_field::Field;
 
 type FlatStatements<'ast, T> = VecDeque<FlatStatement<'ast, T>>;
@@ -1050,6 +1052,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             .collect();
 
         match embed {
+            FlatEmbed::FieldToBoolUnsafe => vec![params.pop().unwrap()],
             FlatEmbed::U8ToBits => self.u_to_bits(params.pop().unwrap(), 8.into()),
             FlatEmbed::U16ToBits => self.u_to_bits(params.pop().unwrap(), 16.into()),
             FlatEmbed::U32ToBits => self.u_to_bits(params.pop().unwrap(), 32.into()),
@@ -1575,6 +1578,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             UExpressionInner::Xor(box left, box right) => {
                 let left_metadata = left.metadata.clone().unwrap();
                 let right_metadata = right.metadata.clone().unwrap();
+
+                println!("left {}, right {}", left, right);
 
                 match (left.into_inner(), right.into_inner()) {
                     (UExpressionInner::And(box a, box b), UExpressionInner::And(box aa, box c)) => {
@@ -2246,7 +2251,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let lhs = self.flatten_field_expression(statements_flattened, lhs);
                 let rhs = self.flatten_field_expression(statements_flattened, rhs);
 
-                self.flatten_equality_assertion(statements_flattened, lhs, rhs, RuntimeError::UnsatisfiedConstraint)
+                self.flatten_equality_assertion(
+                    statements_flattened,
+                    lhs,
+                    rhs,
+                    RuntimeError::UnsatisfiedConstraint,
+                )
             }
         }
     }
