@@ -455,8 +455,7 @@ fn fold_assembly_statement<'ast, T: Field>(
             let mut statements_buffer: Vec<zir::ZirStatement<'ast, T>> = statements_buffer
                 .into_iter()
                 .rev()
-                .map(|s| finder.fold_statement(s))
-                .flatten()
+                .flat_map(|s| finder.fold_statement(s))
                 .collect();
             statements_buffer.reverse();
 

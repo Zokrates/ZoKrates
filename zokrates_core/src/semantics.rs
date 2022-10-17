@@ -1791,7 +1791,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 let e = match checked_e {
                     TypedExpression::FieldElement(e) => Ok(e),
-                    TypedExpression::Int(e) => Ok(FieldElementExpression::try_from_int(e).unwrap()), // todo: handle properly
+                    TypedExpression::Int(e) => Ok(FieldElementExpression::try_from_int(e).unwrap()),
                     _ => Err(ErrorInner {
                         pos: Some(pos),
                         message: "Only field element expressions are allowed in the assembly"
@@ -3718,7 +3718,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             ty,
             is_mutable,
         };
-        self.scope.insert(id.into(), info)
+        self.scope.insert(id, info)
     }
 
     fn find_functions(

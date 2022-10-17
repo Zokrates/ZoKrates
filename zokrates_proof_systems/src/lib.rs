@@ -126,7 +126,7 @@ pub trait MpcBackend<T: Field, S: Scheme<T>> {
         output: &mut W,
     ) -> Result<(), String>;
 
-    fn contribute<'a, R: Read, W: Write, G: Rng>(
+    fn contribute<R: Read, W: Write, G: Rng>(
         params: &mut R,
         rng: &mut G,
         output: &mut W,

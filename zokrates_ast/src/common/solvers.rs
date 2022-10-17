@@ -23,7 +23,7 @@ pub enum Solver<'ast, T> {
 impl<'ast, T: fmt::Debug + fmt::Display> fmt::Display for Solver<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Solver::Zir(func) => write!(f, "Zir({})", "ignored"),
+            Solver::Zir(_) => write!(f, "Zir(ignored)"),
             _ => write!(f, "{:?}", self),
         }
     }

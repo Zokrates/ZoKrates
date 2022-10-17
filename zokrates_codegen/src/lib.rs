@@ -1579,8 +1579,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let left_metadata = left.metadata.clone().unwrap();
                 let right_metadata = right.metadata.clone().unwrap();
 
-                println!("left {}, right {}", left, right);
-
                 match (left.into_inner(), right.into_inner()) {
                     (UExpressionInner::And(box a, box b), UExpressionInner::And(box aa, box c)) => {
                         if aa.clone().into_inner() == UExpressionInner::Not(box a.clone()) {

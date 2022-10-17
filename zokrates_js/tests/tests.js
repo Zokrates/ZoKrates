@@ -44,6 +44,7 @@ describe("tests", () => {
         );
         assert.ok(artifacts);
         assert.ok(artifacts.snarkjs === undefined);
+        assert.eq(artifacts.constraintCount === 1);
       });
     });
 

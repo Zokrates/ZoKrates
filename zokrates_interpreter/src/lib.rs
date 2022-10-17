@@ -82,7 +82,7 @@ impl Interpreter {
                         }
                         _ => Self::execute_solver(&d.solver, &inputs),
                     }
-                    .map_err(|e| Error::Solver(e))?;
+                    .map_err(Error::Solver)?;
 
                     for (i, o) in d.outputs.iter().enumerate() {
                         witness.insert(*o, res[i].clone());
@@ -193,8 +193,8 @@ impl Interpreter {
                     .fold_function(func.clone())
                     .map_err(|e| e.to_string())?;
 
-                assert!(folded_function.statements.len() == 1);
-                let res = if let zokrates_ast::zir::ZirStatement::Return(v) =
+                assert_eq!(folded_function.statements.len(), 1);
+                if let zokrates_ast::zir::ZirStatement::Return(v) =
                     folded_function.statements[0].clone()
                 {
                     v.into_iter()
@@ -207,9 +207,7 @@ impl Interpreter {
                         .collect()
                 } else {
                     unreachable!()
-                };
-
-                res
+                }
             }
             Solver::ConditionEq => match inputs[0].is_zero() {
                 true => vec![T::zero(), T::one()],

@@ -14,9 +14,11 @@ use zokrates_ast::ir::folder::*;
 use zokrates_ast::ir::*;
 use zokrates_field::Field;
 
+type SolverCall<'ast, T> = (Solver<'ast, T>, Vec<QuadComb<T>>);
+
 #[derive(Debug, Default)]
 pub struct DirectiveOptimizer<'ast, T> {
-    calls: HashMap<(Solver<'ast, T>, Vec<QuadComb<T>>), Vec<Variable>>,
+    calls: HashMap<SolverCall<'ast, T>, Vec<Variable>>,
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<Variable, Variable>,
 }

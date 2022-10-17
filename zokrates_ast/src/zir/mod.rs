@@ -209,7 +209,7 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
         match self {
             ZirStatement::Return(ref exprs) => {
                 write!(f, "return")?;
-                if exprs.len() > 0 {
+                if !exprs.is_empty() {
                     write!(
                         f,
                         " {}",

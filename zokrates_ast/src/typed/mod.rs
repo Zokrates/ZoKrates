@@ -1334,11 +1334,10 @@ impl<'ast, T> FieldElementExpression<'ast, T> {
             FieldElementExpression::Sub(box left, box right) => {
                 left.is_linear() && right.is_linear()
             }
-            FieldElementExpression::Mult(box left, box right) => match (left, right) {
-                (FieldElementExpression::Number(_), _) => true,
-                (_, FieldElementExpression::Number(_)) => true,
-                _ => false,
-            },
+            FieldElementExpression::Mult(box left, box right) => matches!(
+                (left, right),
+                (FieldElementExpression::Number(_), _) | (_, FieldElementExpression::Number(_))
+            ),
             FieldElementExpression::Div(_, _) => false,
             FieldElementExpression::Pow(_, _) => false,
             FieldElementExpression::Conditional(_) => false,
