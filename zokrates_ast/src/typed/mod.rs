@@ -1319,7 +1319,7 @@ impl<'ast, T> FieldElementExpression<'ast, T> {
             FieldElementExpression::Mult(box left, box right) => {
                 left.is_linear() && right.is_linear()
             }
-            _ => false,
+            e => e.is_linear(),
         }
     }
 

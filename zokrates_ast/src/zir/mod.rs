@@ -116,35 +116,6 @@ impl RuntimeError {
     }
 }
 
-// #[derive(Clone, PartialEq, Hash, Eq, Debug)]
-// pub struct ZirBlock<'ast, T> {
-//     pub statements: Vec<ZirStatement<'ast, T>>,
-//     pub value: FieldElementExpression<'ast, T>,
-// }
-//
-// impl<'ast, T> ZirBlock<'ast, T> {
-//     pub fn new(
-//         statements: Vec<ZirStatement<'ast, T>>,
-//         value: FieldElementExpression<'ast, T>,
-//     ) -> Self {
-//         Self { statements, value }
-//     }
-// }
-// impl<'ast, T: fmt::Display> fmt::Display for ZirBlock<'ast, T> {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         write!(
-//             f,
-//             "{{\n{}\n}}",
-//             self.statements
-//                 .iter()
-//                 .map(|s| s.to_string())
-//                 .chain(std::iter::once(self.value.to_string()))
-//                 .collect::<Vec<_>>()
-//                 .join("\n")
-//         )
-//     }
-// }
-
 #[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
 pub enum ZirAssemblyStatement<'ast, T> {
     Assignment(

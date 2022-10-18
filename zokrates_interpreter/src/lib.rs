@@ -366,7 +366,7 @@ impl fmt::Display for Error {
                     _ => write!(f, ""),
                 }
             }
-            Error::Solver(ref e) => write!(f, "Solver error: `{}`", e),
+            Error::Solver(ref e) => write!(f, "Solver error: {}", e),
             Error::WrongInputCount { expected, received } => write!(
                 f,
                 "Program takes {} input{} but was passed {} value{}",

@@ -1799,7 +1799,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }?;
 
-                let e = FieldElementExpression::block(vec![], e);
                 match constrained {
                     true => {
                         if !e.is_quadratic() {
@@ -1808,6 +1807,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 message: "Non quadratic constraints are not allowed".to_string(),
                             });
                         }
+                        let e = FieldElementExpression::block(vec![], e);
                         match assignee.get_type() {
                             Type::FieldElement => Ok(vec![
                                 TypedAssemblyStatement::Assignment(assignee.clone(), e.clone()),
@@ -1819,7 +1819,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             }),
                         }
                     }
-                    false => Ok(vec![TypedAssemblyStatement::Assignment(assignee, e)]),
+                    false => {
+                        let e = FieldElementExpression::block(vec![], e);
+                        Ok(vec![TypedAssemblyStatement::Assignment(assignee, e)])
+                    }
                 }
             }
             AssemblyStatement::Constraint(lhs, rhs) => {
@@ -4572,7 +4575,7 @@ mod tests {
 
         let mut scope = Scope::default();
         scope.insert(
-            "b",
+            std::borrow::Cow::Borrowed("b"),
             IdentifierInfo {
                 id: "b".into(),
                 ty: Type::FieldElement,
@@ -4815,12 +4818,19 @@ mod tests {
 
         let for_statements_checked = vec![TypedStatement::definition(
             typed::Variable::uint(
-                CoreIdentifier::Source(ShadowedIdentifier::shadow("a", 1)),
+                CoreIdentifier::Source(ShadowedIdentifier::shadow(
+                    std::borrow::Cow::Borrowed("a"),
+                    1,
+                )),
                 UBitwidth::B32,
             )
             .into(),
             UExpressionInner::Identifier(
-                CoreIdentifier::Source(ShadowedIdentifier::shadow("i", 1)).into(),
+                CoreIdentifier::Source(ShadowedIdentifier::shadow(
+                    std::borrow::Cow::Borrowed("i"),
+                    1,
+                ))
+                .into(),
             )
             .annotate(UBitwidth::B32)
             .into(),
@@ -4829,7 +4839,10 @@ mod tests {
         let foo_statements_checked = vec![
             TypedStatement::For(
                 typed::Variable::uint(
-                    CoreIdentifier::Source(ShadowedIdentifier::shadow("i", 1)),
+                    CoreIdentifier::Source(ShadowedIdentifier::shadow(
+                        std::borrow::Cow::Borrowed("i"),
+                        1,
+                    )),
                     UBitwidth::B32,
                 ),
                 0u32.into(),
@@ -5373,7 +5386,11 @@ mod tests {
                 );
             assert!(s2_checked.is_ok());
             assert_eq!(
-                checker.scope.get(&"a").unwrap().ty,
+                checker
+                    .scope
+                    .get(&std::borrow::Cow::Borrowed("a"))
+                    .unwrap()
+                    .ty,
                 DeclarationType::Boolean
             );
         }
@@ -5433,16 +5450,22 @@ mod tests {
             let expected = vec![
                 TypedStatement::definition(
                     typed::Variable::new(
-                        CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
+                        CoreIdentifier::from(ShadowedIdentifier::shadow(
+                            std::borrow::Cow::Borrowed("a"),
+                            0,
+                        )),
                         Type::FieldElement,
                         true,
                     )
                     .into(),
-                    FieldElementExpression::Number(2.into()).into(),
+                    FieldElementExpression::Number(2u32.into()).into(),
                 ),
                 TypedStatement::For(
                     typed::Variable::new(
-                        CoreIdentifier::from(ShadowedIdentifier::shadow("i", 1)),
+                        CoreIdentifier::from(ShadowedIdentifier::shadow(
+                            std::borrow::Cow::Borrowed("i"),
+                            1,
+                        )),
                         Type::Uint(UBitwidth::B32),
                         false,
                     ),
@@ -5451,32 +5474,41 @@ mod tests {
                     vec![
                         TypedStatement::definition(
                             typed::Variable::new(
-                                CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
+                                CoreIdentifier::from(ShadowedIdentifier::shadow(
+                                    std::borrow::Cow::Borrowed("a"),
+                                    0,
+                                )),
                                 Type::FieldElement,
                                 true,
                             )
                             .into(),
-                            FieldElementExpression::Number(3.into()).into(),
+                            FieldElementExpression::Number(3u32.into()).into(),
                         ),
                         TypedStatement::definition(
                             typed::Variable::new(
-                                CoreIdentifier::from(ShadowedIdentifier::shadow("a", 1)),
+                                CoreIdentifier::from(ShadowedIdentifier::shadow(
+                                    std::borrow::Cow::Borrowed("a"),
+                                    1,
+                                )),
                                 Type::FieldElement,
                                 false,
                             )
                             .into(),
-                            FieldElementExpression::Number(4.into()).into(),
+                            FieldElementExpression::Number(4u32.into()).into(),
                         ),
                     ],
                 ),
                 TypedStatement::definition(
                     typed::Variable::new(
-                        CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
+                        CoreIdentifier::from(ShadowedIdentifier::shadow(
+                            std::borrow::Cow::Borrowed("a"),
+                            0,
+                        )),
                         Type::FieldElement,
                         true,
                     )
                     .into(),
-                    FieldElementExpression::Number(5.into()).into(),
+                    FieldElementExpression::Number(5u32.into()).into(),
                 ),
             ];
 

@@ -1,0 +1,25 @@
+{
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["4", "2"]
+      },
+      "output": {
+        "Ok": {
+          "value": "2"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["4", "0"]
+      },
+      "output": {
+        "Err": {
+          "Solver": "Assertion failed: `Division by zero`"
+        }
+      }
+    }
+  ]
+}
