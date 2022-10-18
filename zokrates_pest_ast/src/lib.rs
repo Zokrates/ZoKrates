@@ -425,19 +425,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    // #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
-    // #[pest_ast(rule(Rule::op_asm_assign))]
-    // pub struct AssemblyAssignOperator;
-    //
-    // #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
-    // #[pest_ast(rule(Rule::op_asm_assign_constrain))]
-    // pub struct AssemblyAssignConstrainOperator;
-    //
-    // #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
-    // #[pest_ast(rule(Rule::op_asm_constrain))]
-    // pub struct AssemblyConstrainOperator;
-
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, PartialEq, Eq, Clone)]
     pub enum AssignmentOperator {
         Assign,
         AssignConstrain,
