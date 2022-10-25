@@ -1794,19 +1794,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     TypedExpression::Int(e) => Ok(FieldElementExpression::try_from_int(e).unwrap()),
                     _ => Err(ErrorInner {
                         pos: Some(pos),
-                        message: "Only field element expressions are allowed in the assembly"
+                        message: "Only field element expressions are allowed in the assembly block"
                             .to_string(),
                     }),
                 }?;
 
                 match constrained {
                     true => {
-                        if !e.is_quadratic() {
-                            return Err(ErrorInner {
-                                pos: Some(pos),
-                                message: "Non quadratic constraints are not allowed".to_string(),
-                            });
-                        }
                         let e = FieldElementExpression::block(vec![], e);
                         match assignee.get_type() {
                             Type::FieldElement => Ok(vec![
@@ -1852,7 +1846,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     _ => Err(ErrorInner {
                         pos: Some(pos),
-                        message: "Only field element expressions are allowed in the assembly"
+                        message: "Only field element expressions are allowed in the assembly block"
                             .to_string(),
                     }),
                 }
