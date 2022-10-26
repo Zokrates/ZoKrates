@@ -124,7 +124,7 @@ mod tests {
         // a single field is sufficient, as the prime we're working with is 3 bits long, so we can pack up to 2 bits
 
         let x = a_id("x").annotate(Type::Boolean, 2u32);
-        let y = a_id("x").annotate(Type::Boolean, 2u32);
+        let y = a_id("y").annotate(Type::Boolean, 2u32);
 
         let e: BooleanExpression<DummyCurveField> =
             BooleanExpression::ArrayEq(EqExpression::new(x.clone(), y.clone()));
@@ -152,7 +152,7 @@ mod tests {
         // [x[0] ? 2**2 : 0 + x[1] ? 2**1 : 0, x[2] ? 2**0 : 0] == [y[0] ? 2**2 : 0 + y[1] ? 2**1 : 0 y[2] ? 2**0 : 0]
 
         let x = a_id("x").annotate(Type::Boolean, 3u32);
-        let y = a_id("x").annotate(Type::Boolean, 3u32);
+        let y = a_id("y").annotate(Type::Boolean, 3u32);
 
         let e: BooleanExpression<DummyCurveField> =
             BooleanExpression::ArrayEq(EqExpression::new(x.clone(), y.clone()));
