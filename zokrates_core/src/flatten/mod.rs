@@ -634,38 +634,25 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let alternative_id = self.use_sym();
         statements_flattened.push_back(FlatStatement::Definition(alternative_id, alternative));
 
-        let term0_id = self.use_sym();
-        statements_flattened.push_back(FlatStatement::Definition(
-            term0_id,
+        let res_id = self.use_sym();
+
+        statements_flattened.push_back(FlatStatement::Directive(FlatDirective::new(
+            vec![res_id],
+            Solver::Ite,
+            vec![condition_id, consequence_id, alternative_id],
+        )));
+
+        statements_flattened.push_back(FlatStatement::Condition(
+            FlatExpression::Sub(box res_id.into(), box alternative_id.into()),
             FlatExpression::Mult(
                 box condition_id.into(),
-                box FlatExpression::from(consequence_id),
+                box FlatExpression::Sub(box consequence_id.into(), box alternative_id.into()),
             ),
-        ));
-
-        let term1_id = self.use_sym();
-        statements_flattened.push_back(FlatStatement::Definition(
-            term1_id,
-            FlatExpression::Mult(
-                box FlatExpression::Sub(
-                    box FlatExpression::Number(T::one()),
-                    box condition_id.into(),
-                ),
-                box FlatExpression::from(alternative_id),
-            ),
-        ));
-
-        let res = self.use_sym();
-        statements_flattened.push_back(FlatStatement::Definition(
-            res,
-            FlatExpression::Add(
-                box FlatExpression::from(term0_id),
-                box FlatExpression::from(term1_id),
-            ),
+            RuntimeError::Ite,
         ));
 
         FlatUExpression {
-            field: Some(FlatExpression::Identifier(res)),
+            field: Some(res_id.into()),
             bits: None,
         }
     }

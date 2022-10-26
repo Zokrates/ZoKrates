@@ -162,6 +162,10 @@ impl Interpreter {
         assert_eq!(inputs.len(), expected_input_count);
 
         let res = match solver {
+            Solver::Ite => match inputs[0].is_zero() {
+                true => vec![inputs[2].clone()],
+                false => vec![inputs[1].clone()],
+            },
             Solver::ConditionEq => match inputs[0].is_zero() {
                 true => vec![T::zero(), T::one()],
                 false => vec![

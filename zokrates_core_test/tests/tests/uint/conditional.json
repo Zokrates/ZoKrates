@@ -1,6 +1,6 @@
 {
   "entry_point": "./tests/tests/uint/conditional.zok",
-  "max_constraint_count": 31,
+  "max_constraint_count": 30,
   "tests": [
     {
       "input": {

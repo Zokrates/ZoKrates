@@ -3,6 +3,7 @@ use std::fmt;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum Solver {
+    Ite,
     ConditionEq,
     Bits(usize),
     Div,
@@ -26,6 +27,7 @@ impl fmt::Display for Solver {
 impl Solver {
     pub fn get_signature(&self) -> (usize, usize) {
         match self {
+            Solver::Ite => (3, 1),
             Solver::ConditionEq => (1, 2),
             Solver::Bits(bit_width) => (1, *bit_width),
             Solver::Div => (2, 1),

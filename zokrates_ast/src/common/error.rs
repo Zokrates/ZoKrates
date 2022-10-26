@@ -20,6 +20,7 @@ pub enum RuntimeError {
     LtSymetric,
     Or,
     Xor,
+    Ite,
     IncompleteDynamicRange,
     Inverse,
     Euclidean,
@@ -54,6 +55,7 @@ impl RuntimeError {
                 | SelectRangeCheck
                 | ArgumentBitness
                 | IncompleteDynamicRange
+                | Ite
         )
     }
 }
@@ -80,6 +82,7 @@ impl fmt::Display for RuntimeError {
             LtSymetric => "Symetrical check failed in Lt check",
             Or => "Or check failed",
             Xor => "Xor check failed",
+            Ite => "Conditional check failed",
             IncompleteDynamicRange => {
                 "Failed to compare field elements because dynamic comparison is incomplete"
             }
