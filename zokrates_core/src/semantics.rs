@@ -3553,9 +3553,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match e1 {
                     TypedExpression::Int(e1) => Ok(IntExpression::LeftShift(box e1, box e2).into()),
                     TypedExpression::Uint(e1) => Ok(UExpression::left_shift(e1, e2).into()),
+                    TypedExpression::FieldElement(e1) => {
+                        Ok(FieldElementExpression::LeftShift(box e1, box e2).into())
+                    }
                     e1 => Err(ErrorInner {
                         pos: Some(pos),
-
                         message: format!(
                             "Cannot left-shift {} by {}",
                             e1.get_type(),
@@ -3582,9 +3584,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok(IntExpression::RightShift(box e1, box e2).into())
                     }
                     TypedExpression::Uint(e1) => Ok(UExpression::right_shift(e1, e2).into()),
+                    TypedExpression::FieldElement(e1) => {
+                        Ok(FieldElementExpression::RightShift(box e1, box e2).into())
+                    }
                     e1 => Err(ErrorInner {
                         pos: Some(pos),
-
                         message: format!(
                             "Cannot right-shift {} by {}",
                             e1.get_type(),
@@ -3609,6 +3613,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
                         Ok(IntExpression::Or(box e1, box e2).into())
                     }
+                    (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
+                        Ok(FieldElementExpression::Or(box e1, box e2).into())
+                    }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
                     {
@@ -3616,7 +3623,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
-
                         message: format!(
                             "Cannot apply `|` to {}, {}",
                             e1.get_type(),
@@ -3641,6 +3647,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
                         Ok(IntExpression::And(box e1, box e2).into())
                     }
+                    (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
+                        Ok(FieldElementExpression::And(box e1, box e2).into())
+                    }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
                     {
@@ -3648,7 +3657,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
-
                         message: format!(
                             "Cannot apply `&` to {}, {}",
                             e1.get_type(),
@@ -3673,6 +3681,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
                         Ok(IntExpression::Xor(box e1, box e2).into())
                     }
+                    (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
+                        Ok(FieldElementExpression::Xor(box e1, box e2).into())
+                    }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
                     {
@@ -3680,7 +3691,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
-
                         message: format!(
                             "Cannot apply `^` to {}, {}",
                             e1.get_type(),

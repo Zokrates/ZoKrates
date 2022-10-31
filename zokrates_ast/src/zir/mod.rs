@@ -429,6 +429,20 @@ pub enum FieldElementExpression<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
         #[serde(borrow)] Box<UExpression<'ast, T>>,
     ),
+    And(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    Or(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    Xor(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    LeftShift(Box<FieldElementExpression<'ast, T>>, u32),
+    RightShift(Box<FieldElementExpression<'ast, T>>, u32),
     Conditional(ConditionalExpression<'ast, T, FieldElementExpression<'ast, T>>),
 }
 
@@ -544,6 +558,15 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
+            FieldElementExpression::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
+            FieldElementExpression::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
+            FieldElementExpression::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+            FieldElementExpression::LeftShift(ref lhs, ref rhs) => {
+                write!(f, "({} << {})", lhs, rhs)
+            }
+            FieldElementExpression::RightShift(ref lhs, ref rhs) => {
+                write!(f, "({} >> {})", lhs, rhs)
+            }
             FieldElementExpression::Conditional(ref c) => {
                 write!(f, "{}", c)
             }

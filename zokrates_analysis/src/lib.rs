@@ -6,6 +6,7 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
+mod assembly_analyzer;
 mod branch_isolator;
 mod condition_redefiner;
 mod constant_argument_checker;
@@ -34,6 +35,7 @@ use self::reducer::reduce_program;
 use self::struct_concretizer::StructConcretizer;
 use self::uint_optimizer::UintOptimizer;
 use self::variable_write_remover::VariableWriteRemover;
+use crate::assembly_analyzer::AssemblyAnalyzer;
 use crate::constant_resolver::ConstantResolver;
 use crate::dead_code::DeadCodeEliminator;
 use crate::panic_extractor::PanicExtractor;
@@ -51,6 +53,7 @@ pub enum Error {
     ZirPropagation(self::zir_propagation::Error),
     NonConstantArgument(self::constant_argument_checker::Error),
     OutOfBounds(self::out_of_bounds::Error),
+    Assembly(self::assembly_analyzer::Error),
 }
 
 impl From<reducer::Error> for Error {
@@ -83,6 +86,12 @@ impl From<constant_argument_checker::Error> for Error {
     }
 }
 
+impl From<assembly_analyzer::Error> for Error {
+    fn from(e: assembly_analyzer::Error) -> Self {
+        Error::Assembly(e)
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -91,6 +100,7 @@ impl fmt::Display for Error {
             Error::ZirPropagation(e) => write!(f, "{}", e),
             Error::NonConstantArgument(e) => write!(f, "{}", e),
             Error::OutOfBounds(e) => write!(f, "{}", e),
+            Error::Assembly(e) => write!(f, "{}", e),
         }
     }
 }
@@ -167,6 +177,10 @@ pub fn analyse<'ast, T: Field>(
     log::debug!("Static analyser: Redefine conditions");
     let r = ConditionRedefiner::redefine(r);
     log::trace!("\n{}", r);
+
+    // analyze assembly
+    log::debug!("Static analyser: Analyze assembly");
+    let r = AssemblyAnalyzer::analyze(r).map_err(Error::from)?;
 
     // convert to zir, removing complex types
     log::debug!("Static analyser: Convert to zir");

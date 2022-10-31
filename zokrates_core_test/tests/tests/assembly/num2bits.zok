@@ -1,0 +1,21 @@
+def num2bits<N>(field num) -> field[N] {
+    field[N] mut out = [0; N];
+    field mut lc1 = 0;
+    field mut e2 = 1;
+    for u32 i in 0..N {
+        asm {
+            out[i] <-- (num >> i) & 1;
+            out[i] * (out[i] - 1) === 0;
+        }
+        lc1 = lc1 + out[i] * e2;
+        e2 = e2 + e2;
+    }
+    asm {
+        lc1 === num;
+    }
+    return out;
+}
+
+def main(field input) -> field[4] {
+    return num2bits(input);
+}

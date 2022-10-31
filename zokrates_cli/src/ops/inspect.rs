@@ -52,6 +52,9 @@ fn cli_inspect<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
     let curve = format!("{:<17} {}", "curve:", T::name());
     let constraint_count = format!("{:<17} {}", "constraint_count:", ir_prog.constraint_count());
 
+    println!("{}", curve);
+    println!("{}", constraint_count);
+
     if sub_matches.is_present("ztf") {
         let output_path =
             PathBuf::from(sub_matches.value_of("input").unwrap()).with_extension("ztf");

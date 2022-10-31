@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
+use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr};
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::Type;
@@ -879,6 +880,105 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     (_, e2) => Err(Error::NonConstantExponent(
                         e2.annotate(UBitwidth::B32).to_string(),
                     )),
+                }
+            }
+            FieldElementExpression::Xor(box e1, box e2) => {
+                let e1 = self.fold_field_expression(e1)?;
+                let e2 = self.fold_field_expression(e2)?;
+
+                match (e1, e2) {
+                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
+                        Ok(FieldElementExpression::Number(
+                            T::try_from(n1.to_biguint().bitxor(n2.to_biguint())).unwrap(),
+                        ))
+                    }
+                    (e1, e2) if e1.eq(&e2) => Ok(FieldElementExpression::Number(T::from(0))),
+                    (e1, e2) => Ok(FieldElementExpression::Xor(box e1, box e2)),
+                }
+            }
+
+            FieldElementExpression::And(box e1, box e2) => {
+                let e1 = self.fold_field_expression(e1)?;
+                let e2 = self.fold_field_expression(e2)?;
+
+                match (e1, e2) {
+                    (_, FieldElementExpression::Number(n))
+                    | (FieldElementExpression::Number(n), _)
+                        if n == T::from(0) =>
+                    {
+                        Ok(FieldElementExpression::Number(n))
+                    }
+                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
+                        Ok(FieldElementExpression::Number(
+                            T::try_from(n1.to_biguint().bitand(n2.to_biguint())).unwrap(),
+                        ))
+                    }
+                    (e1, e2) => Ok(FieldElementExpression::And(box e1, box e2)),
+                }
+            }
+            FieldElementExpression::Or(box e1, box e2) => {
+                let e1 = self.fold_field_expression(e1)?;
+                let e2 = self.fold_field_expression(e2)?;
+
+                match (e1, e2) {
+                    (e, FieldElementExpression::Number(n))
+                    | (FieldElementExpression::Number(n), e)
+                        if n == T::from(0) =>
+                    {
+                        Ok(e)
+                    }
+                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
+                        Ok(FieldElementExpression::Number(
+                            T::try_from(n1.to_biguint().bitor(n2.to_biguint())).unwrap(),
+                        ))
+                    }
+                    (e1, e2) => Ok(FieldElementExpression::Or(box e1, box e2)),
+                }
+            }
+            FieldElementExpression::LeftShift(box e, box by) => {
+                let e = self.fold_field_expression(e)?;
+                let by = self.fold_uint_expression(by)?;
+                match (e, by) {
+                    (
+                        e,
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) if by == 0 => Ok(e),
+                    (
+                        FieldElementExpression::Number(n),
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) => Ok(FieldElementExpression::Number(
+                        T::try_from(n.to_biguint().shl(by as usize)).unwrap(),
+                    )),
+                    (e, by) => Ok(FieldElementExpression::LeftShift(box e, box by)),
+                }
+            }
+            FieldElementExpression::RightShift(box e, box by) => {
+                let e = self.fold_field_expression(e)?;
+                let by = self.fold_uint_expression(by)?;
+                match (e, by) {
+                    (
+                        e,
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) if by == 0 => Ok(e),
+                    (
+                        FieldElementExpression::Number(n),
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) => Ok(FieldElementExpression::Number(
+                        T::try_from(n.to_biguint().shr(by as usize)).unwrap(),
+                    )),
+                    (e, by) => Ok(FieldElementExpression::RightShift(box e, box by)),
                 }
             }
             e => fold_field_expression(self, e),

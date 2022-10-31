@@ -973,6 +973,44 @@ fn fold_field_expression<'ast, T: Field>(
             )
         }
         typed::FieldElementExpression::Pos(box e) => f.fold_field_expression(statements_buffer, e),
+        typed::FieldElementExpression::Xor(box left, box right) => {
+            let left = f.fold_field_expression(statements_buffer, left);
+            let right = f.fold_field_expression(statements_buffer, right);
+
+            zir::FieldElementExpression::Xor(box left, box right)
+        }
+        typed::FieldElementExpression::And(box left, box right) => {
+            let left = f.fold_field_expression(statements_buffer, left);
+            let right = f.fold_field_expression(statements_buffer, right);
+
+            zir::FieldElementExpression::And(box left, box right)
+        }
+        typed::FieldElementExpression::Or(box left, box right) => {
+            let left = f.fold_field_expression(statements_buffer, left);
+            let right = f.fold_field_expression(statements_buffer, right);
+
+            zir::FieldElementExpression::Or(box left, box right)
+        }
+        typed::FieldElementExpression::LeftShift(box e, box by) => {
+            let e = f.fold_field_expression(statements_buffer, e);
+
+            let by = match by.as_inner() {
+                typed::UExpressionInner::Value(by) => by,
+                _ => unreachable!("static analysis should have made sure that this is constant"),
+            };
+
+            zir::FieldElementExpression::LeftShift(box e, *by as u32)
+        }
+        typed::FieldElementExpression::RightShift(box e, box by) => {
+            let e = f.fold_field_expression(statements_buffer, e);
+
+            let by = match by.as_inner() {
+                typed::UExpressionInner::Value(by) => by,
+                _ => unreachable!("static analysis should have made sure that this is constant"),
+            };
+
+            zir::FieldElementExpression::RightShift(box e, *by as u32)
+        }
         typed::FieldElementExpression::Conditional(c) => f
             .fold_conditional_expression(statements_buffer, c)
             .pop()

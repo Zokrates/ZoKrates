@@ -240,6 +240,34 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e2 = f.fold_uint_expression(e2);
             FieldElementExpression::Pow(box e1, box e2)
         }
+        FieldElementExpression::And(box left, box right) => {
+            let left = f.fold_field_expression(left);
+            let right = f.fold_field_expression(right);
+
+            FieldElementExpression::And(box left, box right)
+        }
+        FieldElementExpression::Or(box left, box right) => {
+            let left = f.fold_field_expression(left);
+            let right = f.fold_field_expression(right);
+
+            FieldElementExpression::Or(box left, box right)
+        }
+        FieldElementExpression::Xor(box left, box right) => {
+            let left = f.fold_field_expression(left);
+            let right = f.fold_field_expression(right);
+
+            FieldElementExpression::Xor(box left, box right)
+        }
+        FieldElementExpression::LeftShift(box e, by) => {
+            let e = f.fold_field_expression(e);
+
+            FieldElementExpression::LeftShift(box e, by)
+        }
+        FieldElementExpression::RightShift(box e, by) => {
+            let e = f.fold_field_expression(e);
+
+            FieldElementExpression::RightShift(box e, by)
+        }
         FieldElementExpression::Conditional(c) => {
             match f.fold_conditional_expression(&Type::FieldElement, c) {
                 ConditionalOrExpression::Conditional(s) => FieldElementExpression::Conditional(s),

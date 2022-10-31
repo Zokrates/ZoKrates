@@ -2222,6 +2222,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             FieldElementExpression::Conditional(e) => self
                 .flatten_conditional_expression(statements_flattened, e)
                 .get_field_unchecked(),
+            _ => unreachable!(),
         }
     }
 
@@ -2234,7 +2235,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             ZirAssemblyStatement::Assignment(assignees, function) => {
                 let outputs: Vec<Variable> = assignees
                     .iter()
-                    .map(|a| self.use_variable(a)) /*self.layout.get(&a.id).cloned().unwrap()*/
+                    .map(|a| {
+                        self.layout
+                            .get(&a.id)
+                            .cloned()
+                            .unwrap_or_else(|| self.use_variable(a))
+                    })
                     .collect();
                 let inputs: Vec<FlatExpression<T>> = function
                     .arguments
@@ -2253,7 +2259,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened,
                     lhs,
                     rhs,
-                    RuntimeError::UnsatisfiedConstraint,
+                    RuntimeError::UserConstraint,
                 )
             }
         }
