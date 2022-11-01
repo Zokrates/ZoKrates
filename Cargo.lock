@@ -2110,12 +2110,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "reduce"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16d2dc47b68ac15ea328cd7ebe01d7d512ed29787f7d534ad2a3c341328b35d7"
-
-[[package]]
 name = "regex"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3128,7 +3122,6 @@ dependencies = [
  "num 0.1.42",
  "num-bigint 0.2.6",
  "pretty_assertions 0.6.1",
- "reduce",
  "serde",
  "serde_json",
  "typed-arena",

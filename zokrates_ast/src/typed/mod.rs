@@ -14,6 +14,7 @@ mod integer;
 mod parameter;
 pub mod types;
 mod uint;
+pub mod utils;
 pub mod variable;
 
 pub use self::identifier::{CoreIdentifier, ShadowedIdentifier, SourceIdentifier};
