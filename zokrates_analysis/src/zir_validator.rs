@@ -1,8 +1,8 @@
 use std::fmt;
-use zokrates_ast::typed::result_folder::{
+use zokrates_ast::zir::result_folder::{
     fold_assembly_statement, fold_field_expression, ResultFolder,
 };
-use zokrates_ast::typed::{FieldElementExpression, TypedAssemblyStatement, TypedProgram};
+use zokrates_ast::zir::{FieldElementExpression, ZirAssemblyStatement, ZirProgram};
 use zokrates_field::Field;
 
 #[derive(Debug)]
@@ -14,24 +14,24 @@ impl fmt::Display for Error {
     }
 }
 
-pub struct AssemblyAnalyzer;
+pub struct ZirValidator;
 
-impl AssemblyAnalyzer {
-    pub fn analyze<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
-        let mut checker = AssemblyAnalyzer;
+impl ZirValidator {
+    pub fn validate<T: Field>(p: ZirProgram<T>) -> Result<ZirProgram<T>, Error> {
+        let mut checker = ZirValidator;
         checker.fold_program(p)
     }
 }
 
-impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyAnalyzer {
+impl<'ast, T: Field> ResultFolder<'ast, T> for ZirValidator {
     type Error = Error;
 
     fn fold_assembly_statement(
         &mut self,
-        s: TypedAssemblyStatement<'ast, T>,
-    ) -> Result<TypedAssemblyStatement<'ast, T>, Self::Error> {
+        s: ZirAssemblyStatement<'ast, T>,
+    ) -> Result<ZirAssemblyStatement<'ast, T>, Self::Error> {
         match s {
-            TypedAssemblyStatement::Assignment(_, _) => Ok(s),
+            ZirAssemblyStatement::Assignment(_, _) => Ok(s),
             s => fold_assembly_statement(self, s),
         }
     }
@@ -46,8 +46,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyAnalyzer {
             | FieldElementExpression::Xor(_, _)
             | FieldElementExpression::LeftShift(_, _)
             | FieldElementExpression::RightShift(_, _) => Err(Error(
-                "Bitwise operations on field elements are allowed only in witness assignment statement"
-                    .to_string(),
+                format!("Found bitwise operation in expression `{}` of type `field` (only allowed in assembly assignment statement)", e)
             )),
             e => fold_field_expression(self, e),
         }

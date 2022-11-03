@@ -1,4 +1,4 @@
-def num2bits<N>(field num) -> field[N] {
+def bitify<N>(field num) -> field[N] {
     field[N] mut out = [0; N];
     field mut lc1 = 0;
     field mut e2 = 1;
@@ -17,5 +17,5 @@ def num2bits<N>(field num) -> field[N] {
 }
 
 def main(field input) -> field[4] {
-    return num2bits(input);
+    return bitify(input);
 }

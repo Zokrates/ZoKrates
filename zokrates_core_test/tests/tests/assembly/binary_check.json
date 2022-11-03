@@ -1,0 +1,37 @@
+{
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["1"]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": "UserConstraint"
+          }
+        }
+      }
+    }
+  ]
+}

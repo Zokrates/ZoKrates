@@ -2,8 +2,8 @@ use std::fmt;
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::{
     result_folder::ResultFolder,
-    result_folder::{fold_statement, fold_uint_expression_inner},
-    Constant, EmbedCall, TypedStatement, UBitwidth, UExpressionInner,
+    result_folder::{fold_field_expression, fold_statement, fold_uint_expression_inner},
+    Constant, EmbedCall, FieldElementExpression, TypedStatement, UBitwidth, UExpressionInner,
 };
 use zokrates_ast::typed::{DefinitionRhs, TypedProgram};
 use zokrates_field::Field;
@@ -69,6 +69,45 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
                 }
             }
             s => fold_statement(self, s),
+        }
+    }
+
+    fn fold_field_expression(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
+        match e {
+            FieldElementExpression::LeftShift(box e, box by) => {
+                let e = self.fold_field_expression(e)?;
+                let by = self.fold_uint_expression(by)?;
+
+                match by.as_inner() {
+                    UExpressionInner::Value(_) => {
+                        Ok(FieldElementExpression::LeftShift(box e, box by))
+                    }
+                    by => Err(Error(format!(
+                        "Cannot shift by a variable value, found `{} << {}`",
+                        e,
+                        by.clone().annotate(UBitwidth::B32)
+                    ))),
+                }
+            }
+            FieldElementExpression::RightShift(box e, box by) => {
+                let e = self.fold_field_expression(e)?;
+                let by = self.fold_uint_expression(by)?;
+
+                match by.as_inner() {
+                    UExpressionInner::Value(_) => {
+                        Ok(FieldElementExpression::RightShift(box e, box by))
+                    }
+                    by => Err(Error(format!(
+                        "Cannot shift by a variable value, found `{} << {}`",
+                        e,
+                        by.clone().annotate(UBitwidth::B32)
+                    ))),
+                }
+            }
+            e => fold_field_expression(self, e),
         }
     }
 

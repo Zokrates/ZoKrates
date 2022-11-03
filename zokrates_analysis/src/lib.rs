@@ -6,7 +6,6 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-mod assembly_analyzer;
 mod branch_isolator;
 mod condition_redefiner;
 mod constant_argument_checker;
@@ -23,6 +22,7 @@ mod struct_concretizer;
 mod uint_optimizer;
 mod variable_write_remover;
 mod zir_propagation;
+mod zir_validator;
 
 use self::branch_isolator::Isolator;
 use self::condition_redefiner::ConditionRedefiner;
@@ -35,11 +35,11 @@ use self::reducer::reduce_program;
 use self::struct_concretizer::StructConcretizer;
 use self::uint_optimizer::UintOptimizer;
 use self::variable_write_remover::VariableWriteRemover;
-use crate::assembly_analyzer::AssemblyAnalyzer;
 use crate::constant_resolver::ConstantResolver;
 use crate::dead_code::DeadCodeEliminator;
 use crate::panic_extractor::PanicExtractor;
 pub use crate::zir_propagation::ZirPropagator;
+use crate::zir_validator::ZirValidator;
 use std::fmt;
 use zokrates_ast::typed::{abi::Abi, TypedProgram};
 use zokrates_ast::zir::ZirProgram;
@@ -53,7 +53,7 @@ pub enum Error {
     ZirPropagation(self::zir_propagation::Error),
     NonConstantArgument(self::constant_argument_checker::Error),
     OutOfBounds(self::out_of_bounds::Error),
-    Assembly(self::assembly_analyzer::Error),
+    Assembly(self::zir_validator::Error),
 }
 
 impl From<reducer::Error> for Error {
@@ -86,8 +86,8 @@ impl From<constant_argument_checker::Error> for Error {
     }
 }
 
-impl From<assembly_analyzer::Error> for Error {
-    fn from(e: assembly_analyzer::Error) -> Self {
+impl From<zir_validator::Error> for Error {
+    fn from(e: zir_validator::Error) -> Self {
         Error::Assembly(e)
     }
 }
@@ -178,10 +178,6 @@ pub fn analyse<'ast, T: Field>(
     let r = ConditionRedefiner::redefine(r);
     log::trace!("\n{}", r);
 
-    // analyze assembly
-    log::debug!("Static analyser: Analyze assembly");
-    let r = AssemblyAnalyzer::analyze(r).map_err(Error::from)?;
-
     // convert to zir, removing complex types
     log::debug!("Static analyser: Convert to zir");
     let zir = Flattener::flatten(r);
@@ -204,6 +200,10 @@ pub fn analyse<'ast, T: Field>(
     log::debug!("Static analyser: Optimize uints");
     let zir = UintOptimizer::optimize(zir);
     log::trace!("\n{}", zir);
+
+    // validate zir
+    log::debug!("Static analyser: Validate zir");
+    let zir = ZirValidator::validate(zir).map_err(Error::from)?;
 
     Ok((zir, abi))
 }
