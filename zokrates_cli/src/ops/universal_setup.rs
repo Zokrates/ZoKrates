@@ -6,6 +6,8 @@ use std::io::Write;
 use std::path::Path;
 #[cfg(feature = "ark")]
 use zokrates_ark::Ark;
+#[cfg(feature = "bellman")]
+use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
@@ -46,6 +48,16 @@ pub fn subcommand() -> App<'static, 'static> {
                 .default_value(constants::MARLIN),
         )
         .arg(
+            Arg::with_name("backend")
+                .short("b")
+                .long("backend")
+                .help("Backend to use")
+                .takes_value(true)
+                .required(false)
+                .possible_values(cli_constants::BACKENDS)
+                .default_value(constants::ARK),
+        )
+        .arg(
             Arg::with_name("size")
                 .short("n")
                 .long("size")
@@ -58,12 +70,22 @@ pub fn subcommand() -> App<'static, 'static> {
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let parameters = Parameters::try_from((
-        constants::ARK,
+        sub_matches.value_of("backend").unwrap(),
         sub_matches.value_of("curve").unwrap(),
         sub_matches.value_of("proving-scheme").unwrap(),
     ))?;
 
     match parameters {
+        #[cfg(feature = "bellman")]
+        Parameters(BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::PLONK) => {
+            cli_universal_setup::<Bn128Field, Plonk, Bellman>(sub_matches)
+        }
+        #[cfg(feature = "bellman")]
+        Parameters(
+            BackendParameter::Bellman,
+            CurveParameter::Bls12_381,
+            SchemeParameter::PLONK,
+        ) => cli_universal_setup::<Bls12_381Field, Plonk, Bellman>(sub_matches),
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
             cli_universal_setup::<Bn128Field, Marlin, Ark>(sub_matches)

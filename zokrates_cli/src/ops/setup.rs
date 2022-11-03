@@ -162,6 +162,31 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
                 }
             }
         }
+        #[cfg(feature = "bellman")]
+        Parameters(BackendParameter::Bellman, _, SchemeParameter::PLONK) => {
+            let setup_path = Path::new(sub_matches.value_of("universal-setup-path").unwrap());
+            let setup_file = File::open(&setup_path)
+                .map_err(|why| format!("Couldn't open {}: {}\nExpected an universal setup, make sure `zokrates universal-setup` was run`", setup_path.display(), why))?;
+
+            let mut reader = BufReader::new(setup_file);
+
+            let mut setup = vec![];
+            use std::io::Read;
+
+            reader
+                .read_to_end(&mut setup)
+                .map_err(|_| "Cannot read universal setup".to_string())?;
+
+            match prog {
+                ProgEnum::Bn128Program(p) => {
+                    cli_setup_universal::<_, _, Plonk, Bellman>(p, setup, sub_matches)
+                }
+                ProgEnum::Bls12_381Program(p) => {
+                    cli_setup_universal::<_, _, Plonk, Bellman>(p, setup, sub_matches)
+                }
+                _ => unreachable!(),
+            }
+        }
         _ => unreachable!(),
     }
 }

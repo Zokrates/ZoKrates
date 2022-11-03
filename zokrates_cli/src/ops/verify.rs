@@ -120,6 +120,16 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         Parameters(BackendParameter::Bellman, CurveParameter::Bls12_381, SchemeParameter::G16) => {
             cli_verify::<Bls12_381Field, G16, Bellman>(vk, proof)
         }
+        #[cfg(feature = "bellman")]
+        Parameters(BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::PLONK) => {
+            cli_verify::<Bn128Field, Plonk, Bellman>(vk, proof)
+        }
+        #[cfg(feature = "bellman")]
+        Parameters(
+            BackendParameter::Bellman,
+            CurveParameter::Bls12_381,
+            SchemeParameter::PLONK,
+        ) => cli_verify::<Bls12_381Field, Plonk, Bellman>(vk, proof),
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::G16) => {
             cli_verify::<Bn128Field, G16, Ark>(vk, proof)

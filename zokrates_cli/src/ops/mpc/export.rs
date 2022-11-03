@@ -55,8 +55,8 @@ pub fn subcommand() -> App<'static, 'static> {
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     match sub_matches.value_of("curve").unwrap() {
-        BN128 => cli_mpc_export::<Bn128Field, G16, Bellman>(sub_matches),
-        BLS12_381 => cli_mpc_export::<Bls12_381Field, G16, Bellman>(sub_matches),
+        // BN128 => cli_mpc_export::<Bn128Field, G16, Bellman>(sub_matches),
+        // BLS12_381 => cli_mpc_export::<Bls12_381Field, G16, Bellman>(sub_matches),
         _ => unreachable!(),
     }
 }

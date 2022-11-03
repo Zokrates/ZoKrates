@@ -4,10 +4,10 @@ use crate::{Fr, G1Affine, G2Affine};
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug, Clone)]
 pub struct Marlin;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ProofPoints<Fr, G1> {
     pub commitments: Vec<Vec<(G1, Option<G1>)>>,
     pub evaluations: Vec<Fr>,
@@ -46,7 +46,7 @@ impl<Fr: Clone, G1: Clone> From<ProofPoints<Fr, G1>> for SolidityProof<Fr, G1> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct KZGVerifierKey<G1, G2> {
     /// The generator of G1.
     pub g: G1,
@@ -58,7 +58,7 @@ pub struct KZGVerifierKey<G1, G2> {
     pub beta_h: G2,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct VerificationKey<Fr, G1, G2> {
     // Useful values to precompute for solidity contract
     pub fs_seed: Vec<u8>,

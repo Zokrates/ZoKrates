@@ -6,17 +6,17 @@ use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Serialize)]
+#[derive(Serialize, Debug, Clone, PartialEq)]
 pub struct GM17;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ProofPoints<G1, G2> {
     pub a: G1,
     pub b: G2,
     pub c: G1,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct VerificationKey<G1, G2> {
     pub h: G2,
     pub g_alpha: G1,

@@ -1,4 +1,7 @@
 pub mod groth16;
+pub mod plonk;
+
+extern crate bellman_ce as bellman;
 
 use bellman::groth16::Proof;
 use bellman::groth16::{
@@ -195,10 +198,53 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Co
     }
 }
 
+pub mod serialization {
+    use super::*;
+    use bellman::{pairing::from_hex, CurveAffine, Engine};
+    use zokrates_proof_systems::{G1Affine, G2Affine};
+
+    pub fn to_g1<T: BellmanFieldExtensions>(
+        g1: G1Affine,
+    ) -> <T::BellmanEngine as Engine>::G1Affine {
+        if g1.is_infinity {
+            return <T::BellmanEngine as Engine>::G1Affine::zero();
+        }
+
+        <T::BellmanEngine as Engine>::G1Affine::from_xy_unchecked(
+            from_hex(&g1.x).unwrap(),
+            from_hex(&g1.y).unwrap(),
+        )
+    }
+    pub fn to_g2<T: BellmanFieldExtensions>(
+        g2: G2Affine,
+    ) -> <T::BellmanEngine as Engine>::G2Affine {
+        match g2 {
+            G2Affine::Fq2(g2) => {
+                if g2.is_infinity {
+                    return <T::BellmanEngine as Engine>::G2Affine::zero();
+                }
+
+                let x = T::new_fq2(&(g2.x).0, &(g2.x).1);
+                let y = T::new_fq2(&(g2.y).0, &(g2.y).1);
+                <T::BellmanEngine as Engine>::G2Affine::from_xy_unchecked(x, y)
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn to_fr<T: Field + BellmanFieldExtensions>(
+        e: String,
+    ) -> <T::BellmanEngine as ScalarEngine>::Fr {
+        T::try_from_str(e.trim_start_matches("0x"), 16)
+            .unwrap()
+            .into_bellman()
+    }
+}
+
 mod parse {
     use super::*;
-    use pairing::CurveAffine;
-    use zokrates_proof_systems::{G1Affine, G2Affine, G2AffineFq2};
+    use bellman::{pairing::CurveAffine, PrimeField};
+    use zokrates_proof_systems::{Fq2, Fr, G1Affine, G2Affine, GAffine};
 
     fn to_hex(bytes: &[u8]) -> String {
         let mut hex = hex::encode(bytes);
@@ -209,19 +255,43 @@ mod parse {
     pub fn parse_g1<T: BellmanFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
     ) -> G1Affine {
+        if e.is_zero() {
+            return G1Affine::infinity();
+        }
+
         let uncompressed = e.into_uncompressed();
         let bytes: &[u8] = uncompressed.as_ref();
 
         let mut iter = bytes.chunks(bytes.len() / 2);
+
         let x = to_hex(iter.next().unwrap());
         let y = to_hex(iter.next().unwrap());
 
-        G1Affine(x, y)
+        G1Affine {
+            x,
+            y,
+            is_infinity: false,
+        }
+    }
+
+    pub fn parse_fr<T: BellmanFieldExtensions>(
+        e: &<T::BellmanEngine as bellman::pairing::ff::ScalarEngine>::Fr,
+    ) -> Fr {
+        use crate::bellman::PrimeFieldRepr;
+        let mut bytes: Vec<u8> = Vec::new();
+        e.into_repr().write_le(&mut bytes).unwrap();
+        bytes.reverse();
+
+        format!("0x{}", hex::encode(&bytes))
     }
 
     pub fn parse_g2<T: BellmanFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
     ) -> G2Affine {
+        if e.is_zero() {
+            return G2Affine::Fq2(GAffine::infinity());
+        }
+
         let uncompressed = e.into_uncompressed();
         let bytes: &[u8] = uncompressed.as_ref();
 
@@ -231,7 +301,7 @@ mod parse {
         let y1 = to_hex(iter.next().unwrap());
         let y0 = to_hex(iter.next().unwrap());
 
-        G2Affine::Fq2(G2AffineFq2((x0, x1), (y0, y1)))
+        G2Affine::Fq2(GAffine::new(Fq2(x0, x1), Fq2(y0, y1)))
     }
 }
 

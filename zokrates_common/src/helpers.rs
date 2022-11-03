@@ -49,6 +49,7 @@ pub enum SchemeParameter {
     G16,
     GM17,
     MARLIN,
+    PLONK,
 }
 
 impl std::fmt::Display for SchemeParameter {
@@ -59,6 +60,7 @@ impl std::fmt::Display for SchemeParameter {
             G16 => write!(f, "g16"),
             GM17 => write!(f, "gm17"),
             MARLIN => write!(f, "marlin"),
+            PLONK => write!(f, "plonk"),
         }
     }
 }
@@ -99,6 +101,7 @@ impl TryFrom<&str> for SchemeParameter {
             G16 => Ok(SchemeParameter::G16),
             GM17 => Ok(SchemeParameter::GM17),
             MARLIN => Ok(SchemeParameter::MARLIN),
+            PLONK => Ok(SchemeParameter::PLONK),
             _ => Err(format!("Unknown proving scheme {}", s)),
         }
     }
@@ -124,6 +127,10 @@ impl TryFrom<(&str, &str, &str)> for Parameters {
             (BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::G16) => Ok(()),
             #[cfg(feature = "bellman")]
             (BackendParameter::Bellman, CurveParameter::Bls12_381, SchemeParameter::G16) => Ok(()),
+            #[cfg(feature = "bellman")]
+            (BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::PLONK) => Ok(()),
+            #[cfg(feature = "bellman")]
+            (BackendParameter::Bellman, CurveParameter::Bls12_381, SchemeParameter::PLONK) => Ok(()),
             #[cfg(feature = "ark")]
             (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::G16) => Ok(()),
             #[cfg(feature = "ark")]

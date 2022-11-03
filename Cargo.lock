@@ -366,6 +366,12 @@ dependencies = [
 
 [[package]]
 name = "arrayvec"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
+
+[[package]]
+name = "arrayvec"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
@@ -430,6 +436,44 @@ dependencies = [
 
 [[package]]
 name = "bellman_ce"
+version = "0.3.2"
+dependencies = [
+ "bit-vec",
+ "blake2s_const",
+ "blake2s_simd",
+ "byteorder",
+ "cfg-if 1.0.0",
+ "crossbeam",
+ "futures",
+ "hex 0.3.2",
+ "lazy_static",
+ "num_cpus",
+ "pairing_ce 0.28.2",
+ "rand 0.4.6",
+ "serde",
+ "tiny-keccak 1.5.0",
+ "web-sys",
+]
+
+[[package]]
+name = "bellman_ce"
+version = "0.3.2"
+source = "git+https://github.com/matter-labs/bellman#09474aa6fcb200a7da96f46495452fae92503ed8"
+dependencies = [
+ "bit-vec",
+ "blake2s_simd",
+ "byteorder",
+ "cfg-if 1.0.0",
+ "futures",
+ "hex 0.3.2",
+ "num_cpus",
+ "pairing_ce 0.28.2",
+ "rand 0.4.6",
+ "serde",
+]
+
+[[package]]
+name = "bellman_ce"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5ca1343d8690bb4d62e0665116bd4f109e33a642f86908ed107d226a402b0ef"
@@ -440,7 +484,7 @@ dependencies = [
  "crossbeam",
  "futures",
  "num_cpus",
- "pairing_ce",
+ "pairing_ce 0.21.1",
  "rand 0.4.6",
  "web-sys",
 ]
@@ -521,6 +565,26 @@ checksum = "fdc60350286c7c3db13b98e91dbe5c8b6830a6821bc20af5b0c310ce94d74915"
 dependencies = [
  "arrayvec 0.4.12",
  "byteorder",
+ "constant_time_eq",
+]
+
+[[package]]
+name = "blake2s_const"
+version = "0.6.0"
+dependencies = [
+ "arrayref",
+ "arrayvec 0.5.2",
+ "constant_time_eq",
+]
+
+[[package]]
+name = "blake2s_simd"
+version = "0.5.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e461a7034e85b211a4acb57ee2e6730b32912b06c08cc242243c39fc21ae6a2"
+dependencies = [
+ "arrayref",
+ "arrayvec 0.5.2",
  "constant_time_eq",
 ]
 
@@ -1045,7 +1109,7 @@ dependencies = [
  "fixed-hash",
  "impl-rlp",
  "impl-serde",
- "tiny-keccak",
+ "tiny-keccak 2.0.2",
 ]
 
 [[package]]
@@ -1112,9 +1176,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4592897f75fd1bd178e5ec12d9d7df3d1943464feda2cbce1e708a484e82c8f6"
 dependencies = [
  "byteorder",
- "ff_derive_ce",
+ "ff_derive_ce 0.8.0",
  "hex 0.4.3",
  "rand 0.4.6",
+]
+
+[[package]]
+name = "ff_ce"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46ddd8a287af3c495cb84ca08ff4d534a33256f11c244a8ad8334c17bbd76efe"
+dependencies = [
+ "byteorder",
+ "ff_derive_ce 0.11.0",
+ "hex 0.4.3",
+ "rand 0.4.6",
+ "serde",
 ]
 
 [[package]]
@@ -1128,6 +1205,21 @@ dependencies = [
  "num-traits 0.2.15",
  "proc-macro2 1.0.40",
  "quote 1.0.20",
+ "syn 1.0.98",
+]
+
+[[package]]
+name = "ff_derive_ce"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62bb291405c9004e0dd730d62d6b860d5364f8e8ca27926483aeab4843640f70"
+dependencies = [
+ "num-bigint 0.4.3",
+ "num-integer",
+ "num-traits 0.2.15",
+ "proc-macro2 1.0.40",
+ "quote 1.0.20",
+ "serde",
  "syn 1.0.98",
 ]
 
@@ -1740,8 +1832,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfc00d65b1d29e0a067a967fcea83d8db261c149f76a557ba73f0304f01cdfde"
 dependencies = [
  "byteorder",
- "ff_ce",
+ "ff_ce 0.10.3",
  "rand 0.4.6",
+]
+
+[[package]]
+name = "pairing_ce"
+version = "0.28.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cf679d44a7a7a432b8e930ff7f31dd3bc473ef6450e587ebf63e4e71430c3f1"
+dependencies = [
+ "byteorder",
+ "cfg-if 1.0.0",
+ "ff_ce 0.14.1",
+ "rand 0.4.6",
+ "serde",
 ]
 
 [[package]]
@@ -1837,14 +1942,14 @@ name = "phase2"
 version = "0.2.2"
 source = "git+https://github.com/Zokrates/phase2#971123223b9cb8c628e885120b120f1ddb413553"
 dependencies = [
- "bellman_ce",
+ "bellman_ce 0.3.5",
  "blake2 0.9.2",
  "blake2-rfc",
  "byteorder",
  "crossbeam",
  "getrandom",
  "num_cpus",
- "pairing_ce",
+ "pairing_ce 0.21.1",
  "rand 0.4.6",
 ]
 
@@ -2263,7 +2368,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c4ff5309ec3e4bd800ad4ab3f71e9b76e9ea81c9f0eda6efa16008afbe440b3"
 dependencies = [
- "bellman_ce",
+ "bellman_ce 0.3.5",
  "blake2-rfc_bellman_edition",
  "byteorder",
  "digest 0.8.1",
@@ -2271,7 +2376,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "sha2 0.8.2",
- "tiny-keccak",
+ "tiny-keccak 2.0.2",
 ]
 
 [[package]]
@@ -2642,6 +2747,15 @@ dependencies = [
 
 [[package]]
 name = "tiny-keccak"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d8a021c69bb74a44ccedb824a046447e2c84a01df9e5c20779750acb38e11b2"
+dependencies = [
+ "crunchy",
+]
+
+[[package]]
+name = "tiny-keccak"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
@@ -2972,7 +3086,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51266e3b8d99e954d29b93a28464ee6ca239302bf38b2308137ff23d9fcce50c"
 dependencies = [
- "bellman_ce",
+ "bellman_ce 0.3.5",
  "byteorder",
  "cfg-if 0.1.10",
  "clap-v3",
@@ -3033,7 +3147,7 @@ dependencies = [
  "csv",
  "derivative",
  "num-bigint 0.2.6",
- "pairing_ce",
+ "pairing_ce 0.21.1",
  "serde",
  "serde_cbor",
  "serde_json",
@@ -3046,10 +3160,9 @@ dependencies = [
 name = "zokrates_bellman"
 version = "0.1.0"
 dependencies = [
- "bellman_ce",
+ "bellman_ce 0.3.2",
  "getrandom",
  "hex 0.4.3",
- "pairing_ce",
  "phase2",
  "rand 0.4.6",
  "zokrates_ast",
@@ -3062,7 +3175,7 @@ dependencies = [
 name = "zokrates_circom"
 version = "0.1.1"
 dependencies = [
- "bellman_ce",
+ "bellman_ce 0.3.5",
  "byteorder",
  "pretty_assertions 1.2.1",
  "zkutil",
@@ -3162,7 +3275,7 @@ dependencies = [
  "ark-r1cs-std",
  "ark-relations",
  "ark-std",
- "bellman_ce",
+ "bellman_ce 0.3.5",
  "sapling-crypto_ce",
  "zokrates_field",
 ]
@@ -3178,7 +3291,7 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-serialize",
- "bellman_ce",
+ "bellman_ce 0.3.2 (git+https://github.com/matter-labs/bellman)",
  "bincode",
  "lazy_static",
  "num-bigint 0.2.6",
@@ -3206,7 +3319,7 @@ dependencies = [
  "ark-bls12-377",
  "num 0.1.42",
  "num-bigint 0.2.6",
- "pairing_ce",
+ "pairing_ce 0.21.1",
  "serde",
  "zokrates_abi",
  "zokrates_ast",

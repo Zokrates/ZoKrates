@@ -13,6 +13,7 @@ use zokrates_ast::ir;
 use serde::{Deserialize, Serialize};
 
 use rand_0_4::Rng;
+use std::fmt;
 use std::io::{Read, Write};
 
 use zokrates_field::Field;
@@ -29,7 +30,7 @@ impl<T: Field, S: Scheme<T>> SetupKeypair<T, S> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct Proof<T: Field, S: Scheme<T>> {
     pub proof: S::ProofPoints,
     pub inputs: Vec<Fr>,
@@ -43,57 +44,73 @@ impl<T: Field, S: Scheme<T>> Proof<T, S> {
 
 pub type Fr = String;
 pub type Fq = String;
-pub type Fq2 = (String, String);
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct Fq2(pub String, pub String);
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct G1Affine(pub Fq, pub Fq);
+impl fmt::Display for Fq2 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({}, {})", self.0, self.1)
+    }
+}
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct GAffine<F> {
+    pub x: F,
+    pub y: F,
+    pub is_infinity: bool,
+}
+
+impl<F: Default> GAffine<F> {
+    pub fn new(x: F, y: F) -> Self {
+        Self {
+            x,
+            y,
+            is_infinity: false,
+        }
+    }
+
+    pub fn infinity() -> Self {
+        Self {
+            x: F::default(),
+            y: F::default(),
+            is_infinity: true,
+        }
+    }
+}
+
+impl<F: fmt::Display> fmt::Display for GAffine<F> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.is_infinity {
+            write!(f, "Infinity")
+        } else {
+            write!(f, "({}, {})", self.x, self.y)
+        }
+    }
+}
+
+pub type G1Affine = GAffine<Fq>;
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 #[serde(untagged)]
 pub enum G2Affine {
     Fq2(G2AffineFq2),
     Fq(G2AffineFq),
 }
 
-impl ToString for G2Affine {
-    fn to_string(&self) -> String {
+impl fmt::Display for G2Affine {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            G2Affine::Fq(e) => e.to_string(),
-            G2Affine::Fq2(e) => e.to_string(),
+            G2Affine::Fq(e) => write!(f, "{}", e),
+            G2Affine::Fq2(e) => write!(f, "{}", e),
         }
     }
 }
 
 // When G2 is defined on Fq2 field
-#[derive(Serialize, Deserialize, Clone)]
-pub struct G2AffineFq2(pub Fq2, pub Fq2);
+pub type G2AffineFq2 = GAffine<Fq2>;
 
 // When G2 is defined on a Fq field (BW6_761 curve)
-#[derive(Serialize, Deserialize, Clone)]
-pub struct G2AffineFq(pub Fq, pub Fq);
-
-impl ToString for G1Affine {
-    fn to_string(&self) -> String {
-        format!("{}, {}", self.0, self.1)
-    }
-}
-
-impl ToString for G2AffineFq {
-    fn to_string(&self) -> String {
-        format!("{}, {}", self.0, self.1)
-    }
-}
-impl ToString for G2AffineFq2 {
-    fn to_string(&self) -> String {
-        format!(
-            "[{}, {}], [{}, {}]",
-            (self.0).0,
-            (self.0).1,
-            (self.1).0,
-            (self.1).1
-        )
-    }
-}
+pub type G2AffineFq = GAffine<Fq>;
 
 pub trait Backend<T: Field, S: Scheme<T>> {
     fn generate_proof<I: IntoIterator<Item = ir::Statement<T>>>(
