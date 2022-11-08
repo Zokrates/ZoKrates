@@ -832,7 +832,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) -> FlatExpression<T> {
         match expression {
             BooleanExpression::Identifier(x) => {
-                FlatExpression::Identifier(*self.layout.get(&x).unwrap())
+                FlatExpression::Identifier(*self.layout.get(&x.id).unwrap())
             }
             BooleanExpression::Select(e) => self
                 .flatten_select_expression(statements_flattened, e)
@@ -1403,7 +1403,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatUExpression::with_field(FlatExpression::Number(T::from(x)))
             } // force to be a field element
             UExpressionInner::Identifier(x) => {
-                let field = FlatExpression::Identifier(*self.layout.get(&x).unwrap());
+                let field = FlatExpression::Identifier(*self.layout.get(&x.id).unwrap());
                 let bits = self.bits_cache.get(&field).map(|bits| {
                     assert_eq!(bits.len(), target_bitwidth.to_usize());
                     bits.clone()
@@ -2038,9 +2038,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) -> FlatExpression<T> {
         match expr {
             FieldElementExpression::Number(x) => FlatExpression::Number(x), // force to be a field element
-            FieldElementExpression::Identifier(x) => {
-                FlatExpression::Identifier(*self.layout.get(&x).unwrap_or_else(|| panic!("{}", x)))
-            }
+            FieldElementExpression::Identifier(x) => FlatExpression::Identifier(
+                *self.layout.get(&x.id).unwrap_or_else(|| panic!("{}", x)),
+            ),
             FieldElementExpression::Select(e) => self
                 .flatten_select_expression(statements_flattened, e)
                 .get_field_unchecked(),
@@ -2760,6 +2760,7 @@ mod tests {
     use zokrates_ast::zir;
     use zokrates_ast::zir::types::Signature;
     use zokrates_ast::zir::types::Type;
+    use zokrates_ast::zir::Id;
     use zokrates_field::Bn128Field;
 
     fn flatten_function<T: Field>(f: ZirFunction<T>) -> FlatProg<T> {
@@ -2793,8 +2794,8 @@ mod tests {
                 ),
                 ZirStatement::Assertion(
                     BooleanExpression::BoolEq(
-                        box BooleanExpression::Identifier("x".into()),
-                        box BooleanExpression::Identifier("y".into()),
+                        box BooleanExpression::identifier("x".into()),
+                        box BooleanExpression::identifier("y".into()),
                     ),
                     zir::RuntimeError::mock(),
                 ),
@@ -2861,10 +2862,10 @@ mod tests {
                 ZirStatement::Assertion(
                     BooleanExpression::FieldEq(
                         box FieldElementExpression::Add(
-                            box FieldElementExpression::Identifier("x".into()),
+                            box FieldElementExpression::identifier("x".into()),
                             box FieldElementExpression::Number(Bn128Field::from(1)),
                         ),
-                        box FieldElementExpression::Identifier("y".into()),
+                        box FieldElementExpression::identifier("y".into()),
                     ),
                     zir::RuntimeError::mock(),
                 ),
@@ -2936,7 +2937,7 @@ mod tests {
                 ),
                 ZirStatement::Assertion(
                     BooleanExpression::UintEq(
-                        box UExpressionInner::Identifier("x".into())
+                        box UExpression::identifier("x".into())
                             .annotate(32)
                             .metadata(metadata.clone()),
                         box UExpressionInner::Value(42).annotate(32).metadata(metadata),
@@ -3002,8 +3003,8 @@ mod tests {
                 ),
                 ZirStatement::Assertion(
                     BooleanExpression::FieldEq(
-                        box FieldElementExpression::Identifier("x".into()),
-                        box FieldElementExpression::Identifier("y".into()),
+                        box FieldElementExpression::identifier("x".into()),
+                        box FieldElementExpression::identifier("y".into()),
                     ),
                     zir::RuntimeError::mock(),
                 ),
@@ -3077,10 +3078,10 @@ mod tests {
                 ZirStatement::Assertion(
                     BooleanExpression::FieldEq(
                         box FieldElementExpression::Mult(
-                            box FieldElementExpression::Identifier("x".into()),
-                            box FieldElementExpression::Identifier("y".into()),
+                            box FieldElementExpression::identifier("x".into()),
+                            box FieldElementExpression::identifier("y".into()),
                         ),
-                        box FieldElementExpression::Identifier("z".into()),
+                        box FieldElementExpression::identifier("z".into()),
                     ),
                     zir::RuntimeError::mock(),
                 ),
@@ -3157,10 +3158,10 @@ mod tests {
                 ),
                 ZirStatement::Assertion(
                     BooleanExpression::FieldEq(
-                        box FieldElementExpression::Identifier("z".into()),
+                        box FieldElementExpression::identifier("z".into()),
                         box FieldElementExpression::Mult(
-                            box FieldElementExpression::Identifier("x".into()),
-                            box FieldElementExpression::Identifier("y".into()),
+                            box FieldElementExpression::identifier("x".into()),
+                            box FieldElementExpression::identifier("y".into()),
                         ),
                     ),
                     zir::RuntimeError::mock(),
@@ -3246,12 +3247,12 @@ mod tests {
                 ZirStatement::Assertion(
                     BooleanExpression::FieldEq(
                         box FieldElementExpression::Mult(
-                            box FieldElementExpression::Identifier("x".into()),
-                            box FieldElementExpression::Identifier("y".into()),
+                            box FieldElementExpression::identifier("x".into()),
+                            box FieldElementExpression::identifier("y".into()),
                         ),
                         box FieldElementExpression::Mult(
-                            box FieldElementExpression::Identifier("z".into()),
-                            box FieldElementExpression::Identifier("t".into()),
+                            box FieldElementExpression::identifier("z".into()),
+                            box FieldElementExpression::identifier("t".into()),
                         ),
                     ),
                     zir::RuntimeError::mock(),
@@ -3329,12 +3330,12 @@ mod tests {
                 ZirStatement::Definition(
                     zir::Variable::field_element("b"),
                     FieldElementExpression::Pow(
-                        box FieldElementExpression::Identifier("a".into()),
+                        box FieldElementExpression::identifier("a".into()),
                         box 0u32.into(),
                     )
                     .into(),
                 ),
-                ZirStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
+                ZirStatement::Return(vec![FieldElementExpression::identifier("b".into()).into()]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -3390,12 +3391,12 @@ mod tests {
                 ZirStatement::Definition(
                     zir::Variable::field_element("b"),
                     FieldElementExpression::Pow(
-                        box FieldElementExpression::Identifier("a".into()),
+                        box FieldElementExpression::identifier("a".into()),
                         box 1u32.into(),
                     )
                     .into(),
                 ),
-                ZirStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
+                ZirStatement::Return(vec![FieldElementExpression::identifier("b".into()).into()]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -3471,12 +3472,12 @@ mod tests {
                 ZirStatement::Definition(
                     zir::Variable::field_element("b"),
                     FieldElementExpression::Pow(
-                        box FieldElementExpression::Identifier("a".into()),
+                        box FieldElementExpression::identifier("a".into()),
                         box 13u32.into(),
                     )
                     .into(),
                 ),
-                ZirStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
+                ZirStatement::Return(vec![FieldElementExpression::identifier("b".into()).into()]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -3614,9 +3615,9 @@ mod tests {
             FieldElementExpression::Div(
                 box FieldElementExpression::Div(
                     box FieldElementExpression::Number(Bn128Field::from(5)),
-                    box FieldElementExpression::Identifier("b".into()),
+                    box FieldElementExpression::identifier("b".into()),
                 ),
-                box FieldElementExpression::Identifier("b".into()),
+                box FieldElementExpression::identifier("b".into()),
             )
             .into(),
         );

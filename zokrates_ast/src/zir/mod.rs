@@ -17,6 +17,7 @@ pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadat
 use crate::zir::types::Signature;
 use std::convert::TryFrom;
 use std::fmt;
+use std::marker::PhantomData;
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
@@ -209,6 +210,27 @@ pub trait Typed {
 }
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct IdentifierExpression<'ast, E> {
+    pub id: Identifier<'ast>,
+    ty: PhantomData<E>,
+}
+
+impl<'ast, E> fmt::Display for IdentifierExpression<'ast, E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.id)
+    }
+}
+
+impl<'ast, E> IdentifierExpression<'ast, E> {
+    pub fn new(id: Identifier<'ast>) -> Self {
+        IdentifierExpression {
+            id,
+            ty: PhantomData,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct ConditionalExpression<'ast, T, E> {
     pub condition: Box<BooleanExpression<'ast, T>>,
     pub consequence: Box<E>,
@@ -352,7 +374,7 @@ pub enum ZirExpressionList<'ast, T> {
 #[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum FieldElementExpression<'ast, T> {
     Number(T),
-    Identifier(Identifier<'ast>),
+    Identifier(IdentifierExpression<'ast, Self>),
     Select(SelectExpression<'ast, T, Self>),
     Add(
         Box<FieldElementExpression<'ast, T>>,
@@ -381,7 +403,7 @@ pub enum FieldElementExpression<'ast, T> {
 #[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum BooleanExpression<'ast, T> {
     Value(bool),
-    Identifier(Identifier<'ast>),
+    Identifier(IdentifierExpression<'ast, Self>),
     Select(SelectExpression<'ast, T, Self>),
     FieldLt(
         Box<FieldElementExpression<'ast, T>>,
@@ -588,7 +610,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirExpressionList<'ast, T> {
 }
 
 // Common behaviour accross expressions
-pub trait Expr<'ast, T>: fmt::Display + PartialEq {
+pub trait Expr<'ast, T>: fmt::Display + PartialEq + TryFrom<ZirExpression<'ast, T>> {
     type Inner;
     type Ty: Clone + IntoType;
 
@@ -663,6 +685,34 @@ impl<'ast, T: Field> Expr<'ast, T> for UExpression<'ast, T> {
         &mut self.inner
     }
 }
+
+pub trait Id<'ast, T>: Expr<'ast, T> {
+    fn identifier(id: Identifier<'ast>) -> Self::Inner;
+}
+
+impl<'ast, T: Field> Id<'ast, T> for FieldElementExpression<'ast, T> {
+    fn identifier(id: Identifier<'ast>) -> Self::Inner {
+        FieldElementExpression::Identifier(IdentifierExpression::new(id))
+    }
+}
+
+impl<'ast, T: Field> Id<'ast, T> for BooleanExpression<'ast, T> {
+    fn identifier(id: Identifier<'ast>) -> Self::Inner {
+        BooleanExpression::Identifier(IdentifierExpression::new(id))
+    }
+}
+
+impl<'ast, T: Field> Id<'ast, T> for UExpression<'ast, T> {
+    fn identifier(id: Identifier<'ast>) -> Self::Inner {
+        UExpressionInner::Identifier(IdentifierExpression::new(id))
+    }
+}
+
+pub enum IdentifierOrExpression<'ast, T, E: Expr<'ast, T>> {
+    Identifier(IdentifierExpression<'ast, E>),
+    Expression(E::Inner),
+}
+
 pub trait Conditional<'ast, T> {
     fn conditional(
         condition: BooleanExpression<'ast, T>,
