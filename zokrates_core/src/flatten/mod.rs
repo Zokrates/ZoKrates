@@ -18,7 +18,6 @@ use std::collections::{
     hash_map::{Entry, HashMap},
     VecDeque,
 };
-use std::convert::TryFrom;
 use zokrates_ast::common::embed::*;
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::common::{RuntimeError, Variable};
@@ -119,9 +118,7 @@ impl<T: Field> FlattenOutput<T> for FlatUExpression<T> {
 
 // We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
 
-trait Flatten<'ast, T: Field>:
-    TryFrom<ZirExpression<'ast, T>, Error = ()> + Conditional<'ast, T>
-{
+trait Flatten<'ast, T: Field>: From<ZirExpression<'ast, T>> + Conditional<'ast, T> {
     type Output: FlattenOutput<T>;
 
     fn flatten(

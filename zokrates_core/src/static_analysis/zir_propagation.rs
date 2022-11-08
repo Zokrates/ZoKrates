@@ -132,12 +132,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         id: IdentifierExpression<'ast, E>,
     ) -> Result<IdentifierOrExpression<'ast, T, E>, Self::Error> {
         match self.constants.get(&id.id).cloned() {
-            Some(e) => Ok(IdentifierOrExpression::Expression(
-                E::try_from(e)
-                    .map_err(|_| "downcast failed")
-                    .unwrap()
-                    .into_inner(),
-            )),
+            Some(e) => Ok(IdentifierOrExpression::Expression(E::from(e).into_inner())),
             None => Ok(IdentifierOrExpression::Identifier(id)),
         }
     }

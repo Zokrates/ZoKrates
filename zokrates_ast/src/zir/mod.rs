@@ -15,7 +15,6 @@ use crate::typed::ConcreteType;
 pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 
 use crate::zir::types::Signature;
-use std::convert::TryFrom;
 use std::fmt;
 use std::marker::PhantomData;
 use zokrates_field::Field;
@@ -464,37 +463,29 @@ impl<'ast, T> BooleanExpression<'ast, T> {
 }
 
 // Downcasts
-impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for FieldElementExpression<'ast, T> {
-    type Error = ();
-
-    fn try_from(
-        te: ZirExpression<'ast, T>,
-    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
-        match te {
-            ZirExpression::FieldElement(e) => Ok(e),
-            _ => Err(()),
+impl<'ast, T> From<ZirExpression<'ast, T>> for FieldElementExpression<'ast, T> {
+    fn from(e: ZirExpression<'ast, T>) -> FieldElementExpression<'ast, T> {
+        match e {
+            ZirExpression::FieldElement(e) => e,
+            _ => unreachable!("downcast failed"),
         }
     }
 }
 
-impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for BooleanExpression<'ast, T> {
-    type Error = ();
-
-    fn try_from(te: ZirExpression<'ast, T>) -> Result<BooleanExpression<'ast, T>, Self::Error> {
-        match te {
-            ZirExpression::Boolean(e) => Ok(e),
-            _ => Err(()),
+impl<'ast, T> From<ZirExpression<'ast, T>> for BooleanExpression<'ast, T> {
+    fn from(e: ZirExpression<'ast, T>) -> BooleanExpression<'ast, T> {
+        match e {
+            ZirExpression::Boolean(e) => e,
+            _ => unreachable!("downcast failed"),
         }
     }
 }
 
-impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for UExpression<'ast, T> {
-    type Error = ();
-
-    fn try_from(te: ZirExpression<'ast, T>) -> Result<UExpression<'ast, T>, Self::Error> {
-        match te {
-            ZirExpression::Uint(e) => Ok(e),
-            _ => Err(()),
+impl<'ast, T> From<ZirExpression<'ast, T>> for UExpression<'ast, T> {
+    fn from(e: ZirExpression<'ast, T>) -> UExpression<'ast, T> {
+        match e {
+            ZirExpression::Uint(e) => e,
+            _ => unreachable!("downcast failed"),
         }
     }
 }
@@ -609,8 +600,8 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirExpressionList<'ast, T> {
     }
 }
 
-// Common behaviour accross expressions
-pub trait Expr<'ast, T>: fmt::Display + PartialEq + TryFrom<ZirExpression<'ast, T>> {
+// Common behaviour across expressions
+pub trait Expr<'ast, T>: fmt::Display + PartialEq + From<ZirExpression<'ast, T>> {
     type Inner;
     type Ty: Clone + IntoType;
 
