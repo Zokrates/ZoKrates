@@ -1801,6 +1801,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match constrained {
                     true => {
+                        // early non-quadratic detection
+                        if e.is_non_quadratic() {
+                            return Err(ErrorInner {
+                                pos: Some(pos),
+                                message: "Non-quadratic constraints are not allowed".to_string(),
+                            });
+                        }
                         let e = FieldElementExpression::block(vec![], e);
                         match assignee.get_type() {
                             Type::FieldElement => Ok(vec![
@@ -1822,34 +1829,36 @@ impl<'ast, T: Field> Checker<'ast, T> {
             AssemblyStatement::Constraint(lhs, rhs) => {
                 let lhs = self.check_expression(lhs, module_id, types)?;
                 let rhs = self.check_expression(rhs, module_id, types)?;
-                match (lhs, rhs) {
+
+                let (lhs, rhs) = match (lhs, rhs) {
                     (TypedExpression::FieldElement(lhs), TypedExpression::FieldElement(rhs)) => {
-                        Ok(vec![TypedAssemblyStatement::Constraint(lhs, rhs)])
+                        Ok((lhs, rhs))
                     }
                     (TypedExpression::FieldElement(lhs), TypedExpression::Int(rhs)) => {
-                        Ok(vec![TypedAssemblyStatement::Constraint(
-                            lhs,
-                            FieldElementExpression::try_from_int(rhs).unwrap(),
-                        )])
+                        Ok((lhs, FieldElementExpression::try_from_int(rhs).unwrap()))
                     }
                     (TypedExpression::Int(lhs), TypedExpression::FieldElement(rhs)) => {
-                        Ok(vec![TypedAssemblyStatement::Constraint(
-                            FieldElementExpression::try_from_int(lhs).unwrap(),
-                            rhs,
-                        )])
+                        Ok((FieldElementExpression::try_from_int(lhs).unwrap(), rhs))
                     }
-                    (TypedExpression::Int(lhs), TypedExpression::Int(rhs)) => {
-                        Ok(vec![TypedAssemblyStatement::Constraint(
-                            FieldElementExpression::try_from_int(lhs).unwrap(),
-                            FieldElementExpression::try_from_int(rhs).unwrap(),
-                        )])
-                    }
+                    (TypedExpression::Int(lhs), TypedExpression::Int(rhs)) => Ok((
+                        FieldElementExpression::try_from_int(lhs).unwrap(),
+                        FieldElementExpression::try_from_int(rhs).unwrap(),
+                    )),
                     _ => Err(ErrorInner {
                         pos: Some(pos),
                         message: "Only field element expressions are allowed in the assembly block"
                             .to_string(),
                     }),
+                }?;
+
+                if lhs.is_non_quadratic() || rhs.is_non_quadratic() {
+                    return Err(ErrorInner {
+                        pos: Some(pos),
+                        message: "Non-quadratic constraints are not allowed".to_string(),
+                    });
                 }
+
+                Ok(vec![TypedAssemblyStatement::Constraint(lhs, rhs)])
             }
         }
     }

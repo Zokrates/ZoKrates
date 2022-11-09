@@ -1334,44 +1334,28 @@ impl<'ast, T> FieldElementExpression<'ast, T> {
     pub fn pow(self, other: UExpression<'ast, T>) -> Self {
         FieldElementExpression::Pow(box self, box other)
     }
-    pub fn is_quadratic(&self) -> bool {
-        match self {
-            FieldElementExpression::Mult(box left, box right) => {
-                left.is_linear() && right.is_linear()
-            }
-            _ => false,
-        }
-    }
 
-    fn is_linear(&self) -> bool {
+    // This is used for early detection in semantics but it is not completely accurate
+    // Deeper analysis is done in a separate step after semantic checks
+    pub fn is_non_quadratic(&self) -> bool {
         match self {
-            FieldElementExpression::Block(_) => false,
-            FieldElementExpression::Number(_) => true,
-            FieldElementExpression::Identifier(_) => true,
+            FieldElementExpression::Number(_) => false,
+            FieldElementExpression::Identifier(_) => false,
             FieldElementExpression::Add(box left, box right) => {
-                left.is_linear() && right.is_linear()
+                left.is_non_quadratic() || right.is_non_quadratic()
             }
             FieldElementExpression::Sub(box left, box right) => {
-                left.is_linear() && right.is_linear()
+                left.is_non_quadratic() || right.is_non_quadratic()
             }
-            FieldElementExpression::Mult(box left, box right) => matches!(
-                (left, right),
-                (FieldElementExpression::Number(_), _) | (_, FieldElementExpression::Number(_))
-            ),
-            FieldElementExpression::Div(_, _) => false,
-            FieldElementExpression::Pow(_, _) => false,
-            FieldElementExpression::And(_, _) => false,
-            FieldElementExpression::Or(_, _) => false,
-            FieldElementExpression::Xor(_, _) => false,
-            FieldElementExpression::LeftShift(_, _) => false,
-            FieldElementExpression::RightShift(_, _) => false,
-            FieldElementExpression::Conditional(_) => false,
-            FieldElementExpression::Neg(_) => true,
-            FieldElementExpression::Pos(_) => true,
-            FieldElementExpression::FunctionCall(_) => false,
-            FieldElementExpression::Member(_) => true,
-            FieldElementExpression::Select(_) => true,
-            FieldElementExpression::Element(_) => true,
+            FieldElementExpression::Mult(box left, box right) => {
+                left.is_non_quadratic() || right.is_non_quadratic()
+            }
+            FieldElementExpression::Neg(_) => false,
+            FieldElementExpression::Pos(_) => false,
+            FieldElementExpression::Member(_) => false,
+            FieldElementExpression::Select(_) => false,
+            FieldElementExpression::Element(_) => false,
+            _ => true,
         }
     }
 }
