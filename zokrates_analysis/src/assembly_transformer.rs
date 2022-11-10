@@ -36,19 +36,9 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                 let rhs = self.fold_field_expression(rhs)?;
                 let sub = FieldElementExpression::Sub(box lhs, box rhs);
 
-                // let sub = match (lhs, rhs) {
-                //     (FieldElementExpression::Number(n), e)
-                //     | (e, FieldElementExpression::Number(n)) => {
-                //         FieldElementExpression::Sub(box FieldElementExpression::Number(n), box e)
-                //     }
-                //     (lhs, rhs) => FieldElementExpression::Sub(box lhs, box rhs),
-                // };
-
                 let mut lqc = LinQuadComb::try_from(sub.clone()).map_err(|_| {
                     Error("Found forbidden operation in user-defined constraint".to_string())
                 })?;
-
-                println!("{:#?}", lqc);
 
                 if lqc.quadratic.len() > 1 {
                     return Err(Error(
@@ -91,8 +81,6 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                         )
                     })
                     .unwrap_or_else(|| FieldElementExpression::Number(T::from(0)));
-
-                println!("{} == {}", lhs, rhs);
 
                 Ok(ZirAssemblyStatement::Constraint(lhs, rhs))
             }

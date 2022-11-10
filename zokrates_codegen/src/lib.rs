@@ -2254,13 +2254,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             ZirAssemblyStatement::Constraint(lhs, rhs) => {
                 let lhs = self.flatten_field_expression(statements_flattened, lhs);
                 let rhs = self.flatten_field_expression(statements_flattened, rhs);
-
-                self.flatten_equality_assertion(
-                    statements_flattened,
+                statements_flattened.push_back(FlatStatement::Condition(
                     lhs,
                     rhs,
                     RuntimeError::UserConstraint,
-                )
+                ));
             }
         }
     }
