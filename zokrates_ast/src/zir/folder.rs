@@ -60,6 +60,14 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_statement(self, s)
     }
 
+    fn fold_identifier_expression<E: Expr<'ast, T> + Id<'ast, T>>(
+        &mut self,
+        ty: &E::Ty,
+        e: IdentifierExpression<'ast, E>,
+    ) -> IdentifierOrExpression<'ast, T, E> {
+        fold_identifier_expression(self, ty, e)
+    }
+
     fn fold_conditional_expression<E: Expr<'ast, T> + Fold<'ast, T> + Conditional<'ast, T>>(
         &mut self,
         ty: &E::Ty,
@@ -169,6 +177,19 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     vec![res]
 }
 
+pub fn fold_identifier_expression<
+    'ast,
+    T: Field,
+    E: Expr<'ast, T> + Id<'ast, T>,
+    F: Folder<'ast, T>,
+>(
+    f: &mut F,
+    _: &E::Ty,
+    e: IdentifierExpression<'ast, E>,
+) -> IdentifierOrExpression<'ast, T, E> {
+    IdentifierOrExpression::Identifier(IdentifierExpression::new(f.fold_name(e.id)))
+}
+
 pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: FieldElementExpression<'ast, T>,
@@ -176,7 +197,10 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
     match e {
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
-            FieldElementExpression::Identifier(f.fold_name(id))
+            match f.fold_identifier_expression(&Type::FieldElement, id) {
+                IdentifierOrExpression::Identifier(i) => FieldElementExpression::Identifier(i),
+                IdentifierOrExpression::Expression(e) => e,
+            }
         }
         FieldElementExpression::Select(e) => {
             match f.fold_select_expression(&Type::FieldElement, e) {
@@ -224,7 +248,11 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> BooleanExpression<'ast, T> {
     match e {
         BooleanExpression::Value(v) => BooleanExpression::Value(v),
-        BooleanExpression::Identifier(id) => BooleanExpression::Identifier(f.fold_name(id)),
+        BooleanExpression::Identifier(id) => match f.fold_identifier_expression(&Type::Boolean, id)
+        {
+            IdentifierOrExpression::Identifier(i) => BooleanExpression::Identifier(i),
+            IdentifierOrExpression::Expression(e) => e,
+        },
         BooleanExpression::Select(e) => match f.fold_select_expression(&Type::Boolean, e) {
             SelectOrExpression::Select(s) => BooleanExpression::Select(s),
             SelectOrExpression::Expression(u) => u,
@@ -303,7 +331,10 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> UExpressionInner<'ast, T> {
     match e {
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
-        UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)),
+        UExpressionInner::Identifier(id) => match f.fold_identifier_expression(&ty, id) {
+            IdentifierOrExpression::Identifier(i) => UExpressionInner::Identifier(i),
+            IdentifierOrExpression::Expression(e) => e,
+        },
         UExpressionInner::Select(e) => match f.fold_select_expression(&ty, e) {
             SelectOrExpression::Select(s) => UExpressionInner::Select(s),
             SelectOrExpression::Expression(u) => u,

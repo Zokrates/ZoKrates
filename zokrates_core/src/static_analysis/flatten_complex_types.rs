@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use zokrates_ast::typed::types::{ConcreteArrayType, IntoType, UBitwidth};
 use zokrates_ast::typed::{self, Expr, Typed};
-use zokrates_ast::zir::{self, Select};
+use zokrates_ast::zir::{self, Id, Select};
 use zokrates_field::Field;
 
 use std::convert::{TryFrom, TryInto};
@@ -64,17 +64,15 @@ fn flatten_identifier_to_expression_rec<'ast, T: Field>(
     match ty {
         typed::ConcreteType::Int => unreachable!(),
         typed::ConcreteType::FieldElement => {
-            vec![zir::FieldElementExpression::Identifier(zir::Identifier::Source(id)).into()]
+            vec![zir::FieldElementExpression::identifier(zir::Identifier::Source(id)).into()]
         }
         typed::ConcreteType::Boolean => {
-            vec![zir::BooleanExpression::Identifier(zir::Identifier::Source(id)).into()]
+            vec![zir::BooleanExpression::identifier(zir::Identifier::Source(id)).into()]
         }
         typed::ConcreteType::Uint(bitwidth) => {
-            vec![
-                zir::UExpressionInner::Identifier(zir::Identifier::Source(id))
-                    .annotate(bitwidth.to_usize())
-                    .into(),
-            ]
+            vec![zir::UExpression::identifier(zir::Identifier::Source(id))
+                .annotate(bitwidth.to_usize())
+                .into()]
         }
         typed::ConcreteType::Array(array_type) => (0..*array_type.size)
             .flat_map(|i| {

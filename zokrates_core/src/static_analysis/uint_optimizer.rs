@@ -123,7 +123,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
             Value(v) => Value(v).annotate(range).with_max(v),
             Identifier(id) => Identifier(id.clone()).annotate(range).metadata(
                 self.ids
-                    .get(&Variable::uint(id.clone(), range))
+                    .get(&Variable::uint(id.id.clone(), range))
                     .cloned()
                     .unwrap_or_else(|| panic!("identifier should have been defined: {}", id)),
             ),
@@ -594,7 +594,7 @@ mod tests {
     }
 
     fn e_with_max<'a, U: Into<Bn128Field>>(max: U) -> UExpression<'a, Bn128Field> {
-        UExpressionInner::Identifier("foo".into())
+        UExpression::identifier("foo".into())
             .annotate(32)
             .metadata(UMetadata::with_max(max))
     }
@@ -766,11 +766,11 @@ mod tests {
     #[test]
     fn if_else() {
         // `left` and `right` are smaller than the target
-        let consequence: UExpression<Bn128Field> = UExpressionInner::Identifier("a".into())
+        let consequence: UExpression<Bn128Field> = UExpression::identifier("a".into())
             .annotate(32)
             .metadata(UMetadata::with_max(42u32));
 
-        let alternative = UExpressionInner::Identifier("b".into())
+        let alternative = UExpression::identifier("b".into())
             .annotate(32)
             .metadata(UMetadata::with_max(33u32));
 
