@@ -1,0 +1,9 @@
+// Maj function for sha256
+// (a & b) ^ (a & c) ^ (b & c)
+def main(field a, field b, field c) {
+    field mut out = 0;
+    field bc = b * c;
+    asm {
+        out <== a * (b + c - 2*bc) + bc;
+    }
+}

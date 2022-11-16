@@ -124,6 +124,25 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
 }
 
 impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
+    fn fold_assembly_statement(
+        &mut self,
+        s: TypedAssemblyStatement<'ast, T>,
+    ) -> TypedAssemblyStatement<'ast, T> {
+        match s {
+            TypedAssemblyStatement::Assignment(a, e) => {
+                let e = self.fold_field_expression(e);
+                let a = match a {
+                    TypedAssignee::Identifier(v) => {
+                        let v = self.issue_next_ssa_variable(v);
+                        TypedAssignee::Identifier(self.fold_variable(v))
+                    }
+                    a => fold_assignee(self, a),
+                };
+                TypedAssemblyStatement::Assignment(a, e)
+            }
+            s => fold_assembly_statement(self, s),
+        }
+    }
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         match s {
             TypedStatement::Definition(a, DefinitionRhs::Expression(e)) => {

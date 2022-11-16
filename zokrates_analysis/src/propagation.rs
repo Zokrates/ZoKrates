@@ -25,7 +25,6 @@ pub enum Error {
     AssertionFailed(String),
     ValueTooLarge(String),
     OutOfBounds(u128, u128),
-    NonConstantExponent(String),
 }
 
 impl fmt::Display for Error {
@@ -38,11 +37,6 @@ impl fmt::Display for Error {
                 f,
                 "Out of bounds index ({} >= {}) found during static analysis",
                 index, size
-            ),
-            Error::NonConstantExponent(s) => write!(
-                f,
-                "Non-constant exponent `{}` detected during static analysis",
-                s
             ),
         }
     }
@@ -877,8 +871,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         box e1,
                         box UExpressionInner::Value(n2).annotate(UBitwidth::B32),
                     )),
-                    (_, e2) => Err(Error::NonConstantExponent(
-                        e2.annotate(UBitwidth::B32).to_string(),
+                    (e1, e2) => Ok(FieldElementExpression::Pow(
+                        box e1,
+                        box e2.annotate(UBitwidth::B32),
                     )),
                 }
             }
@@ -960,7 +955,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
             }
             FieldElementExpression::RightShift(box e, box by) => {
                 let e = self.fold_field_expression(e)?;
-                let by = self.fold_uint_expression(by)?;
+                let by = dbg!(self.fold_uint_expression(by)?);
                 match (e, by) {
                     (
                         e,

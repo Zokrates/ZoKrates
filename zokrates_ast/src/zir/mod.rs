@@ -447,6 +447,26 @@ pub enum FieldElementExpression<'ast, T> {
     Conditional(ConditionalExpression<'ast, T, FieldElementExpression<'ast, T>>),
 }
 
+impl<'ast, T> FieldElementExpression<'ast, T> {
+    pub fn is_linear(&self) -> bool {
+        match self {
+            FieldElementExpression::Number(_) => true,
+            FieldElementExpression::Identifier(_) => true,
+            FieldElementExpression::Add(box left, box right) => {
+                left.is_linear() && right.is_linear()
+            }
+            FieldElementExpression::Sub(box left, box right) => {
+                left.is_linear() && right.is_linear()
+            }
+            FieldElementExpression::Mult(box left, box right) => matches!(
+                (left, right),
+                (FieldElementExpression::Number(_), _) | (_, FieldElementExpression::Number(_))
+            ),
+            _ => false,
+        }
+    }
+}
+
 /// An expression of type `bool`
 #[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
 pub enum BooleanExpression<'ast, T> {

@@ -1801,13 +1801,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match constrained {
                     true => {
-                        // early non-quadratic detection
-                        if e.is_non_quadratic() {
-                            return Err(ErrorInner {
-                                pos: Some(pos),
-                                message: "Non-quadratic constraints are not allowed".to_string(),
-                            });
-                        }
                         let e = FieldElementExpression::block(vec![], e);
                         match assignee.get_type() {
                             Type::FieldElement => Ok(vec![
@@ -1850,13 +1843,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .to_string(),
                     }),
                 }?;
-
-                if lhs.is_non_quadratic() || rhs.is_non_quadratic() {
-                    return Err(ErrorInner {
-                        pos: Some(pos),
-                        message: "Non-quadratic constraints are not allowed".to_string(),
-                    });
-                }
 
                 Ok(vec![TypedAssemblyStatement::Constraint(lhs, rhs)])
             }
