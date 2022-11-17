@@ -521,8 +521,6 @@ fn fold_assembly_statement<'ast, T: Field>(
                 .collect();
             statements_buffer.reverse();
 
-            let _ = dbg!(&finder.identifiers);
-
             let function = zir::ZirFunction {
                 signature: zir::types::Signature::default()
                     .inputs(finder.identifiers.values().cloned().collect())

@@ -208,7 +208,6 @@ pub fn analyse<'ast, T: Field>(
     let zir = UintOptimizer::optimize(zir);
     log::trace!("\n{}", zir);
 
-    // validate zir
     log::debug!("Static analyser: Apply constraint transformations in assembly");
     let zir = AssemblyTransformer::transform(zir).map_err(Error::from)?;
 
