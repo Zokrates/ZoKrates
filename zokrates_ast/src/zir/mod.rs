@@ -71,7 +71,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
             writeln!(f)?;
         }
 
-        writeln!(f, "}}")
+        write!(f, "}}")
     }
 }
 
@@ -464,8 +464,14 @@ pub enum FieldElementExpression<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    LeftShift(Box<FieldElementExpression<'ast, T>>, u32),
-    RightShift(Box<FieldElementExpression<'ast, T>>, u32),
+    LeftShift(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<UExpression<'ast, T>>,
+    ),
+    RightShift(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<UExpression<'ast, T>>,
+    ),
     Conditional(ConditionalExpression<'ast, T, FieldElementExpression<'ast, T>>),
 }
 

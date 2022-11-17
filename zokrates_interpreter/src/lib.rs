@@ -4,6 +4,7 @@ use zokrates_abi::{Decode, Value};
 use zokrates_ast::ir::{
     LinComb, ProgIterator, QuadComb, RuntimeError, Solver, Statement, Variable, Witness,
 };
+use zokrates_ast::zir;
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
@@ -168,11 +169,6 @@ impl Interpreter {
         let res = match solver {
             Solver::Zir(func) => {
                 use zokrates_ast::zir::result_folder::ResultFolder;
-
-                assert!(func
-                    .arguments
-                    .iter()
-                    .all(|a| a.id._type == zokrates_ast::zir::Type::FieldElement));
                 assert_eq!(func.arguments.len(), inputs.len());
 
                 let constants = func
@@ -182,7 +178,23 @@ impl Interpreter {
                     .map(|(a, v)| {
                         (
                             a.id.id.clone(),
-                            zokrates_ast::zir::FieldElementExpression::Number(v.clone()).into(),
+                            match &a.id._type {
+                                zir::Type::FieldElement => {
+                                    zokrates_ast::zir::FieldElementExpression::Number(v.clone())
+                                        .into()
+                                }
+                                zir::Type::Boolean => {
+                                    zokrates_ast::zir::BooleanExpression::Value(*v == T::from(1))
+                                        .into()
+                                }
+                                zir::Type::Uint(bitwidth) => {
+                                    zokrates_ast::zir::UExpressionInner::Value(
+                                        v.to_dec_string().parse::<u128>().unwrap(),
+                                    )
+                                    .annotate(*bitwidth)
+                                    .into()
+                                }
+                            },
                         )
                     })
                     .collect();

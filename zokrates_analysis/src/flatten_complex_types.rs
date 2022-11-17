@@ -1,11 +1,11 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
 use std::marker::PhantomData;
 use zokrates_ast::typed::types::{ConcreteArrayType, IntoType, UBitwidth};
 use zokrates_ast::typed::{self, Expr, Typed};
+use zokrates_ast::zir::IntoType as ZirIntoType;
 use zokrates_ast::zir::{self, Folder, Id, Select};
 use zokrates_field::Field;
-
-use std::convert::{TryFrom, TryInto};
 
 #[derive(Default)]
 pub struct Flattener<T: Field> {
@@ -460,15 +460,11 @@ impl<'ast, T: Field> Flattener<T> {
 
 #[derive(Default)]
 pub struct ArgumentFinder<'ast, T> {
-    pub identifiers: HashSet<zir::Identifier<'ast>>,
+    pub identifiers: HashMap<zir::Identifier<'ast>, zir::Type>,
     _phantom: PhantomData<T>,
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for ArgumentFinder<'ast, T> {
-    fn fold_name(&mut self, n: zir::Identifier<'ast>) -> zir::Identifier<'ast> {
-        self.identifiers.insert(n.clone());
-        n
-    }
     fn fold_statement(&mut self, s: zir::ZirStatement<'ast, T>) -> Vec<zir::ZirStatement<'ast, T>> {
         match s {
             zir::ZirStatement::Definition(assignee, expr) => {
@@ -490,6 +486,16 @@ impl<'ast, T: Field> Folder<'ast, T> for ArgumentFinder<'ast, T> {
             }
             s => zir::folder::fold_statement(self, s),
         }
+    }
+
+    fn fold_identifier_expression<E: zir::Expr<'ast, T> + Id<'ast, T>>(
+        &mut self,
+        ty: &E::Ty,
+        e: zir::IdentifierExpression<'ast, E>,
+    ) -> zir::IdentifierOrExpression<'ast, T, E> {
+        self.identifiers
+            .insert(e.id.clone(), ty.clone().into_type());
+        zir::IdentifierOrExpression::Identifier(e)
     }
 }
 
@@ -515,15 +521,17 @@ fn fold_assembly_statement<'ast, T: Field>(
                 .collect();
             statements_buffer.reverse();
 
+            let _ = dbg!(&finder.identifiers);
+
             let function = zir::ZirFunction {
                 signature: zir::types::Signature::default()
-                    .inputs(vec![zir::Type::FieldElement; finder.identifiers.len()])
+                    .inputs(finder.identifiers.values().cloned().collect())
                     .outputs(a.iter().map(|a| a.get_type()).collect()),
                 arguments: finder
                     .identifiers
                     .into_iter()
-                    .map(|id| zir::Parameter {
-                        id: zir::Variable::field_element(id),
+                    .map(|(id, ty)| zir::Parameter {
+                        id: zir::Variable::with_id_and_type(id, ty),
                         private: false,
                     })
                     .collect(),
@@ -1014,23 +1022,15 @@ fn fold_field_expression<'ast, T: Field>(
         }
         typed::FieldElementExpression::LeftShift(box e, box by) => {
             let e = f.fold_field_expression(statements_buffer, e);
+            let by = f.fold_uint_expression(statements_buffer, by);
 
-            let by = match by.as_inner() {
-                typed::UExpressionInner::Value(by) => by,
-                _ => unreachable!("static analysis should have made sure that this is constant"),
-            };
-
-            zir::FieldElementExpression::LeftShift(box e, *by as u32)
+            zir::FieldElementExpression::LeftShift(box e, box by)
         }
         typed::FieldElementExpression::RightShift(box e, box by) => {
             let e = f.fold_field_expression(statements_buffer, e);
+            let by = f.fold_uint_expression(statements_buffer, by);
 
-            let by = match by.as_inner() {
-                typed::UExpressionInner::Value(by) => by,
-                _ => unreachable!("static analysis should have made sure that this is constant"),
-            };
-
-            zir::FieldElementExpression::RightShift(box e, *by as u32)
+            zir::FieldElementExpression::RightShift(box e, box by)
         }
         typed::FieldElementExpression::Conditional(c) => f
             .fold_conditional_expression(statements_buffer, c)

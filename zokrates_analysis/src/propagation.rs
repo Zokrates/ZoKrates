@@ -939,7 +939,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
             }
             FieldElementExpression::RightShift(box e, box by) => {
                 let e = self.fold_field_expression(e)?;
-                let by = dbg!(self.fold_uint_expression(by)?);
+                let by = self.fold_uint_expression(by)?;
                 match (e, by) {
                     (
                         e,

@@ -90,36 +90,6 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
                     ))),
                 }
             }
-            FieldElementExpression::LeftShift(box e, box by) => {
-                let e = self.fold_field_expression(e)?;
-                let by = self.fold_uint_expression(by)?;
-
-                match by.as_inner() {
-                    UExpressionInner::Value(_) => {
-                        Ok(FieldElementExpression::LeftShift(box e, box by))
-                    }
-                    by => Err(Error(format!(
-                        "Cannot shift by a variable value, found `{} << {}`",
-                        e,
-                        by.clone().annotate(UBitwidth::B32)
-                    ))),
-                }
-            }
-            FieldElementExpression::RightShift(box e, box by) => {
-                let e = self.fold_field_expression(e)?;
-                let by = self.fold_uint_expression(by)?;
-
-                match by.as_inner() {
-                    UExpressionInner::Value(_) => {
-                        Ok(FieldElementExpression::RightShift(box e, box by))
-                    }
-                    by => Err(Error(format!(
-                        "Cannot shift by a variable value, found `{} << {}`",
-                        e,
-                        by.clone().annotate(UBitwidth::B32)
-                    ))),
-                }
-            }
             e => fold_field_expression(self, e),
         }
     }

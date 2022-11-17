@@ -301,24 +301,50 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (e1, e2) => Ok(FieldElementExpression::Or(box e1, box e2)),
                 }
             }
-            FieldElementExpression::LeftShift(box e, by) => {
+            FieldElementExpression::LeftShift(box e, box by) => {
                 let e = self.fold_field_expression(e)?;
+                let by = self.fold_uint_expression(by)?;
                 match (e, by) {
-                    (e, by) if by == 0u32 => Ok(e),
-                    (FieldElementExpression::Number(n), by) => Ok(FieldElementExpression::Number(
+                    (
+                        e,
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) if by == 0 => Ok(e),
+                    (
+                        FieldElementExpression::Number(n),
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) => Ok(FieldElementExpression::Number(
                         T::try_from(n.to_biguint().shl(by as usize)).unwrap(),
                     )),
-                    (e, by) => Ok(FieldElementExpression::LeftShift(box e, by)),
+                    (e, by) => Ok(FieldElementExpression::LeftShift(box e, box by)),
                 }
             }
-            FieldElementExpression::RightShift(box e, by) => {
+            FieldElementExpression::RightShift(box e, box by) => {
                 let e = self.fold_field_expression(e)?;
+                let by = self.fold_uint_expression(by)?;
                 match (e, by) {
-                    (e, by) if by == 0u32 => Ok(e),
-                    (FieldElementExpression::Number(n), by) => Ok(FieldElementExpression::Number(
+                    (
+                        e,
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) if by == 0 => Ok(e),
+                    (
+                        FieldElementExpression::Number(n),
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) => Ok(FieldElementExpression::Number(
                         T::try_from(n.to_biguint().shr(by as usize)).unwrap(),
                     )),
-                    (e, by) => Ok(FieldElementExpression::RightShift(box e, by)),
+                    (e, by) => Ok(FieldElementExpression::RightShift(box e, box by)),
                 }
             }
             e => fold_field_expression(self, e),

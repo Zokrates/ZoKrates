@@ -306,15 +306,17 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
             FieldElementExpression::Or(box left, box right)
         }
-        FieldElementExpression::LeftShift(box e, by) => {
+        FieldElementExpression::LeftShift(box e, box by) => {
             let e = f.fold_field_expression(e)?;
+            let by = f.fold_uint_expression(by)?;
 
-            FieldElementExpression::LeftShift(box e, by)
+            FieldElementExpression::LeftShift(box e, box by)
         }
-        FieldElementExpression::RightShift(box e, by) => {
+        FieldElementExpression::RightShift(box e, box by) => {
             let e = f.fold_field_expression(e)?;
+            let by = f.fold_uint_expression(by)?;
 
-            FieldElementExpression::RightShift(box e, by)
+            FieldElementExpression::RightShift(box e, box by)
         }
         FieldElementExpression::Conditional(c) => {
             match f.fold_conditional_expression(&Type::FieldElement, c)? {

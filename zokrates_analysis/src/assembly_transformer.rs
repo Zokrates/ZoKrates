@@ -54,9 +54,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                     false => {
                         let sub = FieldElementExpression::Sub(box lhs.clone(), box rhs.clone());
                         let mut lqc = LinQuadComb::try_from(sub.clone()).map_err(|_| {
-                            Error(
-                                "Found forbidden operation in user-defined constraint".to_string(),
-                            )
+                            Error("Non-quadratic constraints are not allowed".to_string())
                         })?;
 
                         let linear = lqc
@@ -127,10 +125,9 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                                         }),
                                     box FieldElementExpression::identifier(id),
                                 )),
-                                _ => Err(Error(format!(
-                                    "Non-quadratic constraints are not allowed `{} == {}`",
-                                    lhs, rhs
-                                ))),
+                                _ => Err(Error(
+                                    "Non-quadratic constraints are not allowed".to_string(),
+                                )),
                             }?
                         } else {
                             lqc.quadratic
