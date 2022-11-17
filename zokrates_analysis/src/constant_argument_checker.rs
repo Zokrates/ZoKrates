@@ -84,7 +84,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
                 match exp.as_inner() {
                     UExpressionInner::Value(_) => Ok(FieldElementExpression::Pow(box e, box exp)),
                     exp => Err(Error(format!(
-                        "Found non-constant exponent in expression `{}**{}`",
+                        "Found non-constant exponent in pow expression `{}**{}`",
                         e,
                         exp.clone().annotate(UBitwidth::B32)
                     ))),
