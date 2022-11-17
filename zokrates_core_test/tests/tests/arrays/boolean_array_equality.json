@@ -1,0 +1,6 @@
+{
+  "entry_point": "./tests/tests/arrays/boolean_array_equality.zok",
+  "curves": ["Bn128"],
+  "max_constraint_count": 1004,
+  "tests": []
+}

@@ -111,7 +111,7 @@ impl<'ast, T: Field> TryFrom<FieldElementExpression<'ast, T>> for LinQuadComb<'a
                 ..Self::default()
             }),
             FieldElementExpression::Identifier(id) => Ok(Self {
-                linear: vec![(T::one(), id)],
+                linear: vec![(T::one(), id.id)],
                 ..Self::default()
             }),
             FieldElementExpression::Add(box left, box right) => {

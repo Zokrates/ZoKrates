@@ -572,13 +572,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         e: UExpressionInner<'ast, T>,
     ) -> Result<UExpressionInner<'ast, T>, Error> {
         match e {
-            UExpressionInner::Identifier(id) => match self.constants.get(&id) {
-                Some(e) => match e {
-                    TypedExpression::Uint(e) => Ok(e.as_inner().clone()),
-                    _ => unreachable!("constant stored for a uint should be a uint"),
-                },
-                None => Ok(UExpressionInner::Identifier(id)),
-            },
             UExpressionInner::Add(box e1, box e2) => match (
                 self.fold_uint_expression(e1)?.into_inner(),
                 self.fold_uint_expression(e2)?.into_inner(),
@@ -802,15 +795,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         e: FieldElementExpression<'ast, T>,
     ) -> Result<FieldElementExpression<'ast, T>, Error> {
         match e {
-            FieldElementExpression::Identifier(id) => match self.constants.get(&id) {
-                Some(e) => match e {
-                    TypedExpression::FieldElement(e) => Ok(e.clone()),
-                    _ => unreachable!(
-                        "constant stored for a field element should be a field element"
-                    ),
-                },
-                None => Ok(FieldElementExpression::Identifier(id)),
-            },
             FieldElementExpression::Add(box e1, box e2) => match (
                 self.fold_field_expression(e1)?,
                 self.fold_field_expression(e2)?,
@@ -1064,7 +1048,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     }
                 }
                 (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
-                    match self.constants.get(&id) {
+                    match self.constants.get(&id.id) {
                         Some(a) => match a {
                             TypedExpression::Array(a) => match a.as_inner() {
                                 ArrayExpressionInner::Value(v) => {
@@ -1103,13 +1087,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Error> {
         match e {
-            ArrayExpressionInner::Identifier(id) => match self.constants.get(&id) {
-                Some(e) => match e {
-                    TypedExpression::Array(e) => Ok(e.as_inner().clone()),
-                    _ => panic!("constant stored for an array should be an array"),
-                },
-                None => Ok(ArrayExpressionInner::Identifier(id)),
-            },
             ArrayExpressionInner::Value(exprs) => {
                 Ok(ArrayExpressionInner::Value(
                     exprs
@@ -1160,13 +1137,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         e: StructExpressionInner<'ast, T>,
     ) -> Result<StructExpressionInner<'ast, T>, Error> {
         match e {
-            StructExpressionInner::Identifier(id) => match self.constants.get(&id) {
-                Some(e) => match e {
-                    TypedExpression::Struct(e) => Ok(e.as_inner().clone()),
-                    _ => panic!("constant stored for an array should be an array"),
-                },
-                None => Ok(StructExpressionInner::Identifier(id)),
-            },
             StructExpressionInner::Value(v) => {
                 let v = v.into_iter().zip(ty.iter()).map(|(v, member)|
                     match self.fold_expression(v) {
@@ -1187,19 +1157,23 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         }
     }
 
+    fn fold_identifier_expression<E: Expr<'ast, T> + Id<'ast, T> + ResultFold<'ast, T>>(
+        &mut self,
+        _: &E::Ty,
+        id: IdentifierExpression<'ast, E>,
+    ) -> Result<IdentifierOrExpression<'ast, T, E>, Self::Error> {
+        match self.constants.get(&id.id).cloned() {
+            Some(e) => Ok(IdentifierOrExpression::Expression(E::from(e).into_inner())),
+            None => Ok(IdentifierOrExpression::Identifier(id)),
+        }
+    }
+
     fn fold_tuple_expression_inner(
         &mut self,
         ty: &TupleType<'ast, T>,
         e: TupleExpressionInner<'ast, T>,
     ) -> Result<TupleExpressionInner<'ast, T>, Error> {
         match e {
-            TupleExpressionInner::Identifier(id) => match self.constants.get(&id) {
-                Some(e) => match e {
-                    TypedExpression::Tuple(e) => Ok(e.as_inner().clone()),
-                    _ => panic!("constant stored for an tuple should be an tuple"),
-                },
-                None => Ok(TupleExpressionInner::Identifier(id)),
-            },
             TupleExpressionInner::Value(v) => {
                 let v = v.into_iter().zip(ty.elements.iter().enumerate()).map(|(v, (index, element_ty))|
                     match self.fold_expression(v) {
@@ -1269,13 +1243,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         // These kind of reduction rules are easier to apply later in the process, when we have canonical representations
         // of expressions, ie `a + a` would always be written `2 * a`
         match e {
-            BooleanExpression::Identifier(id) => match self.constants.get(&id) {
-                Some(e) => match e {
-                    TypedExpression::Boolean(e) => Ok(e.clone()),
-                    _ => panic!("constant stored for a boolean should be a boolean"),
-                },
-                None => Ok(BooleanExpression::Identifier(id)),
-            },
             BooleanExpression::FieldLt(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1)?;
                 let e2 = self.fold_field_expression(e2)?;
@@ -1560,7 +1527,7 @@ mod tests {
                     BooleanExpression::Not(box BooleanExpression::Value(true));
 
                 let e_default: BooleanExpression<Bn128Field> =
-                    BooleanExpression::Not(box BooleanExpression::Identifier("a".into()));
+                    BooleanExpression::Not(box BooleanExpression::identifier("a".into()));
 
                 assert_eq!(
                     Propagator::with_constants(&mut Constants::new())
@@ -1593,14 +1560,14 @@ mod tests {
 
                 let e_identifier_true: BooleanExpression<Bn128Field> =
                     BooleanExpression::FieldEq(EqExpression::new(
-                        FieldElementExpression::Identifier("a".into()),
-                        FieldElementExpression::Identifier("a".into()),
+                        FieldElementExpression::identifier("a".into()),
+                        FieldElementExpression::identifier("a".into()),
                     ));
 
                 let e_identifier_unchanged: BooleanExpression<Bn128Field> =
                     BooleanExpression::FieldEq(EqExpression::new(
-                        FieldElementExpression::Identifier("a".into()),
-                        FieldElementExpression::Identifier("b".into()),
+                        FieldElementExpression::identifier("a".into()),
+                        FieldElementExpression::identifier("b".into()),
                     ));
 
                 assert_eq!(
@@ -1702,18 +1669,14 @@ mod tests {
 
                 let e_identifier_true: BooleanExpression<Bn128Field> =
                     BooleanExpression::ArrayEq(EqExpression::new(
-                        ArrayExpressionInner::Identifier("a".into())
-                            .annotate(Type::FieldElement, 1u32),
-                        ArrayExpressionInner::Identifier("a".into())
-                            .annotate(Type::FieldElement, 1u32),
+                        ArrayExpression::identifier("a".into()).annotate(Type::FieldElement, 1u32),
+                        ArrayExpression::identifier("a".into()).annotate(Type::FieldElement, 1u32),
                     ));
 
                 let e_identifier_unchanged: BooleanExpression<Bn128Field> =
                     BooleanExpression::ArrayEq(EqExpression::new(
-                        ArrayExpressionInner::Identifier("a".into())
-                            .annotate(Type::FieldElement, 1u32),
-                        ArrayExpressionInner::Identifier("b".into())
-                            .annotate(Type::FieldElement, 1u32),
+                        ArrayExpression::identifier("a".into()).annotate(Type::FieldElement, 1u32),
+                        ArrayExpression::identifier("b".into()).annotate(Type::FieldElement, 1u32),
                     ));
 
                 let e_non_canonical_true = BooleanExpression::ArrayEq(EqExpression::new(
@@ -1900,30 +1863,30 @@ mod tests {
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
                         .fold_boolean_expression(BooleanExpression::And(
                             box BooleanExpression::Value(true),
-                            box BooleanExpression::Identifier(a_bool.clone())
+                            box BooleanExpression::identifier(a_bool.clone())
                         )),
-                    Ok(BooleanExpression::Identifier(a_bool.clone()))
+                    Ok(BooleanExpression::identifier(a_bool.clone()))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
                         .fold_boolean_expression(BooleanExpression::And(
-                            box BooleanExpression::Identifier(a_bool.clone()),
+                            box BooleanExpression::identifier(a_bool.clone()),
                             box BooleanExpression::Value(true),
                         )),
-                    Ok(BooleanExpression::Identifier(a_bool.clone()))
+                    Ok(BooleanExpression::identifier(a_bool.clone()))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
                         .fold_boolean_expression(BooleanExpression::And(
                             box BooleanExpression::Value(false),
-                            box BooleanExpression::Identifier(a_bool.clone())
+                            box BooleanExpression::identifier(a_bool.clone())
                         )),
                     Ok(BooleanExpression::Value(false))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
                         .fold_boolean_expression(BooleanExpression::And(
-                            box BooleanExpression::Identifier(a_bool.clone()),
+                            box BooleanExpression::identifier(a_bool.clone()),
                             box BooleanExpression::Value(false),
                         )),
                     Ok(BooleanExpression::Value(false))
@@ -1970,14 +1933,14 @@ mod tests {
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
                         .fold_boolean_expression(BooleanExpression::Or(
                             box BooleanExpression::Value(true),
-                            box BooleanExpression::Identifier(a_bool.clone())
+                            box BooleanExpression::identifier(a_bool.clone())
                         )),
                     Ok(BooleanExpression::Value(true))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
                         .fold_boolean_expression(BooleanExpression::Or(
-                            box BooleanExpression::Identifier(a_bool.clone()),
+                            box BooleanExpression::identifier(a_bool.clone()),
                             box BooleanExpression::Value(true),
                         )),
                     Ok(BooleanExpression::Value(true))
@@ -1986,17 +1949,17 @@ mod tests {
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
                         .fold_boolean_expression(BooleanExpression::Or(
                             box BooleanExpression::Value(false),
-                            box BooleanExpression::Identifier(a_bool.clone())
+                            box BooleanExpression::identifier(a_bool.clone())
                         )),
-                    Ok(BooleanExpression::Identifier(a_bool.clone()))
+                    Ok(BooleanExpression::identifier(a_bool.clone()))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
                         .fold_boolean_expression(BooleanExpression::Or(
-                            box BooleanExpression::Identifier(a_bool.clone()),
+                            box BooleanExpression::identifier(a_bool.clone()),
                             box BooleanExpression::Value(false),
                         )),
-                    Ok(BooleanExpression::Identifier(a_bool.clone()))
+                    Ok(BooleanExpression::identifier(a_bool.clone()))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())

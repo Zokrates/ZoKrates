@@ -7,38 +7,39 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+use zokrates_field::Field;
 
-pub trait IntoType<'ast, T> {
-    fn into_type(self) -> Type<'ast, T>;
+pub trait IntoType<S> {
+    fn into_type(self) -> GType<S>;
 }
 
-impl<'ast, T> IntoType<'ast, T> for Type<'ast, T> {
-    fn into_type(self) -> Type<'ast, T> {
+impl<S> IntoType<S> for GType<S> {
+    fn into_type(self) -> GType<S> {
         self
     }
 }
 
-impl<'ast, T> IntoType<'ast, T> for StructType<'ast, T> {
-    fn into_type(self) -> Type<'ast, T> {
-        Type::Struct(self)
+impl<S> IntoType<S> for GStructType<S> {
+    fn into_type(self) -> GType<S> {
+        GType::Struct(self)
     }
 }
 
-impl<'ast, T> IntoType<'ast, T> for ArrayType<'ast, T> {
-    fn into_type(self) -> Type<'ast, T> {
-        Type::Array(self)
+impl<S> IntoType<S> for GArrayType<S> {
+    fn into_type(self) -> GType<S> {
+        GType::Array(self)
     }
 }
 
-impl<'ast, T> IntoType<'ast, T> for TupleType<'ast, T> {
-    fn into_type(self) -> Type<'ast, T> {
-        Type::Tuple(self)
+impl<S> IntoType<S> for GTupleType<S> {
+    fn into_type(self) -> GType<S> {
+        GType::Tuple(self)
     }
 }
 
-impl<'ast, T> IntoType<'ast, T> for UBitwidth {
-    fn into_type(self) -> Type<'ast, T> {
-        Type::Uint(self)
+impl<S> IntoType<S> for UBitwidth {
+    fn into_type(self) -> GType<S> {
+        GType::Uint(self)
     }
 }
 
@@ -236,19 +237,17 @@ impl<'ast, T> From<u32> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> From<DeclarationConstant<'ast, T>> for UExpression<'ast, T> {
+impl<'ast, T: Field> From<DeclarationConstant<'ast, T>> for UExpression<'ast, T> {
     fn from(c: DeclarationConstant<'ast, T>) -> Self {
         match c {
             DeclarationConstant::Generic(g) => {
-                UExpressionInner::Identifier(CoreIdentifier::from(g).into())
-                    .annotate(UBitwidth::B32)
+                UExpression::identifier(CoreIdentifier::from(g).into()).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Concrete(v) => {
                 UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Constant(v) => {
-                UExpressionInner::Identifier(CoreIdentifier::from(v).into())
-                    .annotate(UBitwidth::B32)
+                UExpression::identifier(CoreIdentifier::from(v).into()).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Expression(e) => e.try_into().unwrap(),
         }
@@ -1143,9 +1142,9 @@ pub fn check_type<'ast, T, S: Clone + PartialEq + PartialEq<u32>>(
     }
 }
 
-impl<'ast, T> From<CanonicalConstantIdentifier<'ast>> for UExpression<'ast, T> {
+impl<'ast, T: Field> From<CanonicalConstantIdentifier<'ast>> for UExpression<'ast, T> {
     fn from(c: CanonicalConstantIdentifier<'ast>) -> Self {
-        UExpressionInner::Identifier(Identifier::from(CoreIdentifier::Constant(c)))
+        UExpression::identifier(Identifier::from(CoreIdentifier::Constant(c)))
             .annotate(UBitwidth::B32)
     }
 }
@@ -1231,7 +1230,7 @@ pub use self::signature::{
     try_from_g_signature, ConcreteSignature, DeclarationSignature, GSignature, Signature,
 };
 
-use super::ShadowedIdentifier;
+use super::{Id, ShadowedIdentifier};
 
 pub mod signature {
     use super::*;
@@ -1300,7 +1299,7 @@ pub mod signature {
         }
     }
 
-    impl<'ast, T: Clone + PartialEq> DeclarationSignature<'ast, T> {
+    impl<'ast, T: Field> DeclarationSignature<'ast, T> {
         pub fn specialize(
             &self,
             values: Vec<Option<u32>>,

@@ -632,8 +632,10 @@ pub mod bls12_377;
 pub mod bls12_381;
 pub mod bn128;
 pub mod bw6_761;
+pub mod dummy_curve;
 
 pub use bls12_377::FieldPrime as Bls12_377Field;
 pub use bls12_381::FieldPrime as Bls12_381Field;
 pub use bn128::FieldPrime as Bn128Field;
 pub use bw6_761::FieldPrime as Bw6_761Field;
+pub use dummy_curve::FieldPrime as DummyCurveField;

@@ -1,5 +1,5 @@
-use crate::zir::identifier::Identifier;
 use crate::zir::types::UBitwidth;
+use crate::zir::IdentifierExpression;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
@@ -175,7 +175,7 @@ pub struct UExpression<'ast, T> {
 pub enum UExpressionInner<'ast, T> {
     Value(u128),
     #[serde(borrow)]
-    Identifier(Identifier<'ast>),
+    Identifier(IdentifierExpression<'ast, UExpression<'ast, T>>),
     Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),

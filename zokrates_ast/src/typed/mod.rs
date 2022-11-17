@@ -14,6 +14,7 @@ mod integer;
 mod parameter;
 pub mod types;
 mod uint;
+pub mod utils;
 pub mod variable;
 
 pub use self::identifier::{CoreIdentifier, ShadowedIdentifier, SourceIdentifier};
@@ -25,6 +26,7 @@ pub use self::types::{
     GArrayType, GStructType, GType, GenericIdentifier, Signature, StructType, TupleType, Type,
     UBitwidth,
 };
+use self::types::{ConcreteArrayType, ConcreteStructType};
 
 use crate::typed::types::{ConcreteGenericsAssignment, IntoType};
 use crate::untyped::Position;
@@ -1008,6 +1010,27 @@ impl<'ast, T, E> BlockExpression<'ast, T, E> {
 }
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+pub struct IdentifierExpression<'ast, E> {
+    pub id: Identifier<'ast>,
+    ty: PhantomData<E>,
+}
+
+impl<'ast, E> IdentifierExpression<'ast, E> {
+    pub fn new(id: Identifier<'ast>) -> Self {
+        IdentifierExpression {
+            id,
+            ty: PhantomData,
+        }
+    }
+}
+
+impl<'ast, E> fmt::Display for IdentifierExpression<'ast, E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.id)
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct MemberExpression<'ast, T, E> {
     pub struc: Box<StructExpression<'ast, T>>,
     pub id: MemberId,
@@ -1182,7 +1205,7 @@ impl<'ast, T: fmt::Display, E> fmt::Display for FunctionCallExpression<'ast, T, 
 pub enum FieldElementExpression<'ast, T> {
     Block(BlockExpression<'ast, T, Self>),
     Number(T),
-    Identifier(Identifier<'ast>),
+    Identifier(IdentifierExpression<'ast, Self>),
     Add(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -1232,11 +1255,11 @@ pub enum FieldElementExpression<'ast, T> {
     Element(ElementExpression<'ast, T, Self>),
 }
 
-impl<'ast, T: Clone> From<TypedAssignee<'ast, T>> for TupleExpression<'ast, T> {
+impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for TupleExpression<'ast, T> {
     fn from(assignee: TypedAssignee<'ast, T>) -> Self {
         match assignee {
             TypedAssignee::Identifier(v) => {
-                let inner = TupleExpressionInner::Identifier(v.id);
+                let inner = TupleExpression::identifier(v.id);
                 match v._type {
                     GType::Tuple(tuple_ty) => inner.annotate(tuple_ty),
                     _ => unreachable!(),
@@ -1249,11 +1272,11 @@ impl<'ast, T: Clone> From<TypedAssignee<'ast, T>> for TupleExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> From<TypedAssignee<'ast, T>> for StructExpression<'ast, T> {
+impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for StructExpression<'ast, T> {
     fn from(assignee: TypedAssignee<'ast, T>) -> Self {
         match assignee {
             TypedAssignee::Identifier(v) => {
-                let inner = StructExpressionInner::Identifier(v.id);
+                let inner = StructExpression::identifier(v.id);
                 match v._type {
                     GType::Struct(struct_ty) => inner.annotate(struct_ty),
                     _ => unreachable!(),
@@ -1266,11 +1289,11 @@ impl<'ast, T: Clone> From<TypedAssignee<'ast, T>> for StructExpression<'ast, T> 
     }
 }
 
-impl<'ast, T: Clone> From<TypedAssignee<'ast, T>> for ArrayExpression<'ast, T> {
+impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for ArrayExpression<'ast, T> {
     fn from(assignee: TypedAssignee<'ast, T>) -> Self {
         match assignee {
             TypedAssignee::Identifier(v) => {
-                let inner = ArrayExpressionInner::Identifier(v.id);
+                let inner = ArrayExpression::identifier(v.id);
                 match v._type {
                     GType::Array(array_ty) => inner.annotate(*array_ty.ty, *array_ty.size),
                     _ => unreachable!(),
@@ -1283,10 +1306,10 @@ impl<'ast, T: Clone> From<TypedAssignee<'ast, T>> for ArrayExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> From<TypedAssignee<'ast, T>> for FieldElementExpression<'ast, T> {
+impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for FieldElementExpression<'ast, T> {
     fn from(assignee: TypedAssignee<'ast, T>) -> Self {
         match assignee {
-            TypedAssignee::Identifier(v) => FieldElementExpression::Identifier(v.id),
+            TypedAssignee::Identifier(v) => FieldElementExpression::identifier(v.id),
             TypedAssignee::Element(box a, index) => {
                 FieldElementExpression::element(a.into(), index)
             }
@@ -1346,7 +1369,7 @@ impl<'ast, T> From<T> for FieldElementExpression<'ast, T> {
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum BooleanExpression<'ast, T> {
     Block(BlockExpression<'ast, T, Self>),
-    Identifier(Identifier<'ast>),
+    Identifier(IdentifierExpression<'ast, Self>),
     Value(bool),
     FieldLt(
         Box<FieldElementExpression<'ast, T>>,
@@ -1487,7 +1510,7 @@ impl<'ast, T> std::iter::FromIterator<TypedExpressionOrSpread<'ast, T>> for Arra
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum ArrayExpressionInner<'ast, T> {
     Block(BlockExpression<'ast, T, ArrayExpression<'ast, T>>),
-    Identifier(Identifier<'ast>),
+    Identifier(IdentifierExpression<'ast, ArrayExpression<'ast, T>>),
     Value(ArrayValue<'ast, T>),
     FunctionCall(FunctionCallExpression<'ast, T, ArrayExpression<'ast, T>>),
     Conditional(ConditionalExpression<'ast, T, ArrayExpression<'ast, T>>),
@@ -1552,7 +1575,7 @@ impl<'ast, T> StructExpression<'ast, T> {
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum StructExpressionInner<'ast, T> {
     Block(BlockExpression<'ast, T, StructExpression<'ast, T>>),
-    Identifier(Identifier<'ast>),
+    Identifier(IdentifierExpression<'ast, StructExpression<'ast, T>>),
     Value(Vec<TypedExpression<'ast, T>>),
     FunctionCall(FunctionCallExpression<'ast, T, StructExpression<'ast, T>>),
     Conditional(ConditionalExpression<'ast, T, StructExpression<'ast, T>>),
@@ -1594,7 +1617,7 @@ impl<'ast, T> TupleExpression<'ast, T> {
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TupleExpressionInner<'ast, T> {
     Block(BlockExpression<'ast, T, TupleExpression<'ast, T>>),
-    Identifier(Identifier<'ast>),
+    Identifier(IdentifierExpression<'ast, TupleExpression<'ast, T>>),
     Value(Vec<TypedExpression<'ast, T>>),
     FunctionCall(FunctionCallExpression<'ast, T, TupleExpression<'ast, T>>),
     Conditional(ConditionalExpression<'ast, T, TupleExpression<'ast, T>>),
@@ -1891,14 +1914,14 @@ impl<'ast, T: fmt::Display> fmt::Display for ArrayExpressionInner<'ast, T> {
 impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
     fn from(v: Variable<'ast, T>) -> Self {
         match v.get_type() {
-            Type::FieldElement => FieldElementExpression::Identifier(v.id).into(),
-            Type::Boolean => BooleanExpression::Identifier(v.id).into(),
-            Type::Array(ty) => ArrayExpressionInner::Identifier(v.id)
+            Type::FieldElement => FieldElementExpression::identifier(v.id).into(),
+            Type::Boolean => BooleanExpression::identifier(v.id).into(),
+            Type::Array(ty) => ArrayExpression::identifier(v.id)
                 .annotate(*ty.ty, *ty.size)
                 .into(),
-            Type::Struct(ty) => StructExpressionInner::Identifier(v.id).annotate(ty).into(),
-            Type::Tuple(ty) => TupleExpressionInner::Identifier(v.id).annotate(ty).into(),
-            Type::Uint(w) => UExpressionInner::Identifier(v.id).annotate(w).into(),
+            Type::Struct(ty) => StructExpression::identifier(v.id).annotate(ty).into(),
+            Type::Tuple(ty) => TupleExpression::identifier(v.id).annotate(ty).into(),
+            Type::Uint(w) => UExpression::identifier(v.id).annotate(w).into(),
             Type::Int => unreachable!(),
         }
     }
@@ -1908,7 +1931,8 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
 
 pub trait Expr<'ast, T>: fmt::Display + From<TypedExpression<'ast, T>> {
     type Inner;
-    type Ty: Clone + IntoType<'ast, T>;
+    type Ty: Clone + IntoType<UExpression<'ast, T>>;
+    type ConcreteTy: Clone + IntoType<u32>;
 
     fn ty(&self) -> &Self::Ty;
 
@@ -1922,6 +1946,7 @@ pub trait Expr<'ast, T>: fmt::Display + From<TypedExpression<'ast, T>> {
 impl<'ast, T: Field> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
+    type ConcreteTy = ConcreteType;
 
     fn ty(&self) -> &Self::Ty {
         &Type::FieldElement
@@ -1943,6 +1968,7 @@ impl<'ast, T: Field> Expr<'ast, T> for FieldElementExpression<'ast, T> {
 impl<'ast, T: Field> Expr<'ast, T> for BooleanExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
+    type ConcreteTy = ConcreteType;
 
     fn ty(&self) -> &Self::Ty {
         &Type::Boolean
@@ -1964,6 +1990,7 @@ impl<'ast, T: Field> Expr<'ast, T> for BooleanExpression<'ast, T> {
 impl<'ast, T: Field> Expr<'ast, T> for UExpression<'ast, T> {
     type Inner = UExpressionInner<'ast, T>;
     type Ty = UBitwidth;
+    type ConcreteTy = UBitwidth;
 
     fn ty(&self) -> &Self::Ty {
         &self.bitwidth
@@ -1985,6 +2012,7 @@ impl<'ast, T: Field> Expr<'ast, T> for UExpression<'ast, T> {
 impl<'ast, T: Field> Expr<'ast, T> for StructExpression<'ast, T> {
     type Inner = StructExpressionInner<'ast, T>;
     type Ty = StructType<'ast, T>;
+    type ConcreteTy = ConcreteStructType;
 
     fn ty(&self) -> &Self::Ty {
         &self.ty
@@ -2006,6 +2034,7 @@ impl<'ast, T: Field> Expr<'ast, T> for StructExpression<'ast, T> {
 impl<'ast, T: Field> Expr<'ast, T> for ArrayExpression<'ast, T> {
     type Inner = ArrayExpressionInner<'ast, T>;
     type Ty = ArrayType<'ast, T>;
+    type ConcreteTy = ConcreteArrayType;
 
     fn ty(&self) -> &Self::Ty {
         &self.ty
@@ -2027,6 +2056,7 @@ impl<'ast, T: Field> Expr<'ast, T> for ArrayExpression<'ast, T> {
 impl<'ast, T: Field> Expr<'ast, T> for TupleExpression<'ast, T> {
     type Inner = TupleExpressionInner<'ast, T>;
     type Ty = TupleType<'ast, T>;
+    type ConcreteTy = ConcreteTupleType;
 
     fn ty(&self) -> &Self::Ty {
         &self.ty
@@ -2048,6 +2078,7 @@ impl<'ast, T: Field> Expr<'ast, T> for TupleExpression<'ast, T> {
 impl<'ast, T: Field> Expr<'ast, T> for IntExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
+    type ConcreteTy = ConcreteType;
 
     fn ty(&self) -> &Self::Ty {
         &Type::Int
@@ -2084,6 +2115,11 @@ pub enum EqOrBoolean<'ast, T, E> {
 
 pub enum MemberOrExpression<'ast, T, E: Expr<'ast, T>> {
     Member(MemberExpression<'ast, T, E>),
+    Expression(E::Inner),
+}
+
+pub enum IdentifierOrExpression<'ast, T, E: Expr<'ast, T>> {
+    Identifier(IdentifierExpression<'ast, E>),
     Expression(E::Inner),
 }
 
@@ -2447,37 +2483,37 @@ pub trait Id<'ast, T>: Expr<'ast, T> {
 
 impl<'ast, T: Field> Id<'ast, T> for FieldElementExpression<'ast, T> {
     fn identifier(id: Identifier<'ast>) -> Self::Inner {
-        FieldElementExpression::Identifier(id)
+        FieldElementExpression::Identifier(IdentifierExpression::new(id))
     }
 }
 
 impl<'ast, T: Field> Id<'ast, T> for BooleanExpression<'ast, T> {
     fn identifier(id: Identifier<'ast>) -> Self::Inner {
-        BooleanExpression::Identifier(id)
+        BooleanExpression::Identifier(IdentifierExpression::new(id))
     }
 }
 
 impl<'ast, T: Field> Id<'ast, T> for UExpression<'ast, T> {
     fn identifier(id: Identifier<'ast>) -> Self::Inner {
-        UExpressionInner::Identifier(id)
+        UExpressionInner::Identifier(IdentifierExpression::new(id))
     }
 }
 
 impl<'ast, T: Field> Id<'ast, T> for ArrayExpression<'ast, T> {
     fn identifier(id: Identifier<'ast>) -> Self::Inner {
-        ArrayExpressionInner::Identifier(id)
+        ArrayExpressionInner::Identifier(IdentifierExpression::new(id))
     }
 }
 
 impl<'ast, T: Field> Id<'ast, T> for StructExpression<'ast, T> {
     fn identifier(id: Identifier<'ast>) -> Self::Inner {
-        StructExpressionInner::Identifier(id)
+        StructExpressionInner::Identifier(IdentifierExpression::new(id))
     }
 }
 
 impl<'ast, T: Field> Id<'ast, T> for TupleExpression<'ast, T> {
     fn identifier(id: Identifier<'ast>) -> Self::Inner {
-        TupleExpressionInner::Identifier(id)
+        TupleExpressionInner::Identifier(IdentifierExpression::new(id))
     }
 }
 

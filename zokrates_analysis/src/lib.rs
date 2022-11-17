@@ -7,6 +7,7 @@
 //! @date 2018
 
 mod assembly_transformer;
+mod boolean_array_comparator;
 mod branch_isolator;
 mod condition_redefiner;
 mod constant_argument_checker;
@@ -24,6 +25,7 @@ mod uint_optimizer;
 mod variable_write_remover;
 mod zir_propagation;
 
+use self::boolean_array_comparator::BooleanArrayComparator;
 use self::branch_isolator::Isolator;
 use self::condition_redefiner::ConditionRedefiner;
 use self::constant_argument_checker::ConstantArgumentChecker;
@@ -156,6 +158,11 @@ pub fn analyse<'ast, T: Field>(
     // propagate
     log::debug!("Static analyser: Propagate");
     let r = Propagator::propagate(r).map_err(Error::from)?;
+    log::trace!("\n{}", r);
+
+    // simplify boolean array comparisons
+    log::debug!("Static analyser: Simplify boolean array comparisons");
+    let r = BooleanArrayComparator::simplify(r);
     log::trace!("\n{}", r);
 
     // remove assignment to variable index

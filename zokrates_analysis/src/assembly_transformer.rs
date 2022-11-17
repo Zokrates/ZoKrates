@@ -1,7 +1,7 @@
 use std::fmt;
 use zokrates_ast::zir::lqc::LinQuadComb;
 use zokrates_ast::zir::result_folder::{fold_field_expression, ResultFolder};
-use zokrates_ast::zir::{FieldElementExpression, Identifier, ZirAssemblyStatement, ZirProgram};
+use zokrates_ast::zir::{FieldElementExpression, Id, Identifier, ZirAssemblyStatement, ZirProgram};
 use zokrates_field::Field;
 
 #[derive(Debug)]
@@ -35,8 +35,6 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                 let lhs = self.fold_field_expression(lhs)?;
                 let rhs = self.fold_field_expression(rhs)?;
 
-                // println!("o: {} == {}", lhs, rhs);
-
                 let (is_quadratic, lhs, rhs) = match (lhs, rhs) {
                     (FieldElementExpression::Mult(x, y), other)
                     | (other, FieldElementExpression::Mult(x, y))
@@ -66,10 +64,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                             .into_iter()
                             .filter_map(|(c, i)| match c {
                                 c if c == T::from(0) => None,
-                                c if c == T::from(1) => Some(FieldElementExpression::Identifier(i)),
+                                c if c == T::from(1) => Some(FieldElementExpression::identifier(i)),
                                 _ => Some(FieldElementExpression::Mult(
                                     box FieldElementExpression::Number(c),
-                                    box FieldElementExpression::Identifier(i),
+                                    box FieldElementExpression::identifier(i),
                                 )),
                             })
                             .reduce(|p, n| FieldElementExpression::Add(box p, box n))
@@ -115,11 +113,11 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                                             match c {
                                                 c if c == T::from(0) => None,
                                                 c if c == T::from(1) => {
-                                                    Some(FieldElementExpression::Identifier(id))
+                                                    Some(FieldElementExpression::identifier(id))
                                                 }
                                                 _ => Some(FieldElementExpression::Mult(
                                                     box FieldElementExpression::Number(c),
-                                                    box FieldElementExpression::Identifier(id),
+                                                    box FieldElementExpression::identifier(id),
                                                 )),
                                             }
                                         })
@@ -127,7 +125,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                                         .unwrap_or_else(|| {
                                             FieldElementExpression::Number(T::from(0))
                                         }),
-                                    box FieldElementExpression::Identifier(id),
+                                    box FieldElementExpression::identifier(id),
                                 )),
                                 _ => Err(Error(format!(
                                     "Non-quadratic constraints are not allowed `{} == {}`",
@@ -141,15 +139,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                                     FieldElementExpression::Mult(
                                         box FieldElementExpression::Mult(
                                             box FieldElementExpression::Number(T::zero() - c),
-                                            box FieldElementExpression::Identifier(i0),
+                                            box FieldElementExpression::identifier(i0),
                                         ),
-                                        box FieldElementExpression::Identifier(i1),
+                                        box FieldElementExpression::identifier(i1),
                                     )
                                 })
                                 .unwrap_or_else(|| FieldElementExpression::Number(T::from(0)))
                         };
-
-                        // println!("t: {} == {}", lhs, rhs);
 
                         Ok(ZirAssemblyStatement::Constraint(lhs, rhs))
                     }

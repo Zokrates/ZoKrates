@@ -49,7 +49,7 @@ ZoKrates supports multiple backends. The options are the following:
 | Bellman | `--backend bellman` | G16               | ALTBN_128, BLS12_381                     |
 | Ark | `--backend ark` | G16, GM17, MARLIN | ALTBN_128, BLS12_381, BLS12_377, BW6_761 |
 
-Default: `bellman`
+Default: `ark`
 
 When not using the default, the CLI flag has to be provided for the following commands:
 - `universal-setup`

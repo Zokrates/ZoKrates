@@ -29,7 +29,7 @@ import "utils/casts/u32_8_to_bool_256";
 ///
 /// Returns:
 ///     Return true for S being a valid EdDSA Signature, false otherwise.
-def main(private field[2] R, private field S, field[2] A, u32[8] M0, u32[8] M1, BabyJubJubParams context) -> bool {
+def main(field[2] R, field S, field[2] A, u32[8] M0, u32[8] M1, BabyJubJubParams context) -> bool {
     field[2] G = [context.Gu, context.Gv];
 
     // Check if R is on curve and if it is not in a small subgroup. A is public input and can be checked offline
