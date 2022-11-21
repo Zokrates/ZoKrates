@@ -15,4 +15,4 @@ serde_json = { version = "1.0" }
 rand = { version = "0.8" }
 
 revm = { version = "1.6.0" }
-solc = { git = "https://github.com/g-r-a-n-t/solc-rust", rev = "52d4146" }
+solc = { git = "https://github.com/g-r-a-n-t/solc-rust", rev = "f8bc7f1" }

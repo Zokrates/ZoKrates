@@ -2568,7 +2568,7 @@ checksum = "eb703cfe953bccee95685111adeedb76fabe4e97549a58d16f03ea7b9367bb32"
 [[package]]
 name = "solc"
 version = "0.1.0"
-source = "git+https://github.com/g-r-a-n-t/solc-rust?rev=52d4146#52d414631bc6c3f0c29749503923a8d7e48b9f4d"
+source = "git+https://github.com/g-r-a-n-t/solc-rust?rev=f8bc7f1#f8bc7f1475a76d22a53df2cf23652910b32951d1"
 dependencies = [
  "cmake",
  "lazy_static",
