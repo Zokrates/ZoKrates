@@ -387,7 +387,7 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
-    #[pest_ast(rule(Rule::raw_string))]
+    #[pest_ast(rule(Rule::string))]
     pub struct RawString<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
