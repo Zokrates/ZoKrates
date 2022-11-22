@@ -23,7 +23,7 @@ fn import_directive_to_symbol_vec(
     match import {
         pest::ImportDirective::Main(import) => {
             let span = import.span;
-            let source = Path::new(import.source.span.as_str());
+            let source = Path::new(import.source.raw.span.as_str());
             let id = "main";
             let alias = import.alias.map(|a| a.span.as_str());
 
@@ -41,7 +41,7 @@ fn import_directive_to_symbol_vec(
         }
         pest::ImportDirective::From(import) => {
             let span = import.span;
-            let source = Path::new(import.source.span.as_str());
+            let source = Path::new(import.source.raw.span.as_str());
             import
                 .symbols
                 .into_iter()
@@ -251,7 +251,7 @@ impl<'ast> From<pest::LogStatement<'ast>> for untyped::StatementNode<'ast> {
             .map(untyped::ExpressionNode::from)
             .collect();
 
-        untyped::Statement::Log(statement.format_string.span.as_str(), expressions)
+        untyped::Statement::Log(statement.format_string.raw.span.as_str(), expressions)
             .span(statement.span)
     }
 }
@@ -321,7 +321,7 @@ impl<'ast> From<pest::AssertionStatement<'ast>> for untyped::StatementNode<'ast>
 
         untyped::Statement::Assertion(
             untyped::ExpressionNode::from(statement.expression),
-            statement.message.map(|m| m.value),
+            statement.message.map(|m| m.raw.value),
         )
         .span(statement.span)
     }
