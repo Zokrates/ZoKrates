@@ -7,6 +7,7 @@ use zokrates_ast::ir::{
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
+type SolverCall<T> = (Solver, Vec<QuadComb<T>>);
 
 #[derive(Default)]
 pub struct Interpreter {
@@ -154,6 +155,66 @@ impl Interpreter {
                 expected: program.arguments.len(),
                 received: inputs.len(),
             })
+        }
+    }
+
+    pub fn execute_solver_symbolic<T: Field>(
+        solver: Solver,
+        inputs: Vec<QuadComb<T>>,
+    ) -> Result<Vec<LinComb<T>>, SolverCall<T>> {
+        let (expected_input_count, expected_output_count) = solver.get_signature();
+        assert_eq!(inputs.len(), expected_input_count);
+
+        // check if the inputs are constants, ie reduce to the form `coeff * ~one`
+        let constant_inputs: Vec<_> = inputs
+            .clone()
+            .into_iter()
+            // we need to reduce to the canonical form to interpret `a + 1 - a` as `1`
+            .map(|i| i.reduce())
+            .map(|q| {
+                match q
+                    .try_linear()
+                    .map(|l| l.try_constant().map_err(|l| l.into()))
+                {
+                    Ok(r) => r,
+                    Err(e) => Err(e),
+                }
+            })
+            .collect::<Vec<Result<T, QuadComb<T>>>>();
+
+        match constant_inputs.iter().all(|i| i.is_ok()) {
+            // run concrete execution
+            true => {
+                // unwrap inputs to their constant value
+                let constant_inputs: Vec<_> =
+                    constant_inputs.into_iter().map(|i| i.unwrap()).collect();
+                // run the solver
+                let outputs = Interpreter::execute_solver(&solver, &constant_inputs).unwrap();
+                assert_eq!(outputs.len(), expected_output_count);
+                Ok(outputs.into_iter().map(|o| LinComb::from(o)).collect())
+            }
+            // run symbolic execution
+            false => match solver {
+                // we currently only support the following case:
+                // ```
+                // Ite(condition, consequence, alternative) -> consequence + (1 - condition) * (alternative - consequence)
+                // ```
+                Solver::Ite => {
+                    let condition = inputs[0].clone();
+                    let mut constant_inputs = constant_inputs;
+                    let alternative = constant_inputs.pop().unwrap();
+                    let consequence = constant_inputs.pop().unwrap();
+
+                    match (condition.try_linear(), consequence, alternative) {
+                        (Ok(condition), Ok(consequence), Ok(alternative)) => Ok(vec![
+                            (LinComb::from(alternative.clone())
+                                + condition * &(consequence - alternative)),
+                        ]),
+                        _ => Err((solver, inputs)),
+                    }
+                }
+                solver => Err((solver, inputs)),
+            },
         }
     }
 

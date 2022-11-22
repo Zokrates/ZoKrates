@@ -120,52 +120,24 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
             Statement::Directive(d) => {
                 let d = self.fold_directive(d);
 
-                // check if the inputs are constants, ie reduce to the form `coeff * ~one`
-                let inputs: Vec<_> = d
-                    .inputs
-                    .into_iter()
-                    // we need to reduce to the canonical form to interpret `a + 1 - a` as `1`
-                    .map(|i| i.reduce())
-                    .map(|q| {
-                        match q
-                            .try_linear()
-                            .map(|l| l.try_constant().map_err(|l| l.into()))
-                        {
-                            Ok(r) => r,
-                            Err(e) => Err(e),
-                        }
-                    })
-                    .collect::<Vec<Result<T, QuadComb<T>>>>();
-
-                match inputs.iter().all(|i| i.is_ok()) {
-                    true => {
-                        // unwrap inputs to their constant value
-                        let inputs: Vec<_> = inputs.into_iter().map(|i| i.unwrap()).collect();
-                        // run the solver
-                        let outputs = Interpreter::execute_solver(&d.solver, &inputs).unwrap();
-                        assert_eq!(outputs.len(), d.outputs.len());
-
-                        // insert the results in the substitution
+                // we run symbolic execution so that we can propagate cases like `c ? 1 : 0 === c`
+                match Interpreter::execute_solver_symbolic(d.solver, d.inputs) {
+                    Ok(outputs) => {
                         for (output, value) in d.outputs.into_iter().zip(outputs.into_iter()) {
-                            self.substitution
-                                .insert(output, LinComb::from(value).into_canonical());
+                            self.substitution.insert(output, value.into_canonical());
                         }
                         vec![]
                     }
-                    false => {
-                        //reconstruct the input expressions
-                        let inputs: Vec<_> = inputs
-                            .into_iter()
-                            .map(|i| {
-                                i.map(|v| LinComb::summand(v, Variable::one()).into())
-                                    .unwrap_or_else(|q| q)
-                            })
-                            .collect();
+                    Err((solver, inputs)) => {
                         // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
                         for o in d.outputs.iter().cloned() {
                             self.ignore.insert(o);
                         }
-                        vec![Statement::Directive(Directive { inputs, ..d })]
+                        vec![Statement::Directive(Directive {
+                            inputs,
+                            solver,
+                            ..d
+                        })]
                     }
                 }
             }

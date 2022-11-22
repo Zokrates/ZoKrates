@@ -44,7 +44,7 @@ impl<T: Field> SMTLib2 for Prog<T> {
             "; Number of circuit variables: {}",
             collector.variables.len()
         )?;
-        writeln!(f, "; Number of equalities: {}", self.statements.len())?;
+        writeln!(f, "; Number of equalities: {}", self.constraint_count())?;
 
         writeln!(f, "(declare-const |~prime| Int)")?;
         for v in collector.variables.iter() {
