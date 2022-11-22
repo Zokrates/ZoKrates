@@ -293,6 +293,7 @@ fn serialize_proof<T: Field + BellmanFieldExtensions>(
 #[cfg(test)]
 mod tests {
     use bellman::plonk::commitments::transcript::Blake2sTranscript;
+    use bellman::{Circuit, ConstraintSystem, LinearCombination, ScalarEngine};
     use zokrates_field::Bn128Field;
     use zokrates_interpreter::Interpreter;
 
@@ -302,14 +303,14 @@ mod tests {
 
     #[test]
     fn setup_prove_verify() {
-        // the program `def main(private field a, private field b) -> { assert!(a * a == b); return; }`
+        // the program `def main(public field a) -> field { return a }`
         let program: Prog<Bn128Field> = Prog {
-            arguments: vec![],
-            return_count: 0,
-            statements: vec![],
+            arguments: vec![Parameter::public(Variable::new(0))],
+            return_count: 1,
+            statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
         };
 
-        println!("{}", program);
+        println!("{}", &program);
 
         // generate a dummy universal setup of size 2**10
         let crs: Crs<<Bn128Field as BellmanFieldExtensions>::BellmanEngine, CrsForMonomialForm> =
@@ -318,6 +319,8 @@ mod tests {
         // transpile
         let hints = transpile(Computation::without_witness(program.clone())).unwrap();
 
+        println!("Hints: {:?}", hints);
+ 
         // run a circuit specific (transparent) setup
         let pols = setup(Computation::without_witness(program.clone()), &hints).unwrap();
 
@@ -328,7 +331,9 @@ mod tests {
         let interpreter = Interpreter::default();
 
         // extract the witness
-        let witness = interpreter.execute(program.clone(), &[]).unwrap();
+        let witness = interpreter
+            .execute(program.clone(), &[Bn128Field::from(42)])
+            .unwrap();
 
         // bundle the program and the witness together
         let computation = Computation::with_witness(program.clone(), witness);
