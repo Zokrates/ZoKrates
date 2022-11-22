@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 use zokrates_abi::{Decode, Value};
 use zokrates_ast::ir::{
@@ -175,29 +176,40 @@ impl Interpreter {
                     .arguments
                     .iter()
                     .zip(inputs)
-                    .map(|(a, v)| {
-                        (
+                    .map(|(a, v)| match &a.id._type {
+                        zir::Type::FieldElement => Ok((
                             a.id.id.clone(),
-                            match &a.id._type {
-                                zir::Type::FieldElement => {
-                                    zokrates_ast::zir::FieldElementExpression::Number(v.clone())
-                                        .into()
-                                }
-                                zir::Type::Boolean => {
-                                    zokrates_ast::zir::BooleanExpression::Value(*v == T::from(1))
-                                        .into()
-                                }
-                                zir::Type::Uint(bitwidth) => {
-                                    zokrates_ast::zir::UExpressionInner::Value(
-                                        v.to_dec_string().parse::<u128>().unwrap(),
-                                    )
-                                    .annotate(*bitwidth)
-                                    .into()
-                                }
-                            },
-                        )
+                            zokrates_ast::zir::FieldElementExpression::Number(v.clone()).into(),
+                        )),
+                        zir::Type::Boolean => match v {
+                            v if *v == T::from(0) => Ok((
+                                a.id.id.clone(),
+                                zokrates_ast::zir::BooleanExpression::Value(false).into(),
+                            )),
+                            v if *v == T::from(1) => Ok((
+                                a.id.id.clone(),
+                                zokrates_ast::zir::BooleanExpression::Value(true).into(),
+                            )),
+                            v => Err(format!("`{}` has unexpected value `{}`", a.id, v)),
+                        },
+                        zir::Type::Uint(bitwidth) => match v.bits() <= bitwidth.to_usize() as u32 {
+                            true => Ok((
+                                a.id.id.clone(),
+                                zokrates_ast::zir::UExpressionInner::Value(
+                                    v.to_dec_string().parse::<u128>().unwrap(),
+                                )
+                                .annotate(*bitwidth)
+                                .into(),
+                            )),
+                            false => Err(format!(
+                                "`{}` has unexpected bitwidth (got {} but expected {})",
+                                a.id,
+                                v.bits(),
+                                bitwidth
+                            )),
+                        },
                     })
-                    .collect();
+                    .collect::<Result<HashMap<_, _>, _>>()?;
 
                 let mut propagator = zokrates_analysis::ZirPropagator::with_constants(constants);
 
