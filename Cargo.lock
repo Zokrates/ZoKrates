@@ -437,6 +437,7 @@ dependencies = [
 [[package]]
 name = "bellman_ce"
 version = "0.3.2"
+source = "git+https://github.com/georgwiese/bellman?rev=b356c7001f30da23bfad2b43eb0b7ca9804c8252#b356c7001f30da23bfad2b43eb0b7ca9804c8252"
 dependencies = [
  "bit-vec",
  "blake2s_const",
@@ -571,6 +572,7 @@ dependencies = [
 [[package]]
 name = "blake2s_const"
 version = "0.6.0"
+source = "git+https://github.com/georgwiese/bellman?rev=b356c7001f30da23bfad2b43eb0b7ca9804c8252#b356c7001f30da23bfad2b43eb0b7ca9804c8252"
 dependencies = [
  "arrayref",
  "arrayvec 0.5.2",
@@ -3160,7 +3162,7 @@ dependencies = [
 name = "zokrates_bellman"
 version = "0.1.0"
 dependencies = [
- "bellman_ce 0.3.2",
+ "bellman_ce 0.3.2 (git+https://github.com/georgwiese/bellman?rev=b356c7001f30da23bfad2b43eb0b7ca9804c8252)",
  "getrandom",
  "hex 0.4.3",
  "phase2",
