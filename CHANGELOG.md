@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.8.3] - 2022-10-11
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.3 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Disallow the use of the `private` and `public` keywords on non-entrypoint functions (#1224, @dark64)
+- Fix duplicate constraint optimiser (#1226, @schaeff)
+
 ## [0.8.2] - 2022-09-05
 
 ### Release
