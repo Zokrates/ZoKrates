@@ -1,5 +1,4 @@
 use bellman::kate_commitment::{Crs, CrsForMonomialForm};
-use bellman::pairing::ff::to_hex;
 use bellman::plonk::better_cs::cs::PlonkCsWidth4WithNextStepParams;
 use bellman::plonk::commitments::transcript::keccak_transcript::RollingKeccakTranscript;
 use bellman::plonk::{
@@ -293,13 +292,12 @@ fn serialize_proof<T: Field + BellmanFieldExtensions>(
 #[cfg(test)]
 mod tests {
     use bellman::plonk::commitments::transcript::Blake2sTranscript;
-    use bellman::{Circuit, ConstraintSystem, LinearCombination, ScalarEngine};
     use zokrates_field::Bn128Field;
     use zokrates_interpreter::Interpreter;
 
     use super::*;
     use zokrates_ast::common::{Parameter, Variable};
-    use zokrates_ast::ir::{Prog, QuadComb, Statement};
+    use zokrates_ast::ir::{Prog, Statement};
 
     #[test]
     fn setup_prove_verify() {
@@ -319,8 +317,6 @@ mod tests {
         // transpile
         let hints = transpile(Computation::without_witness(program.clone())).unwrap();
 
-        println!("Hints: {:?}", hints);
- 
         // run a circuit specific (transparent) setup
         let pols = setup(Computation::without_witness(program.clone()), &hints).unwrap();
 
