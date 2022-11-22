@@ -1050,6 +1050,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         match embed {
             FlatEmbed::FieldToBoolUnsafe => vec![params.pop().unwrap()],
+            FlatEmbed::BoolToField => vec![params.pop().unwrap()],
             FlatEmbed::U8ToBits => self.u_to_bits(params.pop().unwrap(), 8.into()),
             FlatEmbed::U16ToBits => self.u_to_bits(params.pop().unwrap(), 16.into()),
             FlatEmbed::U32ToBits => self.u_to_bits(params.pop().unwrap(), 32.into()),

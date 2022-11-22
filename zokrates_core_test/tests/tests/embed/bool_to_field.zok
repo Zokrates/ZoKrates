@@ -1,0 +1,6 @@
+from "EMBED" import bool_to_field;
+
+def main(bool x) -> field {
+    field out = bool_to_field(x);
+    return out;
+}

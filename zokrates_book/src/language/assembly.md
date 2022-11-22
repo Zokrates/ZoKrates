@@ -12,13 +12,7 @@ All constraints must be enclosed within an `asm` block. In an assembly block we 
 Assigning a value, in general, should be combined with adding a constraint:
 
 ```zok
-def main(field a, field b) {
-    field mut c = 0;
-    asm {
-        c <-- a / b;
-        a === b * c;
-    }
-}
+{{#include ../../../zokrates_cli/examples/book/assembly/division.zok}}
 ```
 
 > The operator `<--` can be sometimes misused, as this operator does not generate any constraints, resulting in unconstrained variables in the constraint system.
@@ -77,18 +71,7 @@ Assembly is a low-level part of the compiler which does not have type safety. In
 This call is unsafe because it is the responsibility of the user to constrain the field input:
 
 ```zok
-from "EMBED" import field_to_bool_unsafe;
-
-def main(field x) -> bool {
-    // we constrain `x` to be 0 or 1
-    asm {
-        x * (x - 1) === 0;
-    }
-    // we can treat `x` as `bool` afterwards, as we constrained it properly
-    // `field_to_bool_unsafe` call does not produce any extra constraints
-    bool out = field_to_bool_unsafe(x);
-    return out;
-}
+{{#include ../../../zokrates_cli/examples/book/assembly/field_to_bool.zok}}
 ```
 
 ### bool_to_field
@@ -96,12 +79,5 @@ def main(field x) -> bool {
 This call is safe as `bool` types are constrained by the compiler:
 
 ```zok
-from "EMBED" import bool_to_field;
-
-def main(bool x) -> field {
-    // `x` is constrained by the compiler automatically so we can safely 
-    //  treat it as `field` with no extra cost
-    field out = bool_to_field(x);
-    return out;
-}
+{{#include ../../../zokrates_cli/examples/book/assembly/bool_to_field.zok}}
 ```

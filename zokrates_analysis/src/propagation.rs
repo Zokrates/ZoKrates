@@ -400,6 +400,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     true => {
                         let r: Option<TypedExpression<'ast, T>> = match embed_call.embed {
                             FlatEmbed::FieldToBoolUnsafe => Ok(None), // todo
+                            FlatEmbed::BoolToField => Ok(None),       // todo
                             FlatEmbed::BitArrayLe => Ok(None),        // todo
                             FlatEmbed::U64FromBits => Ok(Some(process_u_from_bits(
                                 &embed_call.arguments,
