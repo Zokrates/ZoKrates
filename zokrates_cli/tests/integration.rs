@@ -454,6 +454,8 @@ mod integration {
             )
             .unwrap();
 
+        println!("{:?}", &result);
+
         assert_eq!(&result.out, &to_be_bytes(&U256::from(1)));
 
         // modify the proof
