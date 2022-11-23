@@ -7,10 +7,12 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
+use num::traits::Pow;
+use num_bigint::BigUint;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr};
+use std::ops::{BitAnd, BitOr, BitXor, Mul, Shr, Sub};
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::Type;
@@ -927,14 +929,29 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         },
                     ) if by == 0 => Ok(e),
                     (
+                        _,
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) if by as usize >= T::get_required_bits() => {
+                        Ok(FieldElementExpression::Number(T::from(0)))
+                    }
+                    (
                         FieldElementExpression::Number(n),
                         UExpression {
                             inner: UExpressionInner::Value(by),
                             ..
                         },
-                    ) => Ok(FieldElementExpression::Number(
-                        T::try_from(n.to_biguint().shl(by as usize)).unwrap(),
-                    )),
+                    ) => {
+                        let two = BigUint::from(2usize);
+                        let mask: BigUint = two.pow(T::get_required_bits()).sub(1usize);
+
+                        Ok(FieldElementExpression::Number(
+                            T::try_from(n.to_biguint().mul(two.pow(by as usize)).bitand(mask))
+                                .unwrap(),
+                        ))
+                    }
                     (e, by) => Ok(FieldElementExpression::LeftShift(box e, box by)),
                 }
             }
@@ -949,6 +966,15 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             ..
                         },
                     ) if by == 0 => Ok(e),
+                    (
+                        _,
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) if by as usize >= T::get_required_bits() => {
+                        Ok(FieldElementExpression::Number(T::from(0)))
+                    }
                     (
                         FieldElementExpression::Number(n),
                         UExpression {
@@ -1459,6 +1485,113 @@ mod tests {
                 assert_eq!(
                     Propagator::with_constants(&mut Constants::new()).fold_field_expression(e),
                     Ok(FieldElementExpression::Number(Bn128Field::from(8)))
+                );
+            }
+
+            #[test]
+            fn left_shift() {
+                let mut constants = Constants::new();
+                let mut propagator = Propagator::with_constants(&mut constants);
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::LeftShift(
+                        box FieldElementExpression::identifier("a".into()),
+                        box 0u32.into(),
+                    )),
+                    Ok(FieldElementExpression::identifier("a".into()))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::LeftShift(
+                        box FieldElementExpression::Number(Bn128Field::from(2)),
+                        box 2u32.into(),
+                    )),
+                    Ok(FieldElementExpression::Number(Bn128Field::from(8)))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::LeftShift(
+                        box FieldElementExpression::Number(Bn128Field::from(1)),
+                        box ((Bn128Field::get_required_bits() - 1) as u32).into(),
+                    )),
+                    Ok(FieldElementExpression::Number(Bn128Field::try_from_dec_str("14474011154664524427946373126085988481658748083205070504932198000989141204992").unwrap()))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::LeftShift(
+                        box FieldElementExpression::Number(Bn128Field::from(3)),
+                        box ((Bn128Field::get_required_bits() - 3) as u32).into(),
+                    )),
+                    Ok(FieldElementExpression::Number(Bn128Field::try_from_dec_str("10855508365998393320959779844564491361244061062403802878699148500741855903744").unwrap()))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::LeftShift(
+                        box FieldElementExpression::Number(Bn128Field::from(1)),
+                        box (Bn128Field::get_required_bits() as u32).into(),
+                    )),
+                    Ok(FieldElementExpression::Number(Bn128Field::from(0)))
+                );
+            }
+
+            #[test]
+            fn right_shift() {
+                let mut constants = Constants::new();
+                let mut propagator = Propagator::with_constants(&mut constants);
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::RightShift(
+                        box FieldElementExpression::identifier("a".into()),
+                        box 0u32.into(),
+                    )),
+                    Ok(FieldElementExpression::identifier("a".into()))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::RightShift(
+                        box FieldElementExpression::identifier("a".into()),
+                        box (Bn128Field::get_required_bits() as u32).into(),
+                    )),
+                    Ok(FieldElementExpression::Number(Bn128Field::from(0)))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::RightShift(
+                        box FieldElementExpression::Number(Bn128Field::from(3)),
+                        box 1u32.into(),
+                    )),
+                    Ok(FieldElementExpression::Number(Bn128Field::from(1)))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::RightShift(
+                        box FieldElementExpression::Number(Bn128Field::from(2)),
+                        box 2u32.into(),
+                    )),
+                    Ok(FieldElementExpression::Number(Bn128Field::from(0)))
+                );
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::RightShift(
+                        box FieldElementExpression::Number(Bn128Field::from(2)),
+                        box 4u32.into(),
+                    )),
+                    Ok(FieldElementExpression::Number(Bn128Field::from(0)))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::RightShift(
+                        box FieldElementExpression::Number(Bn128Field::max_value()),
+                        box ((Bn128Field::get_required_bits() - 1) as u32).into(),
+                    )),
+                    Ok(FieldElementExpression::Number(Bn128Field::from(1)))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::RightShift(
+                        box FieldElementExpression::Number(Bn128Field::max_value()),
+                        box (Bn128Field::get_required_bits() as u32).into(),
+                    )),
+                    Ok(FieldElementExpression::Number(Bn128Field::from(0)))
                 );
             }
 
