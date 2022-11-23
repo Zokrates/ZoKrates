@@ -73,11 +73,13 @@ impl<T: SolidityCompatibleField> ToToken<T> for G16 {
 
 impl<T: SolidityCompatibleField> ToToken<T> for Plonk {
     fn to_token(proof: Self::Proof) -> ethabi::Token {
-        Token::Tuple(vec![])
+        Token::Tuple(vec![Token::Tuple(vec![Token::Uint(U256([0, 0, 0, 0]))])])
     }
 
-    fn modify(proof: Self::Proof) -> Self::Proof {
-        todo!()
+    fn modify(mut proof: Self::Proof) -> Self::Proof {
+        proof.opening_at_z_omega_proof.x =
+            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into();
+        proof
     }
 }
 

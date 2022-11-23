@@ -900,7 +900,7 @@ contract Plonk4VerifierWithAccessToDNext {
     }
 }
 
-contract ConcreteVerifier is Plonk4VerifierWithAccessToDNext {
+contract Verifier is Plonk4VerifierWithAccessToDNext {
     function get_verification_key()
         internal
         pure
@@ -1098,7 +1098,11 @@ contract ConcreteVerifier is Plonk4VerifierWithAccessToDNext {
         return valid;
     }
 
-    function verifyTx(Proof memory proof, uint256[85] memory input)
+    struct DummyProof {
+        PairingsBn254.Fr a;
+    }
+
+    function verifyTx(DummyProof memory proof, uint256[3] memory input)
         public
         view
         returns (bool r)

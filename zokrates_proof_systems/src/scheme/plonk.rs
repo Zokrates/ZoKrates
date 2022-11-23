@@ -1,3 +1,5 @@
+use std::fs::read_to_string;
+
 use crate::scheme::{NonUniversalScheme, Scheme};
 use crate::solidity::solidity_pairing_lib;
 use crate::{
@@ -51,6 +53,8 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Plonk {
     type Proof = Self::ProofPoints;
 
     fn export_solidity_verifier(vk: Self::VerificationKey) -> String {
-        String::from(include_str!("../../solidity_templates/PlonkVerifier.sol"))
+        // TODO: Do this to compile the template into the binary
+        // String::from(include_str!("../../solidity_templates/PlonkVerifier.sol"))
+        read_to_string("/Users/georg/coding/zoKrates-georg/zokrates_proof_systems/solidity_templates/PlonkVerifier.sol").unwrap()
     }
 }

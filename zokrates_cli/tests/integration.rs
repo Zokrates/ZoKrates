@@ -13,7 +13,6 @@ mod integration {
     use pretty_assertions::assert_eq;
     use primitive_types::U256;
     use serde_json::from_reader;
-    use zokrates_proof_systems::Plonk;
     use std::fs;
     use std::fs::File;
     use std::io::{BufReader, Read};
@@ -23,6 +22,7 @@ mod integration {
     use zokrates_abi::{parse_strict, Encode};
     use zokrates_ast::typed::abi::Abi;
     use zokrates_field::Bn128Field;
+    use zokrates_proof_systems::Plonk;
     use zokrates_proof_systems::{
         to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17,
         SOLIDITY_G2_ADDITION_LIB,
@@ -426,6 +426,8 @@ mod integration {
         // convert to tokens to build a call
         let proof_token = S::to_token(solidity_proof.clone());
 
+        println!("proof_token:\n{:?}", &proof_token);
+
         let input_token = Token::FixedArray(
             proof
                 .inputs
@@ -437,6 +439,7 @@ mod integration {
                 })
                 .collect::<Vec<_>>(),
         );
+        println!("input_token:\n{:?}", &input_token);
 
         let inputs = [proof_token, input_token.clone()];
 
