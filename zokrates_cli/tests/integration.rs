@@ -13,6 +13,7 @@ mod integration {
     use pretty_assertions::assert_eq;
     use primitive_types::U256;
     use serde_json::from_reader;
+    use zokrates_proof_systems::Plonk;
     use std::fs;
     use std::fs::File;
     use std::io::{BufReader, Read};
@@ -49,10 +50,12 @@ mod integration {
         assert_cli::Assert::main_binary()
             .with_args(&[
                 "universal-setup",
+                "--backend",
+                "bellman",
                 "--size",
                 "10",
                 "--proving-scheme",
-                "marlin",
+                "plonk",
                 "--universal-setup-path",
                 universal_setup_path.to_str().unwrap(),
             ])
@@ -71,13 +74,15 @@ mod integration {
                 let witness = dir.join(program_name).with_extension("expected.witness");
                 let json_input = dir.join(program_name).with_extension("arguments.json");
 
-                test_compile_and_witness(
-                    program_name.to_str().unwrap(),
-                    &prog,
-                    &json_input,
-                    &witness,
-                    global_base,
-                );
+                if program_name.to_str().unwrap() == "simple_add" {
+                    test_compile_and_witness(
+                        program_name.to_str().unwrap(),
+                        &prog,
+                        &json_input,
+                        &witness,
+                        global_base,
+                    );
+                }
             }
         }
     }
@@ -89,6 +94,8 @@ mod integration {
         expected_witness_path: &Path,
         global_path: &Path,
     ) {
+        println!("Running test for program: {:?}", program_name);
+
         let tmp_dir = TempDir::new(program_name).unwrap();
         let tmp_base = tmp_dir.path();
         let test_case_path = tmp_base.join(program_name);
@@ -235,8 +242,8 @@ mod integration {
         }
 
         let backends = map! {
-            "bellman" => vec!["g16"],
-            "ark" => vec!["g16", "gm17", "marlin"]
+            "bellman" => vec!["plonk"],
+            "ark" => vec![]
         };
 
         for (backend, schemes) in backends {
@@ -264,8 +271,15 @@ mod integration {
                     .doesnt_contain("This program is too small to generate a setup with Marlin")
                     .execute();
 
+                if let Err(e) = &setup {
+                    eprint!("{}", e);
+                }
+
+                assert!(setup.is_ok());
+
                 if setup.is_ok() {
                     // GENERATE-PROOF
+                    println!("generate-proof");
                     assert_cli::Assert::main_binary()
                         .with_args(&[
                             "generate-proof",
@@ -286,6 +300,7 @@ mod integration {
                         .unwrap();
 
                     // CLI VERIFICATION
+                    println!("verifiy");
                     assert_cli::Assert::main_binary()
                         .with_args(&[
                             "verify",
@@ -300,6 +315,7 @@ mod integration {
                         .unwrap();
 
                     // EXPORT-VERIFIER
+                    println!("export_verifier");
                     assert_cli::Assert::main_binary()
                         .with_args(&[
                             "export-verifier",
@@ -313,6 +329,7 @@ mod integration {
 
                     // TEST VERIFIER
                     // Get the contract
+                    println!("validate solidity verifier");
                     let contract_str =
                         std::fs::read_to_string(verification_contract_path.to_str().unwrap())
                             .unwrap();
@@ -320,6 +337,15 @@ mod integration {
                         "marlin" => {
                             // Get the proof
                             let proof: Proof<Bn128Field, Marlin> = serde_json::from_reader(
+                                File::open(proof_path.to_str().unwrap()).unwrap(),
+                            )
+                            .unwrap();
+
+                            test_solidity_verifier(contract_str, proof);
+                        }
+                        "plonk" => {
+                            // Get the proof
+                            let proof: Proof<Bn128Field, Plonk> = serde_json::from_reader(
                                 File::open(proof_path.to_str().unwrap()).unwrap(),
                             )
                             .unwrap();

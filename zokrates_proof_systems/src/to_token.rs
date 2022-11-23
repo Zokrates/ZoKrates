@@ -2,7 +2,8 @@ use ethabi::Token;
 use primitive_types::U256;
 
 use super::{
-    Fr, G1Affine, G2Affine, Marlin, SolidityCompatibleField, SolidityCompatibleScheme, G16, GM17,
+    Fr, G1Affine, G2Affine, Marlin, Plonk, SolidityCompatibleField, SolidityCompatibleScheme, G16,
+    GM17,
 };
 
 /// Helper methods for parsing group structure
@@ -67,6 +68,16 @@ impl<T: SolidityCompatibleField> ToToken<T> for G16 {
     fn modify(mut proof: Self::Proof) -> Self::Proof {
         proof.a.x = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into();
         proof
+    }
+}
+
+impl<T: SolidityCompatibleField> ToToken<T> for Plonk {
+    fn to_token(proof: Self::Proof) -> ethabi::Token {
+        Token::Tuple(vec![])
+    }
+
+    fn modify(proof: Self::Proof) -> Self::Proof {
+        todo!()
     }
 }
 

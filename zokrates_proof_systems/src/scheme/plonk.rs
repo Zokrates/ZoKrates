@@ -1,6 +1,8 @@
 use crate::scheme::{NonUniversalScheme, Scheme};
 use crate::solidity::solidity_pairing_lib;
-use crate::{Fr, G1Affine, G2Affine, UniversalScheme};
+use crate::{
+    Fr, G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme, UniversalScheme,
+};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
@@ -44,3 +46,11 @@ impl<T: Field> Scheme<T> for Plonk {
 }
 
 impl<T: Field> UniversalScheme<T> for Plonk {}
+
+impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Plonk {
+    type Proof = Self::ProofPoints;
+
+    fn export_solidity_verifier(vk: Self::VerificationKey) -> String {
+        String::from(include_str!("../../solidity_templates/PlonkVerifier.sol"))
+    }
+}
