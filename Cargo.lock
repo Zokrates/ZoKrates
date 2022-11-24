@@ -437,6 +437,7 @@ dependencies = [
 [[package]]
 name = "bellman_ce"
 version = "0.3.2"
+source = "git+https://github.com/georgwiese/bellman?rev=b356c7001f30da23bfad2b43eb0b7ca9804c8252#b356c7001f30da23bfad2b43eb0b7ca9804c8252"
 dependencies = [
  "bit-vec",
  "blake2s_const",
@@ -571,6 +572,7 @@ dependencies = [
 [[package]]
 name = "blake2s_const"
 version = "0.6.0"
+source = "git+https://github.com/georgwiese/bellman?rev=b356c7001f30da23bfad2b43eb0b7ca9804c8252#b356c7001f30da23bfad2b43eb0b7ca9804c8252"
 dependencies = [
  "arrayref",
  "arrayvec 0.5.2",
@@ -2568,7 +2570,7 @@ checksum = "eb703cfe953bccee95685111adeedb76fabe4e97549a58d16f03ea7b9367bb32"
 [[package]]
 name = "solc"
 version = "0.1.0"
-source = "git+https://github.com/g-r-a-n-t/solc-rust?rev=52d4146#52d414631bc6c3f0c29749503923a8d7e48b9f4d"
+source = "git+https://github.com/g-r-a-n-t/solc-rust?rev=f8bc7f1#f8bc7f1475a76d22a53df2cf23652910b32951d1"
 dependencies = [
  "cmake",
  "lazy_static",
@@ -3160,7 +3162,7 @@ dependencies = [
 name = "zokrates_bellman"
 version = "0.1.0"
 dependencies = [
- "bellman_ce 0.3.2",
+ "bellman_ce 0.3.2 (git+https://github.com/georgwiese/bellman?rev=b356c7001f30da23bfad2b43eb0b7ca9804c8252)",
  "getrandom",
  "hex 0.4.3",
  "phase2",

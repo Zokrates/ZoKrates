@@ -12,7 +12,7 @@ zokrates_field = { version = "0.5", path = "../zokrates_field", default-features
 zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
 zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
 
-bellman_ce = { path = "../../bellman", default-features = false, features = ["plonk"] }
+bellman_ce = { git = "https://github.com/georgwiese/bellman", rev="b356c7001f30da23bfad2b43eb0b7ca9804c8252", default-features = false, features = ["plonk", "multicore"] }
 # pairing = { package = "pairing_ce", version = "^0.21" }
 phase2 = { git = "https://github.com/Zokrates/phase2", default-features = false }
 rand_0_4 = { version = "0.4", package = "rand" }#

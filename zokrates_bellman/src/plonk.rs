@@ -1,5 +1,4 @@
 use bellman::kate_commitment::{Crs, CrsForMonomialForm};
-use bellman::pairing::ff::to_hex;
 use bellman::plonk::better_cs::cs::PlonkCsWidth4WithNextStepParams;
 use bellman::plonk::commitments::transcript::keccak_transcript::RollingKeccakTranscript;
 use bellman::plonk::{
@@ -298,18 +297,18 @@ mod tests {
 
     use super::*;
     use zokrates_ast::common::{Parameter, Variable};
-    use zokrates_ast::ir::{Prog, QuadComb, Statement};
+    use zokrates_ast::ir::{Prog, Statement};
 
     #[test]
     fn setup_prove_verify() {
-        // the program `def main(private field a, private field b) -> { assert!(a * a == b); return; }`
+        // the program `def main(public field a) -> field { return a }`
         let program: Prog<Bn128Field> = Prog {
-            arguments: vec![],
-            return_count: 0,
-            statements: vec![],
+            arguments: vec![Parameter::public(Variable::new(0))],
+            return_count: 1,
+            statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
         };
 
-        println!("{}", program);
+        println!("{}", &program);
 
         // generate a dummy universal setup of size 2**10
         let crs: Crs<<Bn128Field as BellmanFieldExtensions>::BellmanEngine, CrsForMonomialForm> =
@@ -328,7 +327,9 @@ mod tests {
         let interpreter = Interpreter::default();
 
         // extract the witness
-        let witness = interpreter.execute(program.clone(), &[]).unwrap();
+        let witness = interpreter
+            .execute(program.clone(), &[Bn128Field::from(42)])
+            .unwrap();
 
         // bundle the program and the witness together
         let computation = Computation::with_witness(program.clone(), witness);
