@@ -2,8 +2,7 @@ use ethabi::Token;
 use primitive_types::U256;
 
 use super::{
-    Fr, G1Affine, G2Affine, Marlin, Plonk, SolidityCompatibleField, SolidityCompatibleScheme, G16,
-    GM17,
+    Fr, G1Affine, G2Affine, Marlin, SolidityCompatibleField, SolidityCompatibleScheme, G16, GM17,
 };
 
 /// Helper methods for parsing group structure
@@ -68,88 +67,6 @@ impl<T: SolidityCompatibleField> ToToken<T> for G16 {
 
     fn modify(mut proof: Self::Proof) -> Self::Proof {
         proof.a.x = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into();
-        proof
-    }
-}
-
-impl<T: SolidityCompatibleField> ToToken<T> for Plonk {
-    fn to_token(proof: Self::Proof) -> ethabi::Token {
-        let wire_commitments = Token::FixedArray(
-            proof
-                .wire_commitments
-                .iter()
-                .map(|x| encode_g1_element(x))
-                .collect(),
-        );
-
-        let grand_product_commitment = encode_g1_element(&proof.grand_product_commitment);
-
-        let quotient_poly_commitments = Token::FixedArray(
-            proof
-                .quotient_poly_commitments
-                .iter()
-                .map(|x| encode_g1_element(x))
-                .collect(),
-        );
-
-        let wire_values_at_z = Token::FixedArray(
-            proof
-                .wire_values_at_z
-                .iter()
-                .map(|x| encode_fr_element_as_tuple(x))
-                .collect(),
-        );
-
-        let wire_values_at_z_omega = Token::FixedArray(
-            proof
-                .wire_values_at_z_omega
-                .iter()
-                .map(|x| encode_fr_element_as_tuple(x))
-                .collect(),
-        );
-
-        let grand_product_at_z_omega = encode_fr_element_as_tuple(&proof.grand_product_at_z_omega);
-
-        let quotient_polynomial_at_z = encode_fr_element_as_tuple(&proof.quotient_polynomial_at_z);
-
-        let linearization_polynomial_at_z =
-            encode_fr_element_as_tuple(&proof.linearization_polynomial_at_z);
-
-        let permutation_polynomials_at_z = Token::FixedArray(
-            proof
-                .permutation_polynomials_at_z
-                .iter()
-                .map(|x| encode_fr_element_as_tuple(x))
-                .collect(),
-        );
-
-        let opening_at_z_proof = encode_g1_element(&proof.opening_at_z_proof);
-
-        let opening_at_z_omega_proof = encode_g1_element(&proof.opening_at_z_omega_proof);
-
-        let proof_tokens = vec![
-            wire_commitments,
-            grand_product_commitment,
-            quotient_poly_commitments,
-            wire_values_at_z,
-            wire_values_at_z_omega,
-            grand_product_at_z_omega,
-            quotient_polynomial_at_z,
-            linearization_polynomial_at_z,
-            permutation_polynomials_at_z,
-            opening_at_z_proof,
-            opening_at_z_omega_proof,
-        ];
-        for t in &proof_tokens {
-            println!("{:?}", t);
-        }
-
-        Token::Tuple(proof_tokens)
-    }
-
-    fn modify(mut proof: Self::Proof) -> Self::Proof {
-        proof.opening_at_z_omega_proof.x =
-            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into();
         proof
     }
 }

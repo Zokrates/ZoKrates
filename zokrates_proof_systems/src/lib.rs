@@ -1,7 +1,7 @@
 pub mod to_token;
 
-mod scheme;
-mod solidity;
+pub mod scheme;
+pub mod solidity;
 mod tagged;
 
 pub use self::scheme::*;

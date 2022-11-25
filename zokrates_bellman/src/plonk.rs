@@ -10,13 +10,13 @@ use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 use zokrates_proof_systems::{Backend, Proof, SetupKeypair, UniversalBackend};
 
+use crate::plonk_proving_scheme::{Plonk, ProofPoints, VerificationKey};
 use crate::Computation;
 use crate::{parse_fr, serialization, Bellman};
 use crate::{parse_g1, parse_g2};
 use std::io::Cursor;
 use std::marker::PhantomData;
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
-use zokrates_proof_systems::plonk::{Plonk, ProofPoints, VerificationKey};
 use zokrates_proof_systems::Scheme;
 
 impl<T: Field + BellmanFieldExtensions> UniversalBackend<T, Plonk> for Bellman {
@@ -131,7 +131,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, Plonk> for Bellman {
     }
 }
 
-fn deserialize_vk<T: Field + BellmanFieldExtensions>(
+pub fn deserialize_vk<T: Field + BellmanFieldExtensions>(
     vk: <Plonk as Scheme<T>>::VerificationKey,
 ) -> BellmanVerificationKey<T::BellmanEngine, PlonkCsWidth4WithNextStepParams> {
     BellmanVerificationKey {

@@ -3665,11 +3665,13 @@ name = "zokrates_bellman"
 version = "0.1.0"
 dependencies = [
  "bellman_ce 0.3.2 (git+https://github.com/georgwiese/bellman?rev=b356c7001f30da23bfad2b43eb0b7ca9804c8252)",
+ "ethabi 17.1.0",
  "getrandom",
  "handlebars",
  "hex 0.4.3",
  "phase2",
  "rand 0.4.6",
+ "serde",
  "serde_json",
  "web3",
  "zokrates_ast",
