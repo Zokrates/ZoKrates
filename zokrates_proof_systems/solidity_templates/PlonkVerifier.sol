@@ -325,7 +325,6 @@ contract Plonk4VerifierWithAccessToDNext {
     }
     
     struct Proof {
-        uint256[] input_values;
         PairingsBn254.G1Point[STATE_WIDTH] wire_commitments;
         PairingsBn254.G1Point grand_product_commitment;
         PairingsBn254.G1Point[STATE_WIDTH] quotient_poly_commitments;
@@ -435,7 +434,8 @@ contract Plonk4VerifierWithAccessToDNext {
     
     function verify_at_z(
         PartialVerifierState memory state,
-        Proof memory proof, 
+        Proof memory proof,
+        uint256[] memory input_values,
         VerificationKey memory vk
     ) internal view returns (bool) {
         PairingsBn254.Fr memory lhs = evaluate_vanishing(vk.domain_size, state.z);
@@ -447,9 +447,9 @@ contract Plonk4VerifierWithAccessToDNext {
         
         // public inputs
         PairingsBn254.Fr memory tmp = PairingsBn254.new_fr(0);
-        for (uint256 i = 0; i < proof.input_values.length; i++) {
+        for (uint256 i = 0; i < input_values.length; i++) {
             tmp.assign(state.cached_lagrange_evals[i]);
-            tmp.mul_assign(PairingsBn254.new_fr(proof.input_values[i]));
+            tmp.mul_assign(PairingsBn254.new_fr(input_values[i]));
             rhs.add_assign(tmp);
         }
         
@@ -681,14 +681,15 @@ contract Plonk4VerifierWithAccessToDNext {
     
     function verify_initial(
         PartialVerifierState memory state, 
-        Proof memory proof, 
+        Proof memory proof,
+        uint256[] memory input_values,
         VerificationKey memory vk
     ) internal view returns (bool) {
-        require(proof.input_values.length == vk.num_inputs);
+        require(input_values.length == vk.num_inputs);
         require(vk.num_inputs >= 1);
         TranscriptLibrary.Transcript memory transcript = TranscriptLibrary.new_transcript();
         for (uint256 i = 0; i < vk.num_inputs; i++) {
-            transcript.update_with_u256(proof.input_values[i]);
+            transcript.update_with_u256(input_values[i]);
         }
         
         for (uint256 i = 0; i < proof.wire_commitments.length; i++) {
@@ -718,7 +719,7 @@ contract Plonk4VerifierWithAccessToDNext {
             vk.omega, state.z
         );
 
-        bool valid = verify_at_z(state, proof, vk);
+        bool valid = verify_at_z(state, proof, input_values, vk);
 
         if (valid == false) {
             return false;
@@ -760,16 +761,16 @@ contract Plonk4VerifierWithAccessToDNext {
     // q_d_next(X) "peeks" into the next row of the trace, so it takes 
     // the same d(X) polynomial, but shifted  
     
-    function verify(Proof memory proof, VerificationKey memory vk) internal view returns (bool) {
+    function verify(Proof memory proof, uint256[] memory input_values, VerificationKey memory vk) internal view returns (bool) {
         PartialVerifierState memory state;
         
-        bool valid = verify_initial(state, proof, vk);
+        bool valid = verify_initial(state, proof, input_values, vk);
         
         if (valid == false) {
             return false;
         }
         
-        valid = verify_commitments(state, proof, vk);
+        valid = verify_commitments(state, proof, input_values, vk);
         
         return valid;
     }
@@ -949,8 +950,19 @@ contract Verifier is Plonk4VerifierWithAccessToDNext {
 
         Proof memory proof = deserialize_proof(public_inputs, serialized_proof);
 
-        bool valid = verify(proof, vk);
+        bool valid = verify(proof, public_inputs, vk);
 
         return valid;
-    }  
+    }
+
+    function verifyTx(Proof memory proof, uint256[{{input_length}}] memory input) public view returns (bool r)
+    {
+        uint256[] memory inputs_dynamic_array = new uint256[](input.length);
+        for (uint256 i = 0; i < input.length; i++) {
+            inputs_dynamic_array[i] = input[i];
+        }
+        VerificationKey memory vk = get_verification_key();
+        return verify(proof, inputs_dynamic_array, vk);
+    }
+}
 }
