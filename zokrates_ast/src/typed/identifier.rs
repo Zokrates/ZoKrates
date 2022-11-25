@@ -1,17 +1,30 @@
 use crate::typed::CanonicalConstantIdentifier;
 use std::fmt;
 
-pub type SourceIdentifier<'ast> = &'ast str;
+pub trait IdTrait:
+    fmt::Display
+    + fmt::Debug
+    + PartialEq
+    + Eq
+    + Clone
+    + PartialOrd
+    + Ord
+    + PartialEq<&'static str>
+    + for<'a> From<&'a str>
+{
+}
+
+pub type SourceIdentifier<I> = I;
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
-pub enum CoreIdentifier<'ast> {
-    Source(ShadowedIdentifier<'ast>),
+pub enum CoreIdentifier<I> {
+    Source(ShadowedIdentifier<I>),
     Call(usize),
-    Constant(CanonicalConstantIdentifier<'ast>),
+    Constant(CanonicalConstantIdentifier<I>),
     Condition(usize),
 }
 
-impl<'ast> fmt::Display for CoreIdentifier<'ast> {
+impl<I: fmt::Display> fmt::Display for CoreIdentifier<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             CoreIdentifier::Source(s) => write!(f, "{}", s),
@@ -22,34 +35,34 @@ impl<'ast> fmt::Display for CoreIdentifier<'ast> {
     }
 }
 
-impl<'ast> From<CanonicalConstantIdentifier<'ast>> for CoreIdentifier<'ast> {
-    fn from(s: CanonicalConstantIdentifier<'ast>) -> CoreIdentifier<'ast> {
+impl<I> From<CanonicalConstantIdentifier<I>> for CoreIdentifier<I> {
+    fn from(s: CanonicalConstantIdentifier<I>) -> CoreIdentifier<I> {
         CoreIdentifier::Constant(s)
     }
 }
 
 /// A identifier for a variable
 #[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
-pub struct Identifier<'ast> {
+pub struct Identifier<I> {
     /// the id of the variable
-    pub id: CoreIdentifier<'ast>,
+    pub id: CoreIdentifier<I>,
     /// the version of the variable, used after SSA transformation
     pub version: usize,
 }
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
-pub struct ShadowedIdentifier<'ast> {
-    pub id: SourceIdentifier<'ast>,
+pub struct ShadowedIdentifier<I> {
+    pub id: SourceIdentifier<I>,
     pub shadow: usize,
 }
 
-impl<'ast> ShadowedIdentifier<'ast> {
-    pub fn shadow(id: SourceIdentifier<'ast>, shadow: usize) -> Self {
+impl<I> ShadowedIdentifier<I> {
+    pub fn shadow(id: SourceIdentifier<I>, shadow: usize) -> Self {
         Self { id, shadow }
     }
 }
 
-impl<'ast> fmt::Display for ShadowedIdentifier<'ast> {
+impl<I: fmt::Display> fmt::Display for ShadowedIdentifier<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.shadow == 0 {
             write!(f, "{}", self.id)
@@ -59,7 +72,7 @@ impl<'ast> fmt::Display for ShadowedIdentifier<'ast> {
     }
 }
 
-impl<'ast> fmt::Display for Identifier<'ast> {
+impl<I: fmt::Display> fmt::Display for Identifier<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.version == 0 {
             write!(f, "{}", self.id)
@@ -69,25 +82,25 @@ impl<'ast> fmt::Display for Identifier<'ast> {
     }
 }
 
-impl<'ast> From<CanonicalConstantIdentifier<'ast>> for Identifier<'ast> {
-    fn from(id: CanonicalConstantIdentifier<'ast>) -> Identifier<'ast> {
+impl<I> From<CanonicalConstantIdentifier<I>> for Identifier<I> {
+    fn from(id: CanonicalConstantIdentifier<I>) -> Identifier<I> {
         Identifier::from(CoreIdentifier::Constant(id))
     }
 }
 
-impl<'ast> From<CoreIdentifier<'ast>> for Identifier<'ast> {
-    fn from(id: CoreIdentifier<'ast>) -> Identifier<'ast> {
+impl<I> From<CoreIdentifier<I>> for Identifier<I> {
+    fn from(id: CoreIdentifier<I>) -> Identifier<I> {
         Identifier { id, version: 0 }
     }
 }
 
-impl<'ast> From<ShadowedIdentifier<'ast>> for CoreIdentifier<'ast> {
-    fn from(id: ShadowedIdentifier<'ast>) -> CoreIdentifier<'ast> {
+impl<I> From<ShadowedIdentifier<I>> for CoreIdentifier<I> {
+    fn from(id: ShadowedIdentifier<I>) -> CoreIdentifier<I> {
         CoreIdentifier::Source(id)
     }
 }
 
-impl<'ast> Identifier<'ast> {
+impl<I> Identifier<I> {
     pub fn version(mut self, version: usize) -> Self {
         self.version = version;
         self
@@ -95,14 +108,14 @@ impl<'ast> Identifier<'ast> {
 }
 
 // these two From implementations are only used in tests but somehow cfg(test) doesn't work
-impl<'ast> From<&'ast str> for CoreIdentifier<'ast> {
-    fn from(s: &str) -> CoreIdentifier {
-        CoreIdentifier::Source(ShadowedIdentifier::shadow(s, 0))
-    }
-}
+// impl<I> From<& str> for CoreIdentifier<I> {
+//     fn from(s: &str) -> CoreIdentifier {
+//         CoreIdentifier::Source(ShadowedIdentifier::shadow(s, 0))
+//     }
+// }
 
-impl<'ast> From<&'ast str> for Identifier<'ast> {
-    fn from(id: &'ast str) -> Identifier<'ast> {
-        Identifier::from(CoreIdentifier::from(id))
-    }
-}
+// impl<I> From<I> for Identifier<I> {
+//     fn from(id: I) -> Identifier<I> {
+//         Identifier::from(CoreIdentifier::from(id))
+//     }
+// }

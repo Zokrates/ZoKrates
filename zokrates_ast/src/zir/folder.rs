@@ -1,90 +1,91 @@
 // Generic walk through ZIR. Not mutating in place
 
+use crate::typed::identifier::IdTrait;
 use crate::zir::types::UBitwidth;
 use crate::zir::*;
 use zokrates_field::Field;
 
-pub trait Fold<'ast, T: Field>: Sized {
-    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self;
+pub trait Fold<I: IdTrait, T: Field>: Sized {
+    fn fold<F: Folder<I, T>>(self, f: &mut F) -> Self;
 }
 
-impl<'ast, T: Field> Fold<'ast, T> for FieldElementExpression<'ast, T> {
-    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+impl<I: IdTrait, T: Field> Fold<I, T> for FieldElementExpression<I, T> {
+    fn fold<F: Folder<I, T>>(self, f: &mut F) -> Self {
         f.fold_field_expression(self)
     }
 }
 
-impl<'ast, T: Field> Fold<'ast, T> for BooleanExpression<'ast, T> {
-    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+impl<I: IdTrait, T: Field> Fold<I, T> for BooleanExpression<I, T> {
+    fn fold<F: Folder<I, T>>(self, f: &mut F) -> Self {
         f.fold_boolean_expression(self)
     }
 }
 
-impl<'ast, T: Field> Fold<'ast, T> for UExpression<'ast, T> {
-    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+impl<I: IdTrait, T: Field> Fold<I, T> for UExpression<I, T> {
+    fn fold<F: Folder<I, T>>(self, f: &mut F) -> Self {
         f.fold_uint_expression(self)
     }
 }
-pub trait Folder<'ast, T: Field>: Sized {
-    fn fold_program(&mut self, p: ZirProgram<'ast, T>) -> ZirProgram<'ast, T> {
+pub trait Folder<I: IdTrait, T: Field>: Sized {
+    fn fold_program(&mut self, p: ZirProgram<I, T>) -> ZirProgram<I, T> {
         fold_program(self, p)
     }
 
-    fn fold_function(&mut self, f: ZirFunction<'ast, T>) -> ZirFunction<'ast, T> {
+    fn fold_function(&mut self, f: ZirFunction<I, T>) -> ZirFunction<I, T> {
         fold_function(self, f)
     }
 
-    fn fold_parameter(&mut self, p: Parameter<'ast>) -> Parameter<'ast> {
+    fn fold_parameter(&mut self, p: Parameter<I>) -> Parameter<I> {
         Parameter {
             id: self.fold_variable(p.id),
             ..p
         }
     }
 
-    fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
+    fn fold_name(&mut self, n: Identifier<I>) -> Identifier<I> {
         n
     }
 
-    fn fold_variable(&mut self, v: Variable<'ast>) -> Variable<'ast> {
+    fn fold_variable(&mut self, v: Variable<I>) -> Variable<I> {
         Variable {
             id: self.fold_name(v.id),
             ..v
         }
     }
 
-    fn fold_assignee(&mut self, a: ZirAssignee<'ast>) -> ZirAssignee<'ast> {
+    fn fold_assignee(&mut self, a: ZirAssignee<I>) -> ZirAssignee<I> {
         self.fold_variable(a)
     }
 
-    fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
+    fn fold_statement(&mut self, s: ZirStatement<I, T>) -> Vec<ZirStatement<I, T>> {
         fold_statement(self, s)
     }
 
-    fn fold_identifier_expression<E: Expr<'ast, T> + Id<'ast, T>>(
+    fn fold_identifier_expression<E: Expr<I, T> + Id<I, T>>(
         &mut self,
         ty: &E::Ty,
-        e: IdentifierExpression<'ast, E>,
-    ) -> IdentifierOrExpression<'ast, T, E> {
+        e: IdentifierExpression<I, E>,
+    ) -> IdentifierOrExpression<I, T, E> {
         fold_identifier_expression(self, ty, e)
     }
 
-    fn fold_conditional_expression<E: Expr<'ast, T> + Fold<'ast, T> + Conditional<'ast, T>>(
+    fn fold_conditional_expression<E: Expr<I, T> + Fold<I, T> + Conditional<I, T>>(
         &mut self,
         ty: &E::Ty,
-        e: ConditionalExpression<'ast, T, E>,
-    ) -> ConditionalOrExpression<'ast, T, E> {
+        e: ConditionalExpression<I, T, E>,
+    ) -> ConditionalOrExpression<I, T, E> {
         fold_conditional_expression(self, ty, e)
     }
 
-    fn fold_select_expression<E: Expr<'ast, T> + Fold<'ast, T> + Select<'ast, T>>(
+    fn fold_select_expression<E: Expr<I, T> + Fold<I, T> + Select<I, T>>(
         &mut self,
         ty: &E::Ty,
-        e: SelectExpression<'ast, T, E>,
-    ) -> SelectOrExpression<'ast, T, E> {
+        e: SelectExpression<I, T, E>,
+    ) -> SelectOrExpression<I, T, E> {
         fold_select_expression(self, ty, e)
     }
 
-    fn fold_expression(&mut self, e: ZirExpression<'ast, T>) -> ZirExpression<'ast, T> {
+    fn fold_expression(&mut self, e: ZirExpression<I, T>) -> ZirExpression<I, T> {
         match e {
             ZirExpression::FieldElement(e) => self.fold_field_expression(e).into(),
             ZirExpression::Boolean(e) => self.fold_boolean_expression(e).into(),
@@ -92,10 +93,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
-    fn fold_expression_list(
-        &mut self,
-        es: ZirExpressionList<'ast, T>,
-    ) -> ZirExpressionList<'ast, T> {
+    fn fold_expression_list(&mut self, es: ZirExpressionList<I, T>) -> ZirExpressionList<I, T> {
         match es {
             ZirExpressionList::EmbedCall(embed, generics, arguments) => {
                 ZirExpressionList::EmbedCall(
@@ -112,33 +110,30 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_field_expression(
         &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> FieldElementExpression<'ast, T> {
+        e: FieldElementExpression<I, T>,
+    ) -> FieldElementExpression<I, T> {
         fold_field_expression(self, e)
     }
-    fn fold_boolean_expression(
-        &mut self,
-        e: BooleanExpression<'ast, T>,
-    ) -> BooleanExpression<'ast, T> {
+    fn fold_boolean_expression(&mut self, e: BooleanExpression<I, T>) -> BooleanExpression<I, T> {
         fold_boolean_expression(self, e)
     }
-    fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+    fn fold_uint_expression(&mut self, e: UExpression<I, T>) -> UExpression<I, T> {
         fold_uint_expression(self, e)
     }
 
     fn fold_uint_expression_inner(
         &mut self,
         bitwidth: UBitwidth,
-        e: UExpressionInner<'ast, T>,
-    ) -> UExpressionInner<'ast, T> {
+        e: UExpressionInner<I, T>,
+    ) -> UExpressionInner<I, T> {
         fold_uint_expression_inner(self, bitwidth, e)
     }
 }
 
-pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_statement<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    s: ZirStatement<'ast, T>,
-) -> Vec<ZirStatement<'ast, T>> {
+    s: ZirStatement<I, T>,
+) -> Vec<ZirStatement<I, T>> {
     let res = match s {
         ZirStatement::Return(expressions) => ZirStatement::Return(
             expressions
@@ -178,22 +173,22 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
 }
 
 pub fn fold_identifier_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Expr<'ast, T> + Id<'ast, T>,
-    F: Folder<'ast, T>,
+    E: Expr<I, T> + Id<I, T>,
+    F: Folder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: IdentifierExpression<'ast, E>,
-) -> IdentifierOrExpression<'ast, T, E> {
+    e: IdentifierExpression<I, E>,
+) -> IdentifierOrExpression<I, T, E> {
     IdentifierOrExpression::Identifier(IdentifierExpression::new(f.fold_name(e.id)))
 }
 
-pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_field_expression<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    e: FieldElementExpression<'ast, T>,
-) -> FieldElementExpression<'ast, T> {
+    e: FieldElementExpression<I, T>,
+) -> FieldElementExpression<I, T> {
     match e {
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
@@ -242,10 +237,10 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_boolean_expression<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    e: BooleanExpression<'ast, T>,
-) -> BooleanExpression<'ast, T> {
+    e: BooleanExpression<I, T>,
+) -> BooleanExpression<I, T> {
     match e {
         BooleanExpression::Value(v) => BooleanExpression::Value(v),
         BooleanExpression::Identifier(id) => match f.fold_identifier_expression(&Type::Boolean, id)
@@ -314,21 +309,21 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_uint_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_uint_expression<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    e: UExpression<'ast, T>,
-) -> UExpression<'ast, T> {
+    e: UExpression<I, T>,
+) -> UExpression<I, T> {
     UExpression {
         inner: f.fold_uint_expression_inner(e.bitwidth, e.inner),
         ..e
     }
 }
 
-pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_uint_expression_inner<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
     ty: UBitwidth,
-    e: UExpressionInner<'ast, T>,
-) -> UExpressionInner<'ast, T> {
+    e: UExpressionInner<I, T>,
+) -> UExpressionInner<I, T> {
     match e {
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
         UExpressionInner::Identifier(id) => match f.fold_identifier_expression(&ty, id) {
@@ -409,10 +404,10 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_function<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    fun: ZirFunction<'ast, T>,
-) -> ZirFunction<'ast, T> {
+    fun: ZirFunction<I, T>,
+) -> ZirFunction<I, T> {
     ZirFunction {
         arguments: fun
             .arguments
@@ -428,25 +423,25 @@ pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_program<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    p: ZirProgram<'ast, T>,
-) -> ZirProgram<'ast, T> {
+    p: ZirProgram<I, T>,
+) -> ZirProgram<I, T> {
     ZirProgram {
         main: f.fold_function(p.main),
     }
 }
 
 pub fn fold_conditional_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Expr<'ast, T> + Fold<'ast, T> + Conditional<'ast, T>,
-    F: Folder<'ast, T>,
+    E: Expr<I, T> + Fold<I, T> + Conditional<I, T>,
+    F: Folder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: ConditionalExpression<'ast, T, E>,
-) -> ConditionalOrExpression<'ast, T, E> {
+    e: ConditionalExpression<I, T, E>,
+) -> ConditionalOrExpression<I, T, E> {
     ConditionalOrExpression::Conditional(ConditionalExpression::new(
         f.fold_boolean_expression(*e.condition),
         e.consequence.fold(f),
@@ -455,15 +450,15 @@ pub fn fold_conditional_expression<
 }
 
 pub fn fold_select_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Expr<'ast, T> + Fold<'ast, T> + Select<'ast, T>,
-    F: Folder<'ast, T>,
+    E: Expr<I, T> + Fold<I, T> + Select<I, T>,
+    F: Folder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: SelectExpression<'ast, T, E>,
-) -> SelectOrExpression<'ast, T, E> {
+    e: SelectExpression<I, T, E>,
+) -> SelectOrExpression<I, T, E> {
     SelectOrExpression::Select(SelectExpression::new(
         e.array.into_iter().map(|e| e.fold(f)).collect(),
         e.index.fold(f),

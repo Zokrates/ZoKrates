@@ -183,7 +183,7 @@ impl FlatEmbed {
         }
     }
 
-    pub fn typed_signature<T>(&self) -> DeclarationSignature<'static, T> {
+    pub fn typed_signature<T>(&self) -> DeclarationSignature<&'static str, T> {
         match self {
             FlatEmbed::BitArrayLe => DeclarationSignature::new()
                 .generics(vec![Some(DeclarationConstant::Generic(
@@ -277,9 +277,12 @@ impl FlatEmbed {
         }
     }
 
-    pub fn generics<'ast, T>(&self, assignment: &ConcreteGenericsAssignment<'ast>) -> Vec<u32> {
+    pub fn generics<'ast, T>(
+        &self,
+        assignment: &ConcreteGenericsAssignment<&'ast str>,
+    ) -> Vec<u32> {
         let gen = self.typed_signature().generics.into_iter().map(
-            |c: Option<DeclarationConstant<'ast, T>>| match c.unwrap() {
+            |c: Option<DeclarationConstant<_, T>>| match c.unwrap() {
                 DeclarationConstant::Generic(g) => g,
                 _ => unreachable!(),
             },

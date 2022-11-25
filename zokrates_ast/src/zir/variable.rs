@@ -3,25 +3,25 @@ use crate::zir::Identifier;
 use std::fmt;
 
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub struct Variable<'ast> {
-    pub id: Identifier<'ast>,
+pub struct Variable<I> {
+    pub id: Identifier<I>,
     pub _type: Type,
 }
 
-impl<'ast> Variable<'ast> {
-    pub fn field_element<I: Into<Identifier<'ast>>>(id: I) -> Variable<'ast> {
+impl<I> Variable<I> {
+    pub fn field_element<J: Into<Identifier<I>>>(id: J) -> Variable<I> {
         Self::with_id_and_type(id, Type::FieldElement)
     }
 
-    pub fn boolean(id: Identifier<'ast>) -> Variable<'ast> {
+    pub fn boolean(id: Identifier<I>) -> Variable<I> {
         Self::with_id_and_type(id, Type::Boolean)
     }
 
-    pub fn uint<W: Into<UBitwidth>>(id: Identifier<'ast>, bitwidth: W) -> Variable<'ast> {
+    pub fn uint<W: Into<UBitwidth>>(id: Identifier<I>, bitwidth: W) -> Variable<I> {
         Self::with_id_and_type(id, Type::uint(bitwidth))
     }
 
-    pub fn with_id_and_type<I: Into<Identifier<'ast>>>(id: I, _type: Type) -> Variable<'ast> {
+    pub fn with_id_and_type<J: Into<Identifier<I>>>(id: J, _type: Type) -> Variable<I> {
         Variable {
             id: id.into(),
             _type,
@@ -33,13 +33,13 @@ impl<'ast> Variable<'ast> {
     }
 }
 
-impl<'ast> fmt::Display for Variable<'ast> {
+impl<I: fmt::Display> fmt::Display for Variable<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self._type, self.id,)
     }
 }
 
-impl<'ast> fmt::Debug for Variable<'ast> {
+impl<I: fmt::Debug> fmt::Debug for Variable<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Variable(type: {:?}, id: {:?})", self._type, self.id,)
     }

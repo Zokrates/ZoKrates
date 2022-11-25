@@ -4,88 +4,88 @@ use zokrates_field::Field;
 
 use super::{ConditionalExpression, SelectExpression};
 
-impl<'ast, T: Field> UExpression<'ast, T> {
+impl<I, T: Field> UExpression<I, T> {
     #[allow(clippy::should_implement_trait)]
-    pub fn add(self, other: Self) -> UExpression<'ast, T> {
+    pub fn add(self, other: Self) -> UExpression<I, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Add(box self, box other).annotate(bitwidth)
     }
 
     #[allow(clippy::should_implement_trait)]
-    pub fn sub(self, other: Self) -> UExpression<'ast, T> {
+    pub fn sub(self, other: Self) -> UExpression<I, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Sub(box self, box other).annotate(bitwidth)
     }
 
-    pub fn select(values: Vec<Self>, index: Self) -> UExpression<'ast, T> {
+    pub fn select(values: Vec<Self>, index: Self) -> UExpression<I, T> {
         let bitwidth = values[0].bitwidth;
         UExpressionInner::Select(SelectExpression::new(values, index)).annotate(bitwidth)
     }
 
-    pub fn mult(self, other: Self) -> UExpression<'ast, T> {
+    pub fn mult(self, other: Self) -> UExpression<I, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Mult(box self, box other).annotate(bitwidth)
     }
 
     #[allow(clippy::should_implement_trait)]
-    pub fn div(self, other: Self) -> UExpression<'ast, T> {
+    pub fn div(self, other: Self) -> UExpression<I, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Div(box self, box other).annotate(bitwidth)
     }
 
     #[allow(clippy::should_implement_trait)]
-    pub fn rem(self, other: Self) -> UExpression<'ast, T> {
+    pub fn rem(self, other: Self) -> UExpression<I, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Rem(box self, box other).annotate(bitwidth)
     }
 
-    pub fn xor(self, other: Self) -> UExpression<'ast, T> {
+    pub fn xor(self, other: Self) -> UExpression<I, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Xor(box self, box other).annotate(bitwidth)
     }
 
     #[allow(clippy::should_implement_trait)]
-    pub fn not(self) -> UExpression<'ast, T> {
+    pub fn not(self) -> UExpression<I, T> {
         let bitwidth = self.bitwidth;
         UExpressionInner::Not(box self).annotate(bitwidth)
     }
 
-    pub fn or(self, other: Self) -> UExpression<'ast, T> {
+    pub fn or(self, other: Self) -> UExpression<I, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Or(box self, box other).annotate(bitwidth)
     }
 
-    pub fn and(self, other: Self) -> UExpression<'ast, T> {
+    pub fn and(self, other: Self) -> UExpression<I, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::And(box self, box other).annotate(bitwidth)
     }
 
-    pub fn left_shift(self, by: u32) -> UExpression<'ast, T> {
+    pub fn left_shift(self, by: u32) -> UExpression<I, T> {
         let bitwidth = self.bitwidth;
         UExpressionInner::LeftShift(box self, by).annotate(bitwidth)
     }
 
-    pub fn right_shift(self, by: u32) -> UExpression<'ast, T> {
+    pub fn right_shift(self, by: u32) -> UExpression<I, T> {
         let bitwidth = self.bitwidth;
         UExpressionInner::RightShift(box self, by).annotate(bitwidth)
     }
 }
 
-impl<'ast, T: Field> From<u128> for UExpressionInner<'ast, T> {
+impl<I, T: Field> From<u128> for UExpressionInner<I, T> {
     fn from(e: u128) -> Self {
         UExpressionInner::Value(e)
     }
 }
 
-impl<'ast, T> From<u32> for UExpression<'ast, T> {
+impl<I, T> From<u32> for UExpression<I, T> {
     fn from(u: u32) -> Self {
         UExpressionInner::Value(u as u128).annotate(UBitwidth::B32)
     }
@@ -163,33 +163,33 @@ impl<T: Field> UMetadata<T> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct UExpression<'ast, T> {
+pub struct UExpression<I, T> {
     pub bitwidth: UBitwidth,
     pub metadata: Option<UMetadata<T>>,
-    pub inner: UExpressionInner<'ast, T>,
+    pub inner: UExpressionInner<I, T>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum UExpressionInner<'ast, T> {
+pub enum UExpressionInner<I, T> {
     Value(u128),
-    Identifier(IdentifierExpression<'ast, UExpression<'ast, T>>),
-    Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
-    Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    Mult(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    Div(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    Rem(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    Xor(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    And(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    Or(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    LeftShift(Box<UExpression<'ast, T>>, u32),
-    RightShift(Box<UExpression<'ast, T>>, u32),
-    Not(Box<UExpression<'ast, T>>),
-    Conditional(ConditionalExpression<'ast, T, UExpression<'ast, T>>),
+    Identifier(IdentifierExpression<I, UExpression<I, T>>),
+    Select(SelectExpression<I, T, UExpression<I, T>>),
+    Add(Box<UExpression<I, T>>, Box<UExpression<I, T>>),
+    Sub(Box<UExpression<I, T>>, Box<UExpression<I, T>>),
+    Mult(Box<UExpression<I, T>>, Box<UExpression<I, T>>),
+    Div(Box<UExpression<I, T>>, Box<UExpression<I, T>>),
+    Rem(Box<UExpression<I, T>>, Box<UExpression<I, T>>),
+    Xor(Box<UExpression<I, T>>, Box<UExpression<I, T>>),
+    And(Box<UExpression<I, T>>, Box<UExpression<I, T>>),
+    Or(Box<UExpression<I, T>>, Box<UExpression<I, T>>),
+    LeftShift(Box<UExpression<I, T>>, u32),
+    RightShift(Box<UExpression<I, T>>, u32),
+    Not(Box<UExpression<I, T>>),
+    Conditional(ConditionalExpression<I, T, UExpression<I, T>>),
 }
 
-impl<'ast, T> UExpressionInner<'ast, T> {
-    pub fn annotate<W: Into<UBitwidth>>(self, bitwidth: W) -> UExpression<'ast, T> {
+impl<I, T> UExpressionInner<I, T> {
+    pub fn annotate<W: Into<UBitwidth>>(self, bitwidth: W) -> UExpression<I, T> {
         UExpression {
             metadata: None,
             bitwidth: bitwidth.into(),
@@ -198,8 +198,8 @@ impl<'ast, T> UExpressionInner<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> UExpression<'ast, T> {
-    pub fn metadata(self, metadata: UMetadata<T>) -> UExpression<'ast, T> {
+impl<I, T: Field> UExpression<I, T> {
+    pub fn metadata(self, metadata: UMetadata<T>) -> UExpression<I, T> {
         UExpression {
             metadata: Some(metadata),
             ..self
@@ -214,16 +214,16 @@ impl<'ast, T: Field> UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> UExpression<'ast, T> {
+impl<I, T> UExpression<I, T> {
     pub fn bitwidth(&self) -> UBitwidth {
         self.bitwidth
     }
 
-    pub fn as_inner(&self) -> &UExpressionInner<'ast, T> {
+    pub fn as_inner(&self) -> &UExpressionInner<I, T> {
         &self.inner
     }
 
-    pub fn into_inner(self) -> UExpressionInner<'ast, T> {
+    pub fn into_inner(self) -> UExpressionInner<I, T> {
         self.inner
     }
 }

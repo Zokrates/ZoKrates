@@ -4,130 +4,120 @@ use crate::typed::types::*;
 use crate::typed::*;
 use zokrates_field::Field;
 
-pub trait Fold<'ast, T: Field>: Sized {
-    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self;
+use super::identifier::IdTrait;
+
+pub trait Fold<I: IdTrait, T: Field>: Sized {
+    fn fold<F: Folder<I, T>>(self, f: &mut F) -> Self;
 }
 
-impl<'ast, T: Field> Fold<'ast, T> for FieldElementExpression<'ast, T> {
-    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+impl<I: IdTrait, T: Field> Fold<I, T> for FieldElementExpression<I, T> {
+    fn fold<F: Folder<I, T>>(self, f: &mut F) -> Self {
         f.fold_field_expression(self)
     }
 }
 
-impl<'ast, T: Field> Fold<'ast, T> for BooleanExpression<'ast, T> {
-    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+impl<I: IdTrait, T: Field> Fold<I, T> for BooleanExpression<I, T> {
+    fn fold<F: Folder<I, T>>(self, f: &mut F) -> Self {
         f.fold_boolean_expression(self)
     }
 }
 
-impl<'ast, T: Field> Fold<'ast, T> for UExpression<'ast, T> {
-    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+impl<I: IdTrait, T: Field> Fold<I, T> for UExpression<I, T> {
+    fn fold<F: Folder<I, T>>(self, f: &mut F) -> Self {
         f.fold_uint_expression(self)
     }
 }
 
-impl<'ast, T: Field> Fold<'ast, T> for StructExpression<'ast, T> {
-    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+impl<I: IdTrait, T: Field> Fold<I, T> for StructExpression<I, T> {
+    fn fold<F: Folder<I, T>>(self, f: &mut F) -> Self {
         f.fold_struct_expression(self)
     }
 }
 
-impl<'ast, T: Field> Fold<'ast, T> for ArrayExpression<'ast, T> {
-    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+impl<I: IdTrait, T: Field> Fold<I, T> for ArrayExpression<I, T> {
+    fn fold<F: Folder<I, T>>(self, f: &mut F) -> Self {
         f.fold_array_expression(self)
     }
 }
 
-impl<'ast, T: Field> Fold<'ast, T> for TupleExpression<'ast, T> {
-    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+impl<I: IdTrait, T: Field> Fold<I, T> for TupleExpression<I, T> {
+    fn fold<F: Folder<I, T>>(self, f: &mut F) -> Self {
         f.fold_tuple_expression(self)
     }
 }
 
-pub trait Folder<'ast, T: Field>: Sized {
-    fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+pub trait Folder<I: IdTrait, T: Field>: Sized {
+    fn fold_program(&mut self, p: TypedProgram<I, T>) -> TypedProgram<I, T> {
         fold_program(self, p)
     }
 
-    fn fold_module(&mut self, m: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
+    fn fold_module(&mut self, m: TypedModule<I, T>) -> TypedModule<I, T> {
         fold_module(self, m)
     }
 
     fn fold_symbol_declaration(
         &mut self,
-        s: TypedSymbolDeclaration<'ast, T>,
-    ) -> TypedSymbolDeclaration<'ast, T> {
+        s: TypedSymbolDeclaration<I, T>,
+    ) -> TypedSymbolDeclaration<I, T> {
         fold_symbol_declaration(self, s)
     }
 
     fn fold_function_symbol_declaration(
         &mut self,
-        s: TypedFunctionSymbolDeclaration<'ast, T>,
-    ) -> TypedFunctionSymbolDeclaration<'ast, T> {
+        s: TypedFunctionSymbolDeclaration<I, T>,
+    ) -> TypedFunctionSymbolDeclaration<I, T> {
         fold_function_symbol_declaration(self, s)
     }
 
     fn fold_constant_symbol_declaration(
         &mut self,
-        s: TypedConstantSymbolDeclaration<'ast, T>,
-    ) -> TypedConstantSymbolDeclaration<'ast, T> {
+        s: TypedConstantSymbolDeclaration<I, T>,
+    ) -> TypedConstantSymbolDeclaration<I, T> {
         fold_constant_symbol_declaration(self, s)
     }
 
-    fn fold_constant(&mut self, c: TypedConstant<'ast, T>) -> TypedConstant<'ast, T> {
+    fn fold_constant(&mut self, c: TypedConstant<I, T>) -> TypedConstant<I, T> {
         fold_constant(self, c)
     }
 
-    fn fold_constant_symbol(
-        &mut self,
-        s: TypedConstantSymbol<'ast, T>,
-    ) -> TypedConstantSymbol<'ast, T> {
+    fn fold_constant_symbol(&mut self, s: TypedConstantSymbol<I, T>) -> TypedConstantSymbol<I, T> {
         fold_constant_symbol(self, s)
     }
 
-    fn fold_function_symbol(
-        &mut self,
-        s: TypedFunctionSymbol<'ast, T>,
-    ) -> TypedFunctionSymbol<'ast, T> {
+    fn fold_function_symbol(&mut self, s: TypedFunctionSymbol<I, T>) -> TypedFunctionSymbol<I, T> {
         fold_function_symbol(self, s)
     }
 
     fn fold_declaration_function_key(
         &mut self,
-        key: DeclarationFunctionKey<'ast, T>,
-    ) -> DeclarationFunctionKey<'ast, T> {
+        key: DeclarationFunctionKey<I, T>,
+    ) -> DeclarationFunctionKey<I, T> {
         fold_declaration_function_key(self, key)
     }
 
-    fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
+    fn fold_function(&mut self, f: TypedFunction<I, T>) -> TypedFunction<I, T> {
         fold_function(self, f)
     }
 
-    fn fold_signature(
-        &mut self,
-        s: DeclarationSignature<'ast, T>,
-    ) -> DeclarationSignature<'ast, T> {
+    fn fold_signature(&mut self, s: DeclarationSignature<I, T>) -> DeclarationSignature<I, T> {
         fold_signature(self, s)
     }
 
     fn fold_declaration_constant(
         &mut self,
-        c: DeclarationConstant<'ast, T>,
-    ) -> DeclarationConstant<'ast, T> {
+        c: DeclarationConstant<I, T>,
+    ) -> DeclarationConstant<I, T> {
         fold_declaration_constant(self, c)
     }
 
-    fn fold_parameter(
-        &mut self,
-        p: DeclarationParameter<'ast, T>,
-    ) -> DeclarationParameter<'ast, T> {
+    fn fold_parameter(&mut self, p: DeclarationParameter<I, T>) -> DeclarationParameter<I, T> {
         DeclarationParameter {
             id: self.fold_declaration_variable(p.id),
             ..p
         }
     }
 
-    fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
+    fn fold_name(&mut self, n: Identifier<I>) -> Identifier<I> {
         let id = match n.id {
             CoreIdentifier::Constant(c) => {
                 CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c))
@@ -138,7 +128,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         Identifier { id, ..n }
     }
 
-    fn fold_variable(&mut self, v: Variable<'ast, T>) -> Variable<'ast, T> {
+    fn fold_variable(&mut self, v: Variable<I, T>) -> Variable<I, T> {
         Variable {
             id: self.fold_name(v.id),
             _type: self.fold_type(v._type),
@@ -148,8 +138,8 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_declaration_variable(
         &mut self,
-        v: DeclarationVariable<'ast, T>,
-    ) -> DeclarationVariable<'ast, T> {
+        v: DeclarationVariable<I, T>,
+    ) -> DeclarationVariable<I, T> {
         DeclarationVariable {
             id: self.fold_name(v.id),
             _type: self.fold_declaration_type(v._type),
@@ -157,7 +147,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
-    fn fold_type(&mut self, t: Type<'ast, T>) -> Type<'ast, T> {
+    fn fold_type(&mut self, t: Type<I, T>) -> Type<I, T> {
         use self::GType::*;
 
         match t {
@@ -168,20 +158,20 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
-    fn fold_array_type(&mut self, t: ArrayType<'ast, T>) -> ArrayType<'ast, T> {
+    fn fold_array_type(&mut self, t: ArrayType<I, T>) -> ArrayType<I, T> {
         ArrayType {
             ty: box self.fold_type(*t.ty),
             size: box self.fold_uint_expression(*t.size),
         }
     }
 
-    fn fold_tuple_type(&mut self, t: TupleType<'ast, T>) -> TupleType<'ast, T> {
+    fn fold_tuple_type(&mut self, t: TupleType<I, T>) -> TupleType<I, T> {
         TupleType {
             elements: t.elements.into_iter().map(|t| self.fold_type(t)).collect(),
         }
     }
 
-    fn fold_struct_type(&mut self, t: StructType<'ast, T>) -> StructType<'ast, T> {
+    fn fold_struct_type(&mut self, t: StructType<I, T>) -> StructType<I, T> {
         StructType {
             generics: t
                 .generics
@@ -200,7 +190,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
-    fn fold_declaration_type(&mut self, t: DeclarationType<'ast, T>) -> DeclarationType<'ast, T> {
+    fn fold_declaration_type(&mut self, t: DeclarationType<I, T>) -> DeclarationType<I, T> {
         use self::GType::*;
 
         match t {
@@ -213,8 +203,8 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_declaration_array_type(
         &mut self,
-        t: DeclarationArrayType<'ast, T>,
-    ) -> DeclarationArrayType<'ast, T> {
+        t: DeclarationArrayType<I, T>,
+    ) -> DeclarationArrayType<I, T> {
         DeclarationArrayType {
             ty: box self.fold_declaration_type(*t.ty),
             size: box self.fold_declaration_constant(*t.size),
@@ -223,8 +213,8 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_declaration_tuple_type(
         &mut self,
-        t: DeclarationTupleType<'ast, T>,
-    ) -> DeclarationTupleType<'ast, T> {
+        t: DeclarationTupleType<I, T>,
+    ) -> DeclarationTupleType<I, T> {
         DeclarationTupleType {
             elements: t
                 .elements
@@ -236,8 +226,8 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_declaration_struct_type(
         &mut self,
-        t: DeclarationStructType<'ast, T>,
-    ) -> DeclarationStructType<'ast, T> {
+        t: DeclarationStructType<I, T>,
+    ) -> DeclarationStructType<I, T> {
         DeclarationStructType {
             generics: t
                 .generics
@@ -256,26 +246,26 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
-    fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
+    fn fold_assignee(&mut self, a: TypedAssignee<I, T>) -> TypedAssignee<I, T> {
         fold_assignee(self, a)
     }
 
-    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+    fn fold_statement(&mut self, s: TypedStatement<I, T>) -> Vec<TypedStatement<I, T>> {
         fold_statement(self, s)
     }
 
-    fn fold_definition_rhs(&mut self, rhs: DefinitionRhs<'ast, T>) -> DefinitionRhs<'ast, T> {
+    fn fold_definition_rhs(&mut self, rhs: DefinitionRhs<I, T>) -> DefinitionRhs<I, T> {
         fold_definition_rhs(self, rhs)
     }
 
-    fn fold_embed_call(&mut self, e: EmbedCall<'ast, T>) -> EmbedCall<'ast, T> {
+    fn fold_embed_call(&mut self, e: EmbedCall<I, T>) -> EmbedCall<I, T> {
         fold_embed_call(self, e)
     }
 
     fn fold_expression_or_spread(
         &mut self,
-        e: TypedExpressionOrSpread<'ast, T>,
-    ) -> TypedExpressionOrSpread<'ast, T> {
+        e: TypedExpressionOrSpread<I, T>,
+    ) -> TypedExpressionOrSpread<I, T> {
         match e {
             TypedExpressionOrSpread::Expression(e) => {
                 TypedExpressionOrSpread::Expression(self.fold_expression(e))
@@ -286,7 +276,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
-    fn fold_spread(&mut self, s: TypedSpread<'ast, T>) -> TypedSpread<'ast, T> {
+    fn fold_spread(&mut self, s: TypedSpread<I, T>) -> TypedSpread<I, T> {
         TypedSpread {
             array: self.fold_array_expression(s.array),
         }
@@ -294,8 +284,8 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_canonical_constant_identifier(
         &mut self,
-        i: CanonicalConstantIdentifier<'ast>,
-    ) -> CanonicalConstantIdentifier<'ast> {
+        i: CanonicalConstantIdentifier<I>,
+    ) -> CanonicalConstantIdentifier<I> {
         CanonicalConstantIdentifier {
             module: self.fold_module_id(i.module),
             id: i.id,
@@ -306,162 +296,146 @@ pub trait Folder<'ast, T: Field>: Sized {
         i
     }
 
-    fn fold_expression(&mut self, e: TypedExpression<'ast, T>) -> TypedExpression<'ast, T> {
+    fn fold_expression(&mut self, e: TypedExpression<I, T>) -> TypedExpression<I, T> {
         fold_expression(self, e)
     }
 
-    fn fold_block_expression<E: Fold<'ast, T>>(
+    fn fold_block_expression<E: Fold<I, T>>(
         &mut self,
-        block: BlockExpression<'ast, T, E>,
-    ) -> BlockExpression<'ast, T, E> {
+        block: BlockExpression<I, T, E>,
+    ) -> BlockExpression<I, T, E> {
         fold_block_expression(self, block)
     }
 
     fn fold_conditional_expression<
-        E: Expr<'ast, T>
-            + Fold<'ast, T>
-            + Block<'ast, T>
-            + Conditional<'ast, T>
-            + From<TypedExpression<'ast, T>>,
+        E: Expr<I, T> + Fold<I, T> + Block<I, T> + Conditional<I, T> + From<TypedExpression<I, T>>,
     >(
         &mut self,
         ty: &E::Ty,
-        e: ConditionalExpression<'ast, T, E>,
-    ) -> ConditionalOrExpression<'ast, T, E> {
+        e: ConditionalExpression<I, T, E>,
+    ) -> ConditionalOrExpression<I, T, E> {
         fold_conditional_expression(self, ty, e)
     }
 
-    fn fold_member_expression<
-        E: Expr<'ast, T> + Member<'ast, T> + From<TypedExpression<'ast, T>>,
-    >(
+    fn fold_member_expression<E: Expr<I, T> + Member<I, T> + From<TypedExpression<I, T>>>(
         &mut self,
         ty: &E::Ty,
-        e: MemberExpression<'ast, T, E>,
-    ) -> MemberOrExpression<'ast, T, E> {
+        e: MemberExpression<I, T, E>,
+    ) -> MemberOrExpression<I, T, E> {
         fold_member_expression(self, ty, e)
     }
 
-    fn fold_identifier_expression<
-        E: Expr<'ast, T> + Id<'ast, T> + From<TypedExpression<'ast, T>>,
-    >(
+    fn fold_identifier_expression<E: Expr<I, T> + Id<I, T> + From<TypedExpression<I, T>>>(
         &mut self,
         ty: &E::Ty,
-        e: IdentifierExpression<'ast, E>,
-    ) -> IdentifierOrExpression<'ast, T, E> {
+        e: IdentifierExpression<I, E>,
+    ) -> IdentifierOrExpression<I, T, E> {
         fold_identifier_expression(self, ty, e)
     }
 
-    fn fold_element_expression<
-        E: Expr<'ast, T> + Element<'ast, T> + From<TypedExpression<'ast, T>>,
-    >(
+    fn fold_element_expression<E: Expr<I, T> + Element<I, T> + From<TypedExpression<I, T>>>(
         &mut self,
         ty: &E::Ty,
-        e: ElementExpression<'ast, T, E>,
-    ) -> ElementOrExpression<'ast, T, E> {
+        e: ElementExpression<I, T, E>,
+    ) -> ElementOrExpression<I, T, E> {
         fold_element_expression(self, ty, e)
     }
 
-    fn fold_eq_expression<E: Expr<'ast, T> + PartialEq + Constant + Fold<'ast, T>>(
+    fn fold_eq_expression<E: Expr<I, T> + PartialEq + Constant + Fold<I, T>>(
         &mut self,
         e: EqExpression<E>,
-    ) -> EqOrBoolean<'ast, T, E> {
+    ) -> EqOrBoolean<I, T, E> {
         fold_eq_expression(self, e)
     }
 
     fn fold_function_call_expression<
-        E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
+        E: Id<I, T> + From<TypedExpression<I, T>> + Expr<I, T> + FunctionCall<I, T>,
     >(
         &mut self,
         ty: &E::Ty,
-        e: FunctionCallExpression<'ast, T, E>,
-    ) -> FunctionCallOrExpression<'ast, T, E> {
+        e: FunctionCallExpression<I, T, E>,
+    ) -> FunctionCallOrExpression<I, T, E> {
         fold_function_call_expression(self, ty, e)
     }
 
     fn fold_select_expression<
-        E: Expr<'ast, T> + Select<'ast, T> + Conditional<'ast, T> + From<TypedExpression<'ast, T>>,
+        E: Expr<I, T> + Select<I, T> + Conditional<I, T> + From<TypedExpression<I, T>>,
     >(
         &mut self,
         ty: &E::Ty,
-        e: SelectExpression<'ast, T, E>,
-    ) -> SelectOrExpression<'ast, T, E> {
+        e: SelectExpression<I, T, E>,
+    ) -> SelectOrExpression<I, T, E> {
         fold_select_expression(self, ty, e)
     }
 
-    fn fold_array_expression(&mut self, e: ArrayExpression<'ast, T>) -> ArrayExpression<'ast, T> {
+    fn fold_array_expression(&mut self, e: ArrayExpression<I, T>) -> ArrayExpression<I, T> {
         fold_array_expression(self, e)
     }
 
-    fn fold_struct_expression(
-        &mut self,
-        e: StructExpression<'ast, T>,
-    ) -> StructExpression<'ast, T> {
+    fn fold_struct_expression(&mut self, e: StructExpression<I, T>) -> StructExpression<I, T> {
         fold_struct_expression(self, e)
     }
 
-    fn fold_tuple_expression(&mut self, e: TupleExpression<'ast, T>) -> TupleExpression<'ast, T> {
+    fn fold_tuple_expression(&mut self, e: TupleExpression<I, T>) -> TupleExpression<I, T> {
         fold_tuple_expression(self, e)
     }
 
-    fn fold_int_expression(&mut self, e: IntExpression<'ast, T>) -> IntExpression<'ast, T> {
+    fn fold_int_expression(&mut self, e: IntExpression<I, T>) -> IntExpression<I, T> {
         fold_int_expression(self, e)
     }
 
     fn fold_field_expression(
         &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> FieldElementExpression<'ast, T> {
+        e: FieldElementExpression<I, T>,
+    ) -> FieldElementExpression<I, T> {
         fold_field_expression(self, e)
     }
 
-    fn fold_boolean_expression(
-        &mut self,
-        e: BooleanExpression<'ast, T>,
-    ) -> BooleanExpression<'ast, T> {
+    fn fold_boolean_expression(&mut self, e: BooleanExpression<I, T>) -> BooleanExpression<I, T> {
         fold_boolean_expression(self, e)
     }
 
-    fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+    fn fold_uint_expression(&mut self, e: UExpression<I, T>) -> UExpression<I, T> {
         fold_uint_expression(self, e)
     }
 
     fn fold_uint_expression_inner(
         &mut self,
         bitwidth: UBitwidth,
-        e: UExpressionInner<'ast, T>,
-    ) -> UExpressionInner<'ast, T> {
+        e: UExpressionInner<I, T>,
+    ) -> UExpressionInner<I, T> {
         fold_uint_expression_inner(self, bitwidth, e)
     }
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &ArrayType<'ast, T>,
-        e: ArrayExpressionInner<'ast, T>,
-    ) -> ArrayExpressionInner<'ast, T> {
+        ty: &ArrayType<I, T>,
+        e: ArrayExpressionInner<I, T>,
+    ) -> ArrayExpressionInner<I, T> {
         fold_array_expression_inner(self, ty, e)
     }
 
     fn fold_tuple_expression_inner(
         &mut self,
-        ty: &TupleType<'ast, T>,
-        e: TupleExpressionInner<'ast, T>,
-    ) -> TupleExpressionInner<'ast, T> {
+        ty: &TupleType<I, T>,
+        e: TupleExpressionInner<I, T>,
+    ) -> TupleExpressionInner<I, T> {
         fold_tuple_expression_inner(self, ty, e)
     }
 
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &StructType<'ast, T>,
-        e: StructExpressionInner<'ast, T>,
-    ) -> StructExpressionInner<'ast, T> {
+        ty: &StructType<I, T>,
+        e: StructExpressionInner<I, T>,
+    ) -> StructExpressionInner<I, T> {
         fold_struct_expression_inner(self, ty, e)
     }
 }
 
-pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_module<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    m: TypedModule<'ast, T>,
-) -> TypedModule<'ast, T> {
+    m: TypedModule<I, T>,
+) -> TypedModule<I, T> {
     TypedModule {
         symbols: m
             .symbols
@@ -471,10 +445,10 @@ pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_symbol_declaration<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_symbol_declaration<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    d: TypedSymbolDeclaration<'ast, T>,
-) -> TypedSymbolDeclaration<'ast, T> {
+    d: TypedSymbolDeclaration<I, T>,
+) -> TypedSymbolDeclaration<I, T> {
     match d {
         TypedSymbolDeclaration::Function(d) => {
             TypedSymbolDeclaration::Function(f.fold_function_symbol_declaration(d))
@@ -485,40 +459,40 @@ pub fn fold_symbol_declaration<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_function_symbol_declaration<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_function_symbol_declaration<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    d: TypedFunctionSymbolDeclaration<'ast, T>,
-) -> TypedFunctionSymbolDeclaration<'ast, T> {
+    d: TypedFunctionSymbolDeclaration<I, T>,
+) -> TypedFunctionSymbolDeclaration<I, T> {
     TypedFunctionSymbolDeclaration {
         key: f.fold_declaration_function_key(d.key),
         symbol: f.fold_function_symbol(d.symbol),
     }
 }
 
-pub fn fold_constant_symbol_declaration<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_constant_symbol_declaration<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    d: TypedConstantSymbolDeclaration<'ast, T>,
-) -> TypedConstantSymbolDeclaration<'ast, T> {
+    d: TypedConstantSymbolDeclaration<I, T>,
+) -> TypedConstantSymbolDeclaration<I, T> {
     TypedConstantSymbolDeclaration {
         id: f.fold_canonical_constant_identifier(d.id),
         symbol: f.fold_constant_symbol(d.symbol),
     }
 }
 
-pub fn fold_definition_rhs<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_definition_rhs<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    rhs: DefinitionRhs<'ast, T>,
-) -> DefinitionRhs<'ast, T> {
+    rhs: DefinitionRhs<I, T>,
+) -> DefinitionRhs<I, T> {
     match rhs {
         DefinitionRhs::EmbedCall(c) => DefinitionRhs::EmbedCall(f.fold_embed_call(c)),
         DefinitionRhs::Expression(e) => DefinitionRhs::Expression(f.fold_expression(e)),
     }
 }
 
-pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_statement<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    s: TypedStatement<'ast, T>,
-) -> Vec<TypedStatement<'ast, T>> {
+    s: TypedStatement<I, T>,
+) -> Vec<TypedStatement<I, T>> {
     let res = match s {
         TypedStatement::Return(e) => TypedStatement::Return(f.fold_expression(e)),
         TypedStatement::Definition(a, e) => {
@@ -545,22 +519,22 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
 }
 
 pub fn fold_identifier_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Expr<'ast, T> + Id<'ast, T> + From<TypedExpression<'ast, T>>,
-    F: Folder<'ast, T>,
+    E: Expr<I, T> + Id<I, T> + From<TypedExpression<I, T>>,
+    F: Folder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: IdentifierExpression<'ast, E>,
-) -> IdentifierOrExpression<'ast, T, E> {
+    e: IdentifierExpression<I, E>,
+) -> IdentifierOrExpression<I, T, E> {
     IdentifierOrExpression::Identifier(IdentifierExpression::new(f.fold_name(e.id)))
 }
 
-pub fn fold_embed_call<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_embed_call<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    e: EmbedCall<'ast, T>,
-) -> EmbedCall<'ast, T> {
+    e: EmbedCall<I, T>,
+) -> EmbedCall<I, T> {
     EmbedCall {
         arguments: e
             .arguments
@@ -571,10 +545,10 @@ pub fn fold_embed_call<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_expression<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    e: TypedExpression<'ast, T>,
-) -> TypedExpression<'ast, T> {
+    e: TypedExpression<I, T>,
+) -> TypedExpression<I, T> {
     match e {
         TypedExpression::FieldElement(e) => f.fold_field_expression(e).into(),
         TypedExpression::Boolean(e) => f.fold_boolean_expression(e).into(),
@@ -586,11 +560,11 @@ pub fn fold_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_array_expression_inner<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    ty: &ArrayType<'ast, T>,
-    e: ArrayExpressionInner<'ast, T>,
-) -> ArrayExpressionInner<'ast, T> {
+    ty: &ArrayType<I, T>,
+    e: ArrayExpressionInner<I, T>,
+) -> ArrayExpressionInner<I, T> {
     use ArrayExpressionInner::*;
 
     match e {
@@ -639,11 +613,11 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_struct_expression_inner<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    ty: &StructType<'ast, T>,
-    e: StructExpressionInner<'ast, T>,
-) -> StructExpressionInner<'ast, T> {
+    ty: &StructType<I, T>,
+    e: StructExpressionInner<I, T>,
+) -> StructExpressionInner<I, T> {
     use StructExpressionInner::*;
 
     match e {
@@ -676,11 +650,11 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_tuple_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_tuple_expression_inner<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    ty: &TupleType<'ast, T>,
-    e: TupleExpressionInner<'ast, T>,
-) -> TupleExpressionInner<'ast, T> {
+    ty: &TupleType<I, T>,
+    e: TupleExpressionInner<I, T>,
+) -> TupleExpressionInner<I, T> {
     use TupleExpressionInner::*;
 
     match e {
@@ -713,10 +687,10 @@ pub fn fold_tuple_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_field_expression<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    e: FieldElementExpression<'ast, T>,
-) -> FieldElementExpression<'ast, T> {
+    e: FieldElementExpression<I, T>,
+) -> FieldElementExpression<I, T> {
     use FieldElementExpression::*;
 
     match e {
@@ -789,15 +763,15 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
 }
 
 pub fn fold_conditional_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Expr<'ast, T> + Fold<'ast, T> + Conditional<'ast, T> + From<TypedExpression<'ast, T>>,
-    F: Folder<'ast, T>,
+    E: Expr<I, T> + Fold<I, T> + Conditional<I, T> + From<TypedExpression<I, T>>,
+    F: Folder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: ConditionalExpression<'ast, T, E>,
-) -> ConditionalOrExpression<'ast, T, E> {
+    e: ConditionalExpression<I, T, E>,
+) -> ConditionalOrExpression<I, T, E> {
     ConditionalOrExpression::Conditional(ConditionalExpression::new(
         f.fold_boolean_expression(*e.condition),
         e.consequence.fold(f),
@@ -807,15 +781,15 @@ pub fn fold_conditional_expression<
 }
 
 pub fn fold_member_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Expr<'ast, T> + Member<'ast, T> + From<TypedExpression<'ast, T>>,
-    F: Folder<'ast, T>,
+    E: Expr<I, T> + Member<I, T> + From<TypedExpression<I, T>>,
+    F: Folder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: MemberExpression<'ast, T, E>,
-) -> MemberOrExpression<'ast, T, E> {
+    e: MemberExpression<I, T, E>,
+) -> MemberOrExpression<I, T, E> {
     MemberOrExpression::Member(MemberExpression::new(
         f.fold_struct_expression(*e.struc),
         e.id,
@@ -823,55 +797,55 @@ pub fn fold_member_expression<
 }
 
 pub fn fold_element_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Expr<'ast, T> + Element<'ast, T> + From<TypedExpression<'ast, T>>,
-    F: Folder<'ast, T>,
+    E: Expr<I, T> + Element<I, T> + From<TypedExpression<I, T>>,
+    F: Folder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: ElementExpression<'ast, T, E>,
-) -> ElementOrExpression<'ast, T, E> {
+    e: ElementExpression<I, T, E>,
+) -> ElementOrExpression<I, T, E> {
     ElementOrExpression::Element(ElementExpression::new(
         f.fold_tuple_expression(*e.tuple),
         e.index,
     ))
 }
 
-pub fn fold_eq_expression<'ast, T: Field, E: Fold<'ast, T>, F: Folder<'ast, T>>(
+pub fn fold_eq_expression<I: IdTrait, T: Field, E: Fold<I, T>, F: Folder<I, T>>(
     f: &mut F,
     e: EqExpression<E>,
-) -> EqOrBoolean<'ast, T, E> {
+) -> EqOrBoolean<I, T, E> {
     EqOrBoolean::Eq(EqExpression::new(e.left.fold(f), e.right.fold(f)))
 }
 
 pub fn fold_select_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Expr<'ast, T> + Select<'ast, T> + Conditional<'ast, T> + From<TypedExpression<'ast, T>>,
-    F: Folder<'ast, T>,
+    E: Expr<I, T> + Select<I, T> + Conditional<I, T> + From<TypedExpression<I, T>>,
+    F: Folder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: SelectExpression<'ast, T, E>,
-) -> SelectOrExpression<'ast, T, E> {
+    e: SelectExpression<I, T, E>,
+) -> SelectOrExpression<I, T, E> {
     SelectOrExpression::Select(SelectExpression::new(
         f.fold_array_expression(*e.array),
         f.fold_uint_expression(*e.index),
     ))
 }
 
-pub fn fold_int_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_int_expression<I: IdTrait, T: Field, F: Folder<I, T>>(
     _: &mut F,
-    _: IntExpression<'ast, T>,
-) -> IntExpression<'ast, T> {
+    _: IntExpression<I, T>,
+) -> IntExpression<I, T> {
     unreachable!()
 }
 
-pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_boolean_expression<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    e: BooleanExpression<'ast, T>,
-) -> BooleanExpression<'ast, T> {
+    e: BooleanExpression<I, T>,
+) -> BooleanExpression<I, T> {
     use BooleanExpression::*;
 
     match e {
@@ -986,21 +960,21 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_uint_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_uint_expression<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    e: UExpression<'ast, T>,
-) -> UExpression<'ast, T> {
+    e: UExpression<I, T>,
+) -> UExpression<I, T> {
     UExpression {
         inner: f.fold_uint_expression_inner(e.bitwidth, e.inner),
         ..e
     }
 }
 
-pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_uint_expression_inner<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
     ty: UBitwidth,
-    e: UExpressionInner<'ast, T>,
-) -> UExpressionInner<'ast, T> {
+    e: UExpressionInner<I, T>,
+) -> UExpressionInner<I, T> {
     use UExpressionInner::*;
 
     match e {
@@ -1114,10 +1088,10 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_block_expression<'ast, T: Field, E: Fold<'ast, T>, F: Folder<'ast, T>>(
+pub fn fold_block_expression<I: IdTrait, T: Field, E: Fold<I, T>, F: Folder<I, T>>(
     f: &mut F,
-    block: BlockExpression<'ast, T, E>,
-) -> BlockExpression<'ast, T, E> {
+    block: BlockExpression<I, T, E>,
+) -> BlockExpression<I, T, E> {
     BlockExpression {
         statements: block
             .statements
@@ -1128,10 +1102,10 @@ pub fn fold_block_expression<'ast, T: Field, E: Fold<'ast, T>, F: Folder<'ast, T
     }
 }
 
-pub fn fold_declaration_function_key<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_declaration_function_key<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    key: DeclarationFunctionKey<'ast, T>,
-) -> DeclarationFunctionKey<'ast, T> {
+    key: DeclarationFunctionKey<I, T>,
+) -> DeclarationFunctionKey<I, T> {
     DeclarationFunctionKey {
         module: f.fold_module_id(key.module),
         signature: f.fold_signature(key.signature),
@@ -1140,15 +1114,15 @@ pub fn fold_declaration_function_key<'ast, T: Field, F: Folder<'ast, T>>(
 }
 
 pub fn fold_function_call_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
-    F: Folder<'ast, T>,
+    E: Id<I, T> + From<TypedExpression<I, T>> + Expr<I, T> + FunctionCall<I, T>,
+    F: Folder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: FunctionCallExpression<'ast, T, E>,
-) -> FunctionCallOrExpression<'ast, T, E> {
+    e: FunctionCallExpression<I, T, E>,
+) -> FunctionCallOrExpression<I, T, E> {
     FunctionCallOrExpression::FunctionCall(FunctionCallExpression::new(
         f.fold_declaration_function_key(e.function_key),
         e.generics
@@ -1162,10 +1136,10 @@ pub fn fold_function_call_expression<
     ))
 }
 
-pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_function<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    fun: TypedFunction<'ast, T>,
-) -> TypedFunction<'ast, T> {
+    fun: TypedFunction<I, T>,
+) -> TypedFunction<I, T> {
     TypedFunction {
         arguments: fun
             .arguments
@@ -1181,10 +1155,10 @@ pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-fn fold_signature<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_signature<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    s: DeclarationSignature<'ast, T>,
-) -> DeclarationSignature<'ast, T> {
+    s: DeclarationSignature<I, T>,
+) -> DeclarationSignature<I, T> {
     DeclarationSignature {
         generics: s.generics,
         inputs: s
@@ -1196,10 +1170,10 @@ fn fold_signature<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_declaration_constant<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_declaration_constant<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    c: DeclarationConstant<'ast, T>,
-) -> DeclarationConstant<'ast, T> {
+    c: DeclarationConstant<I, T>,
+) -> DeclarationConstant<I, T> {
     match c {
         DeclarationConstant::Expression(e) => DeclarationConstant::Expression(f.fold_expression(e)),
         DeclarationConstant::Constant(c) => {
@@ -1209,10 +1183,10 @@ pub fn fold_declaration_constant<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_array_expression<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    e: ArrayExpression<'ast, T>,
-) -> ArrayExpression<'ast, T> {
+    e: ArrayExpression<I, T>,
+) -> ArrayExpression<I, T> {
     let ty = f.fold_array_type(*e.ty);
 
     ArrayExpression {
@@ -1221,10 +1195,10 @@ pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_struct_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_struct_expression<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    e: StructExpression<'ast, T>,
-) -> StructExpression<'ast, T> {
+    e: StructExpression<I, T>,
+) -> StructExpression<I, T> {
     let ty = f.fold_struct_type(e.ty);
     StructExpression {
         inner: f.fold_struct_expression_inner(&ty, e.inner),
@@ -1232,10 +1206,10 @@ pub fn fold_struct_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_tuple_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_tuple_expression<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    e: TupleExpression<'ast, T>,
-) -> TupleExpression<'ast, T> {
+    e: TupleExpression<I, T>,
+) -> TupleExpression<I, T> {
     let ty = f.fold_tuple_type(e.ty);
     TupleExpression {
         inner: f.fold_tuple_expression_inner(&ty, e.inner),
@@ -1243,20 +1217,20 @@ pub fn fold_tuple_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_constant<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_constant<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    c: TypedConstant<'ast, T>,
-) -> TypedConstant<'ast, T> {
+    c: TypedConstant<I, T>,
+) -> TypedConstant<I, T> {
     TypedConstant {
         expression: f.fold_expression(c.expression),
         ty: f.fold_declaration_type(c.ty),
     }
 }
 
-pub fn fold_constant_symbol<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_constant_symbol<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    s: TypedConstantSymbol<'ast, T>,
-) -> TypedConstantSymbol<'ast, T> {
+    s: TypedConstantSymbol<I, T>,
+) -> TypedConstantSymbol<I, T> {
     match s {
         TypedConstantSymbol::Here(tc) => TypedConstantSymbol::Here(f.fold_constant(tc)),
         TypedConstantSymbol::There(id) => {
@@ -1265,10 +1239,10 @@ pub fn fold_constant_symbol<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_function_symbol<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_function_symbol<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    s: TypedFunctionSymbol<'ast, T>,
-) -> TypedFunctionSymbol<'ast, T> {
+    s: TypedFunctionSymbol<I, T>,
+) -> TypedFunctionSymbol<I, T> {
     match s {
         TypedFunctionSymbol::Here(fun) => TypedFunctionSymbol::Here(f.fold_function(fun)),
         TypedFunctionSymbol::There(key) => {
@@ -1278,10 +1252,10 @@ pub fn fold_function_symbol<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_assignee<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_assignee<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    a: TypedAssignee<'ast, T>,
-) -> TypedAssignee<'ast, T> {
+    a: TypedAssignee<I, T>,
+) -> TypedAssignee<I, T> {
     match a {
         TypedAssignee::Identifier(v) => TypedAssignee::Identifier(f.fold_variable(v)),
         TypedAssignee::Select(box a, box index) => {
@@ -1294,10 +1268,10 @@ pub fn fold_assignee<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_program<I: IdTrait, T: Field, F: Folder<I, T>>(
     f: &mut F,
-    p: TypedProgram<'ast, T>,
-) -> TypedProgram<'ast, T> {
+    p: TypedProgram<I, T>,
+) -> TypedProgram<I, T> {
     TypedProgram {
         modules: p
             .modules

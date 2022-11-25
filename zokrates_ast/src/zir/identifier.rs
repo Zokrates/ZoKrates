@@ -4,19 +4,19 @@ use std::fmt;
 use crate::typed::Identifier as CoreIdentifier;
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
-pub enum Identifier<'ast> {
-    Source(SourceIdentifier<'ast>),
+pub enum Identifier<I> {
+    Source(SourceIdentifier<I>),
 }
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
-pub enum SourceIdentifier<'ast> {
-    Basic(CoreIdentifier<'ast>),
-    Select(Box<SourceIdentifier<'ast>>, u32),
-    Member(Box<SourceIdentifier<'ast>>, MemberId),
-    Element(Box<SourceIdentifier<'ast>>, u32),
+pub enum SourceIdentifier<I> {
+    Basic(CoreIdentifier<I>),
+    Select(Box<SourceIdentifier<I>>, u32),
+    Member(Box<SourceIdentifier<I>>, MemberId),
+    Element(Box<SourceIdentifier<I>>, u32),
 }
 
-impl<'ast> fmt::Display for SourceIdentifier<'ast> {
+impl<I: fmt::Display> fmt::Display for SourceIdentifier<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             SourceIdentifier::Basic(i) => write!(f, "{}", i),
@@ -27,7 +27,7 @@ impl<'ast> fmt::Display for SourceIdentifier<'ast> {
     }
 }
 
-impl<'ast> fmt::Display for Identifier<'ast> {
+impl<I: fmt::Display> fmt::Display for Identifier<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Identifier::Source(s) => write!(f, "{}", s),
@@ -36,8 +36,8 @@ impl<'ast> fmt::Display for Identifier<'ast> {
 }
 
 // this is only used in tests but somehow cfg(test) does not work
-impl<'ast> From<&'ast str> for Identifier<'ast> {
-    fn from(id: &'ast str) -> Identifier<'ast> {
-        Identifier::Source(SourceIdentifier::Basic(id.into()))
-    }
-}
+// impl<I> From<I> for Identifier<I> {
+//     fn from(id: I) -> Identifier<I> {
+//         Identifier::Source(SourceIdentifier::Basic(id.into()))
+//     }
+// }

@@ -4,74 +4,71 @@ use crate::zir::types::UBitwidth;
 use crate::zir::*;
 use zokrates_field::Field;
 
-pub trait ResultFold<'ast, T: Field>: Sized {
-    fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error>;
+pub trait ResultFold<I: IdTrait, T: Field>: Sized {
+    fn fold<F: ResultFolder<I, T>>(self, f: &mut F) -> Result<Self, F::Error>;
 }
 
-impl<'ast, T: Field> ResultFold<'ast, T> for FieldElementExpression<'ast, T> {
-    fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error> {
+impl<I: IdTrait, T: Field> ResultFold<I, T> for FieldElementExpression<I, T> {
+    fn fold<F: ResultFolder<I, T>>(self, f: &mut F) -> Result<Self, F::Error> {
         f.fold_field_expression(self)
     }
 }
 
-impl<'ast, T: Field> ResultFold<'ast, T> for BooleanExpression<'ast, T> {
-    fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error> {
+impl<I: IdTrait, T: Field> ResultFold<I, T> for BooleanExpression<I, T> {
+    fn fold<F: ResultFolder<I, T>>(self, f: &mut F) -> Result<Self, F::Error> {
         f.fold_boolean_expression(self)
     }
 }
 
-impl<'ast, T: Field> ResultFold<'ast, T> for UExpression<'ast, T> {
-    fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error> {
+impl<I: IdTrait, T: Field> ResultFold<I, T> for UExpression<I, T> {
+    fn fold<F: ResultFolder<I, T>>(self, f: &mut F) -> Result<Self, F::Error> {
         f.fold_uint_expression(self)
     }
 }
-pub trait ResultFolder<'ast, T: Field>: Sized {
+pub trait ResultFolder<I: IdTrait, T: Field>: Sized {
     type Error;
 
-    fn fold_program(&mut self, p: ZirProgram<'ast, T>) -> Result<ZirProgram<'ast, T>, Self::Error> {
+    fn fold_program(&mut self, p: ZirProgram<I, T>) -> Result<ZirProgram<I, T>, Self::Error> {
         fold_program(self, p)
     }
 
-    fn fold_function(
-        &mut self,
-        f: ZirFunction<'ast, T>,
-    ) -> Result<ZirFunction<'ast, T>, Self::Error> {
+    fn fold_function(&mut self, f: ZirFunction<I, T>) -> Result<ZirFunction<I, T>, Self::Error> {
         fold_function(self, f)
     }
 
-    fn fold_parameter(&mut self, p: Parameter<'ast>) -> Result<Parameter<'ast>, Self::Error> {
+    fn fold_parameter(&mut self, p: Parameter<I>) -> Result<Parameter<I>, Self::Error> {
         Ok(Parameter {
             id: self.fold_variable(p.id)?,
             ..p
         })
     }
 
-    fn fold_name(&mut self, n: Identifier<'ast>) -> Result<Identifier<'ast>, Self::Error> {
+    fn fold_name(&mut self, n: Identifier<I>) -> Result<Identifier<I>, Self::Error> {
         Ok(n)
     }
 
-    fn fold_variable(&mut self, v: Variable<'ast>) -> Result<Variable<'ast>, Self::Error> {
+    fn fold_variable(&mut self, v: Variable<I>) -> Result<Variable<I>, Self::Error> {
         Ok(Variable {
             id: self.fold_name(v.id)?,
             ..v
         })
     }
 
-    fn fold_assignee(&mut self, a: ZirAssignee<'ast>) -> Result<ZirAssignee<'ast>, Self::Error> {
+    fn fold_assignee(&mut self, a: ZirAssignee<I>) -> Result<ZirAssignee<I>, Self::Error> {
         self.fold_variable(a)
     }
 
     fn fold_statement(
         &mut self,
-        s: ZirStatement<'ast, T>,
-    ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
+        s: ZirStatement<I, T>,
+    ) -> Result<Vec<ZirStatement<I, T>>, Self::Error> {
         fold_statement(self, s)
     }
 
     fn fold_expression(
         &mut self,
-        e: ZirExpression<'ast, T>,
-    ) -> Result<ZirExpression<'ast, T>, Self::Error> {
+        e: ZirExpression<I, T>,
+    ) -> Result<ZirExpression<I, T>, Self::Error> {
         match e {
             ZirExpression::FieldElement(e) => Ok(self.fold_field_expression(e)?.into()),
             ZirExpression::Boolean(e) => Ok(self.fold_boolean_expression(e)?.into()),
@@ -81,8 +78,8 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
 
     fn fold_expression_list(
         &mut self,
-        es: ZirExpressionList<'ast, T>,
-    ) -> Result<ZirExpressionList<'ast, T>, Self::Error> {
+        es: ZirExpressionList<I, T>,
+    ) -> Result<ZirExpressionList<I, T>, Self::Error> {
         match es {
             ZirExpressionList::EmbedCall(embed, generics, arguments) => {
                 Ok(ZirExpressionList::EmbedCall(
@@ -97,66 +94,64 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         }
     }
 
-    fn fold_identifier_expression<E: Expr<'ast, T> + Id<'ast, T> + ResultFold<'ast, T>>(
+    fn fold_identifier_expression<E: Expr<I, T> + Id<I, T> + ResultFold<I, T>>(
         &mut self,
         ty: &E::Ty,
-        id: IdentifierExpression<'ast, E>,
-    ) -> Result<IdentifierOrExpression<'ast, T, E>, Self::Error> {
+        id: IdentifierExpression<I, E>,
+    ) -> Result<IdentifierOrExpression<I, T, E>, Self::Error> {
         fold_identifier_expression(self, ty, id)
     }
 
-    fn fold_conditional_expression<
-        E: Expr<'ast, T> + ResultFold<'ast, T> + Conditional<'ast, T>,
-    >(
+    fn fold_conditional_expression<E: Expr<I, T> + ResultFold<I, T> + Conditional<I, T>>(
         &mut self,
         ty: &E::Ty,
-        e: ConditionalExpression<'ast, T, E>,
-    ) -> Result<ConditionalOrExpression<'ast, T, E>, Self::Error> {
+        e: ConditionalExpression<I, T, E>,
+    ) -> Result<ConditionalOrExpression<I, T, E>, Self::Error> {
         fold_conditional_expression(self, ty, e)
     }
 
-    fn fold_select_expression<E: Clone + Expr<'ast, T> + ResultFold<'ast, T> + Select<'ast, T>>(
+    fn fold_select_expression<E: Clone + Expr<I, T> + ResultFold<I, T> + Select<I, T>>(
         &mut self,
         ty: &E::Ty,
-        e: SelectExpression<'ast, T, E>,
-    ) -> Result<SelectOrExpression<'ast, T, E>, Self::Error> {
+        e: SelectExpression<I, T, E>,
+    ) -> Result<SelectOrExpression<I, T, E>, Self::Error> {
         fold_select_expression(self, ty, e)
     }
 
     fn fold_field_expression(
         &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
+        e: FieldElementExpression<I, T>,
+    ) -> Result<FieldElementExpression<I, T>, Self::Error> {
         fold_field_expression(self, e)
     }
 
     fn fold_boolean_expression(
         &mut self,
-        e: BooleanExpression<'ast, T>,
-    ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
+        e: BooleanExpression<I, T>,
+    ) -> Result<BooleanExpression<I, T>, Self::Error> {
         fold_boolean_expression(self, e)
     }
 
     fn fold_uint_expression(
         &mut self,
-        e: UExpression<'ast, T>,
-    ) -> Result<UExpression<'ast, T>, Self::Error> {
+        e: UExpression<I, T>,
+    ) -> Result<UExpression<I, T>, Self::Error> {
         fold_uint_expression(self, e)
     }
 
     fn fold_uint_expression_inner(
         &mut self,
         bitwidth: UBitwidth,
-        e: UExpressionInner<'ast, T>,
-    ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
+        e: UExpressionInner<I, T>,
+    ) -> Result<UExpressionInner<I, T>, Self::Error> {
         fold_uint_expression_inner(self, bitwidth, e)
     }
 }
 
-pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+pub fn fold_statement<I: IdTrait, T: Field, F: ResultFolder<I, T>>(
     f: &mut F,
-    s: ZirStatement<'ast, T>,
-) -> Result<Vec<ZirStatement<'ast, T>>, F::Error> {
+    s: ZirStatement<I, T>,
+) -> Result<Vec<ZirStatement<I, T>>, F::Error> {
     let res = match s {
         ZirStatement::Return(expressions) => ZirStatement::Return(
             expressions
@@ -211,10 +206,10 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     Ok(vec![res])
 }
 
-pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+pub fn fold_field_expression<I: IdTrait, T: Field, F: ResultFolder<I, T>>(
     f: &mut F,
-    e: FieldElementExpression<'ast, T>,
-) -> Result<FieldElementExpression<'ast, T>, F::Error> {
+    e: FieldElementExpression<I, T>,
+) -> Result<FieldElementExpression<I, T>, F::Error> {
     Ok(match e {
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
@@ -263,10 +258,10 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     })
 }
 
-pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+pub fn fold_boolean_expression<I: IdTrait, T: Field, F: ResultFolder<I, T>>(
     f: &mut F,
-    e: BooleanExpression<'ast, T>,
-) -> Result<BooleanExpression<'ast, T>, F::Error> {
+    e: BooleanExpression<I, T>,
+) -> Result<BooleanExpression<I, T>, F::Error> {
     Ok(match e {
         BooleanExpression::Value(v) => BooleanExpression::Value(v),
         BooleanExpression::Identifier(id) => {
@@ -337,21 +332,21 @@ pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     })
 }
 
-pub fn fold_uint_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+pub fn fold_uint_expression<I: IdTrait, T: Field, F: ResultFolder<I, T>>(
     f: &mut F,
-    e: UExpression<'ast, T>,
-) -> Result<UExpression<'ast, T>, F::Error> {
+    e: UExpression<I, T>,
+) -> Result<UExpression<I, T>, F::Error> {
     Ok(UExpression {
         inner: f.fold_uint_expression_inner(e.bitwidth, e.inner)?,
         ..e
     })
 }
 
-pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
+pub fn fold_uint_expression_inner<I: IdTrait, T: Field, F: ResultFolder<I, T>>(
     f: &mut F,
     ty: UBitwidth,
-    e: UExpressionInner<'ast, T>,
-) -> Result<UExpressionInner<'ast, T>, F::Error> {
+    e: UExpressionInner<I, T>,
+) -> Result<UExpressionInner<I, T>, F::Error> {
     Ok(match e {
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
         UExpressionInner::Identifier(id) => match f.fold_identifier_expression(&ty, id)? {
@@ -432,10 +427,10 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     })
 }
 
-pub fn fold_function<'ast, T: Field, F: ResultFolder<'ast, T>>(
+pub fn fold_function<I: IdTrait, T: Field, F: ResultFolder<I, T>>(
     f: &mut F,
-    fun: ZirFunction<'ast, T>,
-) -> Result<ZirFunction<'ast, T>, F::Error> {
+    fun: ZirFunction<I, T>,
+) -> Result<ZirFunction<I, T>, F::Error> {
     Ok(ZirFunction {
         arguments: fun
             .arguments
@@ -454,40 +449,40 @@ pub fn fold_function<'ast, T: Field, F: ResultFolder<'ast, T>>(
     })
 }
 
-pub fn fold_program<'ast, T: Field, F: ResultFolder<'ast, T>>(
+pub fn fold_program<I: IdTrait, T: Field, F: ResultFolder<I, T>>(
     f: &mut F,
-    p: ZirProgram<'ast, T>,
-) -> Result<ZirProgram<'ast, T>, F::Error> {
+    p: ZirProgram<I, T>,
+) -> Result<ZirProgram<I, T>, F::Error> {
     Ok(ZirProgram {
         main: f.fold_function(p.main)?,
     })
 }
 
 pub fn fold_identifier_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Expr<'ast, T> + Id<'ast, T>,
-    F: ResultFolder<'ast, T>,
+    E: Expr<I, T> + Id<I, T>,
+    F: ResultFolder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: IdentifierExpression<'ast, E>,
-) -> Result<IdentifierOrExpression<'ast, T, E>, F::Error> {
+    e: IdentifierExpression<I, E>,
+) -> Result<IdentifierOrExpression<I, T, E>, F::Error> {
     Ok(IdentifierOrExpression::Identifier(
         IdentifierExpression::new(f.fold_name(e.id)?),
     ))
 }
 
 pub fn fold_conditional_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Expr<'ast, T> + ResultFold<'ast, T> + Conditional<'ast, T>,
-    F: ResultFolder<'ast, T>,
+    E: Expr<I, T> + ResultFold<I, T> + Conditional<I, T>,
+    F: ResultFolder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: ConditionalExpression<'ast, T, E>,
-) -> Result<ConditionalOrExpression<'ast, T, E>, F::Error> {
+    e: ConditionalExpression<I, T, E>,
+) -> Result<ConditionalOrExpression<I, T, E>, F::Error> {
     Ok(ConditionalOrExpression::Conditional(
         ConditionalExpression::new(
             f.fold_boolean_expression(*e.condition)?,
@@ -498,15 +493,15 @@ pub fn fold_conditional_expression<
 }
 
 pub fn fold_select_expression<
-    'ast,
+    I: IdTrait,
     T: Field,
-    E: Expr<'ast, T> + ResultFold<'ast, T> + Select<'ast, T>,
-    F: ResultFolder<'ast, T>,
+    E: Expr<I, T> + ResultFold<I, T> + Select<I, T>,
+    F: ResultFolder<I, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: SelectExpression<'ast, T, E>,
-) -> Result<SelectOrExpression<'ast, T, E>, F::Error> {
+    e: SelectExpression<I, T, E>,
+) -> Result<SelectOrExpression<I, T, E>, F::Error> {
     Ok(SelectOrExpression::Select(SelectExpression::new(
         e.array
             .into_iter()

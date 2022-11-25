@@ -3,13 +3,13 @@ use crate::typed::GVariable;
 use std::fmt;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GParameter<'ast, S> {
-    pub id: GVariable<'ast, S>,
+pub struct GParameter<I, S> {
+    pub id: GVariable<I, S>,
     pub private: bool,
 }
 
-impl<'ast, S> From<GVariable<'ast, S>> for GParameter<'ast, S> {
-    fn from(v: GVariable<'ast, S>) -> Self {
+impl<I, S> From<GVariable<I, S>> for GParameter<I, S> {
+    fn from(v: GVariable<I, S>) -> Self {
         GParameter {
             id: v,
             private: true,
@@ -17,16 +17,16 @@ impl<'ast, S> From<GVariable<'ast, S>> for GParameter<'ast, S> {
     }
 }
 
-pub type DeclarationParameter<'ast, T> = GParameter<'ast, DeclarationConstant<'ast, T>>;
+pub type DeclarationParameter<I, T> = GParameter<I, DeclarationConstant<I, T>>;
 
-impl<'ast, S: fmt::Display> fmt::Display for GParameter<'ast, S> {
+impl<I: fmt::Display, S: fmt::Display> fmt::Display for GParameter<I, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let visibility = if self.private { "private " } else { "" };
         write!(f, "{}{} {}", visibility, self.id._type, self.id.id)
     }
 }
 
-impl<'ast, S: fmt::Debug> fmt::Debug for GParameter<'ast, S> {
+impl<I: fmt::Debug, S: fmt::Debug> fmt::Debug for GParameter<I, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Parameter(variable: {:?})", self.id)
     }

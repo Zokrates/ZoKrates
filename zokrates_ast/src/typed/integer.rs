@@ -16,10 +16,12 @@ use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Not, Rem, Sub};
 use zokrates_field::Field;
 
-type TypedExpressionPair<'ast, T> = (TypedExpression<'ast, T>, TypedExpression<'ast, T>);
+use super::identifier::IdTrait;
 
-impl<'ast, T: Field> TypedExpressionOrSpread<'ast, T> {
-    pub fn align_to_type<S: PartialEq<UExpression<'ast, T>>>(
+type TypedExpressionPair<I, T> = (TypedExpression<I, T>, TypedExpression<I, T>);
+
+impl<I: IdTrait, T: Field> TypedExpressionOrSpread<I, T> {
+    pub fn align_to_type<S: PartialEq<UExpression<I, T>>>(
         e: Self,
         ty: &GArrayType<S>,
     ) -> Result<Self, (Self, &GArrayType<S>)> {
@@ -40,8 +42,8 @@ trait IntegerInference: Sized {
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)>;
 }
 
-impl<'ast, T: Clone> IntegerInference for Type<'ast, T> {
-    type Pattern = DeclarationType<'ast, T>;
+impl<I: IdTrait, T: Clone> IntegerInference for Type<I, T> {
+    type Pattern = DeclarationType<I, T>;
 
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)> {
         match (self, other) {
@@ -76,8 +78,8 @@ impl<'ast, T: Clone> IntegerInference for Type<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> IntegerInference for ArrayType<'ast, T> {
-    type Pattern = DeclarationArrayType<'ast, T>;
+impl<I: IdTrait, T: Clone> IntegerInference for ArrayType<I, T> {
+    type Pattern = DeclarationArrayType<I, T>;
 
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)> {
         let s0 = self.size;
@@ -87,13 +89,13 @@ impl<'ast, T: Clone> IntegerInference for ArrayType<'ast, T> {
             self.ty
                 .get_common_pattern(*other.ty)
                 .map_err(|(t, u)| (ArrayType::new(t, *s0), ArrayType::new(u, *s1)))?,
-            DeclarationConstant::Generic(GenericIdentifier::with_name("DUMMY")), // sizes are not checked at this stage, therefore we insert a dummy generic variable which will be equal to all possible sizes
+            DeclarationConstant::Generic(GenericIdentifier::with_name(I::from("DUMMY"))), // sizes are not checked at this stage, therefore we insert a dummy generic variable which will be equal to all possible sizes
         ))
     }
 }
 
-impl<'ast, T: Clone> IntegerInference for StructType<'ast, T> {
-    type Pattern = DeclarationStructType<'ast, T>;
+impl<I: IdTrait, T: Clone> IntegerInference for StructType<I, T> {
+    type Pattern = DeclarationStructType<I, T>;
 
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)> {
         Ok(DeclarationStructType {
@@ -117,15 +119,17 @@ impl<'ast, T: Clone> IntegerInference for StructType<'ast, T> {
                 .generics
                 .into_iter()
                 .map(|g| {
-                    g.map(|_| DeclarationConstant::Generic(GenericIdentifier::with_name("DUMMY")))
+                    g.map(|_| {
+                        DeclarationConstant::Generic(GenericIdentifier::with_name(I::from("DUMMY")))
+                    })
                 })
                 .collect(),
         })
     }
 }
 
-impl<'ast, T: Clone> IntegerInference for TupleType<'ast, T> {
-    type Pattern = DeclarationTupleType<'ast, T>;
+impl<I: IdTrait, T: Clone> IntegerInference for TupleType<I, T> {
+    type Pattern = DeclarationTupleType<I, T>;
 
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)> {
         Ok(DeclarationTupleType {
@@ -140,13 +144,13 @@ impl<'ast, T: Clone> IntegerInference for TupleType<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> TypedExpression<'ast, T> {
+impl<I: IdTrait, T: Field> TypedExpression<I, T> {
     // return two TypedExpression, replacing IntExpression by FieldElement or Uint to try to align the two types if possible.
     // Post condition is that (lhs, rhs) cannot be made equal by further removing IntExpressions
     pub fn align_without_integers(
         lhs: Self,
         rhs: Self,
-    ) -> Result<TypedExpressionPair<'ast, T>, TypedExpressionPair<'ast, T>> {
+    ) -> Result<TypedExpressionPair<I, T>, TypedExpressionPair<I, T>> {
         use self::TypedExpression::*;
 
         match (lhs, rhs) {
@@ -245,7 +249,7 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
         }
     }
 
-    pub fn align_to_type<S: PartialEq<UExpression<'ast, T>>>(
+    pub fn align_to_type<S: PartialEq<UExpression<I, T>>>(
         e: Self,
         ty: &GType<S>,
     ) -> Result<Self, (Self, &GType<S>)> {
@@ -273,27 +277,27 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
-pub enum IntExpression<'ast, T> {
+pub enum IntExpression<I, T> {
     Value(BigUint),
-    Pos(Box<IntExpression<'ast, T>>),
-    Neg(Box<IntExpression<'ast, T>>),
-    Add(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Sub(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Mult(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Div(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Rem(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Pow(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Conditional(ConditionalExpression<'ast, T, IntExpression<'ast, T>>),
-    Select(SelectExpression<'ast, T, IntExpression<'ast, T>>),
-    Xor(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    And(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Or(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Not(Box<IntExpression<'ast, T>>),
-    LeftShift(Box<IntExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    RightShift(Box<IntExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Pos(Box<IntExpression<I, T>>),
+    Neg(Box<IntExpression<I, T>>),
+    Add(Box<IntExpression<I, T>>, Box<IntExpression<I, T>>),
+    Sub(Box<IntExpression<I, T>>, Box<IntExpression<I, T>>),
+    Mult(Box<IntExpression<I, T>>, Box<IntExpression<I, T>>),
+    Div(Box<IntExpression<I, T>>, Box<IntExpression<I, T>>),
+    Rem(Box<IntExpression<I, T>>, Box<IntExpression<I, T>>),
+    Pow(Box<IntExpression<I, T>>, Box<IntExpression<I, T>>),
+    Conditional(ConditionalExpression<I, T, IntExpression<I, T>>),
+    Select(SelectExpression<I, T, IntExpression<I, T>>),
+    Xor(Box<IntExpression<I, T>>, Box<IntExpression<I, T>>),
+    And(Box<IntExpression<I, T>>, Box<IntExpression<I, T>>),
+    Or(Box<IntExpression<I, T>>, Box<IntExpression<I, T>>),
+    Not(Box<IntExpression<I, T>>),
+    LeftShift(Box<IntExpression<I, T>>, Box<UExpression<I, T>>),
+    RightShift(Box<IntExpression<I, T>>, Box<UExpression<I, T>>),
 }
 
-impl<'ast, T> Add for IntExpression<'ast, T> {
+impl<I, T> Add for IntExpression<I, T> {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
@@ -301,7 +305,7 @@ impl<'ast, T> Add for IntExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Sub for IntExpression<'ast, T> {
+impl<I, T> Sub for IntExpression<I, T> {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
@@ -309,7 +313,7 @@ impl<'ast, T> Sub for IntExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Mul for IntExpression<'ast, T> {
+impl<I, T> Mul for IntExpression<I, T> {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
@@ -317,7 +321,7 @@ impl<'ast, T> Mul for IntExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Div for IntExpression<'ast, T> {
+impl<I, T> Div for IntExpression<I, T> {
     type Output = Self;
 
     fn div(self, other: Self) -> Self {
@@ -325,7 +329,7 @@ impl<'ast, T> Div for IntExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Rem for IntExpression<'ast, T> {
+impl<I, T> Rem for IntExpression<I, T> {
     type Output = Self;
 
     fn rem(self, other: Self) -> Self {
@@ -333,7 +337,7 @@ impl<'ast, T> Rem for IntExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Not for IntExpression<'ast, T> {
+impl<I, T> Not for IntExpression<I, T> {
     type Output = Self;
 
     fn not(self) -> Self {
@@ -341,7 +345,7 @@ impl<'ast, T> Not for IntExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Neg for IntExpression<'ast, T> {
+impl<I, T> Neg for IntExpression<I, T> {
     type Output = Self;
 
     fn neg(self) -> Self {
@@ -349,7 +353,7 @@ impl<'ast, T> Neg for IntExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> IntExpression<'ast, T> {
+impl<I, T> IntExpression<I, T> {
     pub fn pow(self, other: Self) -> Self {
         IntExpression::Pow(box self, box other)
     }
@@ -366,11 +370,11 @@ impl<'ast, T> IntExpression<'ast, T> {
         IntExpression::Or(box self, box other)
     }
 
-    pub fn left_shift(self, by: UExpression<'ast, T>) -> Self {
+    pub fn left_shift(self, by: UExpression<I, T>) -> Self {
         IntExpression::LeftShift(box self, box by)
     }
 
-    pub fn right_shift(self, by: UExpression<'ast, T>) -> Self {
+    pub fn right_shift(self, by: UExpression<I, T>) -> Self {
         IntExpression::RightShift(box self, box by)
     }
 
@@ -379,7 +383,7 @@ impl<'ast, T> IntExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
+impl<I: fmt::Display, T: fmt::Display> fmt::Display for IntExpression<I, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             IntExpression::Value(ref v) => write!(f, "{}", v),
@@ -403,8 +407,8 @@ impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> BooleanExpression<'ast, T> {
-    pub fn try_from_typed(e: TypedExpression<'ast, T>) -> Result<Self, TypedExpression<'ast, T>> {
+impl<I: IdTrait, T: Field> BooleanExpression<I, T> {
+    pub fn try_from_typed(e: TypedExpression<I, T>) -> Result<Self, TypedExpression<I, T>> {
         match e {
             TypedExpression::Boolean(e) => Ok(e),
             e => Err(e),
@@ -412,8 +416,8 @@ impl<'ast, T: Field> BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> FieldElementExpression<'ast, T> {
-    pub fn try_from_typed(e: TypedExpression<'ast, T>) -> Result<Self, TypedExpression<'ast, T>> {
+impl<I: IdTrait, T: Field> FieldElementExpression<I, T> {
+    pub fn try_from_typed(e: TypedExpression<I, T>) -> Result<Self, TypedExpression<I, T>> {
         match e {
             TypedExpression::FieldElement(e) => Ok(e),
             TypedExpression::Int(e) => {
@@ -423,7 +427,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
         }
     }
 
-    pub fn try_from_int(i: IntExpression<'ast, T>) -> Result<Self, IntExpression<'ast, T>> {
+    pub fn try_from_int(i: IntExpression<I, T>) -> Result<Self, IntExpression<I, T>> {
         match i {
             IntExpression::Value(i) => Ok(Self::Number(T::try_from(i.clone()).map_err(|_| i)?)),
             IntExpression::Add(box e1, box e2) => Ok(Self::Add(
@@ -496,11 +500,11 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> UExpression<'ast, T> {
+impl<I: IdTrait, T: Field> UExpression<I, T> {
     pub fn try_from_typed(
-        e: TypedExpression<'ast, T>,
+        e: TypedExpression<I, T>,
         bitwidth: &UBitwidth,
-    ) -> Result<Self, TypedExpression<'ast, T>> {
+    ) -> Result<Self, TypedExpression<I, T>> {
         match e {
             TypedExpression::Uint(e) => match e.bitwidth == *bitwidth {
                 true => Ok(e),
@@ -514,9 +518,9 @@ impl<'ast, T: Field> UExpression<'ast, T> {
     }
 
     pub fn try_from_int(
-        i: IntExpression<'ast, T>,
+        i: IntExpression<I, T>,
         bitwidth: &UBitwidth,
-    ) -> Result<Self, IntExpression<'ast, T>> {
+    ) -> Result<Self, IntExpression<I, T>> {
         use self::IntExpression::*;
 
         match i {
@@ -615,11 +619,11 @@ impl<'ast, T: Field> UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> ArrayExpression<'ast, T> {
-    pub fn try_from_typed<S: PartialEq<UExpression<'ast, T>>>(
-        e: TypedExpression<'ast, T>,
+impl<I: IdTrait, T: Field> ArrayExpression<I, T> {
+    pub fn try_from_typed<S: PartialEq<UExpression<I, T>>>(
+        e: TypedExpression<I, T>,
         target_array_ty: &GArrayType<S>,
-    ) -> Result<Self, TypedExpression<'ast, T>> {
+    ) -> Result<Self, TypedExpression<I, T>> {
         match e {
             TypedExpression::Array(e) => Self::try_from_int(e, target_array_ty),
             e => Err(e),
@@ -627,10 +631,10 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
     }
 
     // precondition: `array` is only made of inline arrays and repeat constructs unless it does not contain the Integer type
-    pub fn try_from_int<S: PartialEq<UExpression<'ast, T>>>(
+    pub fn try_from_int<S: PartialEq<UExpression<I, T>>>(
         array: Self,
         target_array_ty: &GArrayType<S>,
-    ) -> Result<Self, TypedExpression<'ast, T>> {
+    ) -> Result<Self, TypedExpression<I, T>> {
         let array_ty = array.ty().clone();
 
         // elements must fit in the target type
@@ -687,11 +691,11 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> StructExpression<'ast, T> {
-    pub fn try_from_int<S: PartialEq<UExpression<'ast, T>>>(
+impl<I: IdTrait, T: Field> StructExpression<I, T> {
+    pub fn try_from_int<S: PartialEq<UExpression<I, T>>>(
         struc: Self,
         target_struct_ty: &GStructType<S>,
-    ) -> Result<Self, TypedExpression<'ast, T>> {
+    ) -> Result<Self, TypedExpression<I, T>> {
         let struct_ty = struc.ty().clone();
 
         if struct_ty.members.len() != target_struct_ty.members.len() {
@@ -723,10 +727,10 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
         }
     }
 
-    pub fn try_from_typed<S: PartialEq<UExpression<'ast, T>>>(
-        e: TypedExpression<'ast, T>,
+    pub fn try_from_typed<S: PartialEq<UExpression<I, T>>>(
+        e: TypedExpression<I, T>,
         target_struct_ty: &GStructType<S>,
-    ) -> Result<Self, TypedExpression<'ast, T>> {
+    ) -> Result<Self, TypedExpression<I, T>> {
         match e {
             TypedExpression::Struct(e) => Self::try_from_int(e, target_struct_ty),
             e => Err(e),
@@ -734,11 +738,11 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> TupleExpression<'ast, T> {
-    pub fn try_from_int<S: PartialEq<UExpression<'ast, T>>>(
+impl<I: IdTrait, T: Field> TupleExpression<I, T> {
+    pub fn try_from_int<S: PartialEq<UExpression<I, T>>>(
         tuple: Self,
         target_tuple_ty: &GTupleType<S>,
-    ) -> Result<Self, TypedExpression<'ast, T>> {
+    ) -> Result<Self, TypedExpression<I, T>> {
         let tuple_ty = tuple.ty().clone();
 
         if tuple_ty.elements.len() != target_tuple_ty.elements.len() {
@@ -771,10 +775,10 @@ impl<'ast, T: Field> TupleExpression<'ast, T> {
         }
     }
 
-    pub fn try_from_typed<S: PartialEq<UExpression<'ast, T>>>(
-        e: TypedExpression<'ast, T>,
+    pub fn try_from_typed<S: PartialEq<UExpression<I, T>>>(
+        e: TypedExpression<I, T>,
         target_tuple_ty: &GTupleType<S>,
-    ) -> Result<Self, TypedExpression<'ast, T>> {
+    ) -> Result<Self, TypedExpression<I, T>> {
         match e {
             TypedExpression::Tuple(e) => Self::try_from_int(e, target_tuple_ty),
             e => Err(e),
@@ -782,7 +786,7 @@ impl<'ast, T: Field> TupleExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> From<BigUint> for IntExpression<'ast, T> {
+impl<I, T> From<BigUint> for IntExpression<I, T> {
     fn from(v: BigUint) -> Self {
         IntExpression::Value(v)
     }

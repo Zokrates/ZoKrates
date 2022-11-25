@@ -2,14 +2,14 @@ use crate::zir::Variable;
 use std::fmt;
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct Parameter<'ast> {
-    pub id: Variable<'ast>,
+pub struct Parameter<I> {
+    pub id: Variable<I>,
     pub private: bool,
 }
 
-impl<'ast> Parameter<'ast> {
+impl<I> Parameter<I> {
     #[cfg(test)]
-    pub fn private(v: Variable<'ast>) -> Self {
+    pub fn private(v: Variable<I>) -> Self {
         Parameter {
             id: v,
             private: true,
@@ -17,14 +17,14 @@ impl<'ast> Parameter<'ast> {
     }
 }
 
-impl<'ast> fmt::Display for Parameter<'ast> {
+impl<I: fmt::Display> fmt::Display for Parameter<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let visibility = if self.private { "private " } else { "" };
         write!(f, "{}{} {}", visibility, self.id.get_type(), self.id.id)
     }
 }
 
-impl<'ast> fmt::Debug for Parameter<'ast> {
+impl<I: fmt::Debug> fmt::Debug for Parameter<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Parameter(variable: {:?})", self.id)
     }
