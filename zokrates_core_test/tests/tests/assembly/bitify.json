@@ -48,7 +48,7 @@
       "output": {
         "Err": {
           "UnsatisfiedConstraint": {
-            "error": "UserConstraint"
+            "error": "SourceAssemblyConstraint"
           }
         }
       }

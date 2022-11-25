@@ -1,3 +1,7 @@
+// A static analyser pass to transform user-defined constraints to the form `lin_comb === quad_comb`
+// This pass can fail if a non-quadratic constraint is found which cannot be transformed to the expected form
+
+use crate::ZirPropagator;
 use std::fmt;
 use zokrates_ast::zir::lqc::LinQuadComb;
 use zokrates_ast::zir::result_folder::{fold_field_expression, ResultFolder};
@@ -17,8 +21,7 @@ pub struct AssemblyTransformer;
 
 impl AssemblyTransformer {
     pub fn transform<T: Field>(p: ZirProgram<T>) -> Result<ZirProgram<T>, Error> {
-        let mut f = AssemblyTransformer;
-        f.fold_program(p)
+        AssemblyTransformer.fold_program(p)
     }
 }
 
@@ -52,7 +55,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                 match is_quadratic {
                     true => Ok(ZirAssemblyStatement::Constraint(lhs, rhs)),
                     false => {
-                        let sub = FieldElementExpression::Sub(box lhs.clone(), box rhs.clone());
+                        let sub = FieldElementExpression::Sub(box lhs, box rhs);
                         let mut lqc = LinQuadComb::try_from(sub.clone()).map_err(|_| {
                             Error("Non-quadratic constraints are not allowed".to_string())
                         })?;
@@ -60,72 +63,72 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                         let linear = lqc
                             .linear
                             .into_iter()
-                            .filter_map(|(c, i)| match c {
-                                c if c == T::from(0) => None,
-                                c if c == T::from(1) => Some(FieldElementExpression::identifier(i)),
-                                _ => Some(FieldElementExpression::Mult(
+                            .map(|(c, i)| {
+                                FieldElementExpression::Mult(
                                     box FieldElementExpression::Number(c),
                                     box FieldElementExpression::identifier(i),
-                                )),
+                                )
                             })
-                            .reduce(|p, n| FieldElementExpression::Add(box p, box n))
-                            .unwrap_or_else(|| FieldElementExpression::Number(T::from(0)));
+                            .fold(FieldElementExpression::Number(T::from(0)), |acc, e| {
+                                FieldElementExpression::Add(box acc, box e)
+                            });
 
-                        let lhs = match lqc.constant {
-                            c if c == T::from(0) => linear,
-                            c => FieldElementExpression::Add(
-                                box FieldElementExpression::Number(c),
-                                box linear,
-                            ),
-                        };
+                        let lhs = FieldElementExpression::Add(
+                            box FieldElementExpression::Number(lqc.constant),
+                            box linear,
+                        );
 
                         let rhs: FieldElementExpression<'ast, T> = if lqc.quadratic.len() > 1 {
-                            let is_common_factor = |id: &Identifier<'ast>,
-                                                    q: &Vec<(
-                                T,
-                                Identifier<'ast>,
-                                Identifier<'ast>,
-                            )>| {
-                                q.iter().all(|(_, i0, i1)| i0.eq(id) || i1.eq(id))
-                            };
+                            let common_factors = lqc.quadratic.iter().fold(
+                                None,
+                                |acc: Option<Vec<Identifier>>, (_, a, b)| {
+                                    Some(
+                                        acc.map(|factors| {
+                                            factors
+                                                .into_iter()
+                                                .filter(|f| f == a || f == b)
+                                                .collect()
+                                        })
+                                        .unwrap_or_else(|| vec![a.clone(), b.clone()]),
+                                    )
+                                },
+                            );
 
-                            let common_factor: Option<Identifier<'ast>> =
-                                lqc.quadratic.iter().find_map(|(_, i0, i1)| {
-                                    if is_common_factor(i0, &lqc.quadratic) {
-                                        Some(i0.clone())
-                                    } else if is_common_factor(i1, &lqc.quadratic) {
-                                        Some(i1.clone())
-                                    } else {
-                                        None
-                                    }
-                                });
-
-                            match common_factor {
-                                Some(id) => Ok(FieldElementExpression::Mult(
+                            match common_factors {
+                                Some(factors) => Ok(FieldElementExpression::Mult(
                                     box lqc
                                         .quadratic
                                         .into_iter()
-                                        .filter_map(|(c, i0, i1)| {
+                                        .map(|(c, i0, i1)| {
                                             let c = T::zero() - c;
-                                            let id = if id.eq(&i0) { i1 } else { i0 };
-                                            match c {
-                                                c if c == T::from(0) => None,
-                                                c if c == T::from(1) => {
-                                                    Some(FieldElementExpression::identifier(id))
-                                                }
-                                                _ => Some(FieldElementExpression::Mult(
-                                                    box FieldElementExpression::Number(c),
-                                                    box FieldElementExpression::identifier(id),
-                                                )),
-                                            }
+                                            let i0 = match factors.contains(&i0) {
+                                                true => FieldElementExpression::Number(T::from(1)),
+                                                false => FieldElementExpression::identifier(i0),
+                                            };
+                                            let i1 = match factors.contains(&i1) {
+                                                true => FieldElementExpression::Number(T::from(1)),
+                                                false => FieldElementExpression::identifier(i1),
+                                            };
+                                            FieldElementExpression::Mult(
+                                                box FieldElementExpression::Number(c),
+                                                box FieldElementExpression::Mult(box i0, box i1),
+                                            )
                                         })
-                                        .reduce(|p, n| FieldElementExpression::Add(box p, box n))
-                                        .unwrap_or_else(|| {
-                                            FieldElementExpression::Number(T::from(0))
-                                        }),
-                                    box FieldElementExpression::identifier(id),
+                                        .fold(
+                                            FieldElementExpression::Number(T::from(0)),
+                                            |acc, e| FieldElementExpression::Add(box acc, box e),
+                                        ),
+                                    box factors.into_iter().fold(
+                                        FieldElementExpression::Number(T::from(1)),
+                                        |acc, id| {
+                                            FieldElementExpression::Mult(
+                                                box acc,
+                                                box FieldElementExpression::identifier(id),
+                                            )
+                                        },
+                                    ),
                                 )),
-                                _ => Err(Error(
+                                None => Err(Error(
                                     "Non-quadratic constraints are not allowed".to_string(),
                                 )),
                             }?
@@ -143,6 +146,15 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                                 })
                                 .unwrap_or_else(|| FieldElementExpression::Number(T::from(0)))
                         };
+
+                        let mut propagator = ZirPropagator::default();
+                        let lhs = propagator
+                            .fold_field_expression(lhs)
+                            .map_err(|e| Error(e.to_string()))?;
+
+                        let rhs = propagator
+                            .fold_field_expression(rhs)
+                            .map_err(|e| Error(e.to_string()))?;
 
                         Ok(ZirAssemblyStatement::Constraint(lhs, rhs))
                     }

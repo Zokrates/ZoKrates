@@ -1,6 +1,6 @@
 {
   "curves": ["Bn128"],
-  "max_constraint_count": 2,
+  "max_constraint_count": 3,
   "tests": [
     {
       "input": {
@@ -14,11 +14,13 @@
     },
     {
       "input": {
-        "values": ["4", "0"]
+        "values": ["0", "0"]
       },
       "output": {
         "Err": {
-          "Solver": "Assertion failed: `Division by zero`"
+          "UnsatisfiedConstraint": {
+            "error": "SourceAssemblyConstraint"
+          }
         }
       }
     }

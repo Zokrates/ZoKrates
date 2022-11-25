@@ -5,7 +5,8 @@ def main(field x) -> bool {
     asm {
         x * (x - 1) === 0;
     }
-    // we can treat `x` as `bool` afterwards, as we constrained it properly
+    // we can convert `x` to `bool` afterwards, as we constrained it properly
+    // if we failed to constrain `x` to `0` or `1`, the call to `field_to_bool_unsafe` introduces undefined behavior
     // `field_to_bool_unsafe` call does not produce any extra constraints
     bool out = field_to_bool_unsafe(x);
     return out;

@@ -1,8 +1,6 @@
-from "EMBED" import bool_to_field;
-
 def main(bool x) -> field {
     // `x` is constrained by the compiler automatically so we can safely
-    //  treat it as `field` with no extra cost
-    field out = bool_to_field(x);
+    //  convert to `field` with no extra cost
+    field out = x ? 1 : 0;
     return out;
 }

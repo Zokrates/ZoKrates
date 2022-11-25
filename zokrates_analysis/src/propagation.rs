@@ -12,7 +12,7 @@ use num_bigint::BigUint;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use std::ops::{BitAnd, BitOr, BitXor, Mul, Shr, Sub};
+use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr, Sub};
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::Type;
@@ -402,7 +402,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     true => {
                         let r: Option<TypedExpression<'ast, T>> = match embed_call.embed {
                             FlatEmbed::FieldToBoolUnsafe => Ok(None), // todo
-                            FlatEmbed::BoolToField => Ok(None),       // todo
                             FlatEmbed::BitArrayLe => Ok(None),        // todo
                             FlatEmbed::U64FromBits => Ok(Some(process_u_from_bits(
                                 &embed_call.arguments,
@@ -874,6 +873,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             T::try_from(n1.to_biguint().bitxor(n2.to_biguint())).unwrap(),
                         ))
                     }
+                    (FieldElementExpression::Number(n), e)
+                    | (e, FieldElementExpression::Number(n))
+                        if n == T::from(0) =>
+                    {
+                        Ok(e)
+                    }
                     (e1, e2) if e1.eq(&e2) => Ok(FieldElementExpression::Number(T::from(0))),
                     (e1, e2) => Ok(FieldElementExpression::Xor(box e1, box e2)),
                 }
@@ -948,8 +953,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         let mask: BigUint = two.pow(T::get_required_bits()).sub(1usize);
 
                         Ok(FieldElementExpression::Number(
-                            T::try_from(n.to_biguint().mul(two.pow(by as usize)).bitand(mask))
-                                .unwrap(),
+                            T::try_from(n.to_biguint().shl(by as usize).bitand(mask)).unwrap(),
                         ))
                     }
                     (e, by) => Ok(FieldElementExpression::LeftShift(box e, box by)),

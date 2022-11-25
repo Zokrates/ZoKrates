@@ -259,7 +259,7 @@ mod tests {
 
             let interpreter = zokrates_interpreter::Interpreter::default();
 
-            let res = interpreter.execute(artifacts.prog(), &[Bn128Field::from(0u32)]);
+            let res = interpreter.execute(artifacts.prog(), &[Bn128Field::from(0)]);
 
             assert!(res.is_err());
         }

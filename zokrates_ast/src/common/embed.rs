@@ -32,7 +32,6 @@ cfg_if::cfg_if! {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum FlatEmbed {
     FieldToBoolUnsafe,
-    BoolToField,
     BitArrayLe,
     Unpack,
     U8ToBits,
@@ -55,9 +54,6 @@ impl FlatEmbed {
             FlatEmbed::FieldToBoolUnsafe => UnresolvedSignature::new()
                 .inputs(vec![UnresolvedType::FieldElement.into()])
                 .output(UnresolvedType::Boolean.into()),
-            FlatEmbed::BoolToField => UnresolvedSignature::new()
-                .inputs(vec![UnresolvedType::Boolean.into()])
-                .output(UnresolvedType::FieldElement.into()),
             FlatEmbed::BitArrayLe => UnresolvedSignature::new()
                 .generics(vec![ConstantGenericNode::mock("N")])
                 .inputs(vec![
@@ -197,9 +193,6 @@ impl FlatEmbed {
             FlatEmbed::FieldToBoolUnsafe => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
                 .output(DeclarationType::Boolean),
-            FlatEmbed::BoolToField => DeclarationSignature::new()
-                .inputs(vec![DeclarationType::Boolean])
-                .output(DeclarationType::FieldElement),
             FlatEmbed::BitArrayLe => DeclarationSignature::new()
                 .generics(vec![Some(DeclarationConstant::Generic(
                     GenericIdentifier::with_name("N").with_index(0),
@@ -307,7 +300,6 @@ impl FlatEmbed {
     pub fn id(&self) -> &'static str {
         match self {
             FlatEmbed::FieldToBoolUnsafe => "_FIELD_TO_BOOL_UNSAFE",
-            FlatEmbed::BoolToField => "_BOOL_TO_FIELD",
             FlatEmbed::BitArrayLe => "_BIT_ARRAY_LT",
             FlatEmbed::Unpack => "_UNPACK",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",

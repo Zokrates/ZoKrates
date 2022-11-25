@@ -2,7 +2,7 @@ use num::traits::Pow;
 use num_bigint::BigUint;
 use std::collections::HashMap;
 use std::fmt;
-use std::ops::{BitAnd, BitOr, BitXor, Mul, Shr, Sub};
+use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr, Sub};
 use zokrates_ast::zir::types::UBitwidth;
 use zokrates_ast::zir::{
     result_folder::*, Conditional, ConditionalExpression, ConditionalOrExpression, Expr, Id,
@@ -334,8 +334,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                         let mask: BigUint = two.pow(T::get_required_bits()).sub(1usize);
 
                         Ok(FieldElementExpression::Number(
-                            T::try_from(n.to_biguint().mul(two.pow(by as usize)).bitand(mask))
-                                .unwrap(),
+                            T::try_from(n.to_biguint().shl(by as usize).bitand(mask)).unwrap(),
                         ))
                     }
                     (e, by) => Ok(FieldElementExpression::LeftShift(box e, box by)),

@@ -1,14 +1,17 @@
 use crate::zir::{FieldElementExpression, Identifier};
 use zokrates_field::Field;
 
+pub type LinearTerm<'ast, T> = (T, Identifier<'ast>);
+pub type QuadraticTerm<'ast, T> = (T, Identifier<'ast>, Identifier<'ast>);
+
 #[derive(Clone, PartialEq, Hash, Eq, Debug, Default)]
 pub struct LinQuadComb<'ast, T> {
     // the constant terms
     pub constant: T,
     // the linear terms
-    pub linear: Vec<(T, Identifier<'ast>)>,
+    pub linear: Vec<LinearTerm<'ast, T>>,
     // the quadratic terms
-    pub quadratic: Vec<(T, Identifier<'ast>, Identifier<'ast>)>,
+    pub quadratic: Vec<QuadraticTerm<'ast, T>>,
 }
 
 impl<'ast, T: Field> std::ops::Add for LinQuadComb<'ast, T> {

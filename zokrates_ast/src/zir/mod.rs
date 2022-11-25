@@ -166,7 +166,8 @@ pub enum ZirStatement<'ast, T> {
         FormatString,
         Vec<(ConcreteType, Vec<ZirExpression<'ast, T>>)>,
     ),
-    Assembly(#[serde(borrow)] Vec<ZirAssemblyStatement<'ast, T>>),
+    #[serde(borrow)]
+    Assembly(Vec<ZirAssemblyStatement<'ast, T>>),
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {

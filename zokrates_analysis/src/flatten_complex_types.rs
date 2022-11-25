@@ -458,6 +458,27 @@ impl<'ast, T: Field> Flattener<T> {
     }
 }
 
+// This finder looks for identifiers that were not defined in some block of statements
+// These identifiers are used as function arguments when moving witness assignment expression
+// to a zir function.
+//
+// Example:
+// def main(field a, field mut b) -> field {
+//     asm {
+//         b <== a * a;
+//     }
+//     return b;
+// }
+// is turned into
+// def main(field a, field mut b) -> field {
+//     asm {
+//         b <-- (field a) -> field {
+//             return a * a;
+//         }
+//         b == a * a;
+//     }
+//     return b;
+// }
 #[derive(Default)]
 pub struct ArgumentFinder<'ast, T> {
     pub identifiers: HashMap<zir::Identifier<'ast>, zir::Type>,

@@ -1804,10 +1804,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e = match checked_e {
                     TypedExpression::FieldElement(e) => Ok(e),
                     TypedExpression::Int(e) => Ok(FieldElementExpression::try_from_int(e).unwrap()),
-                    _ => Err(ErrorInner {
+                    e => Err(ErrorInner {
                         pos: Some(pos),
-                        message: "Only field element expressions are allowed in the assembly block"
-                            .to_string(),
+                        message: format!("The right hand side of an assembly assignment must be of type field, found {}", e.get_type())
                     }),
                 }?;
 
@@ -1819,9 +1818,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 TypedAssemblyStatement::Assignment(assignee.clone(), e.clone()),
                                 TypedAssemblyStatement::Constraint(assignee.into(), e),
                             ]),
-                            _ => Err(ErrorInner {
+                            ty => Err(ErrorInner {
                                 pos: Some(pos),
-                                message: "Assignee must be of type `field`".to_string(),
+                                message: format!("Assignee must be of type field, found {}", ty),
                             }),
                         }
                     }
@@ -1849,10 +1848,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         FieldElementExpression::try_from_int(lhs).unwrap(),
                         FieldElementExpression::try_from_int(rhs).unwrap(),
                     )),
-                    _ => Err(ErrorInner {
+                    (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
-                        message: "Only field element expressions are allowed in the assembly block"
-                            .to_string(),
+                        message: format!(
+                            "Assembly constraint expected expressions of type field, found {}, {}",
+                            e1.get_type(),
+                            e2.get_type()
+                        ),
                     }),
                 }?;
 
@@ -1873,14 +1875,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Statement::Assembly(statements) => {
                 let mut checked_statements = vec![];
                 for s in statements {
-                    checked_statements.push(
+                    checked_statements.extend(
                         self.check_assembly_statement(s, module_id, types)
                             .map_err(|e| vec![e])?,
                     );
                 }
-                Ok(TypedStatement::Assembly(
-                    checked_statements.into_iter().flatten().collect(),
-                ))
+                Ok(TypedStatement::Assembly(checked_statements))
             }
             Statement::Log(l, expressions) => {
                 let l = FormatString::from(l);
