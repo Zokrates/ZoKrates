@@ -1,5 +1,6 @@
 pub mod groth16;
 pub mod plonk;
+pub mod solidity_renderer;
 
 extern crate bellman_ce as bellman;
 
