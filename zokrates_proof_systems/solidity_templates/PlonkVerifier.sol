@@ -775,7 +775,7 @@ contract Plonk4VerifierWithAccessToDNext {
     }
 }
 
-contract KeyedVerifier is Plonk4VerifierWithAccessToDNext {
+contract Verifier is Plonk4VerifierWithAccessToDNext {
     uint256 constant SERIALIZED_PROOF_LENGTH = 33;
 
     function get_verification_key() internal pure returns(VerificationKey memory vk) {
