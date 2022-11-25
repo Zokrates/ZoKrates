@@ -1,4 +1,4 @@
-pragma solidity >=0.5.0 <0.7.0;
+pragma solidity ^0.8.0;
 
 library PairingsBn254 {
     uint256 constant q_mod = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
@@ -8,7 +8,7 @@ library PairingsBn254 {
     struct G1Point {
         uint256 X;
         uint256 Y;
-    } 
+    }
     
     struct Fr {
         uint256 value;
