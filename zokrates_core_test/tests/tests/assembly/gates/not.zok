@@ -1,7 +1,7 @@
 def main(field inp) -> field {
     field mut out = 0;
     asm {
-        out <== 1 + inp - 2*inp;
+        out <== 1 - inp;
     }
     return out;
 }

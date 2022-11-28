@@ -1,6 +1,0 @@
-def main(bool x) -> field {
-    // `x` is constrained by the compiler automatically so we can safely
-    //  convert to `field` with no extra cost
-    field out = x ? 1 : 0;
-    return out;
-}

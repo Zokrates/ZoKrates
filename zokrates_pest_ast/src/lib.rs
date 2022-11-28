@@ -433,25 +433,20 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, PartialEq, Eq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_asm))]
     pub enum AssignmentOperator {
-        Assign,
-        AssignConstrain,
+        Assign(AssignOperator),
+        AssignConstrain(AssignConstrainOperator),
     }
 
-    impl<'ast> FromPest<'ast> for AssignmentOperator {
-        type Rule = Rule;
-        type FatalError = Void;
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_asm_assign))]
+    pub struct AssignOperator;
 
-        fn from_pest(pest: &mut Pairs<'ast, Rule>) -> Result<Self, ConversionError<Void>> {
-            let pair = pest.next().ok_or(::from_pest::ConversionError::NoMatch)?;
-            match pair.as_rule() {
-                Rule::op_asm_assign => Ok(AssignmentOperator::Assign),
-                Rule::op_asm_assign_constrain => Ok(AssignmentOperator::AssignConstrain),
-                _ => Err(ConversionError::NoMatch),
-            }
-        }
-    }
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_asm_assign_constrain))]
+    pub struct AssignConstrainOperator;
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::asm_assignment))]

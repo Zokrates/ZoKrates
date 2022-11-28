@@ -73,11 +73,3 @@ This call is unsafe because it is the responsibility of the user to constrain th
 ```zok
 {{#include ../../../zokrates_cli/examples/book/assembly/field_to_bool.zok}}
 ```
-
-### bool_to_field
-
-This call is safe as `bool` types are constrained by the compiler:
-
-```zok
-{{#include ../../../zokrates_cli/examples/book/assembly/bool_to_field.zok}}
-```

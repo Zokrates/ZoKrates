@@ -68,11 +68,12 @@ assertion_statement = {"assert" ~ "(" ~ expression ~ ("," ~ quoted_string)? ~ ")
 
 op_asm_assign = @{"<--"}
 op_asm_assign_constrain = @{"<=="}
+op_asm = { op_asm_assign | op_asm_assign_constrain }
 
-asm_assignment = { assignee ~ (op_asm_assign | op_asm_assign_constrain) ~ expression }
+asm_assignment = { assignee ~ op_asm ~ expression }
 asm_constraint = { expression ~ "===" ~ expression }
 
-asm_statement_inner = { (asm_assignment | asm_constraint) ~ semicolon ~ NEWLINE* }
+asm_statement_inner = { (asm_assignment | asm_constraint) ~ semicolon }
 asm_statement = { "asm" ~ "{" ~ NEWLINE* ~ asm_statement_inner* ~ NEWLINE* ~ "}" }
 
 typed_identifier_or_assignee = { typed_identifier | assignee }

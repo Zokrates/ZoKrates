@@ -353,7 +353,7 @@ impl<'ast> From<pest::AssemblyStatement<'ast>> for untyped::StatementNode<'ast> 
                     untyped::AssemblyStatement::Assignment(
                         a.assignee.into(),
                         a.expression.into(),
-                        matches!(a.operator, pest::AssignmentOperator::AssignConstrain),
+                        matches!(a.operator, pest::AssignmentOperator::AssignConstrain(_)),
                     )
                     .span(a.span)
                 }

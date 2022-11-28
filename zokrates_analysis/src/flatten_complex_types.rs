@@ -551,7 +551,7 @@ fn fold_assembly_statement<'ast, T: Field>(
                     .into_iter()
                     .map(|(id, ty)| zir::Parameter {
                         id: zir::Variable::with_id_and_type(id, ty),
-                        private: false,
+                        private: true,
                     })
                     .collect(),
                 statements: statements_buffer,

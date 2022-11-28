@@ -283,11 +283,12 @@ struct Scope<'ast, T> {
 
 impl<'ast, T: Field> Scope<'ast, T> {
     // insert into the scope and return whether we are shadowing an existing variable
-    fn insert(
+    fn insert<I: Into<SourceIdentifier<'ast>>>(
         &mut self,
-        id: SourceIdentifier<'ast>,
+        id: I,
         info: IdentifierInfo<'ast, T, CoreIdentifier<'ast>>,
     ) -> bool {
+        let id = id.into();
         let existed = self
             .map
             .get(&id)
@@ -299,12 +300,12 @@ impl<'ast, T: Field> Scope<'ast, T> {
     }
 
     /// get the current version of this variable
-    fn get(
+    fn get<I: Into<SourceIdentifier<'ast>>>(
         &self,
-        id: &SourceIdentifier<'ast>,
+        id: I,
     ) -> Option<IdentifierInfo<'ast, T, CoreIdentifier<'ast>>> {
         self.map
-            .get(id)
+            .get(&id.into())
             .and_then(|versions| versions.values().next_back().cloned())
     }
 
@@ -700,7 +701,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     is_mutable: false,
                                 };
                                 assert_eq!(self.scope.level, 0);
-                                assert!(!self.scope.insert(id.into(), info));
+                                assert!(!self.scope.insert(id, info));
                                 assert!(state
                                     .constants
                                     .entry(module_id.to_path_buf())
@@ -896,7 +897,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             is_mutable: false,
                                         };
                                         assert_eq!(self.scope.level, 0);
-                                        assert!(!self.scope.insert(id.into(), info));
+                                        assert!(!self.scope.insert(id, info));
 
                                         state
                                             .constants
@@ -1084,14 +1085,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
         Ok(var)
     }
 
-    fn id_in_this_scope(&self, id: SourceIdentifier<'ast>) -> CoreIdentifier<'ast> {
+    fn id_in_this_scope<I: Into<SourceIdentifier<'ast>>>(&self, id: I) -> CoreIdentifier<'ast> {
         // in the semantic checker, 0 is top level, 1 is function level. For shadowing, we start with 0 at function level
         // hence the offset of 1
         assert!(
             self.scope.level > 0,
             "CoreIdentifier cannot be declared in the global scope"
         );
-        CoreIdentifier::from(ShadowedIdentifier::shadow(id, self.scope.level - 1))
+        CoreIdentifier::from(ShadowedIdentifier::shadow(id.into(), self.scope.level - 1))
     }
 
     fn check_function(
@@ -1132,18 +1133,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     // for declaration signatures, generics cannot be ignored
                     generics.0.insert(
                         generic.clone(),
-                        UExpression::identifier(
-                            self.id_in_this_scope(generic.name().into()).into(),
-                        )
-                        .annotate(UBitwidth::B32),
+                        UExpression::identifier(self.id_in_this_scope(generic.name()).into())
+                            .annotate(UBitwidth::B32),
                     );
 
                     //we don't have to check for conflicts here, because this was done when checking the signature
-                    self.insert_into_scope(
-                        generic.name().into(),
-                        Type::Uint(UBitwidth::B32),
-                        false,
-                    );
+                    self.insert_into_scope(generic.name(), Type::Uint(UBitwidth::B32), false);
                 }
 
                 for (arg, decl_ty) in funct.arguments.into_iter().zip(s.inputs.iter()) {
@@ -1162,7 +1157,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
 
                     let decl_v = DeclarationVariable::new(
-                        self.id_in_this_scope(arg.id.value.id.into()),
+                        self.id_in_this_scope(arg.id.value.id),
                         decl_ty.clone(),
                         arg.id.value.is_mutable,
                     );
@@ -1179,7 +1174,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         ty,
                         is_mutable,
                     };
-                    match self.scope.insert(id.into(), info) {
+                    match self.scope.insert(id, info) {
                         false => {}
                         true => {
                             errors.push(ErrorInner {
@@ -1669,10 +1664,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
             .map_err(|e| vec![e])?;
 
         // insert into the scope and ignore whether shadowing happened
-        self.insert_into_scope(v.value.id.into(), ty.clone(), v.value.is_mutable);
+        self.insert_into_scope(v.value.id, ty.clone(), v.value.is_mutable);
 
         Ok(Variable::new(
-            self.id_in_this_scope(v.value.id.into()),
+            self.id_in_this_scope(v.value.id),
             ty,
             v.value.is_mutable,
         ))
@@ -2004,10 +1999,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .map_err(|e| vec![e])?;
 
                 // insert the lhs into the scope and ignore whether shadowing happened
-                self.insert_into_scope(var.value.id.into(), var_ty.clone(), var.value.is_mutable);
+                self.insert_into_scope(var.value.id, var_ty.clone(), var.value.is_mutable);
 
                 let var = Variable::new(
-                    self.id_in_this_scope(var.value.id.into()),
+                    self.id_in_this_scope(var.value.id),
                     var_ty.clone(),
                     var.value.is_mutable,
                 );
@@ -2140,7 +2135,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let pos = assignee.pos();
         // check that the assignee is declared
         match assignee.value {
-            Assignee::Identifier(variable_name) => match self.scope.get(&variable_name.into()) {
+            Assignee::Identifier(variable_name) => match self.scope.get(&*variable_name) {
                 Some(info) => match info.is_mutable {
                     false => Err(ErrorInner {
                         pos: Some(assignee.pos()),
@@ -2449,7 +2444,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::BooleanConstant(b) => Ok(BooleanExpression::Value(b).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
-                match self.scope.get(&name.into()) {
+                match self.scope.get(&*name) {
                     Some(info) => {
                         let id = info.id;
                         match info.ty.clone() {
@@ -3715,9 +3710,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
     }
 
-    fn insert_into_scope(
+    fn insert_into_scope<I: Clone + Into<SourceIdentifier<'ast>>>(
         &mut self,
-        id: SourceIdentifier<'ast>,
+        id: I,
         ty: Type<'ast, T>,
         is_mutable: bool,
     ) -> bool {
@@ -4596,7 +4591,7 @@ mod tests {
 
         let mut scope = Scope::default();
         scope.insert(
-            std::borrow::Cow::Borrowed("b"),
+            "b",
             IdentifierInfo {
                 id: "b".into(),
                 ty: Type::FieldElement,
@@ -4843,19 +4838,12 @@ mod tests {
 
         let for_statements_checked = vec![TypedStatement::definition(
             typed::Variable::uint(
-                CoreIdentifier::Source(ShadowedIdentifier::shadow(
-                    std::borrow::Cow::Borrowed("a"),
-                    1,
-                )),
+                CoreIdentifier::Source(ShadowedIdentifier::shadow("a".into(), 1)),
                 UBitwidth::B32,
             )
             .into(),
             UExpression::identifier(
-                CoreIdentifier::Source(ShadowedIdentifier::shadow(
-                    std::borrow::Cow::Borrowed("i"),
-                    1,
-                ))
-                .into(),
+                CoreIdentifier::Source(ShadowedIdentifier::shadow("i".into(), 1)).into(),
             )
             .annotate(UBitwidth::B32)
             .into(),
@@ -4864,10 +4852,7 @@ mod tests {
         let foo_statements_checked = vec![
             TypedStatement::For(
                 typed::Variable::uint(
-                    CoreIdentifier::Source(ShadowedIdentifier::shadow(
-                        std::borrow::Cow::Borrowed("i"),
-                        1,
-                    )),
+                    CoreIdentifier::Source(ShadowedIdentifier::shadow("i".into(), 1)),
                     UBitwidth::B32,
                 ),
                 0u32.into(),
@@ -5413,14 +5398,7 @@ mod tests {
                     &TypeMap::new(),
                 );
             assert!(s2_checked.is_ok());
-            assert_eq!(
-                checker
-                    .scope
-                    .get(&std::borrow::Cow::Borrowed("a"))
-                    .unwrap()
-                    .ty,
-                DeclarationType::Boolean
-            );
+            assert_eq!(checker.scope.get("a").unwrap().ty, DeclarationType::Boolean);
         }
 
         #[test]
@@ -5478,10 +5456,7 @@ mod tests {
             let expected = vec![
                 TypedStatement::definition(
                     typed::Variable::new(
-                        CoreIdentifier::from(ShadowedIdentifier::shadow(
-                            std::borrow::Cow::Borrowed("a"),
-                            0,
-                        )),
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
                         Type::FieldElement,
                         true,
                     )
@@ -5490,10 +5465,7 @@ mod tests {
                 ),
                 TypedStatement::For(
                     typed::Variable::new(
-                        CoreIdentifier::from(ShadowedIdentifier::shadow(
-                            std::borrow::Cow::Borrowed("i"),
-                            1,
-                        )),
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("i".into(), 1)),
                         Type::Uint(UBitwidth::B32),
                         false,
                     ),
@@ -5502,10 +5474,7 @@ mod tests {
                     vec![
                         TypedStatement::definition(
                             typed::Variable::new(
-                                CoreIdentifier::from(ShadowedIdentifier::shadow(
-                                    std::borrow::Cow::Borrowed("a"),
-                                    0,
-                                )),
+                                CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
                                 Type::FieldElement,
                                 true,
                             )
@@ -5514,10 +5483,7 @@ mod tests {
                         ),
                         TypedStatement::definition(
                             typed::Variable::new(
-                                CoreIdentifier::from(ShadowedIdentifier::shadow(
-                                    std::borrow::Cow::Borrowed("a"),
-                                    1,
-                                )),
+                                CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 1)),
                                 Type::FieldElement,
                                 false,
                             )
@@ -5528,10 +5494,7 @@ mod tests {
                 ),
                 TypedStatement::definition(
                     typed::Variable::new(
-                        CoreIdentifier::from(ShadowedIdentifier::shadow(
-                            std::borrow::Cow::Borrowed("a"),
-                            0,
-                        )),
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
                         Type::FieldElement,
                         true,
                     )
