@@ -133,3 +133,155 @@ impl<'ast, T: Field> TryFrom<FieldElementExpression<'ast, T>> for LinQuadComb<'a
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::zir::Id;
+    use zokrates_field::Bn128Field;
+
+    #[test]
+    fn add() {
+        // (2 + 2*a)
+        let a = LinQuadComb::try_from(FieldElementExpression::Add(
+            box FieldElementExpression::Number(Bn128Field::from(2)),
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::Number(Bn128Field::from(2)),
+                box FieldElementExpression::identifier("a".into()),
+            ),
+        ))
+        .unwrap();
+
+        // (2 + 2*a*b)
+        let b = LinQuadComb::try_from(FieldElementExpression::Add(
+            box FieldElementExpression::Number(Bn128Field::from(2)),
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::Mult(
+                    box FieldElementExpression::Number(Bn128Field::from(2)),
+                    box FieldElementExpression::identifier("a".into()),
+                ),
+                box FieldElementExpression::identifier("b".into()),
+            ),
+        ))
+        .unwrap();
+
+        // (2 + 2*a) + (2 + 2*a*b) => 4 + 2*a + 2*a*b
+        let c = a + b;
+
+        assert_eq!(c.constant, Bn128Field::from(4));
+        assert_eq!(
+            c.linear,
+            vec![
+                (Bn128Field::from(2), "a".into()),
+                (Bn128Field::from(0), "a".into()),
+                (Bn128Field::from(0), "b".into())
+            ]
+        );
+        assert_eq!(
+            c.quadratic,
+            vec![(Bn128Field::from(2), "a".into(), "b".into())]
+        );
+    }
+
+    #[test]
+    fn sub() {
+        // (2 + 2*a)
+        let a = LinQuadComb::try_from(FieldElementExpression::Add(
+            box FieldElementExpression::Number(Bn128Field::from(2)),
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::Number(Bn128Field::from(2)),
+                box FieldElementExpression::identifier("a".into()),
+            ),
+        ))
+        .unwrap();
+
+        // (2 + 2*a*b)
+        let b = LinQuadComb::try_from(FieldElementExpression::Add(
+            box FieldElementExpression::Number(Bn128Field::from(2)),
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::Mult(
+                    box FieldElementExpression::Number(Bn128Field::from(2)),
+                    box FieldElementExpression::identifier("a".into()),
+                ),
+                box FieldElementExpression::identifier("b".into()),
+            ),
+        ))
+        .unwrap();
+
+        // (2 + 2*a) - (2 + 2*a*b) => 0 + 2*a + (-2)*a*b
+        let c = a - b;
+
+        assert_eq!(c.constant, Bn128Field::from(0));
+        assert_eq!(
+            c.linear,
+            vec![
+                (Bn128Field::from(2), "a".into()),
+                (Bn128Field::from(0), "a".into()),
+                (Bn128Field::from(0), "b".into())
+            ]
+        );
+        assert_eq!(
+            c.quadratic,
+            vec![(Bn128Field::from(-2), "a".into(), "b".into())]
+        );
+    }
+
+    #[test]
+    fn mult() {
+        // (2 + 2*a)
+        let a = LinQuadComb::try_from(FieldElementExpression::Add(
+            box FieldElementExpression::Number(Bn128Field::from(2)),
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::Number(Bn128Field::from(2)),
+                box FieldElementExpression::identifier("a".into()),
+            ),
+        ))
+        .unwrap();
+
+        // (2 + 2*b)
+        let b = LinQuadComb::try_from(FieldElementExpression::Add(
+            box FieldElementExpression::Number(Bn128Field::from(2)),
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::Number(Bn128Field::from(2)),
+                box FieldElementExpression::identifier("b".into()),
+            ),
+        ))
+        .unwrap();
+
+        // (2 + 2*a) * (2 + 2*b) => 4 + 4*b + 4*a + 4*a*b
+        let c = a.try_mul(b).unwrap();
+
+        assert_eq!(c.constant, Bn128Field::from(4));
+        assert_eq!(
+            c.linear,
+            vec![
+                (Bn128Field::from(4), "a".into()),
+                (Bn128Field::from(4), "b".into()),
+            ]
+        );
+        assert_eq!(
+            c.quadratic,
+            vec![(Bn128Field::from(4), "a".into(), "b".into())]
+        );
+    }
+
+    #[test]
+    fn mult_degree_error() {
+        // 2*a*b
+        let a = LinQuadComb::try_from(FieldElementExpression::Add(
+            box FieldElementExpression::Number(Bn128Field::from(2)),
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::identifier("a".into()),
+                box FieldElementExpression::identifier("b".into()),
+            ),
+        ))
+        .unwrap();
+
+        // 2*a*b
+        let b = a.clone();
+
+        // (2*a*b) * (2*a*b) would result in a higher degree than expected
+        let c = a.try_mul(b);
+        assert!(c.is_err());
+    }
+}

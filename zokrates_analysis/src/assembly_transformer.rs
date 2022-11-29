@@ -4,7 +4,7 @@
 use crate::ZirPropagator;
 use std::fmt;
 use zokrates_ast::zir::lqc::LinQuadComb;
-use zokrates_ast::zir::result_folder::{fold_field_expression, ResultFolder};
+use zokrates_ast::zir::result_folder::ResultFolder;
 use zokrates_ast::zir::{FieldElementExpression, Id, Identifier, ZirAssemblyStatement, ZirProgram};
 use zokrates_field::Field;
 
@@ -79,9 +79,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                         );
 
                         let rhs: FieldElementExpression<'ast, T> = if lqc.quadratic.len() > 1 {
-                            let common_factors = lqc.quadratic.iter().fold(
-                                None,
-                                |acc: Option<Vec<Identifier>>, (_, a, b)| {
+                            let common_factor = lqc
+                                .quadratic
+                                .iter()
+                                .fold(None, |acc: Option<Vec<Identifier>>, (_, a, b)| {
                                     Some(
                                         acc.map(|factors| {
                                             factors
@@ -91,42 +92,35 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                                         })
                                         .unwrap_or_else(|| vec![a.clone(), b.clone()]),
                                     )
-                                },
-                            );
+                                })
+                                .and_then(|mut v| v.pop());
 
-                            match common_factors {
-                                Some(factors) => Ok(FieldElementExpression::Mult(
+                            match common_factor {
+                                Some(factor) => Ok(FieldElementExpression::Mult(
                                     box lqc
                                         .quadratic
                                         .into_iter()
                                         .map(|(c, i0, i1)| {
                                             let c = T::zero() - c;
-                                            let i0 = match factors.contains(&i0) {
-                                                true => FieldElementExpression::Number(T::from(1)),
-                                                false => FieldElementExpression::identifier(i0),
-                                            };
-                                            let i1 = match factors.contains(&i1) {
-                                                true => FieldElementExpression::Number(T::from(1)),
-                                                false => FieldElementExpression::identifier(i1),
+                                            let e = match (i0, i1) {
+                                                (i0, i1) if factor.eq(&i0) => {
+                                                    FieldElementExpression::identifier(i1)
+                                                }
+                                                (i0, i1) if factor.eq(&i1) => {
+                                                    FieldElementExpression::identifier(i0)
+                                                }
+                                                _ => unreachable!(),
                                             };
                                             FieldElementExpression::Mult(
                                                 box FieldElementExpression::Number(c),
-                                                box FieldElementExpression::Mult(box i0, box i1),
+                                                box e,
                                             )
                                         })
                                         .fold(
                                             FieldElementExpression::Number(T::from(0)),
                                             |acc, e| FieldElementExpression::Add(box acc, box e),
                                         ),
-                                    box factors.into_iter().fold(
-                                        FieldElementExpression::Number(T::from(1)),
-                                        |acc, id| {
-                                            FieldElementExpression::Mult(
-                                                box acc,
-                                                box FieldElementExpression::identifier(id),
-                                            )
-                                        },
-                                    ),
+                                    box FieldElementExpression::identifier(factor),
                                 )),
                                 None => Err(Error(
                                     "Non-quadratic constraints are not allowed".to_string(),
@@ -162,20 +156,218 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
             }
         }
     }
+}
 
-    fn fold_field_expression(
-        &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
-        match e {
-            FieldElementExpression::And(_, _)
-            | FieldElementExpression::Or(_, _)
-            | FieldElementExpression::Xor(_, _)
-            | FieldElementExpression::LeftShift(_, _)
-            | FieldElementExpression::RightShift(_, _) => Err(Error(
-                format!("Found bitwise operation in expression `{}` of type `field` (only allowed in assembly assignment statement)", e)
-            )),
-            e => fold_field_expression(self, e),
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use zokrates_field::Bn128Field;
+
+    #[test]
+    fn quadratic() {
+        // x === a * b;
+        let lhs = FieldElementExpression::<Bn128Field>::identifier("x".into());
+        let rhs = FieldElementExpression::Mult(
+            box FieldElementExpression::identifier("a".into()),
+            box FieldElementExpression::identifier("b".into()),
+        );
+
+        let expected = ZirAssemblyStatement::Constraint(
+            FieldElementExpression::identifier("x".into()),
+            FieldElementExpression::Mult(
+                box FieldElementExpression::identifier("a".into()),
+                box FieldElementExpression::identifier("b".into()),
+            ),
+        );
+        let result = AssemblyTransformer
+            .fold_assembly_statement(ZirAssemblyStatement::Constraint(lhs, rhs))
+            .unwrap();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn non_quadratic() {
+        // x === ((a * b) * c);
+        let lhs = FieldElementExpression::<Bn128Field>::identifier("x".into());
+        let rhs = FieldElementExpression::Mult(
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::identifier("a".into()),
+                box FieldElementExpression::identifier("b".into()),
+            ),
+            box FieldElementExpression::identifier("c".into()),
+        );
+
+        let result =
+            AssemblyTransformer.fold_assembly_statement(ZirAssemblyStatement::Constraint(lhs, rhs));
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn transform() {
+        // x === 1 - a * b; --> (-1) + x === (((-1) * a) * b);
+        let lhs = FieldElementExpression::identifier("x".into());
+        let rhs = FieldElementExpression::Sub(
+            box FieldElementExpression::Number(Bn128Field::from(1)),
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::identifier("a".into()),
+                box FieldElementExpression::identifier("b".into()),
+            ),
+        );
+
+        let expected = ZirAssemblyStatement::Constraint(
+            FieldElementExpression::Add(
+                box FieldElementExpression::Number(Bn128Field::from(-1)),
+                box FieldElementExpression::identifier("x".into()),
+            ),
+            FieldElementExpression::Mult(
+                box FieldElementExpression::Mult(
+                    box FieldElementExpression::Number(Bn128Field::from(-1)),
+                    box FieldElementExpression::identifier("a".into()),
+                ),
+                box FieldElementExpression::identifier("b".into()),
+            ),
+        );
+
+        let result = AssemblyTransformer
+            .fold_assembly_statement(ZirAssemblyStatement::Constraint(lhs, rhs))
+            .unwrap();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn factorize() {
+        // x === (a * b) + (b * c);  -->  x === ((a + c) * b);
+        let lhs = FieldElementExpression::<Bn128Field>::identifier("x".into());
+        let rhs = FieldElementExpression::Add(
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::identifier("a".into()),
+                box FieldElementExpression::identifier("b".into()),
+            ),
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::identifier("b".into()),
+                box FieldElementExpression::identifier("c".into()),
+            ),
+        );
+
+        let expected = ZirAssemblyStatement::Constraint(
+            FieldElementExpression::identifier("x".into()),
+            FieldElementExpression::Mult(
+                box FieldElementExpression::Add(
+                    box FieldElementExpression::identifier("a".into()),
+                    box FieldElementExpression::identifier("c".into()),
+                ),
+                box FieldElementExpression::identifier("b".into()),
+            ),
+        );
+        let result = AssemblyTransformer
+            .fold_assembly_statement(ZirAssemblyStatement::Constraint(lhs, rhs))
+            .unwrap();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn transform_complex() {
+        // mid = b*c;
+        // x === a+b+c - 2*a*b - 2*a*c - 2*mid + 4*a*mid; // x === a ^ b ^ c
+        // -->
+        // ((((x + ((-1)*a)) + ((-1)*b)) + ((-1)*c)) + (2*mid)) === (((((-2)*b) + ((-2)*c)) + (4*mid)) * a);
+        let lhs = FieldElementExpression::<Bn128Field>::identifier("x".into());
+        let rhs = FieldElementExpression::Add(
+            box FieldElementExpression::Sub(
+                box FieldElementExpression::Sub(
+                    box FieldElementExpression::Sub(
+                        box FieldElementExpression::Add(
+                            box FieldElementExpression::Add(
+                                box FieldElementExpression::identifier("a".into()),
+                                box FieldElementExpression::identifier("b".into()),
+                            ),
+                            box FieldElementExpression::identifier("c".into()),
+                        ),
+                        box FieldElementExpression::Mult(
+                            box FieldElementExpression::Mult(
+                                box FieldElementExpression::Number(Bn128Field::from(2)),
+                                box FieldElementExpression::identifier("a".into()),
+                            ),
+                            box FieldElementExpression::identifier("b".into()),
+                        ),
+                    ),
+                    box FieldElementExpression::Mult(
+                        box FieldElementExpression::Mult(
+                            box FieldElementExpression::Number(Bn128Field::from(2)),
+                            box FieldElementExpression::identifier("a".into()),
+                        ),
+                        box FieldElementExpression::identifier("c".into()),
+                    ),
+                ),
+                box FieldElementExpression::Mult(
+                    box FieldElementExpression::Number(Bn128Field::from(2)),
+                    box FieldElementExpression::identifier("mid".into()),
+                ),
+            ),
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::Mult(
+                    box FieldElementExpression::Number(Bn128Field::from(4)),
+                    box FieldElementExpression::identifier("a".into()),
+                ),
+                box FieldElementExpression::identifier("mid".into()),
+            ),
+        );
+
+        let lhs_expected = FieldElementExpression::Add(
+            box FieldElementExpression::Add(
+                box FieldElementExpression::Add(
+                    box FieldElementExpression::Add(
+                        box FieldElementExpression::identifier("x".into()),
+                        box FieldElementExpression::Mult(
+                            box FieldElementExpression::Number(Bn128Field::from(-1)),
+                            box FieldElementExpression::identifier("a".into()),
+                        ),
+                    ),
+                    box FieldElementExpression::Mult(
+                        box FieldElementExpression::Number(Bn128Field::from(-1)),
+                        box FieldElementExpression::identifier("b".into()),
+                    ),
+                ),
+                box FieldElementExpression::Mult(
+                    box FieldElementExpression::Number(Bn128Field::from(-1)),
+                    box FieldElementExpression::identifier("c".into()),
+                ),
+            ),
+            box FieldElementExpression::Mult(
+                box FieldElementExpression::Number(Bn128Field::from(2)),
+                box FieldElementExpression::identifier("mid".into()),
+            ),
+        );
+
+        let rhs_expected = FieldElementExpression::Mult(
+            box FieldElementExpression::Add(
+                box FieldElementExpression::Add(
+                    box FieldElementExpression::Mult(
+                        box FieldElementExpression::Number(Bn128Field::from(-2)),
+                        box FieldElementExpression::identifier("b".into()),
+                    ),
+                    box FieldElementExpression::Mult(
+                        box FieldElementExpression::Number(Bn128Field::from(-2)),
+                        box FieldElementExpression::identifier("c".into()),
+                    ),
+                ),
+                box FieldElementExpression::Mult(
+                    box FieldElementExpression::Number(Bn128Field::from(4)),
+                    box FieldElementExpression::identifier("mid".into()),
+                ),
+            ),
+            box FieldElementExpression::identifier("a".into()),
+        );
+
+        let expected = ZirAssemblyStatement::Constraint(lhs_expected, rhs_expected);
+        let result = AssemblyTransformer
+            .fold_assembly_statement(ZirAssemblyStatement::Constraint(lhs, rhs))
+            .unwrap();
+
+        assert_eq!(result, expected);
     }
 }

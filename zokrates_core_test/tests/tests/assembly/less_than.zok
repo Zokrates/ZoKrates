@@ -4,7 +4,7 @@ from "./bitify" import bitify;
 
 def less_than<N>(field a, field b) -> bool {
     assert(N < FIELD_SIZE_IN_BITS - 1);
-    field[N + 1] bits = bitify(a + (1f << N) - b);
+    field[N + 1] bits = bitify(a + 2**N - b);
     bool out = field_to_bool_unsafe(1 - bits[N]);
     return out;
 }
