@@ -2229,16 +2229,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         stat: ZirAssemblyStatement<'ast, T>,
     ) {
         match stat {
-            ZirAssemblyStatement::Assignment(assignees, function) => {
-                let outputs: Vec<Variable> = assignees
-                    .iter()
-                    .map(|a| {
-                        self.layout
-                            .get(&a.id)
-                            .cloned()
-                            .unwrap_or_else(|| self.use_variable(a))
-                    })
-                    .collect();
+            ZirAssemblyStatement::Assignment(assignee, function) => {
+                let outputs: Vec<Variable> = vec![self
+                    .layout
+                    .get(&assignee.id)
+                    .cloned()
+                    .unwrap_or_else(|| self.use_variable(&assignee))];
                 let inputs: Vec<FlatExpression<T>> = function
                     .arguments
                     .iter()

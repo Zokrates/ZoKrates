@@ -31,9 +31,9 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
     fn fold_assembly_statement(
         &mut self,
         s: ZirAssemblyStatement<'ast, T>,
-    ) -> Result<ZirAssemblyStatement<'ast, T>, Self::Error> {
+    ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
         match s {
-            ZirAssemblyStatement::Assignment(_, _) => Ok(s),
+            ZirAssemblyStatement::Assignment(_, _) => Ok(vec![s]),
             ZirAssemblyStatement::Constraint(lhs, rhs) => {
                 let lhs = self.fold_field_expression(lhs)?;
                 let rhs = self.fold_field_expression(rhs)?;
@@ -53,7 +53,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                 };
 
                 match is_quadratic {
-                    true => Ok(ZirAssemblyStatement::Constraint(lhs, rhs)),
+                    true => Ok(vec![ZirAssemblyStatement::Constraint(lhs, rhs)]),
                     false => {
                         let sub = FieldElementExpression::Sub(box lhs, box rhs);
                         let mut lqc = LinQuadComb::try_from(sub.clone()).map_err(|_| {
@@ -156,7 +156,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                             .fold_field_expression(rhs)
                             .map_err(|e| Error(e.to_string()))?;
 
-                        Ok(ZirAssemblyStatement::Constraint(lhs, rhs))
+                        Ok(vec![ZirAssemblyStatement::Constraint(lhs, rhs)])
                     }
                 }
             }

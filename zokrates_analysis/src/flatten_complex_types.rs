@@ -528,7 +528,10 @@ fn fold_assembly_statement<'ast, T: Field>(
     match s {
         typed::TypedAssemblyStatement::Assignment(a, e) => {
             let mut statements_buffer: Vec<zir::ZirStatement<'ast, T>> = vec![];
-            let a = f.fold_assignee(a);
+            let mut a = f.fold_assignee(a);
+            assert_eq!(a.len(), 1);
+            let a = a.pop().unwrap();
+            assert_eq!(a.get_type(), zir::Type::FieldElement);
             let e = f.fold_field_expression(&mut statements_buffer, e);
             statements_buffer.push(zir::ZirStatement::Return(vec![
                 zir::ZirExpression::FieldElement(e),
@@ -545,7 +548,7 @@ fn fold_assembly_statement<'ast, T: Field>(
             let function = zir::ZirFunction {
                 signature: zir::types::Signature::default()
                     .inputs(finder.identifiers.values().cloned().collect())
-                    .outputs(a.iter().map(|a| a.get_type()).collect()),
+                    .outputs(vec![a.get_type()]),
                 arguments: finder
                     .identifiers
                     .into_iter()

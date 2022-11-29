@@ -263,7 +263,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     fn fold_assembly_statement(
         &mut self,
         s: TypedAssemblyStatement<'ast, T>,
-    ) -> TypedAssemblyStatement<'ast, T> {
+    ) -> Vec<TypedAssemblyStatement<'ast, T>> {
         fold_assembly_statement(self, s)
     }
 
@@ -525,15 +525,18 @@ pub fn fold_definition_rhs<'ast, T: Field, F: Folder<'ast, T>>(
 pub fn fold_assembly_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: TypedAssemblyStatement<'ast, T>,
-) -> TypedAssemblyStatement<'ast, T> {
+) -> Vec<TypedAssemblyStatement<'ast, T>> {
     match s {
         TypedAssemblyStatement::Assignment(a, e) => {
-            TypedAssemblyStatement::Assignment(f.fold_assignee(a), f.fold_field_expression(e))
+            vec![TypedAssemblyStatement::Assignment(
+                f.fold_assignee(a),
+                f.fold_field_expression(e),
+            )]
         }
-        TypedAssemblyStatement::Constraint(lhs, rhs) => TypedAssemblyStatement::Constraint(
+        TypedAssemblyStatement::Constraint(lhs, rhs) => vec![TypedAssemblyStatement::Constraint(
             f.fold_field_expression(lhs),
             f.fold_field_expression(rhs),
-        ),
+        )],
     }
 }
 
@@ -564,7 +567,7 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
         TypedStatement::Assembly(statements) => TypedStatement::Assembly(
             statements
                 .into_iter()
-                .map(|s| f.fold_assembly_statement(s))
+                .flat_map(|s| f.fold_assembly_statement(s))
                 .collect(),
         ),
         s => s,

@@ -60,18 +60,55 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
     fn fold_assembly_statement(
         &mut self,
         s: ZirAssemblyStatement<'ast, T>,
-    ) -> Result<ZirAssemblyStatement<'ast, T>, Self::Error> {
+    ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
         match s {
-            ZirAssemblyStatement::Assignment(assignees, function) => {
-                for a in &assignees {
-                    self.constants.remove(&a.id);
+            ZirAssemblyStatement::Assignment(assignee, function) => {
+                let function = self.fold_function(function)?;
+
+                if function.statements.len() == 1 {
+                    let value = match &function.statements.last().unwrap() {
+                        ZirStatement::Return(values) => {
+                            assert_eq!(values.len(), 1);
+                            match values[0].clone() {
+                                ZirExpression::FieldElement(FieldElementExpression::Number(v)) => {
+                                    Some(v)
+                                }
+                                _ => None,
+                            }
+                        }
+                        _ => None,
+                    };
+
+                    match value {
+                        Some(v) => {
+                            self.constants
+                                .insert(assignee.id, FieldElementExpression::Number(v).into());
+                            Ok(vec![])
+                        }
+                        None => Ok(vec![ZirAssemblyStatement::Assignment(assignee, function)]),
+                    }
+                } else {
+                    Ok(vec![ZirAssemblyStatement::Assignment(assignee, function)])
                 }
-                Ok(ZirAssemblyStatement::Assignment(
-                    assignees,
-                    self.fold_function(function)?,
-                ))
             }
-            s => fold_assembly_statement(self, s),
+            ZirAssemblyStatement::Constraint(left, right) => {
+                let left = self.fold_field_expression(left)?;
+                let right = self.fold_field_expression(right)?;
+
+                // a bit hacky, but we use a fake boolean expression to check this
+                let is_equal = BooleanExpression::FieldEq(box left.clone(), box right.clone());
+                let is_equal = self.fold_boolean_expression(is_equal)?;
+
+                match is_equal {
+                    BooleanExpression::Value(true) => Ok(vec![]),
+                    BooleanExpression::Value(false) => {
+                        Err(Error::AssertionFailed(RuntimeError::SourceAssertion(
+                            format!("In asm block: `{} !== {}`", left, right),
+                        )))
+                    }
+                    _ => Ok(vec![ZirAssemblyStatement::Constraint(left, right)]),
+                }
+            }
         }
     }
 
@@ -146,6 +183,19 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     assignees,
                     self.fold_expression_list(list)?,
                 )])
+            }
+            ZirStatement::Assembly(statements) => {
+                let statements: Vec<_> = statements
+                    .into_iter()
+                    .map(|s| self.fold_assembly_statement(s))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                match statements.len() {
+                    0 => Ok(vec![]),
+                    _ => Ok(vec![ZirStatement::Assembly(statements)]),
+                }
             }
             _ => fold_statement(self, s),
         }

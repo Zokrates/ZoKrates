@@ -2135,7 +2135,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let pos = assignee.pos();
         // check that the assignee is declared
         match assignee.value {
-            Assignee::Identifier(variable_name) => match self.scope.get(&*variable_name) {
+            Assignee::Identifier(variable_name) => match self.scope.get(variable_name) {
                 Some(info) => match info.is_mutable {
                     false => Err(ErrorInner {
                         pos: Some(assignee.pos()),
@@ -2444,7 +2444,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::BooleanConstant(b) => Ok(BooleanExpression::Value(b).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
-                match self.scope.get(&*name) {
+                match self.scope.get(name) {
                     Some(info) => {
                         let id = info.id;
                         match info.ty.clone() {
