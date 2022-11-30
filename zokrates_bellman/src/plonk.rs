@@ -16,8 +16,8 @@ use crate::{parse_g1, parse_g2};
 use std::io::Cursor;
 use std::marker::PhantomData;
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
-use zokrates_proof_systems::plonk::{ProofPoints, VerificationKey};
-use zokrates_proof_systems::{Plonk, Scheme};
+use zokrates_proof_systems::plonk::{Plonk, ProofPoints, VerificationKey};
+use zokrates_proof_systems::Scheme;
 
 impl<T: Field + BellmanFieldExtensions> UniversalBackend<T, Plonk> for Bellman {
     fn universal_setup(size: u32) -> Vec<u8> {
@@ -131,7 +131,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, Plonk> for Bellman {
     }
 }
 
-pub fn deserialize_vk<T: Field + BellmanFieldExtensions>(
+fn deserialize_vk<T: Field + BellmanFieldExtensions>(
     vk: <Plonk as Scheme<T>>::VerificationKey,
 ) -> BellmanVerificationKey<T::BellmanEngine, PlonkCsWidth4WithNextStepParams> {
     BellmanVerificationKey {
@@ -205,7 +205,7 @@ fn serialize_vk<T: Field + BellmanFieldExtensions>(
     }
 }
 
-pub fn deserialize_proof<T: Field + BellmanFieldExtensions>(
+fn deserialize_proof<T: Field + BellmanFieldExtensions>(
     proof: Proof<T, Plonk>,
 ) -> BellmanProof<T::BellmanEngine, PlonkCsWidth4WithNextStepParams> {
     let inputs = proof.inputs;

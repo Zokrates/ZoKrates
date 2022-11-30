@@ -13,6 +13,7 @@ pub use self::gm17::GM17;
 pub use self::groth16::G16;
 pub use self::marlin::Marlin;
 pub use self::plonk::Plonk;
+
 pub trait Scheme<T: Field>: Serialize + fmt::Debug + Clone {
     const NAME: &'static str;
 
