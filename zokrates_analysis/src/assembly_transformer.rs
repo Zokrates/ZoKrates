@@ -39,6 +39,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                 let rhs = self.fold_field_expression(rhs)?;
 
                 let (is_quadratic, lhs, rhs) = match (lhs, rhs) {
+                    (
+                        lhs @ FieldElementExpression::Identifier(..),
+                        rhs @ FieldElementExpression::Identifier(..),
+                    ) => (true, lhs, rhs),
                     (FieldElementExpression::Mult(x, y), other)
                     | (other, FieldElementExpression::Mult(x, y))
                         if other.is_linear() =>

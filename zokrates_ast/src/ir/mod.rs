@@ -8,6 +8,7 @@ use std::hash::Hash;
 use zokrates_field::Field;
 
 mod check;
+mod clean;
 mod expression;
 pub mod folder;
 pub mod from_flat;
@@ -29,6 +30,8 @@ pub use self::witness::Witness;
 #[derive(Debug, Serialize, Deserialize, Clone, Derivative)]
 #[derivative(Hash, PartialEq, Eq)]
 pub enum Statement<'ast, T> {
+    #[serde(skip)]
+    Block(Vec<Statement<'ast, T>>),
     Constraint(
         QuadComb<T>,
         LinComb<T>,
@@ -82,6 +85,13 @@ impl<'ast, T: Field> fmt::Display for Directive<'ast, T> {
 impl<'ast, T: Field> fmt::Display for Statement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Statement::Block(ref statements) => {
+                writeln!(f, "{{")?;
+                for s in statements {
+                    writeln!(f, "{}", s)?;
+                }
+                write!(f, "}}")
+            }
             Statement::Constraint(ref quad, ref lin, ref error) => write!(
                 f,
                 "{} == {}{}",

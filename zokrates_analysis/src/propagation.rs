@@ -176,13 +176,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         }
     }
 
-    fn fold_function(
-        &mut self,
-        f: TypedFunction<'ast, T>,
-    ) -> Result<TypedFunction<'ast, T>, Error> {
-        fold_function(self, f)
-    }
-
     fn fold_conditional_expression<
         E: Expr<'ast, T> + Conditional<'ast, T> + PartialEq + ResultFold<'ast, T>,
     >(
@@ -219,9 +212,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         match s {
             TypedAssemblyStatement::Assignment(assignee, expr) => {
                 let assignee = self.fold_assignee(assignee)?;
-                let expr = self.fold_field_expression(expr)?;
-
-                let expr = TypedExpression::from(expr);
+                let expr = self.fold_expression(expr)?;
 
                 if expr.is_constant() {
                     match assignee {
@@ -241,8 +232,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                 // invalidate the cache for this identifier, and define the latest
                                 // version of the constant in the program, if any
                                 Some(c) => Ok(vec![
-                                    TypedAssemblyStatement::Assignment(v.clone().into(), c.into()),
-                                    TypedAssemblyStatement::Assignment(assignee, expr.into()),
+                                    TypedAssemblyStatement::Assignment(v.clone().into(), c),
+                                    TypedAssemblyStatement::Assignment(assignee, expr),
                                 ]),
                                 None => Ok(vec![TypedAssemblyStatement::Assignment(
                                     assignee,

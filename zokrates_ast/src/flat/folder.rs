@@ -54,6 +54,12 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     s: FlatStatement<'ast, T>,
 ) -> Vec<FlatStatement<'ast, T>> {
     match s {
+        FlatStatement::Block(statements) => vec![FlatStatement::Block(
+            statements
+                .into_iter()
+                .flat_map(|s| f.fold_statement(s))
+                .collect(),
+        )],
         FlatStatement::Condition(left, right, error) => vec![FlatStatement::Condition(
             f.fold_expression(left),
             f.fold_expression(right),

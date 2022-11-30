@@ -5,8 +5,8 @@ use std::fmt;
 use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr, Sub};
 use zokrates_ast::zir::types::UBitwidth;
 use zokrates_ast::zir::{
-    result_folder::*, Conditional, ConditionalExpression, ConditionalOrExpression, Expr, Id,
-    IdentifierExpression, IdentifierOrExpression, SelectExpression, SelectOrExpression,
+    result_folder::*, Conditional, ConditionalExpression, ConditionalOrExpression, Constant, Expr,
+    Id, IdentifierExpression, IdentifierOrExpression, SelectExpression, SelectOrExpression,
     ZirAssemblyStatement,
 };
 use zokrates_ast::zir::{
@@ -62,33 +62,37 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         s: ZirAssemblyStatement<'ast, T>,
     ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
         match s {
-            ZirAssemblyStatement::Assignment(assignee, function) => {
+            ZirAssemblyStatement::Assignment(assignees, function) => {
+                let assignees: Vec<_> = assignees
+                    .into_iter()
+                    .map(|a| self.fold_assignee(a))
+                    .collect::<Result<_, _>>()?;
+
                 let function = self.fold_function(function)?;
 
-                if function.statements.len() == 1 {
-                    let value = match &function.statements.last().unwrap() {
-                        ZirStatement::Return(values) => {
-                            assert_eq!(values.len(), 1);
-                            match values[0].clone() {
-                                ZirExpression::FieldElement(FieldElementExpression::Number(v)) => {
-                                    Some(v)
-                                }
-                                _ => None,
-                            }
-                        }
-                        _ => None,
-                    };
-
-                    match value {
-                        Some(v) => {
-                            self.constants
-                                .insert(assignee.id, FieldElementExpression::Number(v).into());
+                match &function.statements.last().unwrap() {
+                    ZirStatement::Return(values) => {
+                        if values.iter().all(|v| v.is_constant()) {
+                            self.constants.extend(
+                                assignees
+                                    .into_iter()
+                                    .zip(values.into_iter())
+                                    .map(|(a, v)| (a.id, v.clone())),
+                            );
                             Ok(vec![])
+                        } else {
+                            assignees.iter().for_each(|a| {
+                                self.constants.remove(&a.id);
+                            });
+                            Ok(vec![ZirAssemblyStatement::Assignment(assignees, function)])
                         }
-                        None => Ok(vec![ZirAssemblyStatement::Assignment(assignee, function)]),
                     }
-                } else {
-                    Ok(vec![ZirAssemblyStatement::Assignment(assignee, function)])
+                    _ => {
+                        assignees.iter().for_each(|a| {
+                            self.constants.remove(&a.id);
+                        });
+                        Ok(vec![ZirAssemblyStatement::Assignment(assignees, function)])
+                    }
                 }
             }
             ZirAssemblyStatement::Constraint(left, right) => {

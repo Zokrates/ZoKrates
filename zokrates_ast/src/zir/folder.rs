@@ -147,8 +147,8 @@ pub fn fold_assembly_statement<'ast, T: Field, F: Folder<'ast, T>>(
     s: ZirAssemblyStatement<'ast, T>,
 ) -> Vec<ZirAssemblyStatement<'ast, T>> {
     match s {
-        ZirAssemblyStatement::Assignment(assignee, function) => {
-            let assignees = f.fold_assignee(assignee);
+        ZirAssemblyStatement::Assignment(assignees, function) => {
+            let assignees = assignees.into_iter().map(|a| f.fold_assignee(a)).collect();
             let function = f.fold_function(function);
             vec![ZirAssemblyStatement::Assignment(assignees, function)]
         }

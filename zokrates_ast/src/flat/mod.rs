@@ -82,6 +82,7 @@ impl<'ast, T: Field> fmt::Display for FlatFunction<'ast, T> {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum FlatStatement<'ast, T> {
+    Block(Vec<FlatStatement<'ast, T>>),
     Condition(FlatExpression<T>, FlatExpression<T>, RuntimeError),
     Definition(Variable, FlatExpression<T>),
     Directive(FlatDirective<'ast, T>),
@@ -91,6 +92,13 @@ pub enum FlatStatement<'ast, T> {
 impl<'ast, T: Field> fmt::Display for FlatStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            FlatStatement::Block(ref statements) => {
+                writeln!(f, "{{")?;
+                for s in statements {
+                    writeln!(f, "{}", s)?;
+                }
+                writeln!(f, "}}")
+            }
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             FlatStatement::Condition(ref lhs, ref rhs, ref message) => {
                 write!(f, "{} == {} // {}", lhs, rhs, message)
@@ -122,6 +130,12 @@ impl<'ast, T: Field> FlatStatement<'ast, T> {
         substitution: &'ast HashMap<Variable, Variable>,
     ) -> FlatStatement<T> {
         match self {
+            FlatStatement::Block(statements) => FlatStatement::Block(
+                statements
+                    .into_iter()
+                    .map(|s| s.apply_substitution(substitution))
+                    .collect(),
+            ),
             FlatStatement::Definition(id, x) => FlatStatement::Definition(
                 *id.apply_substitution(substitution),
                 x.apply_substitution(substitution),

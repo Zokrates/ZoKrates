@@ -530,7 +530,7 @@ pub fn fold_assembly_statement<'ast, T: Field, F: Folder<'ast, T>>(
         TypedAssemblyStatement::Assignment(a, e) => {
             vec![TypedAssemblyStatement::Assignment(
                 f.fold_assignee(a),
-                f.fold_field_expression(e),
+                f.fold_expression(e),
             )]
         }
         TypedAssemblyStatement::Constraint(lhs, rhs) => vec![TypedAssemblyStatement::Constraint(

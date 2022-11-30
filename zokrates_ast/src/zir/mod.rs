@@ -119,7 +119,10 @@ impl RuntimeError {
 
 #[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
 pub enum ZirAssemblyStatement<'ast, T> {
-    Assignment(#[serde(borrow)] ZirAssignee<'ast>, ZirFunction<'ast, T>),
+    Assignment(
+        #[serde(borrow)] Vec<ZirAssignee<'ast>>,
+        ZirFunction<'ast, T>,
+    ),
     Constraint(
         FieldElementExpression<'ast, T>,
         FieldElementExpression<'ast, T>,
@@ -130,7 +133,15 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ZirAssemblyStatement::Assignment(ref lhs, ref rhs) => {
-                write!(f, "{} <-- {}", lhs, rhs)
+                write!(
+                    f,
+                    "{} <-- {}",
+                    lhs.iter()
+                        .map(|a| a.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    rhs
+                )
             }
             ZirAssemblyStatement::Constraint(ref lhs, ref rhs) => {
                 write!(f, "{} === {}", lhs, rhs)
@@ -899,5 +910,38 @@ impl IntoType for Type {
 impl IntoType for UBitwidth {
     fn into_type(self) -> Type {
         Type::Uint(self)
+    }
+}
+
+pub trait Constant: Sized {
+    // return whether this is constant
+    fn is_constant(&self) -> bool;
+}
+
+impl<'ast, T: Field> Constant for ZirExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        match self {
+            ZirExpression::FieldElement(e) => e.is_constant(),
+            ZirExpression::Boolean(e) => e.is_constant(),
+            ZirExpression::Uint(e) => e.is_constant(),
+        }
+    }
+}
+
+impl<'ast, T: Field> Constant for FieldElementExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, FieldElementExpression::Number(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for BooleanExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, BooleanExpression::Value(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for UExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self.as_inner(), UExpressionInner::Value(..))
     }
 }

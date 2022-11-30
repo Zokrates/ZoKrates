@@ -130,7 +130,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
     ) -> Vec<TypedAssemblyStatement<'ast, T>> {
         match s {
             TypedAssemblyStatement::Assignment(a, e) => {
-                let e = self.fold_field_expression(e);
+                let e = self.fold_expression(e);
                 let a = match a {
                     TypedAssignee::Identifier(v) => {
                         let v = self.issue_next_ssa_variable(v);

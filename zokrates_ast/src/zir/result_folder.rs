@@ -164,10 +164,13 @@ pub fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     s: ZirAssemblyStatement<'ast, T>,
 ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, F::Error> {
     Ok(match s {
-        ZirAssemblyStatement::Assignment(assignee, function) => {
-            let assignee = f.fold_assignee(assignee)?;
+        ZirAssemblyStatement::Assignment(assignees, function) => {
+            let assignees = assignees
+                .into_iter()
+                .map(|a| f.fold_assignee(a))
+                .collect::<Result<_, _>>()?;
             let function = f.fold_function(function)?;
-            vec![ZirAssemblyStatement::Assignment(assignee, function)]
+            vec![ZirAssemblyStatement::Assignment(assignees, function)]
         }
         ZirAssemblyStatement::Constraint(lhs, rhs) => {
             let lhs = f.fold_field_expression(lhs)?;

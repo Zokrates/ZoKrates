@@ -1810,7 +1810,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let e = FieldElementExpression::block(vec![], e);
                         match assignee.get_type() {
                             Type::FieldElement => Ok(vec![
-                                TypedAssemblyStatement::Assignment(assignee.clone(), e.clone()),
+                                TypedAssemblyStatement::Assignment(
+                                    assignee.clone(),
+                                    e.clone().into(),
+                                ),
                                 TypedAssemblyStatement::Constraint(assignee.into(), e),
                             ]),
                             ty => Err(ErrorInner {
@@ -1821,7 +1824,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     false => {
                         let e = FieldElementExpression::block(vec![], e);
-                        Ok(vec![TypedAssemblyStatement::Assignment(assignee, e)])
+                        Ok(vec![TypedAssemblyStatement::Assignment(assignee, e.into())])
                     }
                 }
             }

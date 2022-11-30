@@ -199,8 +199,11 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     log::debug!("Optimise IR");
     let optimized_ir_prog = optimize(ir_prog);
 
+    // clean (remove blocks)
+    let clean_ir_prog = optimized_ir_prog.clean();
+
     Ok(CompilationArtifacts {
-        prog: optimized_ir_prog,
+        prog: clean_ir_prog,
         abi,
     })
 }

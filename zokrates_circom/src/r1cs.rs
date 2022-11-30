@@ -72,6 +72,7 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<Variable>, usize, Vec<Const
     for (quad, lin) in prog.statements.iter().filter_map(|s| match s {
         Statement::Constraint(quad, lin, _) => Some((quad, lin)),
         Statement::Directive(..) => None,
+        Statement::Block(..) => unreachable!(),
         Statement::Log(..) => None,
     }) {
         for (k, _) in &quad.left.0 {
@@ -95,6 +96,7 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<Variable>, usize, Vec<Const
     // second pass to convert program to raw sparse vectors
     for (quad, lin) in prog.statements.into_iter().filter_map(|s| match s {
         Statement::Constraint(quad, lin, _) => Some((quad, lin)),
+        Statement::Block(..) => unreachable!(),
         Statement::Directive(..) => None,
         Statement::Log(..) => None,
     }) {
