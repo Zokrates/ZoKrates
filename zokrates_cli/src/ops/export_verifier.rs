@@ -4,7 +4,6 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
-use zokrates_bellman::plonk_proving_scheme::Plonk;
 use zokrates_common::helpers::{CurveParameter, SchemeParameter};
 use zokrates_field::Bn128Field;
 use zokrates_proof_systems::*;

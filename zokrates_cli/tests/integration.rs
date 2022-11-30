@@ -21,12 +21,9 @@ mod integration {
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
     use zokrates_ast::typed::abi::Abi;
-    use zokrates_bellman::plonk_proving_scheme::Plonk;
-    use zokrates_bellman::Bellman;
     use zokrates_field::Bn128Field;
-    use zokrates_proof_systems::Backend;
     use zokrates_proof_systems::{
-        to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17,
+        to_token::ToToken, Marlin, Plonk, Proof, SolidityCompatibleScheme, G16, GM17,
         SOLIDITY_G2_ADDITION_LIB,
     };
 

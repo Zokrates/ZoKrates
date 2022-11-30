@@ -10,14 +10,14 @@ use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 use zokrates_proof_systems::{Backend, Proof, SetupKeypair, UniversalBackend};
 
-use crate::plonk_proving_scheme::{Plonk, ProofPoints, VerificationKey};
 use crate::Computation;
 use crate::{parse_fr, serialization, Bellman};
 use crate::{parse_g1, parse_g2};
 use std::io::Cursor;
 use std::marker::PhantomData;
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
-use zokrates_proof_systems::Scheme;
+use zokrates_proof_systems::plonk::{ProofPoints, VerificationKey};
+use zokrates_proof_systems::{Plonk, Scheme};
 
 impl<T: Field + BellmanFieldExtensions> UniversalBackend<T, Plonk> for Bellman {
     fn universal_setup(size: u32) -> Vec<u8> {

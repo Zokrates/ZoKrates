@@ -19,13 +19,6 @@ rand_0_4 = { version = "0.4", package = "rand" }#
 getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
 hex = "0.4.2"
 
-# Used by solidity renderer
-serde = { version = "1.0", features = ["derive"] }
-handlebars = "3.*"
-serde_json = "1.*"
-web3 = {version = "0.8.*", default_features = false }
-ethabi = "17.0.0"
-
 [dev-dependencies]
 zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", features = ["bellman"] }
 

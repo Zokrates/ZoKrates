@@ -7,7 +7,6 @@ use std::path::Path;
 #[cfg(feature = "ark")]
 use zokrates_ark::Ark;
 #[cfg(feature = "bellman")]
-use zokrates_bellman::plonk_proving_scheme::Plonk;
 use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
