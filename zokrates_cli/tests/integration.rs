@@ -8,7 +8,6 @@ extern crate zokrates_solidity_test;
 
 #[cfg(test)]
 mod integration {
-    use ethabi::Token;
     use fs_extra::copy_items;
     use fs_extra::dir::CopyOptions;
     use pretty_assertions::assert_eq;
@@ -372,6 +371,7 @@ mod integration {
         src: String,
         proof: Proof<Bn128Field, S>,
     ) {
+        use ethabi::Token;
         use rand_0_8::{rngs::StdRng, SeedableRng};
         use zokrates_solidity_test::{address::*, contract::*, evm::*, to_be_bytes};
 
