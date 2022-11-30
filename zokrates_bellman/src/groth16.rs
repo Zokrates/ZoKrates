@@ -7,15 +7,12 @@ use bellman::pairing::{ff::to_hex, CurveAffine, Engine};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 use zokrates_proof_systems::{
-    Backend, G1Affine, G2Affine, MpcBackend, NonUniversalBackend, Proof, SetupKeypair,
+    Backend, G1Affine, G2Affine, NonUniversalBackend, Proof, SetupKeypair,
 };
 
 use crate::Bellman;
 use crate::Computation;
 use crate::{parse_g1, parse_g2, serialization};
-use phase2::MPCParameters;
-use rand_0_4::Rng;
-use std::io::{Read, Write};
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_proof_systems::groth16::{ProofPoints, VerificationKey, G16};
 use zokrates_proof_systems::Scheme;

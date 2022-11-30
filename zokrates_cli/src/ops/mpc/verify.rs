@@ -4,9 +4,8 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 use zokrates_ast::ir::{self, ProgEnum};
-use zokrates_bellman::Bellman;
 use zokrates_field::{BellmanFieldExtensions, Field};
-use zokrates_proof_systems::{MpcBackend, MpcScheme, G16};
+use zokrates_proof_systems::{MpcBackend, MpcScheme};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("verify")
