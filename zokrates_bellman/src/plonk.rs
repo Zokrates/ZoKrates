@@ -172,6 +172,12 @@ pub fn deserialize_vk<T: Field + BellmanFieldExtensions>(
 fn serialize_vk<T: Field + BellmanFieldExtensions>(
     vk: BellmanVerificationKey<T::BellmanEngine, PlonkCsWidth4WithNextStepParams>,
 ) -> <Plonk as Scheme<T>>::VerificationKey {
+    let domain = bellman::plonk::domains::Domain::<
+        <T::BellmanEngine as bellman::pairing::ff::ScalarEngine>::Fr,
+    >::new_for_size(vk.n.next_power_of_two() as u64)
+    .unwrap();
+    let omega = parse_fr::<T>(&domain.generator);
+
     VerificationKey {
         n: vk.n as u32,
         num_inputs: vk.num_inputs as u32,
@@ -195,6 +201,7 @@ fn serialize_vk<T: Field + BellmanFieldExtensions>(
             .try_into()
             .map_err(|_| ())
             .unwrap(),
+        omega: omega,
     }
 }
 

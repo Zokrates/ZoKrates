@@ -7,9 +7,8 @@ use zokrates_proof_systems::{
 };
 // use regex::Regex;
 use serde::{Deserialize, Serialize};
-use zokrates_field::{BellmanFieldExtensions, Bn128Field, Field};
+use zokrates_field::{Bn128Field, Field};
 
-use crate::plonk::deserialize_vk;
 use crate::solidity_renderer::render_verification_key;
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
@@ -24,6 +23,9 @@ pub struct VerificationKey<G1, G2> {
     pub permutation_commitments: Vec<G1>,
     pub non_residues: Vec<Fr>,
     pub g2_elements: [G2; 2],
+
+    // The omega can be computed from n and the generator of Fr and is redundant.
+    pub omega: Fr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -56,7 +58,7 @@ impl SolidityCompatibleScheme<Bn128Field> for Plonk {
     type Proof = Self::ProofPoints;
 
     fn export_solidity_verifier(vk: Self::VerificationKey) -> String {
-        render_verification_key(&deserialize_vk::<Bn128Field>(vk))
+        render_verification_key(&vk)
     }
 }
 
