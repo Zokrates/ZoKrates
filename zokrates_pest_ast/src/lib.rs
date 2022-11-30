@@ -433,7 +433,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::op_asm))]
     pub enum AssignmentOperator {
         Assign(AssignOperator),

@@ -35,7 +35,7 @@ impl fmt::Display for Error {
             Error::DivisionByZero => {
                 write!(f, "Division by zero detected in zir during static analysis",)
             }
-            Error::AssertionFailed(err) => write!(f, "Assertion failed: `{}`", err),
+            Error::AssertionFailed(err) => write!(f, "Assertion failed ({})", err),
         }
     }
 }

@@ -577,9 +577,7 @@ pub enum RuntimeError {
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RuntimeError::SourceAssertion(metadata) => {
-                write!(f, "Assertion failed at {}", metadata)
-            }
+            RuntimeError::SourceAssertion(metadata) => write!(f, "{}", metadata),
             RuntimeError::SelectRangeCheck => write!(f, "Range check on array access"),
             RuntimeError::DivisionByZero => write!(f, "Division by zero"),
         }
@@ -674,10 +672,10 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssemblyStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             TypedAssemblyStatement::Assignment(ref lhs, ref rhs) => {
-                write!(f, "{} <-- {}", lhs, rhs)
+                write!(f, "{} <-- {};", lhs, rhs)
             }
             TypedAssemblyStatement::Constraint(ref lhs, ref rhs, _) => {
-                write!(f, "{} === {}", lhs, rhs)
+                write!(f, "{} === {};", lhs, rhs)
             }
         }
     }
