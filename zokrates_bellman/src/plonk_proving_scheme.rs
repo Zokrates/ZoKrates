@@ -56,10 +56,6 @@ impl SolidityCompatibleScheme<Bn128Field> for Plonk {
     type Proof = Self::ProofPoints;
 
     fn export_solidity_verifier(vk: Self::VerificationKey) -> String {
-        // TODO: Do this to compile the template into the binary
-        // String::from(include_str!("../../solidity_templates/PlonkVerifier.sol"))
-        // read_to_string("/Users/georg/coding/zoKrates-georg/zokrates_proof_systems/solidity_templates/PlonkVerifier.sol").unwrap()
-
         render_verification_key(&deserialize_vk::<Bn128Field>(vk))
     }
 }
@@ -132,9 +128,6 @@ impl ToToken<Bn128Field> for Plonk {
             opening_at_z_proof,
             opening_at_z_omega_proof,
         ];
-        for t in &proof_tokens {
-            println!("{:?}", t);
-        }
 
         Token::Tuple(proof_tokens)
     }
