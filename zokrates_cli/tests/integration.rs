@@ -18,7 +18,7 @@ mod integration {
     use std::fs::File;
     use std::io::{BufReader, Read};
     use std::panic;
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
     use zokrates_ast::typed::abi::Abi;
@@ -278,7 +278,6 @@ mod integration {
 
                 if setup.is_ok() {
                     // GENERATE-PROOF
-                    println!("generate-proof");
                     assert_cli::Assert::main_binary()
                         .with_args(&[
                             "generate-proof",
@@ -299,7 +298,6 @@ mod integration {
                         .unwrap();
 
                     // CLI VERIFICATION
-                    println!("verifiy");
                     assert_cli::Assert::main_binary()
                         .with_args(&[
                             "verify",
@@ -314,7 +312,6 @@ mod integration {
                         .unwrap();
 
                     // EXPORT-VERIFIER
-                    println!("export_verifier");
                     assert_cli::Assert::main_binary()
                         .with_args(&[
                             "export-verifier",
@@ -328,13 +325,11 @@ mod integration {
 
                     // TEST VERIFIER
                     // Get the contract
-                    println!("validate solidity verifier");
                     let contract_str =
                         std::fs::read_to_string(verification_contract_path.to_str().unwrap())
                             .unwrap();
                     match *scheme {
                         "marlin" => {
-                            // Get the proof
                             let proof: Proof<Bn128Field, Marlin> = serde_json::from_reader(
                                 File::open(proof_path.to_str().unwrap()).unwrap(),
                             )
@@ -343,7 +338,6 @@ mod integration {
                             test_solidity_verifier(contract_str, proof);
                         }
                         "plonk" => {
-                            // Get the proof
                             let proof: Proof<Bn128Field, Plonk> = serde_json::from_reader(
                                 File::open(proof_path.to_str().unwrap()).unwrap(),
                             )
@@ -352,7 +346,6 @@ mod integration {
                             test_solidity_verifier(contract_str, proof);
                         }
                         "g16" => {
-                            // Get the proof
                             let proof: Proof<Bn128Field, G16> = serde_json::from_reader(
                                 File::open(proof_path.to_str().unwrap()).unwrap(),
                             )
@@ -361,7 +354,6 @@ mod integration {
                             test_solidity_verifier(contract_str, proof);
                         }
                         "gm17" => {
-                            // Get the proof
                             let proof: Proof<Bn128Field, GM17> = serde_json::from_reader(
                                 File::open(proof_path.to_str().unwrap()).unwrap(),
                             )
@@ -376,84 +368,10 @@ mod integration {
         }
     }
 
-    #[test]
-    fn test_solidity_verifier2() {
-        let proof: Proof<Bn128Field, Plonk> =
-            serde_json::from_reader(File::open("test_tmpdir/simple_add/proof.json").unwrap())
-                .unwrap();
-
-        let contract_str = std::fs::read_to_string("test_tmpdir/simple_add/verifier.sol").unwrap();
-
-        test_solidity_verifier(contract_str, proof);
-    }
-
-    #[test]
-    fn proof_verifies() {
-        let proof: Proof<Bn128Field, Plonk> = serde_json::from_reader(
-            File::open(
-                "/Users/georg/coding/zoKrates-georg/zokrates_cli/test_tmpdir/simple_add/proof.json",
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let vk =
-            serde_json::from_reader(File::open("/Users/georg/coding/zoKrates-georg/zokrates_cli/test_tmpdir/simple_add/verification.key").unwrap())
-                .unwrap();
-
-        let result = Bellman::verify(vk, proof);
-        println!("Proof valid: {}", result);
-        assert!(result);
-    }
-
-    fn print_token_in_remix_format(token: &Token) {
-        match *token {
-            Token::Bool(b) => print!("{}", b),
-            Token::String(ref s) => print!("{}", s),
-            Token::Address(ref a) => print!("0x{:x}", a),
-            Token::Bytes(ref bytes) | Token::FixedBytes(ref bytes) => {
-                print!("{}", hex::encode(&bytes))
-            }
-            Token::Uint(ref i) | Token::Int(ref i) => print!("0x{:x}", i),
-            Token::Array(ref arr) | Token::FixedArray(ref arr) => {
-                let s = arr
-                    .iter()
-                    .map(|ref t| format!("{}", t))
-                    .collect::<Vec<String>>()
-                    .join(",");
-
-                print!("[");
-                for (i, element) in arr.iter().enumerate() {
-                    print_token_in_remix_format(element);
-                    if i != arr.len() - 1 {
-                        print!(",");
-                    }
-                }
-                print!("]");
-            }
-            Token::Tuple(ref s) => {
-                // let s = s
-                //     .iter()
-                //     .map(|ref t| format!("{}", t))
-                //     .collect::<Vec<String>>()
-                //     .join(",");
-
-                print!("[");
-                for (i, element) in s.iter().enumerate() {
-                    print_token_in_remix_format(element);
-                    if i != s.len() - 1 {
-                        print!(",");
-                    }
-                }
-                print!("]");
-            }
-        }
-    }
-
     fn test_solidity_verifier<S: SolidityCompatibleScheme<Bn128Field> + ToToken<Bn128Field>>(
         src: String,
         proof: Proof<Bn128Field, S>,
     ) {
-        use ethabi::Token;
         use rand_0_8::{rngs::StdRng, SeedableRng};
         use zokrates_solidity_test::{address::*, contract::*, evm::*, to_be_bytes};
 
@@ -498,8 +416,6 @@ mod integration {
         // convert to tokens to build a call
         let proof_token = S::to_token(solidity_proof.clone());
 
-        println!("proof_token:\n{:?}\n\n", &proof_token);
-
         let input_token = Token::FixedArray(
             proof
                 .inputs
@@ -511,26 +427,7 @@ mod integration {
                 })
                 .collect::<Vec<_>>(),
         );
-        println!("input_token:\n{:?}\n\n", &input_token);
-        println!("/n");
-
-        print_token_in_remix_format(&proof_token);
-
-        println!("/n");
-
-        println!("inputs:\n[{}, {}]\n\n", &proof_token, input_token);
         let inputs = [proof_token, input_token.clone()];
-
-        let foo = contract
-            .encode_call_contract_bytes("verifyTx", &inputs)
-            .unwrap();
-        println!(
-            "Calldata:\n{}\n\n",
-            foo.iter()
-                .map(|x| format!("{:02x?}", x))
-                .collect::<Vec<String>>()
-                .join("")
-        );
 
         // Call verify function on contract
         let result = evm
@@ -542,8 +439,6 @@ mod integration {
                 &deployer,
             )
             .unwrap();
-
-        println!("{:?}", &result);
 
         assert_eq!(&result.out, &to_be_bytes(&U256::from(1)));
 
