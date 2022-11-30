@@ -5,13 +5,11 @@ use bellman::pairing::bn256::{Bn256, Fr};
 use bellman::pairing::ff::{PrimeField, PrimeFieldRepr};
 use bellman::pairing::{CurveAffine, Engine};
 use bellman::plonk::better_cs::cs::PlonkCsWidth4WithNextStepParams;
-use bellman::plonk::better_cs::keys::{Proof, VerificationKey};
+use bellman::plonk::better_cs::keys::VerificationKey;
 
 use handlebars::*;
 
 use serde_json::value::Map;
-
-use web3::types::U256;
 
 pub fn render_verification_key(
     vk: &VerificationKey<Bn256, PlonkCsWidth4WithNextStepParams>,
