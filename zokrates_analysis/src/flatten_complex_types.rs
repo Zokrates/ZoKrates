@@ -600,7 +600,6 @@ fn fold_statement<'ast, T: Field>(
                 }
                 typed::RuntimeError::SelectRangeCheck => zir::RuntimeError::SelectRangeCheck,
                 typed::RuntimeError::DivisionByZero => zir::RuntimeError::DivisionByZero,
-                _ => unreachable!(),
             };
             vec![zir::ZirStatement::Assertion(e, error)]
         }

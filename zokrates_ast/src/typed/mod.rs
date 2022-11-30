@@ -570,7 +570,6 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssignee<'ast, T> {
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub enum RuntimeError {
     SourceAssertion(SourceMetadata),
-    SourceAssemblyConstraint(SourceMetadata),
     SelectRangeCheck,
     DivisionByZero,
 }
@@ -580,9 +579,6 @@ impl fmt::Display for RuntimeError {
         match self {
             RuntimeError::SourceAssertion(metadata) => {
                 write!(f, "Assertion failed at {}", metadata)
-            }
-            RuntimeError::SourceAssemblyConstraint(metadata) => {
-                write!(f, "Unsatisfied constraint at {}", metadata)
             }
             RuntimeError::SelectRangeCheck => write!(f, "Range check on array access"),
             RuntimeError::DivisionByZero => write!(f, "Division by zero"),
