@@ -29,7 +29,15 @@
       "output": {
         "Err": {
           "UnsatisfiedConstraint": {
-            "error": "SourceAssemblyConstraint"
+            "error": {
+              "SourceAssemblyConstraint": {
+                "file": "tests/tests/embed/field_to_bool.zok",
+                "position": {
+                  "line": 5,
+                  "col": 9
+                }
+              }
+            }
           }
         }
       }

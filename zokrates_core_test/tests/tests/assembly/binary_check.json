@@ -29,7 +29,15 @@
       "output": {
         "Err": {
           "UnsatisfiedConstraint": {
-            "error": "SourceAssemblyConstraint"
+            "error": {
+              "SourceAssemblyConstraint": {
+                "file": "tests/tests/assembly/binary_check.zok",
+                "position": {
+                  "line": 3,
+                  "col": 9
+                }
+              }
+            }
           }
         }
       }

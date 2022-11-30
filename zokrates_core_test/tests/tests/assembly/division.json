@@ -19,7 +19,15 @@
       "output": {
         "Err": {
           "UnsatisfiedConstraint": {
-            "error": "SourceAssemblyConstraint"
+            "error": {
+              "SourceAssemblyConstraint": {
+                "file": "tests/tests/assembly/division.zok",
+                "position": {
+                  "line": 6,
+                  "col": 9
+                }
+              }
+            }
           }
         }
       }

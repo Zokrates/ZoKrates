@@ -25,7 +25,7 @@ pub type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>
 pub enum Error {
     Type(String),
     AssertionFailed(String),
-    ValueTooLarge(String),
+    InvalidValue(String),
     OutOfBounds(u128, u128),
 }
 
@@ -34,7 +34,7 @@ impl fmt::Display for Error {
         match self {
             Error::Type(s) => write!(f, "{}", s),
             Error::AssertionFailed(s) => write!(f, "{}", s),
-            Error::ValueTooLarge(s) => write!(f, "{}", s),
+            Error::InvalidValue(s) => write!(f, "{}", s),
             Error::OutOfBounds(index, size) => write!(
                 f,
                 "Out of bounds index ({} >= {}) found during static analysis",
@@ -401,8 +401,27 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 match embed_call.arguments.iter().all(|a| a.is_constant()) {
                     true => {
                         let r: Option<TypedExpression<'ast, T>> = match embed_call.embed {
-                            FlatEmbed::FieldToBoolUnsafe => Ok(None), // todo
-                            FlatEmbed::BitArrayLe => Ok(None),        // todo
+                            FlatEmbed::BitArrayLe => Ok(None), // todo
+                            FlatEmbed::FieldToBoolUnsafe => {
+                                match FieldElementExpression::try_from_typed(
+                                    embed_call.arguments[0].clone(),
+                                ) {
+                                    Ok(FieldElementExpression::Number(n)) if n == T::from(0) => {
+                                        Ok(Some(BooleanExpression::Value(false).into()))
+                                    }
+                                    Ok(FieldElementExpression::Number(n)) if n == T::from(1) => {
+                                        Ok(Some(BooleanExpression::Value(true).into()))
+                                    }
+                                    Ok(FieldElementExpression::Number(n)) => {
+                                        Err(Error::InvalidValue(format!(
+                                            "Cannot call `{}` with value `{}`: should be 0 or 1",
+                                            embed_call.embed.id(),
+                                            n
+                                        )))
+                                    }
+                                    _ => Ok(None),
+                                }
+                            }
                             FlatEmbed::U64FromBits => Ok(Some(process_u_from_bits(
                                 &embed_call.arguments,
                                 UBitwidth::B64,
@@ -460,7 +479,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                         }
 
                                         if acc != T::zero() {
-                                            Err(Error::ValueTooLarge(format!(
+                                            Err(Error::InvalidValue(format!(
                                                 "Cannot unpack `{}` to `{}`: value is too large",
                                                 num,
                                                 assignee.get_type()

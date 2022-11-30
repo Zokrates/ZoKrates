@@ -440,11 +440,11 @@ mod ast {
         AssignConstrain(AssignConstrainOperator),
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::op_asm_assign))]
     pub struct AssignOperator;
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::op_asm_assign_constrain))]
     pub struct AssignConstrainOperator;
 

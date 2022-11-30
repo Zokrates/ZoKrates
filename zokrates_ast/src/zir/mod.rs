@@ -11,7 +11,7 @@ mod variable;
 pub use self::parameter::Parameter;
 pub use self::types::{Type, UBitwidth};
 pub use self::variable::Variable;
-use crate::common::{FlatEmbed, FormatString};
+use crate::common::{FlatEmbed, FormatString, SourceMetadata};
 use crate::typed::ConcreteType;
 pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 
@@ -94,7 +94,7 @@ pub type ZirAssignee<'ast> = Variable<'ast>;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub enum RuntimeError {
-    SourceAssertion(String),
+    SourceAssertion(SourceMetadata),
     SelectRangeCheck,
     DivisionByZero,
     IncompleteDynamicRange,
@@ -103,7 +103,9 @@ pub enum RuntimeError {
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RuntimeError::SourceAssertion(message) => write!(f, "{}", message),
+            RuntimeError::SourceAssertion(metadata) => {
+                write!(f, "Assertion failed at {}", metadata)
+            }
             RuntimeError::SelectRangeCheck => write!(f, "Range check on array access"),
             RuntimeError::DivisionByZero => write!(f, "Division by zero"),
             RuntimeError::IncompleteDynamicRange => write!(f, "Dynamic comparison is incomplete"),
@@ -113,7 +115,7 @@ impl fmt::Display for RuntimeError {
 
 impl RuntimeError {
     pub fn mock() -> Self {
-        RuntimeError::SourceAssertion(String::default())
+        RuntimeError::SourceAssertion(SourceMetadata::default())
     }
 }
 
@@ -126,6 +128,7 @@ pub enum ZirAssemblyStatement<'ast, T> {
     Constraint(
         FieldElementExpression<'ast, T>,
         FieldElementExpression<'ast, T>,
+        SourceMetadata,
     ),
 }
 
@@ -143,7 +146,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
                     rhs
                 )
             }
-            ZirAssemblyStatement::Constraint(ref lhs, ref rhs) => {
+            ZirAssemblyStatement::Constraint(ref lhs, ref rhs, _) => {
                 write!(f, "{} === {}", lhs, rhs)
             }
         }

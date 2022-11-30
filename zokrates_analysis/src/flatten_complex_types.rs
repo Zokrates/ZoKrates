@@ -559,10 +559,10 @@ fn fold_assembly_statement<'ast, T: Field>(
 
             zir::ZirAssemblyStatement::Assignment(a, function)
         }
-        typed::TypedAssemblyStatement::Constraint(lhs, rhs) => {
+        typed::TypedAssemblyStatement::Constraint(lhs, rhs, metadata) => {
             let lhs = f.fold_field_expression(statements_buffer, lhs);
             let rhs = f.fold_field_expression(statements_buffer, rhs);
-            zir::ZirAssemblyStatement::Constraint(lhs, rhs)
+            zir::ZirAssemblyStatement::Constraint(lhs, rhs, metadata)
         }
     }
 }
@@ -596,10 +596,11 @@ fn fold_statement<'ast, T: Field>(
             let e = f.fold_boolean_expression(statements_buffer, e);
             let error = match error {
                 typed::RuntimeError::SourceAssertion(metadata) => {
-                    zir::RuntimeError::SourceAssertion(metadata.to_string())
+                    zir::RuntimeError::SourceAssertion(metadata)
                 }
                 typed::RuntimeError::SelectRangeCheck => zir::RuntimeError::SelectRangeCheck,
                 typed::RuntimeError::DivisionByZero => zir::RuntimeError::DivisionByZero,
+                _ => unreachable!(),
             };
             vec![zir::ZirStatement::Assertion(e, error)]
         }

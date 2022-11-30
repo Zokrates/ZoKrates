@@ -2248,13 +2248,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let directive = FlatDirective::new(outputs, Solver::Zir(function), inputs);
                 statements_flattened.push_back(FlatStatement::Directive(directive));
             }
-            ZirAssemblyStatement::Constraint(lhs, rhs) => {
+            ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {
                 let lhs = self.flatten_field_expression(statements_flattened, lhs);
                 let rhs = self.flatten_field_expression(statements_flattened, rhs);
                 statements_flattened.push_back(FlatStatement::Condition(
                     lhs,
                     rhs,
-                    RuntimeError::SourceAssemblyConstraint,
+                    RuntimeError::SourceAssemblyConstraint(metadata),
                 ));
             }
         }

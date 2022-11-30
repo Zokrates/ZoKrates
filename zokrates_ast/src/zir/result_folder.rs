@@ -172,10 +172,10 @@ pub fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
             let function = f.fold_function(function)?;
             ZirAssemblyStatement::Assignment(assignees, function)
         }
-        ZirAssemblyStatement::Constraint(lhs, rhs) => {
+        ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {
             let lhs = f.fold_field_expression(lhs)?;
             let rhs = f.fold_field_expression(rhs)?;
-            ZirAssemblyStatement::Constraint(lhs, rhs)
+            ZirAssemblyStatement::Constraint(lhs, rhs, metadata)
         }
     })
 }

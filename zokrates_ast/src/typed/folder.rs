@@ -530,10 +530,13 @@ pub fn fold_assembly_statement<'ast, T: Field, F: Folder<'ast, T>>(
         TypedAssemblyStatement::Assignment(a, e) => {
             TypedAssemblyStatement::Assignment(f.fold_assignee(a), f.fold_field_expression(e))
         }
-        TypedAssemblyStatement::Constraint(lhs, rhs) => TypedAssemblyStatement::Constraint(
-            f.fold_field_expression(lhs),
-            f.fold_field_expression(rhs),
-        ),
+        TypedAssemblyStatement::Constraint(lhs, rhs, metadata) => {
+            TypedAssemblyStatement::Constraint(
+                f.fold_field_expression(lhs),
+                f.fold_field_expression(rhs),
+                metadata,
+            )
+        }
     }
 }
 

@@ -8,7 +8,7 @@ use num_bigint::BigUint;
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
-use zokrates_ast::common::FormatString;
+use zokrates_ast::common::{FormatString, SourceMetadata};
 use zokrates_ast::typed::types::{GGenericsAssignment, GTupleType, GenericsAssignment};
 use zokrates_ast::typed::SourceIdentifier;
 use zokrates_ast::typed::*;
@@ -1811,7 +1811,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         match assignee.get_type() {
                             Type::FieldElement => Ok(vec![
                                 TypedAssemblyStatement::Assignment(assignee.clone(), e.clone()),
-                                TypedAssemblyStatement::Constraint(assignee.into(), e),
+                                TypedAssemblyStatement::Constraint(
+                                    assignee.into(),
+                                    e,
+                                    SourceMetadata::new(module_id.display().to_string(), pos.0),
+                                ),
                             ]),
                             ty => Err(ErrorInner {
                                 pos: Some(pos),
@@ -1853,7 +1857,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }?;
 
-                Ok(vec![TypedAssemblyStatement::Constraint(lhs, rhs)])
+                Ok(vec![TypedAssemblyStatement::Constraint(
+                    lhs,
+                    rhs,
+                    SourceMetadata::new(module_id.display().to_string(), pos.0),
+                )])
             }
         }
     }
@@ -2097,11 +2105,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match e {
                     TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(
                         e,
-                        RuntimeError::SourceAssertion(AssertionMetadata {
-                            file: module_id.display().to_string(),
-                            position: pos.0,
-                            message,
-                        }),
+                        RuntimeError::SourceAssertion(
+                            SourceMetadata::new(module_id.display().to_string(), pos.0)
+                                .message(message),
+                        ),
                     )),
                     e => Err(ErrorInner {
                         pos: Some(pos),

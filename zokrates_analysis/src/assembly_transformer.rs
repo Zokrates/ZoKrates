@@ -34,7 +34,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
     ) -> Result<ZirAssemblyStatement<'ast, T>, Self::Error> {
         match s {
             ZirAssemblyStatement::Assignment(_, _) => Ok(s),
-            ZirAssemblyStatement::Constraint(lhs, rhs) => {
+            ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {
                 let lhs = self.fold_field_expression(lhs)?;
                 let rhs = self.fold_field_expression(rhs)?;
 
@@ -53,7 +53,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                 };
 
                 match is_quadratic {
-                    true => Ok(ZirAssemblyStatement::Constraint(lhs, rhs)),
+                    true => Ok(ZirAssemblyStatement::Constraint(lhs, rhs, metadata)),
                     false => {
                         let sub = FieldElementExpression::Sub(box lhs, box rhs);
                         let mut lqc = LinQuadComb::try_from(sub.clone()).map_err(|_| {
@@ -82,18 +82,26 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                             let common_factor = lqc
                                 .quadratic
                                 .iter()
-                                .fold(None, |acc: Option<Vec<Identifier>>, (_, a, b)| {
-                                    Some(
-                                        acc.map(|factors| {
-                                            factors
-                                                .into_iter()
-                                                .filter(|f| f == a || f == b)
-                                                .collect()
-                                        })
-                                        .unwrap_or_else(|| vec![a.clone(), b.clone()]),
-                                    )
+                                .scan(None, |state: &mut Option<Vec<&Identifier>>, (_, a, b)| {
+                                    // short circuit if we do not have any common factors anymore
+                                    if *state == Some(vec![]) {
+                                        None
+                                    } else {
+                                        match state {
+                                            // only keep factors found in this term
+                                            Some(factors) => {
+                                                factors.retain(|&x| x == a || x == b);
+                                            }
+                                            // initialisation step, start with the two factors in the first term
+                                            None => {
+                                                *state = Some(vec![a, b]);
+                                            }
+                                        };
+                                        state.clone()
+                                    }
                                 })
-                                .and_then(|mut v| v.pop());
+                                .last()
+                                .and_then(|mut v| v.pop().cloned());
 
                             match common_factor {
                                 Some(factor) => Ok(FieldElementExpression::Mult(
@@ -150,7 +158,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                             .fold_field_expression(rhs)
                             .map_err(|e| Error(e.to_string()))?;
 
-                        Ok(ZirAssemblyStatement::Constraint(lhs, rhs))
+                        Ok(ZirAssemblyStatement::Constraint(lhs, rhs, metadata))
                     }
                 }
             }
@@ -161,6 +169,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use zokrates_ast::common::SourceMetadata;
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -178,9 +187,14 @@ mod tests {
                 box FieldElementExpression::identifier("a".into()),
                 box FieldElementExpression::identifier("b".into()),
             ),
+            SourceMetadata::default(),
         );
         let result = AssemblyTransformer
-            .fold_assembly_statement(ZirAssemblyStatement::Constraint(lhs, rhs))
+            .fold_assembly_statement(ZirAssemblyStatement::Constraint(
+                lhs,
+                rhs,
+                SourceMetadata::default(),
+            ))
             .unwrap();
 
         assert_eq!(result, expected);
@@ -198,8 +212,11 @@ mod tests {
             box FieldElementExpression::identifier("c".into()),
         );
 
-        let result =
-            AssemblyTransformer.fold_assembly_statement(ZirAssemblyStatement::Constraint(lhs, rhs));
+        let result = AssemblyTransformer.fold_assembly_statement(ZirAssemblyStatement::Constraint(
+            lhs,
+            rhs,
+            SourceMetadata::default(),
+        ));
 
         assert!(result.is_err());
     }
@@ -228,10 +245,15 @@ mod tests {
                 ),
                 box FieldElementExpression::identifier("b".into()),
             ),
+            SourceMetadata::default(),
         );
 
         let result = AssemblyTransformer
-            .fold_assembly_statement(ZirAssemblyStatement::Constraint(lhs, rhs))
+            .fold_assembly_statement(ZirAssemblyStatement::Constraint(
+                lhs,
+                rhs,
+                SourceMetadata::default(),
+            ))
             .unwrap();
 
         assert_eq!(result, expected);
@@ -261,9 +283,14 @@ mod tests {
                 ),
                 box FieldElementExpression::identifier("b".into()),
             ),
+            SourceMetadata::default(),
         );
         let result = AssemblyTransformer
-            .fold_assembly_statement(ZirAssemblyStatement::Constraint(lhs, rhs))
+            .fold_assembly_statement(ZirAssemblyStatement::Constraint(
+                lhs,
+                rhs,
+                SourceMetadata::default(),
+            ))
             .unwrap();
 
         assert_eq!(result, expected);
@@ -363,9 +390,14 @@ mod tests {
             box FieldElementExpression::identifier("a".into()),
         );
 
-        let expected = ZirAssemblyStatement::Constraint(lhs_expected, rhs_expected);
+        let expected =
+            ZirAssemblyStatement::Constraint(lhs_expected, rhs_expected, SourceMetadata::default());
         let result = AssemblyTransformer
-            .fold_assembly_statement(ZirAssemblyStatement::Constraint(lhs, rhs))
+            .fold_assembly_statement(ZirAssemblyStatement::Constraint(
+                lhs,
+                rhs,
+                SourceMetadata::default(),
+            ))
             .unwrap();
 
         assert_eq!(result, expected);
