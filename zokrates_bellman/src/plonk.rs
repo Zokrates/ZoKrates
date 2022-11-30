@@ -198,7 +198,7 @@ fn serialize_vk<T: Field + BellmanFieldExtensions>(
     }
 }
 
-fn deserialize_proof<T: Field + BellmanFieldExtensions>(
+pub fn deserialize_proof<T: Field + BellmanFieldExtensions>(
     proof: Proof<T, Plonk>,
 ) -> BellmanProof<T::BellmanEngine, PlonkCsWidth4WithNextStepParams> {
     let inputs = proof.inputs;

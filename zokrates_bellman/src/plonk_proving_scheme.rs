@@ -7,7 +7,7 @@ use zokrates_proof_systems::{
 };
 // use regex::Regex;
 use serde::{Deserialize, Serialize};
-use zokrates_field::Field;
+use zokrates_field::{BellmanFieldExtensions, Bn128Field, Field};
 
 use crate::plonk::deserialize_vk;
 use crate::solidity_renderer::render_verification_key;
@@ -52,18 +52,19 @@ impl<T: Field> Scheme<T> for Plonk {
 
 impl<T: Field> UniversalScheme<T> for Plonk {}
 
-impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Plonk {
+impl SolidityCompatibleScheme<Bn128Field> for Plonk {
     type Proof = Self::ProofPoints;
 
     fn export_solidity_verifier(vk: Self::VerificationKey) -> String {
         // TODO: Do this to compile the template into the binary
         // String::from(include_str!("../../solidity_templates/PlonkVerifier.sol"))
         // read_to_string("/Users/georg/coding/zoKrates-georg/zokrates_proof_systems/solidity_templates/PlonkVerifier.sol").unwrap()
-        render_verification_key(&deserialize_vk(vk))
+
+        render_verification_key(&deserialize_vk::<Bn128Field>(vk))
     }
 }
 
-impl<T: SolidityCompatibleField> ToToken<T> for Plonk {
+impl ToToken<Bn128Field> for Plonk {
     fn to_token(proof: Self::Proof) -> ethabi::Token {
         let wire_commitments = Token::FixedArray(
             proof

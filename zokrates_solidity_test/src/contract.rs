@@ -144,9 +144,9 @@ impl Contract {
                 let input_param_types: Vec<ethabi::ParamType> =
                     f[0].inputs.iter().map(|p| p.kind.clone()).collect();
                 let types_check = Token::types_check(input, &input_param_types);
-                println!("input_param_types: {:?}", &input_param_types);
-                println!("tokens: {:?}", input);
-                println!("verifies: {}", types_check);
+                // println!("input_param_types: {:?}", &input_param_types);
+                // println!("tokens: {:?}", input);
+                println!("Type check verifiers: {}", types_check);
 
                 let call_binary = f[0].encode_input(input).map_err(|_| {
                     Box::new(EvmTestError(

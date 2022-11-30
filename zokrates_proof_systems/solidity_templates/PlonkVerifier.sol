@@ -410,11 +410,15 @@ contract Plonk4VerifierWithAccessToDNext {
         tmp_2.mul_assign(dens[dens.length - 1]);
         tmp_2 = tmp_2.inverse(); // tmp_2 contains a^-1 * b^-1 (with! the last one)
         
-        for (uint i = dens.length - 1; i < dens.length; i--) {
+        for (uint i = dens.length - 1; true; i--) {
             tmp_1.assign(tmp_2); // all inversed
             tmp_1.mul_assign(partial_products[i]); // clear lowest terms
             tmp_2.mul_assign(dens[i]);
             dens[i].assign(tmp_1);
+
+            if (i == 0) {
+                break;
+            }
         }
         
         for (uint i = 0; i < nums.length; i++) {
@@ -739,6 +743,8 @@ contract Plonk4VerifierWithAccessToDNext {
         
         transcript.update_with_fr(proof.quotient_polynomial_at_z);
         transcript.update_with_fr(proof.linearization_polynomial_at_z);
+
+        transcript.update_with_fr(proof.grand_product_at_z_omega);
         
         state.v = transcript.get_challenge();
         transcript.update_with_g1(proof.opening_at_z_proof);
@@ -770,7 +776,7 @@ contract Plonk4VerifierWithAccessToDNext {
             return false;
         }
         
-        valid = verify_commitments(state, proof, input_values, vk);
+        valid = verify_commitments(state, proof, vk);
         
         return valid;
     }
@@ -857,10 +863,6 @@ contract Verifier is Plonk4VerifierWithAccessToDNext {
         uint256[] memory serialized_proof
     ) internal pure returns(Proof memory proof) {
         require(serialized_proof.length == SERIALIZED_PROOF_LENGTH);
-        proof.input_values = new uint256[](public_inputs.length);
-        for (uint256 i = 0; i < public_inputs.length; i++) {
-            proof.input_values[i] = public_inputs[i];
-        }
  
         uint256 j = 0;
         for (uint256 i = 0; i < STATE_WIDTH; i++) {
@@ -955,7 +957,7 @@ contract Verifier is Plonk4VerifierWithAccessToDNext {
         return valid;
     }
 
-    function verifyTx(Proof memory proof, uint256[{{input_length}}] memory input) public view returns (bool r)
+    function verifyTx(Proof memory proof, uint256[{{num_inputs}}] memory input) public view returns (bool r)
     {
         uint256[] memory inputs_dynamic_array = new uint256[](input.length);
         for (uint256 i = 0; i < input.length; i++) {
@@ -965,4 +967,4 @@ contract Verifier is Plonk4VerifierWithAccessToDNext {
         return verify(proof, inputs_dynamic_array, vk);
     }
 }
-}
+

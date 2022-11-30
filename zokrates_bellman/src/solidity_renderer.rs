@@ -80,7 +80,7 @@ pub fn render_verification_key(
 
     // register template from a file and assign a name to it
     handlebars
-        .register_template_file("contract", "./template.sol")
+        .register_template_file("contract", "/Users/georg/coding/zoKrates-georg/zokrates_proof_systems/solidity_templates/PlonkVerifier.sol")
         .expect("must read the template");
 
     // make data and render it

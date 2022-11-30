@@ -8,6 +8,7 @@ extern crate zokrates_solidity_test;
 
 #[cfg(test)]
 mod integration {
+    use ethabi::Token;
     use fs_extra::copy_items;
     use fs_extra::dir::CopyOptions;
     use pretty_assertions::assert_eq;
@@ -17,12 +18,14 @@ mod integration {
     use std::fs::File;
     use std::io::{BufReader, Read};
     use std::panic;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
     use zokrates_ast::typed::abi::Abi;
+    use zokrates_bellman::plonk_proving_scheme::Plonk;
+    use zokrates_bellman::Bellman;
     use zokrates_field::Bn128Field;
-    use zokrates_proof_systems::Plonk;
+    use zokrates_proof_systems::Backend;
     use zokrates_proof_systems::{
         to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17,
         SOLIDITY_G2_ADDITION_LIB,
@@ -377,6 +380,79 @@ mod integration {
         }
     }
 
+    #[test]
+    fn test_solidity_verifier2() {
+        let proof: Proof<Bn128Field, Plonk> =
+            serde_json::from_reader(File::open("test_tmpdir/simple_add/proof.json").unwrap())
+                .unwrap();
+
+        let contract_str = std::fs::read_to_string("test_tmpdir/simple_add/verifier.sol").unwrap();
+
+        test_solidity_verifier(contract_str, proof);
+    }
+
+    #[test]
+    fn proof_verifies() {
+        let proof: Proof<Bn128Field, Plonk> = serde_json::from_reader(
+            File::open(
+                "/Users/georg/coding/zoKrates-georg/zokrates_cli/test_tmpdir/simple_add/proof.json",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let vk =
+            serde_json::from_reader(File::open("/Users/georg/coding/zoKrates-georg/zokrates_cli/test_tmpdir/simple_add/verification.key").unwrap())
+                .unwrap();
+
+        let result = Bellman::verify(vk, proof);
+        println!("Proof valid: {}", result);
+        assert!(result);
+    }
+
+    fn print_token_in_remix_format(token: &Token) {
+        match *token {
+            Token::Bool(b) => print!("{}", b),
+            Token::String(ref s) => print!("{}", s),
+            Token::Address(ref a) => print!("0x{:x}", a),
+            Token::Bytes(ref bytes) | Token::FixedBytes(ref bytes) => {
+                print!("{}", hex::encode(&bytes))
+            }
+            Token::Uint(ref i) | Token::Int(ref i) => print!("0x{:x}", i),
+            Token::Array(ref arr) | Token::FixedArray(ref arr) => {
+                let s = arr
+                    .iter()
+                    .map(|ref t| format!("{}", t))
+                    .collect::<Vec<String>>()
+                    .join(",");
+
+                print!("[");
+                for (i, element) in arr.iter().enumerate() {
+                    print_token_in_remix_format(element);
+                    if i != arr.len() - 1 {
+                        print!(",");
+                    }
+                }
+                print!("]");
+            }
+            Token::Tuple(ref s) => {
+                // let s = s
+                //     .iter()
+                //     .map(|ref t| format!("{}", t))
+                //     .collect::<Vec<String>>()
+                //     .join(",");
+
+                print!("[");
+                for (i, element) in s.iter().enumerate() {
+                    print_token_in_remix_format(element);
+                    if i != s.len() - 1 {
+                        print!(",");
+                    }
+                }
+                print!("]");
+            }
+        }
+    }
+
     fn test_solidity_verifier<S: SolidityCompatibleScheme<Bn128Field> + ToToken<Bn128Field>>(
         src: String,
         proof: Proof<Bn128Field, S>,
@@ -426,7 +502,7 @@ mod integration {
         // convert to tokens to build a call
         let proof_token = S::to_token(solidity_proof.clone());
 
-        println!("proof_token:\n{:?}", &proof_token);
+        println!("proof_token:\n{:?}\n\n", &proof_token);
 
         let input_token = Token::FixedArray(
             proof
@@ -439,9 +515,26 @@ mod integration {
                 })
                 .collect::<Vec<_>>(),
         );
-        println!("input_token:\n{:?}", &input_token);
+        println!("input_token:\n{:?}\n\n", &input_token);
+        println!("/n");
 
+        print_token_in_remix_format(&proof_token);
+
+        println!("/n");
+
+        println!("inputs:\n[{}, {}]\n\n", &proof_token, input_token);
         let inputs = [proof_token, input_token.clone()];
+
+        let foo = contract
+            .encode_call_contract_bytes("verifyTx", &inputs)
+            .unwrap();
+        println!(
+            "Calldata:\n{}\n\n",
+            foo.iter()
+                .map(|x| format!("{:02x?}", x))
+                .collect::<Vec<String>>()
+                .join("")
+        );
 
         // Call verify function on contract
         let result = evm
@@ -476,7 +569,7 @@ mod integration {
             )
             .unwrap();
 
-        assert_eq!(result.op_out, Return::InvalidOpcode);
+        assert!(result.op_out == Return::InvalidOpcode || result.op_out == Return::Revert);
     }
 
     fn test_compile_and_smtlib2(
