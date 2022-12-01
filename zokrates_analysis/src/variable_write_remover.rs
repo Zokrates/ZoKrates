@@ -5,10 +5,21 @@
 //! @date 2018
 
 use std::collections::HashSet;
-use zokrates_ast::typed::folder::*;
+use std::fmt;
+use zokrates_ast::typed::result_folder::ResultFolder;
+use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::{MemberId, Type};
 use zokrates_ast::typed::*;
 use zokrates_field::Field;
+
+#[derive(Debug)]
+pub struct Error(String);
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 pub struct VariableWriteRemover;
 
@@ -17,7 +28,7 @@ impl<'ast> VariableWriteRemover {
         VariableWriteRemover
     }
 
-    pub fn apply<T: Field>(p: TypedProgram<T>) -> TypedProgram<T> {
+    pub fn apply<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
         let mut remover = VariableWriteRemover::new();
         remover.fold_program(p)
     }
@@ -452,14 +463,35 @@ fn is_constant<T>(assignee: &TypedAssignee<T>) -> bool {
     }
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
-    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+impl<'ast, T: Field> ResultFolder<'ast, T> for VariableWriteRemover {
+    type Error = Error;
+
+    fn fold_assembly_statement(
+        &mut self,
+        s: TypedAssemblyStatement<'ast, T>,
+    ) -> Result<TypedAssemblyStatement<'ast, T>, Self::Error> {
+        match s {
+            TypedAssemblyStatement::Assignment(a, e) if is_constant(&a) => {
+                Ok(TypedAssemblyStatement::Assignment(a, e))
+            }
+            TypedAssemblyStatement::Assignment(a, _) => Err(Error(format!(
+                "Cannot assign to an assignee with a variable index `{}`",
+                a
+            ))),
+            s => Ok(s),
+        }
+    }
+
+    fn fold_statement(
+        &mut self,
+        s: TypedStatement<'ast, T>,
+    ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
         match s {
             TypedStatement::Definition(assignee, DefinitionRhs::Expression(expr)) => {
-                let expr = self.fold_expression(expr);
+                let expr = self.fold_expression(expr)?;
 
                 if is_constant(&assignee) {
-                    vec![TypedStatement::definition(assignee, expr)]
+                    Ok(vec![TypedStatement::definition(assignee, expr)])
                 } else {
                     // Note: here we redefine the whole object, ideally we would only redefine some of it
                     // Example: `a[0][i] = 42` we redefine `a` but we could redefine just `a[0]`
@@ -486,28 +518,28 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
                             .into(),
                     };
 
-                    let base = self.fold_expression(base);
+                    let base = self.fold_expression(base)?;
 
                     let indices = indices
                         .into_iter()
                         .map(|a| match a {
                             Access::Select(box i) => {
-                                Access::Select(box self.fold_uint_expression(i))
+                                Ok(Access::Select(box self.fold_uint_expression(i)?))
                             }
-                            a => a,
+                            a => Ok(a),
                         })
-                        .collect();
+                        .collect::<Result<_, _>>()?;
 
                     let mut range_checks = HashSet::new();
                     let e = Self::choose_many(base, indices, expr, &mut range_checks);
 
-                    range_checks
+                    Ok(range_checks
                         .into_iter()
                         .chain(std::iter::once(TypedStatement::definition(
                             TypedAssignee::Identifier(variable),
                             e,
                         )))
-                        .collect()
+                        .collect())
                 }
             }
             s => fold_statement(self, s),

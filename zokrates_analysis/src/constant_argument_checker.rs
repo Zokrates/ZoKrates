@@ -1,9 +1,7 @@
 use std::fmt;
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::{
-    result_folder::ResultFolder,
-    result_folder::{fold_field_expression, fold_statement, fold_uint_expression_inner},
-    Constant, EmbedCall, FieldElementExpression, TypedStatement, UBitwidth, UExpressionInner,
+    result_folder::fold_statement, result_folder::ResultFolder, Constant, EmbedCall, TypedStatement,
 };
 use zokrates_ast::typed::{DefinitionRhs, TypedProgram};
 use zokrates_field::Field;
@@ -69,64 +67,6 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
                 }
             }
             s => fold_statement(self, s),
-        }
-    }
-
-    fn fold_field_expression(
-        &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
-        match e {
-            FieldElementExpression::Pow(box e, box exp) => {
-                let e = self.fold_field_expression(e)?;
-                let exp = self.fold_uint_expression(exp)?;
-
-                match exp.as_inner() {
-                    UExpressionInner::Value(_) => Ok(FieldElementExpression::Pow(box e, box exp)),
-                    exp => Err(Error(format!(
-                        "Found non-constant exponent in pow expression `{}**{}`",
-                        e,
-                        exp.clone().annotate(UBitwidth::B32)
-                    ))),
-                }
-            }
-            e => fold_field_expression(self, e),
-        }
-    }
-
-    fn fold_uint_expression_inner(
-        &mut self,
-        bitwidth: UBitwidth,
-        e: UExpressionInner<'ast, T>,
-    ) -> Result<UExpressionInner<'ast, T>, Error> {
-        match e {
-            UExpressionInner::LeftShift(box e, box by) => {
-                let e = self.fold_uint_expression(e)?;
-                let by = self.fold_uint_expression(by)?;
-
-                match by.as_inner() {
-                    UExpressionInner::Value(_) => Ok(UExpressionInner::LeftShift(box e, box by)),
-                    by => Err(Error(format!(
-                        "Cannot shift by a variable value, found `{} << {}`",
-                        e,
-                        by.clone().annotate(UBitwidth::B32)
-                    ))),
-                }
-            }
-            UExpressionInner::RightShift(box e, box by) => {
-                let e = self.fold_uint_expression(e)?;
-                let by = self.fold_uint_expression(by)?;
-
-                match by.as_inner() {
-                    UExpressionInner::Value(_) => Ok(UExpressionInner::RightShift(box e, box by)),
-                    by => Err(Error(format!(
-                        "Cannot shift by a variable value, found `{} >> {}`",
-                        e,
-                        by.clone().annotate(UBitwidth::B32)
-                    ))),
-                }
-            }
-            e => fold_uint_expression_inner(self, bitwidth, e),
         }
     }
 }

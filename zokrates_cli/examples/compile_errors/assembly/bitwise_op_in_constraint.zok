@@ -1,0 +1,6 @@
+def main(field mut a, u32 i) {
+   asm {
+       a <-- a << i; // bitwise operations are allowed in witness generation
+       a === a << i; // but not in constraints
+   }
+}
