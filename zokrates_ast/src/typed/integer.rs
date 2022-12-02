@@ -861,11 +861,6 @@ mod tests {
 
         let should_error = vec![
             BigUint::parse_bytes(b"99999999999999999999999999999999999999999999999999999999999999999999999999999999999", 10).unwrap().into(),
-            IntExpression::xor(n.clone(), n.clone()),
-            IntExpression::or(n.clone(), n.clone()),
-            IntExpression::and(n.clone(), n.clone()),
-            IntExpression::left_shift(n.clone(), i.clone()),
-            IntExpression::right_shift(n.clone(), i.clone()),
             IntExpression::not(n.clone()),
         ];
 
