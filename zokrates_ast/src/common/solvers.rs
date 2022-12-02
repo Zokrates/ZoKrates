@@ -20,11 +20,22 @@ pub enum Solver<'ast, T> {
     SnarkVerifyBls12377(usize),
 }
 
-impl<'ast, T: fmt::Debug> fmt::Display for Solver<'ast, T> {
+impl<'ast, T> fmt::Display for Solver<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Solver::ConditionEq => write!(f, "ConditionEq"),
+            Solver::Bits(n) => write!(f, "Bits({})", n),
+            Solver::Div => write!(f, "Div"),
+            Solver::Xor => write!(f, "Xor"),
+            Solver::Or => write!(f, "Or"),
+            Solver::ShaAndXorAndXorAnd => write!(f, "ShaAndXorAndXorAnd"),
+            Solver::ShaCh => write!(f, "ShaCh"),
+            Solver::EuclideanDiv => write!(f, "EuclideanDiv"),
             Solver::Zir(_) => write!(f, "Zir(..)"),
-            _ => write!(f, "{:?}", self),
+            #[cfg(feature = "bellman")]
+            Solver::Sha256Round => write!(f, "Sha256Round"),
+            #[cfg(feature = "ark")]
+            Solver::SnarkVerifyBls12377(n) => write!(f, "SnarkVerifyBls12377({})", n),
         }
     }
 }

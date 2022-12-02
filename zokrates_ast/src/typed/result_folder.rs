@@ -534,10 +534,13 @@ pub fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 f.fold_expression(e)?,
             )]
         }
-        TypedAssemblyStatement::Constraint(lhs, rhs) => vec![TypedAssemblyStatement::Constraint(
-            f.fold_field_expression(lhs)?,
-            f.fold_field_expression(rhs)?,
-        )],
+        TypedAssemblyStatement::Constraint(lhs, rhs, metadata) => {
+            vec![TypedAssemblyStatement::Constraint(
+                f.fold_field_expression(lhs)?,
+                f.fold_field_expression(rhs)?,
+                metadata,
+            )]
+        }
     })
 }
 

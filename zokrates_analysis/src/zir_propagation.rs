@@ -35,7 +35,7 @@ impl fmt::Display for Error {
             Error::DivisionByZero => {
                 write!(f, "Division by zero detected in zir during static analysis",)
             }
-            Error::AssertionFailed(err) => write!(f, "Assertion failed: `{}`", err),
+            Error::AssertionFailed(err) => write!(f, "Assertion failed ({})", err),
         }
     }
 }
@@ -76,7 +76,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                             self.constants.extend(
                                 assignees
                                     .into_iter()
-                                    .zip(values.into_iter())
+                                    .zip(values.iter())
                                     .map(|(a, v)| (a.id, v.clone())),
                             );
                             Ok(vec![])
@@ -95,7 +95,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     }
                 }
             }
-            ZirAssemblyStatement::Constraint(left, right) => {
+            ZirAssemblyStatement::Constraint(left, right, metadata) => {
                 let left = self.fold_field_expression(left)?;
                 let right = self.fold_field_expression(right)?;
 
@@ -107,10 +107,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     BooleanExpression::Value(true) => Ok(vec![]),
                     BooleanExpression::Value(false) => {
                         Err(Error::AssertionFailed(RuntimeError::SourceAssertion(
-                            format!("In asm block: `{} !== {}`", left, right),
+                            metadata
+                                .message(Some(format!("In asm block: `{} !== {}`", left, right))),
                         )))
                     }
-                    _ => Ok(vec![ZirAssemblyStatement::Constraint(left, right)]),
+                    _ => Ok(vec![ZirAssemblyStatement::Constraint(
+                        left, right, metadata,
+                    )]),
                 }
             }
         }

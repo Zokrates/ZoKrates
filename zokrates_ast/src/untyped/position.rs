@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Position {
     pub line: usize,
     pub col: usize,

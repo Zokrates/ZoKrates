@@ -48,7 +48,15 @@
       "output": {
         "Err": {
           "UnsatisfiedConstraint": {
-            "error": "SourceAssemblyConstraint"
+            "error": {
+              "SourceAssemblyConstraint": {
+                "file": "tests/tests/assembly/bitify.zok",
+                "position": {
+                  "line": 14,
+                  "col": 9
+                }
+              }
+            }
           }
         }
       }

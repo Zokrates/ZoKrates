@@ -1,5 +1,5 @@
 {
-    "curves": ["Bn128"],
-    "max_constraint_count": 0,
-    "tests": []
+  "curves": ["Bn128"],
+  "max_constraint_count": 0,
+  "tests": []
 }

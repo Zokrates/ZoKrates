@@ -13,6 +13,7 @@ mod condition_redefiner;
 mod constant_argument_checker;
 mod constant_resolver;
 mod dead_code;
+mod expression_validator;
 mod flat_propagation;
 mod flatten_complex_types;
 mod log_ignorer;
@@ -40,6 +41,7 @@ use self::variable_write_remover::VariableWriteRemover;
 use crate::assembly_transformer::AssemblyTransformer;
 use crate::constant_resolver::ConstantResolver;
 use crate::dead_code::DeadCodeEliminator;
+use crate::expression_validator::ExpressionValidator;
 use crate::panic_extractor::PanicExtractor;
 pub use crate::zir_propagation::ZirPropagator;
 use std::fmt;
@@ -56,6 +58,8 @@ pub enum Error {
     NonConstantArgument(self::constant_argument_checker::Error),
     OutOfBounds(self::out_of_bounds::Error),
     Assembly(self::assembly_transformer::Error),
+    VariableIndex(self::variable_write_remover::Error),
+    InvalidExpression(self::expression_validator::Error),
 }
 
 impl From<reducer::Error> for Error {
@@ -94,6 +98,18 @@ impl From<assembly_transformer::Error> for Error {
     }
 }
 
+impl From<variable_write_remover::Error> for Error {
+    fn from(e: variable_write_remover::Error) -> Self {
+        Error::VariableIndex(e)
+    }
+}
+
+impl From<expression_validator::Error> for Error {
+    fn from(e: expression_validator::Error) -> Self {
+        Error::InvalidExpression(e)
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -103,6 +119,8 @@ impl fmt::Display for Error {
             Error::NonConstantArgument(e) => write!(f, "{}", e),
             Error::OutOfBounds(e) => write!(f, "{}", e),
             Error::Assembly(e) => write!(f, "{}", e),
+            Error::VariableIndex(e) => write!(f, "{}", e),
+            Error::InvalidExpression(e) => write!(f, "{}", e),
         }
     }
 }
@@ -151,6 +169,10 @@ pub fn analyse<'ast, T: Field>(
     let r = StructConcretizer::concretize(r);
     log::trace!("\n{}", r);
 
+    // validate expressions
+    log::debug!("Static analyser: Validate expressions");
+    let r = ExpressionValidator::validate(r).map_err(Error::from)?;
+
     // generate abi
     log::debug!("Static analyser: Generate abi");
     let abi = r.abi();
@@ -167,7 +189,7 @@ pub fn analyse<'ast, T: Field>(
 
     // remove assignment to variable index
     log::debug!("Static analyser: Remove variable index");
-    let r = VariableWriteRemover::apply(r);
+    let r = VariableWriteRemover::apply(r).map_err(Error::from)?;
     log::trace!("\n{}", r);
 
     // detect non constant shifts and constant lt bounds
@@ -210,6 +232,7 @@ pub fn analyse<'ast, T: Field>(
 
     log::debug!("Static analyser: Apply constraint transformations in assembly");
     let zir = AssemblyTransformer::transform(zir).map_err(Error::from)?;
+    log::trace!("\n{}", zir);
 
     Ok((zir, abi))
 }

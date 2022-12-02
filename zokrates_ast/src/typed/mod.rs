@@ -27,9 +27,7 @@ pub use self::types::{
     UBitwidth,
 };
 use self::types::{ConcreteArrayType, ConcreteStructType};
-
 use crate::typed::types::{ConcreteGenericsAssignment, IntoType};
-use crate::untyped::Position;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
 use std::marker::PhantomData;
@@ -38,7 +36,7 @@ use std::path::{Path, PathBuf};
 pub use crate::typed::integer::IntExpression;
 pub use crate::typed::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 
-use crate::common::{FlatEmbed, FormatString};
+use crate::common::{FlatEmbed, FormatString, SourceMetadata};
 
 use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
@@ -569,26 +567,9 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssignee<'ast, T> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Hash, Eq, Default, PartialOrd, Ord)]
-pub struct AssertionMetadata {
-    pub file: String,
-    pub position: Position,
-    pub message: Option<String>,
-}
-
-impl fmt::Display for AssertionMetadata {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Assertion failed at {}:{}", self.file, self.position)?;
-        match &self.message {
-            Some(m) => write!(f, ": \"{}\"", m),
-            None => write!(f, ""),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub enum RuntimeError {
-    SourceAssertion(AssertionMetadata),
+    SourceAssertion(SourceMetadata),
     SelectRangeCheck,
     DivisionByZero,
 }
@@ -683,6 +664,7 @@ pub enum TypedAssemblyStatement<'ast, T> {
     Constraint(
         FieldElementExpression<'ast, T>,
         FieldElementExpression<'ast, T>,
+        SourceMetadata,
     ),
 }
 
@@ -690,10 +672,10 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssemblyStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             TypedAssemblyStatement::Assignment(ref lhs, ref rhs) => {
-                write!(f, "{} <-- {}", lhs, rhs)
+                write!(f, "{} <-- {};", lhs, rhs)
             }
-            TypedAssemblyStatement::Constraint(ref lhs, ref rhs) => {
-                write!(f, "{} === {}", lhs, rhs)
+            TypedAssemblyStatement::Constraint(ref lhs, ref rhs, _) => {
+                write!(f, "{} === {};", lhs, rhs)
             }
         }
     }

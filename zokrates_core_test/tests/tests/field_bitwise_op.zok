@@ -1,0 +1,4 @@
+def main() -> field {
+    field a = 1 << 2; // constant bitwise operations are allowed as they get propagated away
+    return a;
+}

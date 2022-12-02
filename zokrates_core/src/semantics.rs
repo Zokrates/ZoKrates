@@ -8,7 +8,7 @@ use num_bigint::BigUint;
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
-use zokrates_ast::common::FormatString;
+use zokrates_ast::common::{FormatString, SourceMetadata};
 use zokrates_ast::typed::types::{GGenericsAssignment, GTupleType, GenericsAssignment};
 use zokrates_ast::typed::SourceIdentifier;
 use zokrates_ast::typed::*;
@@ -1794,16 +1794,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
         match stat.value {
             AssemblyStatement::Assignment(assignee, expression, constrained) => {
                 let assignee = self.check_assignee(assignee, module_id, types)?;
-                let checked_e = self.check_expression(expression, module_id, types)?;
+                let e = self.check_expression(expression, module_id, types)?;
 
-                let e = match checked_e {
-                    TypedExpression::FieldElement(e) => Ok(e),
-                    TypedExpression::Int(e) => Ok(FieldElementExpression::try_from_int(e).unwrap()),
-                    e => Err(ErrorInner {
-                        pos: Some(pos),
-                        message: format!("The right hand side of an assembly assignment must be of type field, found {}", e.get_type())
-                    }),
-                }?;
+                let e = FieldElementExpression::try_from_typed(e).map_err(|e| ErrorInner {
+                    pos: Some(pos),
+                    message: format!(
+                        "Expected right hand side of an assembly assignment to be of type field, found {}",
+                        e.get_type(),
+                    ),
+                })?;
 
                 match constrained {
                     true => {
@@ -1814,7 +1813,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     assignee.clone(),
                                     e.clone().into(),
                                 ),
-                                TypedAssemblyStatement::Constraint(assignee.into(), e),
+                                TypedAssemblyStatement::Constraint(
+                                    assignee.into(),
+                                    e,
+                                    SourceMetadata::new(module_id.display().to_string(), pos.0),
+                                ),
                             ]),
                             ty => Err(ErrorInner {
                                 pos: Some(pos),
@@ -1832,31 +1835,27 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let lhs = self.check_expression(lhs, module_id, types)?;
                 let rhs = self.check_expression(rhs, module_id, types)?;
 
-                let (lhs, rhs) = match (lhs, rhs) {
-                    (TypedExpression::FieldElement(lhs), TypedExpression::FieldElement(rhs)) => {
-                        Ok((lhs, rhs))
-                    }
-                    (TypedExpression::FieldElement(lhs), TypedExpression::Int(rhs)) => {
-                        Ok((lhs, FieldElementExpression::try_from_int(rhs).unwrap()))
-                    }
-                    (TypedExpression::Int(lhs), TypedExpression::FieldElement(rhs)) => {
-                        Ok((FieldElementExpression::try_from_int(lhs).unwrap(), rhs))
-                    }
-                    (TypedExpression::Int(lhs), TypedExpression::Int(rhs)) => Ok((
-                        FieldElementExpression::try_from_int(lhs).unwrap(),
-                        FieldElementExpression::try_from_int(rhs).unwrap(),
-                    )),
-                    (e1, e2) => Err(ErrorInner {
-                        pos: Some(pos),
-                        message: format!(
-                            "Assembly constraint expected expressions of type field, found {}, {}",
-                            e1.get_type(),
-                            e2.get_type()
-                        ),
-                    }),
-                }?;
+                let lhs = FieldElementExpression::try_from_typed(lhs).map_err(|e| ErrorInner {
+                    pos: Some(pos),
+                    message: format!(
+                        "Expected left hand side of a constraint to be of type field, found {}",
+                        e.get_type(),
+                    ),
+                })?;
 
-                Ok(vec![TypedAssemblyStatement::Constraint(lhs, rhs)])
+                let rhs = FieldElementExpression::try_from_typed(rhs).map_err(|e| ErrorInner {
+                    pos: Some(pos),
+                    message: format!(
+                        "Expected right hand side of a constraint to be of type field, found {}",
+                        e.get_type(),
+                    ),
+                })?;
+
+                Ok(vec![TypedAssemblyStatement::Constraint(
+                    lhs,
+                    rhs,
+                    SourceMetadata::new(module_id.display().to_string(), pos.0),
+                )])
             }
         }
     }
@@ -2100,11 +2099,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match e {
                     TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(
                         e,
-                        RuntimeError::SourceAssertion(AssertionMetadata {
-                            file: module_id.display().to_string(),
-                            position: pos.0,
-                            message,
-                        }),
+                        RuntimeError::SourceAssertion(
+                            SourceMetadata::new(module_id.display().to_string(), pos.0)
+                                .message(message),
+                        ),
                     )),
                     e => Err(ErrorInner {
                         pos: Some(pos),

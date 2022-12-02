@@ -56,7 +56,7 @@ impl<'ast, T: Field> From<FlatStatement<'ast, T>> for Statement<'ast, T> {
     fn from(flat_statement: FlatStatement<'ast, T>) -> Statement<'ast, T> {
         match flat_statement {
             FlatStatement::Block(statements) => {
-                Statement::Block(statements.into_iter().map(|s| Statement::from(s)).collect())
+                Statement::Block(statements.into_iter().map(Statement::from).collect())
             }
             FlatStatement::Condition(linear, quadratic, message) => match quadratic {
                 FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(

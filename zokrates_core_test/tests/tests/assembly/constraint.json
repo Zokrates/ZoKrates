@@ -4,7 +4,7 @@
   "tests": [
     {
       "input": {
-        "values": ["0"]
+        "values": ["1", "1"]
       },
       "output": {
         "Ok": {
@@ -14,24 +14,14 @@
     },
     {
       "input": {
-        "values": ["1"]
-      },
-      "output": {
-        "Ok": {
-          "value": []
-        }
-      }
-    },
-    {
-      "input": {
-        "values": ["2"]
+        "values": ["0", "1"]
       },
       "output": {
         "Err": {
           "UnsatisfiedConstraint": {
             "error": {
               "SourceAssemblyConstraint": {
-                "file": "tests/tests/assembly/binary_check.zok",
+                "file": "tests/tests/assembly/constraint.zok",
                 "position": {
                   "line": 3,
                   "col": 9

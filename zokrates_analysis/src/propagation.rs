@@ -24,8 +24,8 @@ pub type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Type(String),
-    AssertionFailed(String),
-    ValueTooLarge(String),
+    AssertionFailed(RuntimeError),
+    InvalidValue(String),
     OutOfBounds(u128, u128),
 }
 
@@ -33,8 +33,8 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Type(s) => write!(f, "{}", s),
-            Error::AssertionFailed(s) => write!(f, "{}", s),
-            Error::ValueTooLarge(s) => write!(f, "{}", s),
+            Error::AssertionFailed(err) => write!(f, "Assertion failed ({})", err),
+            Error::InvalidValue(s) => write!(f, "{}", s),
             Error::OutOfBounds(index, size) => write!(
                 f,
                 "Out of bounds index ({} >= {}) found during static analysis",
@@ -235,10 +235,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                     TypedAssemblyStatement::Assignment(v.clone().into(), c),
                                     TypedAssemblyStatement::Assignment(assignee, expr),
                                 ]),
-                                None => Ok(vec![TypedAssemblyStatement::Assignment(
-                                    assignee,
-                                    expr.into(),
-                                )]),
+                                None => {
+                                    Ok(vec![TypedAssemblyStatement::Assignment(assignee, expr)])
+                                }
                             },
                         },
                     }
@@ -251,17 +250,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                     match self.constants.remove(&v.id) {
                         Some(c) => Ok(vec![
-                            TypedAssemblyStatement::Assignment(v.clone().into(), c.into()),
-                            TypedAssemblyStatement::Assignment(assignee, expr.into()),
+                            TypedAssemblyStatement::Assignment(v.clone().into(), c),
+                            TypedAssemblyStatement::Assignment(assignee, expr),
                         ]),
-                        None => Ok(vec![TypedAssemblyStatement::Assignment(
-                            assignee,
-                            expr.into(),
-                        )]),
+                        None => Ok(vec![TypedAssemblyStatement::Assignment(assignee, expr)]),
                     }
                 }
             }
-            TypedAssemblyStatement::Constraint(left, right) => {
+            TypedAssemblyStatement::Constraint(left, right, metadata) => {
                 let left = self.fold_field_expression(left)?;
                 let right = self.fold_field_expression(right)?;
 
@@ -272,11 +268,15 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match is_equal {
                     BooleanExpression::Value(true) => Ok(vec![]),
-                    BooleanExpression::Value(false) => Err(Error::AssertionFailed(format!(
-                        "In asm block: `{} !== {}`",
-                        left, right
-                    ))),
-                    _ => Ok(vec![TypedAssemblyStatement::Constraint(left, right)]),
+                    BooleanExpression::Value(false) => {
+                        Err(Error::AssertionFailed(RuntimeError::SourceAssertion(
+                            metadata
+                                .message(Some(format!("In asm block: `{} !== {}`", left, right))),
+                        )))
+                    }
+                    _ => Ok(vec![TypedAssemblyStatement::Constraint(
+                        left, right, metadata,
+                    )]),
                 }
             }
         }
@@ -452,8 +452,27 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 match embed_call.arguments.iter().all(|a| a.is_constant()) {
                     true => {
                         let r: Option<TypedExpression<'ast, T>> = match embed_call.embed {
-                            FlatEmbed::FieldToBoolUnsafe => Ok(None), // todo
-                            FlatEmbed::BitArrayLe => Ok(None),        // todo
+                            FlatEmbed::BitArrayLe => Ok(None), // todo
+                            FlatEmbed::FieldToBoolUnsafe => {
+                                match FieldElementExpression::try_from_typed(
+                                    embed_call.arguments[0].clone(),
+                                ) {
+                                    Ok(FieldElementExpression::Number(n)) if n == T::from(0) => {
+                                        Ok(Some(BooleanExpression::Value(false).into()))
+                                    }
+                                    Ok(FieldElementExpression::Number(n)) if n == T::from(1) => {
+                                        Ok(Some(BooleanExpression::Value(true).into()))
+                                    }
+                                    Ok(FieldElementExpression::Number(n)) => {
+                                        Err(Error::InvalidValue(format!(
+                                            "Cannot call `{}` with value `{}`: should be 0 or 1",
+                                            embed_call.embed.id(),
+                                            n
+                                        )))
+                                    }
+                                    _ => Ok(None),
+                                }
+                            }
                             FlatEmbed::U64FromBits => Ok(Some(process_u_from_bits(
                                 &embed_call.arguments,
                                 UBitwidth::B64,
@@ -511,7 +530,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                         }
 
                                         if acc != T::zero() {
-                                            Err(Error::ValueTooLarge(format!(
+                                            Err(Error::InvalidValue(format!(
                                                 "Cannot unpack `{}` to `{}`: value is too large",
                                                 num,
                                                 assignee.get_type()
@@ -602,15 +621,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     }
                 }
             }
-            TypedStatement::Assertion(e, ty) => {
-                let e_str = e.to_string();
+            TypedStatement::Assertion(e, err) => {
                 let expr = self.fold_boolean_expression(e)?;
                 match expr {
-                    BooleanExpression::Value(false) => {
-                        Err(Error::AssertionFailed(format!("{}: ({})", ty, e_str)))
-                    }
+                    BooleanExpression::Value(false) => Err(Error::AssertionFailed(err)),
                     BooleanExpression::Value(true) => Ok(vec![]),
-                    _ => Ok(vec![TypedStatement::Assertion(expr, ty)]),
+                    _ => Ok(vec![TypedStatement::Assertion(expr, err)]),
                 }
             }
             s @ TypedStatement::PushCallLog(..) => Ok(vec![s]),

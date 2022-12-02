@@ -184,7 +184,8 @@ impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<T> {
     fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
         match s {
             Statement::Block(statements) => {
-                // optimize aggressively and clean up in a second pass
+                #[allow(clippy::needless_collect)]
+                // optimize aggressively and clean up in a second pass (we need to collect here)
                 let statements: Vec<_> = statements
                     .into_iter()
                     .flat_map(|s| self.fold_statement(s, true))
@@ -196,7 +197,7 @@ impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<T> {
                     .filter(|s| match s {
                         // we remove a directive iff it has a single output and this output is in the substitution map, meaning it was propagated
                         Statement::Directive(d) => {
-                            d.outputs.len() > 1 || self.substitution.contains_key(&d.outputs[0])
+                            d.outputs.len() > 1 || !self.substitution.contains_key(&d.outputs[0])
                         }
                         _ => true,
                     })

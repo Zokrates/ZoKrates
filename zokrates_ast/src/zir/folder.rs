@@ -152,10 +152,10 @@ pub fn fold_assembly_statement<'ast, T: Field, F: Folder<'ast, T>>(
             let function = f.fold_function(function);
             vec![ZirAssemblyStatement::Assignment(assignees, function)]
         }
-        ZirAssemblyStatement::Constraint(lhs, rhs) => {
+        ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {
             let lhs = f.fold_field_expression(lhs);
             let rhs = f.fold_field_expression(rhs);
-            vec![ZirAssemblyStatement::Constraint(lhs, rhs)]
+            vec![ZirAssemblyStatement::Constraint(lhs, rhs, metadata)]
         }
     }
 }
