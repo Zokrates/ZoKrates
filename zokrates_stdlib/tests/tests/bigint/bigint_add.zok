@@ -1,0 +1,6 @@
+from "bigint" import bigint, bigint_add;
+
+def main(bigint<2> a, bigint<2> b) -> bigint<2> {
+    bigint<2> c = bigint_add::<2, 8>(a, b);
+    return c;
+}

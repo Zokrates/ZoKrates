@@ -1,0 +1,36 @@
+{
+  "max_constraint_count": 22,
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": [{ "limbs": ["2", "2"] }, { "limbs": ["2", "0"] }]
+      },
+      "output": {
+        "Ok": {
+          "value": { "limbs": ["0", "2"] }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [{ "limbs": ["255", "0"] }, { "limbs": ["1", "0"] }]
+      },
+      "output": {
+        "Ok": {
+          "value": { "limbs": ["254", "0"] }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [{ "limbs": ["129", "1"] }, { "limbs": ["128", "1"] }]
+      },
+      "output": {
+        "Ok": {
+          "value": { "limbs": ["1", "0"] }
+        }
+      }
+    }
+  ]
+}

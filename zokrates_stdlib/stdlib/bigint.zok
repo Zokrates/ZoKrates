@@ -1,0 +1,64 @@
+from "field" import FIELD_SIZE_IN_BITS;
+import "utils/pack/bool/unpack_unchecked" as unpack;
+
+struct bigint<N> {
+    field[N] limbs;
+}
+
+def bigint_from_limbs<N, P>(field[N] values) -> bigint<P> {
+    assert(P >= N, "invalid number of limbs");
+    return bigint { limbs: [...values, ...[0; P-N]] };
+}
+
+// Big integer addition
+def bigint_add<N, F>(bigint<N> a, bigint<N> b) -> bigint<N> {
+    assert(F < FIELD_SIZE_IN_BITS - 1);
+    bigint<N> mut c = bigint_from_limbs([0; N]);
+    field mut carry = 0;
+    for u32 i in 0..N {
+        field sum = a.limbs[i] + b.limbs[i] + carry;
+        bool[F + 1] bits = unpack(sum);
+        carry = bits[0] ? 1 : 0;
+        c.limbs[i] = sum - carry * (2**F);
+    }
+    return c;
+}
+
+// Big integer subtraction
+// assumes a >= b
+def bigint_sub<N, F>(bigint<N> a, bigint<N> b) -> bigint<N> {
+    assert(F < FIELD_SIZE_IN_BITS - 1);
+    bigint<N> mut c = bigint_from_limbs([0; N]);
+    field mut borrow = 0;
+    for u32 i in 0..N {
+        c.limbs[i] = borrow * (2**F) + (a.limbs[i] - b.limbs[i]);
+        bool[F + 1] bits = unpack(a.limbs[i] + (2**F) - b.limbs[i]);
+        borrow = bits[0] ? 0 : 1;
+    }
+    return c;
+}
+
+// Right shift by `nlimbs`
+def bigint_rshift_limb<N>(bigint<N> mut a, u32 nlimbs) -> bigint<N> {
+    assert(nlimbs < N);
+    for u32 i in 0..N-nlimbs {
+        a.limbs[i] = a.limbs[i + nlimbs];
+    }
+    for u32 i in N-nlimbs..N {
+        a.limbs[i] = 0;
+    }
+    return a;
+}
+
+// Left shift by `nlimbs`
+def bigint_lshift_limb<N>(bigint<N> mut a, u32 nlimbs) -> bigint<N> {
+    assert(nlimbs < N);
+    for u32 i in 0..N-nlimbs {
+        u32 j = N - i - 1;
+        a.limbs[j] = a.limbs[j - nlimbs];
+    }
+    for u32 i in 0..nlimbs {
+        a.limbs[i] = 0;
+    }
+    return a;
+}
