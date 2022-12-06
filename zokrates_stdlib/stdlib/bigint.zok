@@ -62,3 +62,18 @@ def bigint_lshift_limb<N>(bigint<N> mut a, u32 nlimbs) -> bigint<N> {
     }
     return a;
 }
+
+// Checks equality of two big integers
+def bigint_is_equal<N>(bigint<N> a, bigint<N> b) -> bool {
+    bool mut eq = true;
+    for u32 i in 0..N {
+        eq = eq && (a.limbs[i] == b.limbs[i]);
+    }
+    return eq;
+}
+
+// Checks if a big integer is equal to 0
+def bigint_is_zero<N>(bigint<N> a) -> bool {
+    bigint<N> zero = bigint_from_limbs([0; N]);
+    return bigint_is_equal(a, zero);
+}
