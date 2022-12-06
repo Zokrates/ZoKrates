@@ -30,10 +30,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ExpressionValidator {
     fn fold_assembly_statement(
         &mut self,
         s: TypedAssemblyStatement<'ast, T>,
-    ) -> Result<TypedAssemblyStatement<'ast, T>, Self::Error> {
+    ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
         match s {
             // we allow more dynamic expressions in witness generation
-            TypedAssemblyStatement::Assignment(_, _) => Ok(s),
+            TypedAssemblyStatement::Assignment(_, _) => Ok(vec![s]),
             s => fold_assembly_statement(self, s),
         }
     }

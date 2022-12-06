@@ -138,8 +138,8 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
                     f,
                     "{} <-- {};",
                     lhs.iter()
-                        .map(|a| a.id.to_string())
-                        .collect::<Vec<String>>()
+                        .map(|a| a.to_string())
+                        .collect::<Vec<_>>()
                         .join(", "),
                     rhs
                 )
@@ -911,5 +911,38 @@ impl IntoType for Type {
 impl IntoType for UBitwidth {
     fn into_type(self) -> Type {
         Type::Uint(self)
+    }
+}
+
+pub trait Constant: Sized {
+    // return whether this is constant
+    fn is_constant(&self) -> bool;
+}
+
+impl<'ast, T: Field> Constant for ZirExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        match self {
+            ZirExpression::FieldElement(e) => e.is_constant(),
+            ZirExpression::Boolean(e) => e.is_constant(),
+            ZirExpression::Uint(e) => e.is_constant(),
+        }
+    }
+}
+
+impl<'ast, T: Field> Constant for FieldElementExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, FieldElementExpression::Number(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for BooleanExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, BooleanExpression::Value(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for UExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self.as_inner(), UExpressionInner::Value(..))
     }
 }

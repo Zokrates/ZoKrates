@@ -469,16 +469,16 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for VariableWriteRemover {
     fn fold_assembly_statement(
         &mut self,
         s: TypedAssemblyStatement<'ast, T>,
-    ) -> Result<TypedAssemblyStatement<'ast, T>, Self::Error> {
+    ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
         match s {
             TypedAssemblyStatement::Assignment(a, e) if is_constant(&a) => {
-                Ok(TypedAssemblyStatement::Assignment(a, e))
+                Ok(vec![TypedAssemblyStatement::Assignment(a, e)])
             }
             TypedAssemblyStatement::Assignment(a, _) => Err(Error(format!(
                 "Cannot assign to an assignee with a variable index `{}`",
                 a
             ))),
-            s => Ok(s),
+            s => Ok(vec![s]),
         }
     }
 

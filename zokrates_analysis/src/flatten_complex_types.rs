@@ -529,10 +529,8 @@ fn fold_assembly_statement<'ast, T: Field>(
         typed::TypedAssemblyStatement::Assignment(a, e) => {
             let mut statements_buffer: Vec<zir::ZirStatement<'ast, T>> = vec![];
             let a = f.fold_assignee(a);
-            let e = f.fold_field_expression(&mut statements_buffer, e);
-            statements_buffer.push(zir::ZirStatement::Return(vec![
-                zir::ZirExpression::FieldElement(e),
-            ]));
+            let e = f.fold_expression(&mut statements_buffer, e);
+            statements_buffer.push(zir::ZirStatement::Return(e));
 
             let mut finder = ArgumentFinder::default();
             let mut statements_buffer: Vec<zir::ZirStatement<'ast, T>> = statements_buffer

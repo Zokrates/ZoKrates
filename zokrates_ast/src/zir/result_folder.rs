@@ -64,7 +64,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     fn fold_assembly_statement(
         &mut self,
         s: ZirAssemblyStatement<'ast, T>,
-    ) -> Result<ZirAssemblyStatement<'ast, T>, Self::Error> {
+    ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
         fold_assembly_statement(self, s)
     }
 
@@ -162,20 +162,20 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
 pub fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: ZirAssemblyStatement<'ast, T>,
-) -> Result<ZirAssemblyStatement<'ast, T>, F::Error> {
+) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, F::Error> {
     Ok(match s {
         ZirAssemblyStatement::Assignment(assignees, function) => {
             let assignees = assignees
                 .into_iter()
                 .map(|a| f.fold_assignee(a))
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<_, _>>()?;
             let function = f.fold_function(function)?;
-            ZirAssemblyStatement::Assignment(assignees, function)
+            vec![ZirAssemblyStatement::Assignment(assignees, function)]
         }
         ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {
             let lhs = f.fold_field_expression(lhs)?;
             let rhs = f.fold_field_expression(rhs)?;
-            ZirAssemblyStatement::Constraint(lhs, rhs, metadata)
+            vec![ZirAssemblyStatement::Constraint(lhs, rhs, metadata)]
         }
     })
 }
@@ -238,7 +238,10 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
             let statements = statements
                 .into_iter()
                 .map(|s| f.fold_assembly_statement(s))
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .flatten()
+                .collect();
             ZirStatement::Assembly(statements)
         }
     };

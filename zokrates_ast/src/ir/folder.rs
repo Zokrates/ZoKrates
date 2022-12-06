@@ -58,6 +58,12 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     s: Statement<'ast, T>,
 ) -> Vec<Statement<'ast, T>> {
     match s {
+        Statement::Block(statements) => vec![Statement::Block(
+            statements
+                .into_iter()
+                .flat_map(|s| f.fold_statement(s))
+                .collect(),
+        )],
         Statement::Constraint(quad, lin, message) => vec![Statement::Constraint(
             f.fold_quadratic_combination(quad),
             f.fold_linear_combination(lin),

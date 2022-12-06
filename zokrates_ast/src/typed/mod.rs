@@ -660,7 +660,7 @@ impl<'ast, T: fmt::Display> fmt::Display for DefinitionRhs<'ast, T> {
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedAssemblyStatement<'ast, T> {
-    Assignment(TypedAssignee<'ast, T>, FieldElementExpression<'ast, T>),
+    Assignment(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Constraint(
         FieldElementExpression<'ast, T>,
         FieldElementExpression<'ast, T>,

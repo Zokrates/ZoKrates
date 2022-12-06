@@ -5,8 +5,8 @@ use std::fmt;
 use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr, Sub};
 use zokrates_ast::zir::types::UBitwidth;
 use zokrates_ast::zir::{
-    result_folder::*, Conditional, ConditionalExpression, ConditionalOrExpression, Expr, Id,
-    IdentifierExpression, IdentifierOrExpression, SelectExpression, SelectOrExpression,
+    result_folder::*, Conditional, ConditionalExpression, ConditionalOrExpression, Constant, Expr,
+    Id, IdentifierExpression, IdentifierOrExpression, SelectExpression, SelectOrExpression,
     ZirAssemblyStatement,
 };
 use zokrates_ast::zir::{
@@ -60,18 +60,62 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
     fn fold_assembly_statement(
         &mut self,
         s: ZirAssemblyStatement<'ast, T>,
-    ) -> Result<ZirAssemblyStatement<'ast, T>, Self::Error> {
+    ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
         match s {
             ZirAssemblyStatement::Assignment(assignees, function) => {
-                for a in &assignees {
-                    self.constants.remove(&a.id);
+                let assignees: Vec<_> = assignees
+                    .into_iter()
+                    .map(|a| self.fold_assignee(a))
+                    .collect::<Result<_, _>>()?;
+
+                let function = self.fold_function(function)?;
+
+                match &function.statements.last().unwrap() {
+                    ZirStatement::Return(values) => {
+                        if values.iter().all(|v| v.is_constant()) {
+                            self.constants.extend(
+                                assignees
+                                    .into_iter()
+                                    .zip(values.iter())
+                                    .map(|(a, v)| (a.id, v.clone())),
+                            );
+                            Ok(vec![])
+                        } else {
+                            assignees.iter().for_each(|a| {
+                                self.constants.remove(&a.id);
+                            });
+                            Ok(vec![ZirAssemblyStatement::Assignment(assignees, function)])
+                        }
+                    }
+                    _ => {
+                        assignees.iter().for_each(|a| {
+                            self.constants.remove(&a.id);
+                        });
+                        Ok(vec![ZirAssemblyStatement::Assignment(assignees, function)])
+                    }
                 }
-                Ok(ZirAssemblyStatement::Assignment(
-                    assignees,
-                    self.fold_function(function)?,
-                ))
             }
-            s => fold_assembly_statement(self, s),
+            ZirAssemblyStatement::Constraint(left, right, metadata) => {
+                let left = self.fold_field_expression(left)?;
+                let right = self.fold_field_expression(right)?;
+
+                // a bit hacky, but we use a fake boolean expression to check this
+                let is_equal = BooleanExpression::FieldEq(box left.clone(), box right.clone());
+                let is_equal = self.fold_boolean_expression(is_equal)?;
+
+                match is_equal {
+                    BooleanExpression::Value(true) => Ok(vec![]),
+                    BooleanExpression::Value(false) => {
+                        Err(Error::AssertionFailed(RuntimeError::SourceAssertion(
+                            metadata
+                                .message(Some(format!("In asm block: `{} !== {}`", left, right))),
+                        )))
+                    }
+                    _ => Ok(vec![ZirAssemblyStatement::Constraint(
+                        left, right, metadata,
+                    )]),
+                }
+            }
         }
     }
 
@@ -146,6 +190,19 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     assignees,
                     self.fold_expression_list(list)?,
                 )])
+            }
+            ZirStatement::Assembly(statements) => {
+                let statements: Vec<_> = statements
+                    .into_iter()
+                    .map(|s| self.fold_assembly_statement(s))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                match statements.len() {
+                    0 => Ok(vec![]),
+                    _ => Ok(vec![ZirStatement::Assembly(statements)]),
+                }
             }
             _ => fold_statement(self, s),
         }

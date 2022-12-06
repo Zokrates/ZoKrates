@@ -55,6 +55,7 @@ impl Interpreter {
 
         for statement in program.statements.into_iter() {
             match statement {
+                Statement::Block(..) => unreachable!(),
                 Statement::Constraint(quad, lin, error) => match lin.is_assignee(&witness) {
                     true => {
                         let val = evaluate_quad(&witness, &quad).unwrap();

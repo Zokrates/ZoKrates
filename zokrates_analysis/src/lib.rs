@@ -232,6 +232,7 @@ pub fn analyse<'ast, T: Field>(
 
     log::debug!("Static analyser: Apply constraint transformations in assembly");
     let zir = AssemblyTransformer::transform(zir).map_err(Error::from)?;
+    log::trace!("\n{}", zir);
 
     Ok((zir, abi))
 }

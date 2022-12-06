@@ -24,7 +24,7 @@ pub type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Type(String),
-    AssertionFailed(String),
+    AssertionFailed(RuntimeError),
     InvalidValue(String),
     OutOfBounds(u128, u128),
 }
@@ -33,7 +33,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Type(s) => write!(f, "{}", s),
-            Error::AssertionFailed(s) => write!(f, "{}", s),
+            Error::AssertionFailed(err) => write!(f, "Assertion failed ({})", err),
             Error::InvalidValue(s) => write!(f, "{}", s),
             Error::OutOfBounds(index, size) => write!(
                 f,
@@ -176,13 +176,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         }
     }
 
-    fn fold_function(
-        &mut self,
-        f: TypedFunction<'ast, T>,
-    ) -> Result<TypedFunction<'ast, T>, Error> {
-        fold_function(self, f)
-    }
-
     fn fold_conditional_expression<
         E: Expr<'ast, T> + Conditional<'ast, T> + PartialEq + ResultFold<'ast, T>,
     >(
@@ -212,42 +205,100 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         )
     }
 
+    fn fold_assembly_statement(
+        &mut self,
+        s: TypedAssemblyStatement<'ast, T>,
+    ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
+        match s {
+            TypedAssemblyStatement::Assignment(assignee, expr) => {
+                let assignee = self.fold_assignee(assignee)?;
+                let expr = self.fold_expression(expr)?;
+
+                if expr.is_constant() {
+                    match assignee {
+                        TypedAssignee::Identifier(var) => {
+                            let expr = expr.into_canonical_constant();
+
+                            assert!(self.constants.insert(var.id, expr).is_none());
+
+                            Ok(vec![])
+                        }
+                        assignee => match self.try_get_constant_mut(&assignee) {
+                            Ok((_, c)) => {
+                                *c = expr.into_canonical_constant();
+                                Ok(vec![])
+                            }
+                            Err(v) => match self.constants.remove(&v.id) {
+                                // invalidate the cache for this identifier, and define the latest
+                                // version of the constant in the program, if any
+                                Some(c) => Ok(vec![
+                                    TypedAssemblyStatement::Assignment(v.clone().into(), c),
+                                    TypedAssemblyStatement::Assignment(assignee, expr),
+                                ]),
+                                None => {
+                                    Ok(vec![TypedAssemblyStatement::Assignment(assignee, expr)])
+                                }
+                            },
+                        },
+                    }
+                } else {
+                    // the expression being assigned is not constant, invalidate the cache
+                    let v = self
+                        .try_get_constant_mut(&assignee)
+                        .map(|(v, _)| v)
+                        .unwrap_or_else(|v| v);
+
+                    match self.constants.remove(&v.id) {
+                        Some(c) => Ok(vec![
+                            TypedAssemblyStatement::Assignment(v.clone().into(), c),
+                            TypedAssemblyStatement::Assignment(assignee, expr),
+                        ]),
+                        None => Ok(vec![TypedAssemblyStatement::Assignment(assignee, expr)]),
+                    }
+                }
+            }
+            TypedAssemblyStatement::Constraint(left, right, metadata) => {
+                let left = self.fold_field_expression(left)?;
+                let right = self.fold_field_expression(right)?;
+
+                // a bit hacky, but we use a fake boolean expression to check this
+                let is_equal =
+                    BooleanExpression::FieldEq(EqExpression::new(left.clone(), right.clone()));
+                let is_equal = self.fold_boolean_expression(is_equal)?;
+
+                match is_equal {
+                    BooleanExpression::Value(true) => Ok(vec![]),
+                    BooleanExpression::Value(false) => {
+                        Err(Error::AssertionFailed(RuntimeError::SourceAssertion(
+                            metadata
+                                .message(Some(format!("In asm block: `{} !== {}`", left, right))),
+                        )))
+                    }
+                    _ => Ok(vec![TypedAssemblyStatement::Constraint(
+                        left, right, metadata,
+                    )]),
+                }
+            }
+        }
+    }
+
     fn fold_statement(
         &mut self,
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Error> {
         match s {
             TypedStatement::Assembly(statements) => {
-                let mut assembly_statement_buffer = vec![];
-                let mut statement_buffer = vec![];
-
-                for s in statements {
-                    match self.fold_assembly_statement(s)? {
-                        TypedAssemblyStatement::Assignment(assignee, expr) => {
-                            // invalidate the cache
-                            let v = self
-                                .try_get_constant_mut(&assignee)
-                                .map(|(v, _)| v)
-                                .unwrap_or_else(|v| v);
-
-                            match self.constants.remove(&v.id) {
-                                Some(c) => {
-                                    statement_buffer.push(TypedStatement::Definition(
-                                        v.clone().into(),
-                                        c.into(),
-                                    ));
-                                }
-                                None => {}
-                            }
-                            assembly_statement_buffer
-                                .push(TypedAssemblyStatement::Assignment(assignee, expr));
-                        }
-                        s => assembly_statement_buffer.push(s),
-                    }
+                let statements: Vec<_> = statements
+                    .into_iter()
+                    .map(|s| self.fold_assembly_statement(s))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                match statements.len() {
+                    0 => Ok(vec![]),
+                    _ => Ok(vec![TypedStatement::Assembly(statements)]),
                 }
-
-                statement_buffer.push(TypedStatement::Assembly(assembly_statement_buffer));
-                Ok(statement_buffer)
             }
             // propagation to the defined variable if rhs is a constant
             TypedStatement::Definition(assignee, DefinitionRhs::Expression(expr)) => {
@@ -571,13 +622,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 }
             }
             TypedStatement::Assertion(e, err) => {
-                let e_str = e.to_string();
                 let expr = self.fold_boolean_expression(e)?;
                 match expr {
-                    BooleanExpression::Value(false) => Err(Error::AssertionFailed(format!(
-                        "Assertion failed `{}` ({})",
-                        e_str, err
-                    ))),
+                    BooleanExpression::Value(false) => Err(Error::AssertionFailed(err)),
                     BooleanExpression::Value(true) => Ok(vec![]),
                     _ => Ok(vec![TypedStatement::Assertion(expr, err)]),
                 }

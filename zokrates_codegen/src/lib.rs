@@ -1156,6 +1156,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // add all flattened statements, adapt return statements
 
         let statements = funct.statements.into_iter().map(|stat| match stat {
+            FlatStatement::Block(..) => unreachable!(),
             FlatStatement::Definition(var, rhs) => {
                 let new_var = self.use_sym();
                 replacement_map.insert(var, new_var);
@@ -2231,12 +2232,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         match stat {
             ZirAssemblyStatement::Assignment(assignees, function) => {
                 let outputs: Vec<Variable> = assignees
-                    .iter()
-                    .map(|a| {
+                    .into_iter()
+                    .map(|assignee| {
                         self.layout
-                            .get(&a.id)
+                            .get(&assignee.id)
                             .cloned()
-                            .unwrap_or_else(|| self.use_variable(a))
+                            .unwrap_or_else(|| self.use_variable(&assignee))
                     })
                     .collect();
                 let inputs: Vec<FlatExpression<T>> = function
@@ -2273,9 +2274,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) {
         match stat {
             ZirStatement::Assembly(statements) => {
+                let mut block_statements = VecDeque::new();
                 for s in statements {
-                    self.flatten_assembly_statement(statements_flattened, s);
+                    self.flatten_assembly_statement(&mut block_statements, s);
                 }
+                statements_flattened.push_back(FlatStatement::Block(block_statements.into()));
             }
             ZirStatement::Return(exprs) => {
                 #[allow(clippy::needless_collect)]
