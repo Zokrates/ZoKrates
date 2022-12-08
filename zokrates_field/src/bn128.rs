@@ -9,7 +9,9 @@ use bellman_ce::pairing::bn256::{Bn256, Fq2};
 
 use crate::G2Type;
 #[cfg(feature = "bellman")]
-bellman_extensions!(Bn256, Fq2);
+bellman_extensions!(bellman_ce, Bn256, Fq2);
+#[cfg(feature = "bellman")]
+bellman_extensions!(bellman_ce_plonk, Bn256, Fq2);
 
 #[cfg(test)]
 mod tests {

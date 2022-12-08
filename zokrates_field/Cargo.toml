@@ -6,7 +6,7 @@ edition = "2018"
 
 [features]
 default = ["bellman"]
-bellman = ["bellman_ce"]
+bellman = ["bellman_ce", "bellman_ce_plonk"]
 
 [dependencies]
 serde = "1.0"
@@ -20,8 +20,7 @@ num-integer = { version = "0.1", default-features = false }
 
 # bellman
 bellman_ce = { version = "^0.3", default-features = false, optional = true }
-# TODO:
-# bellman_ce = { git = "https://github.com/matter-labs/bellman", version = "^0.3", default-features = false, optional = true }
+bellman_ce_plonk = { package = "bellman_ce", git = "https://github.com/georgwiese/bellman", rev="b356c7001f30da23bfad2b43eb0b7ca9804c8252", default-features = false, features = ["plonk", "multicore"], optional = true }
 
 # ark
 ark-ff = { version = "^0.3.0", default-features = false }

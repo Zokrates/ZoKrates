@@ -9,4 +9,6 @@ use bellman_ce::pairing::bls12_381::{Bls12, Fq2};
 
 use crate::G2Type;
 #[cfg(feature = "bellman")]
-bellman_extensions!(Bls12, Fq2);
+bellman_extensions!(bellman_ce, Bls12, Fq2);
+#[cfg(feature = "bellman")]
+bellman_extensions!(bellman_ce_plonk, Bls12, Fq2);

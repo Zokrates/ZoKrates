@@ -576,9 +576,9 @@ mod prime_field {
 
     #[cfg(feature = "bellman")]
     macro_rules! bellman_extensions {
-        ($bellman_type:ty, $fq2_type:ident) => {
+        ($bellman_crate:ident, $bellman_type:ty, $fq2_type:ident) => {
             use crate::BellmanFieldExtensions;
-            use bellman_ce::pairing::ff::ScalarEngine;
+            use $bellman_crate::pairing::ff::ScalarEngine;
 
             impl BellmanFieldExtensions for FieldPrime {
                 type BellmanEngine = $bellman_type;

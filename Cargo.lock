@@ -3313,6 +3313,7 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-serialize",
+ "bellman_ce 0.3.2",
  "bellman_ce 0.3.5",
  "bincode",
  "lazy_static",
