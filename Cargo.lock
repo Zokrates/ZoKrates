@@ -446,7 +446,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "crossbeam",
  "futures",
- "hex 0.4.3",
+ "hex 0.3.2",
  "lazy_static",
  "num_cpus",
  "pairing_ce 0.28.2",
@@ -3182,6 +3182,22 @@ dependencies = [
 name = "zokrates_bellman"
 version = "0.1.0"
 dependencies = [
+ "bellman_ce 0.3.5",
+ "getrandom",
+ "hex 0.4.3",
+ "pairing_ce 0.21.1",
+ "phase2",
+ "rand 0.4.6",
+ "zokrates_ast",
+ "zokrates_field",
+ "zokrates_interpreter",
+ "zokrates_proof_systems",
+]
+
+[[package]]
+name = "zokrates_bellman_plonk"
+version = "0.1.0"
+dependencies = [
  "bellman_ce 0.3.2 (git+https://github.com/georgwiese/bellman?rev=b356c7001f30da23bfad2b43eb0b7ca9804c8252)",
  "getrandom",
  "hex 0.4.3",
@@ -3238,6 +3254,7 @@ dependencies = [
  "zokrates_ark",
  "zokrates_ast",
  "zokrates_bellman",
+ "zokrates_bellman_plonk",
  "zokrates_circom",
  "zokrates_common",
  "zokrates_core",

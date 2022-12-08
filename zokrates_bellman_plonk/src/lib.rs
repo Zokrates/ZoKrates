@@ -1,4 +1,4 @@
-pub mod groth16;
+pub mod plonk;
 
 extern crate bellman_ce as bellman;
 
