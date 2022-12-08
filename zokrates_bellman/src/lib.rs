@@ -198,7 +198,7 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Co
 mod parse {
     use super::*;
     use pairing::CurveAffine;
-    use zokrates_proof_systems::{G1Affine, G2Affine, G2AffineFq2};
+    use zokrates_proof_systems::{Fq2, G1Affine, G2Affine, G2AffineFq2};
 
     fn to_hex(bytes: &[u8]) -> String {
         let mut hex = hex::encode(bytes);
@@ -216,7 +216,7 @@ mod parse {
         let x = to_hex(iter.next().unwrap());
         let y = to_hex(iter.next().unwrap());
 
-        G1Affine(x, y)
+        G1Affine::new(x, y)
     }
 
     pub fn parse_g2<T: BellmanFieldExtensions>(
@@ -231,7 +231,7 @@ mod parse {
         let y1 = to_hex(iter.next().unwrap());
         let y0 = to_hex(iter.next().unwrap());
 
-        G2Affine::Fq2(G2AffineFq2((x0, x1), (y0, y1)))
+        G2Affine::Fq2(G2AffineFq2::new(Fq2(x0, x1), Fq2(y0, y1)))
     }
 }
 

@@ -458,23 +458,6 @@ dependencies = [
 
 [[package]]
 name = "bellman_ce"
-version = "0.3.2"
-source = "git+https://github.com/matter-labs/bellman#09474aa6fcb200a7da96f46495452fae92503ed8"
-dependencies = [
- "bit-vec",
- "blake2s_simd",
- "byteorder",
- "cfg-if 1.0.0",
- "futures",
- "hex 0.4.3",
- "num_cpus",
- "pairing_ce 0.28.2",
- "rand 0.4.6",
- "serde",
-]
-
-[[package]]
-name = "bellman_ce"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5ca1343d8690bb4d62e0665116bd4f109e33a642f86908ed107d226a402b0ef"
@@ -3198,7 +3181,7 @@ dependencies = [
 name = "zokrates_bellman_plonk"
 version = "0.1.0"
 dependencies = [
- "bellman_ce 0.3.2 (git+https://github.com/georgwiese/bellman?rev=b356c7001f30da23bfad2b43eb0b7ca9804c8252)",
+ "bellman_ce 0.3.2",
  "getrandom",
  "hex 0.4.3",
  "phase2",
@@ -3330,7 +3313,7 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-serialize",
- "bellman_ce 0.3.2 (git+https://github.com/matter-labs/bellman)",
+ "bellman_ce 0.3.5",
  "bincode",
  "lazy_static",
  "num-bigint 0.2.6",

@@ -9,6 +9,8 @@ use zokrates_ark::Ark;
 use zokrates_ast::ir::{self, ProgEnum};
 #[cfg(feature = "bellman")]
 use zokrates_bellman::Bellman;
+#[cfg(feature = "bellman")]
+use zokrates_bellman_plonk::Bellman as BellmanPlonk;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::Field;

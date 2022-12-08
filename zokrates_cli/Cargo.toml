@@ -7,7 +7,7 @@ edition = "2018"
 
 [features]
 default = ["bellman", "ark"]
-bellman = ["zokrates_bellman", "zokrates_core/bellman", "zokrates_common/bellman"]
+bellman = ["zokrates_bellman", "zokrates_bellman_plonk", "zokrates_core/bellman", "zokrates_common/bellman"]
 ark = ["zokrates_ark", "zokrates_core/ark", "zokrates_common/ark"]
 
 [dependencies]

@@ -179,8 +179,8 @@ pub mod serialization {
         g1: G1Affine,
     ) -> <T::BellmanEngine as Engine>::G1Affine {
         <T::BellmanEngine as Engine>::G1Affine::from_xy_unchecked(
-            from_hex(&g1.0).unwrap(),
-            from_hex(&g1.1).unwrap(),
+            from_hex(&g1.x).unwrap(),
+            from_hex(&g1.y).unwrap(),
         )
     }
     pub fn to_g2<T: BellmanFieldExtensions>(
@@ -188,8 +188,8 @@ pub mod serialization {
     ) -> <T::BellmanEngine as Engine>::G2Affine {
         match g2 {
             G2Affine::Fq2(g2) => {
-                let x = T::new_fq2(&(g2.0).0, &(g2.0).1);
-                let y = T::new_fq2(&(g2.1).0, &(g2.1).1);
+                let x = T::new_fq2(&(g2.x).0, &(g2.x).1);
+                let y = T::new_fq2(&(g2.y).0, &(g2.y).1);
                 <T::BellmanEngine as Engine>::G2Affine::from_xy_unchecked(x, y)
             }
             _ => unreachable!(),

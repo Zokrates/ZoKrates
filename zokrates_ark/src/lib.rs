@@ -157,7 +157,7 @@ mod parse {
     use super::*;
     use ark_ff::ToBytes;
     use zokrates_field::G2Type;
-    use zokrates_proof_systems::{Fr, G1Affine, G2Affine, G2AffineFq, G2AffineFq2};
+    use zokrates_proof_systems::{Fq2, Fr, G1Affine, G2Affine, G2AffineFq, G2AffineFq2};
 
     pub fn parse_g1<T: Field + ArkFieldExtensions>(
         e: &<T::ArkEngine as PairingEngine>::G1Affine,
@@ -174,7 +174,7 @@ mod parse {
         x.reverse();
         y.reverse();
 
-        G1Affine(
+        G1Affine::new(
             format!("0x{}", hex::encode(&x)),
             format!("0x{}", hex::encode(&y)),
         )
@@ -201,12 +201,12 @@ mod parse {
                     elements.push(e);
                 }
 
-                G2Affine::Fq2(G2AffineFq2(
-                    (
+                G2Affine::Fq2(G2AffineFq2::new(
+                    Fq2(
                         format!("0x{}", hex::encode(&elements[0])),
                         format!("0x{}", hex::encode(&elements[1])),
                     ),
-                    (
+                    Fq2(
                         format!("0x{}", hex::encode(&elements[2])),
                         format!("0x{}", hex::encode(&elements[3])),
                     ),
@@ -221,7 +221,7 @@ mod parse {
                 x.reverse();
                 y.reverse();
 
-                G2Affine::Fq(G2AffineFq(
+                G2Affine::Fq(G2AffineFq::new(
                     format!("0x{}", hex::encode(&x)),
                     format!("0x{}", hex::encode(&y)),
                 ))
@@ -253,8 +253,8 @@ pub mod serialization {
 
     pub fn to_g1<T: ArkFieldExtensions>(g1: G1Affine) -> <T::ArkEngine as PairingEngine>::G1Affine {
         let mut bytes = vec![];
-        bytes.append(&mut decode_hex(g1.0));
-        bytes.append(&mut decode_hex(g1.1));
+        bytes.append(&mut decode_hex(g1.x));
+        bytes.append(&mut decode_hex(g1.y));
         bytes.push(0u8); // infinity flag
 
         <T::ArkEngine as PairingEngine>::G1Affine::read(&*bytes).unwrap()
@@ -265,15 +265,15 @@ pub mod serialization {
 
         match g2 {
             G2Affine::Fq(g2) => {
-                bytes.append(&mut decode_hex(g2.0));
-                bytes.append(&mut decode_hex(g2.1));
+                bytes.append(&mut decode_hex(g2.x));
+                bytes.append(&mut decode_hex(g2.y));
                 bytes.push(0u8); // infinity flag
             }
             G2Affine::Fq2(g2) => {
-                bytes.append(&mut decode_hex((g2.0).0));
-                bytes.append(&mut decode_hex((g2.0).1));
-                bytes.append(&mut decode_hex((g2.1).0));
-                bytes.append(&mut decode_hex((g2.1).1));
+                bytes.append(&mut decode_hex((g2.x).0));
+                bytes.append(&mut decode_hex((g2.x).1));
+                bytes.append(&mut decode_hex((g2.y).0));
+                bytes.append(&mut decode_hex((g2.y).1));
                 bytes.push(0u8); // infinity flag
             }
         };
