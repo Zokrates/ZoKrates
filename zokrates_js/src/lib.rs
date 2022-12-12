@@ -4,6 +4,7 @@ mod util;
 extern crate lazy_static;
 
 use crate::util::normalize_path;
+use rand_0_8::{rngs::StdRng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
 use std::convert::TryFrom;
@@ -343,7 +344,8 @@ mod internal {
     >(
         program: ir::Prog<T>,
     ) -> JsValue {
-        let keypair = B::setup(program);
+        let rng = &mut StdRng::from_entropy();
+        let keypair = B::setup(program, rng);
         let tagged_keypair = TaggedKeypair::<T, S>::new(keypair);
         JsValue::from_serde(&tagged_keypair).unwrap()
     }
@@ -364,7 +366,8 @@ mod internal {
     pub fn universal_setup_of_size<T: Field, S: UniversalScheme<T>, B: UniversalBackend<T, S>>(
         size: u32,
     ) -> Vec<u8> {
-        B::universal_setup(size)
+        let rng = &mut StdRng::from_entropy();
+        B::universal_setup(size, rng)
     }
 
     pub fn generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
@@ -376,7 +379,8 @@ mod internal {
         let ir_witness: ir::Witness<T> = ir::Witness::read(str_witness.as_bytes())
             .map_err(|err| JsValue::from_str(&format!("Could not read witness: {}", err)))?;
 
-        let proof = B::generate_proof(prog, ir_witness, pk.to_vec());
+        let rng = &mut StdRng::from_entropy();
+        let proof = B::generate_proof(prog, ir_witness, pk.to_vec(), rng);
         Ok(JsValue::from_serde(&TaggedProof::<T, S>::new(proof.proof, proof.inputs)).unwrap())
     }
 

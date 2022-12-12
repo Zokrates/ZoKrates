@@ -10,6 +10,7 @@
 extern crate lazy_static;
 
 mod cli_constants;
+mod common;
 mod ops;
 
 use clap::{App, AppSettings, Arg};

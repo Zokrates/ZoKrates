@@ -1,5 +1,8 @@
 use crate::cli_constants;
+use crate::common::get_seeded_rng;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use rand_0_8::rngs::StdRng;
+use rand_0_8::SeedableRng;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Write};
@@ -77,6 +80,14 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .default_value(cli_constants::UNIVERSAL_SETUP_DEFAULT_PATH),
+        )
+        .arg(
+            Arg::with_name("entropy")
+                .short("e")
+                .long("entropy")
+                .help("User provided randomness")
+                .takes_value(true)
+                .required(false),
         )
 }
 
@@ -181,8 +192,13 @@ fn cli_setup_non_universal<
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
 
+    let mut rng = sub_matches
+        .value_of("entropy")
+        .map(|entropy| get_seeded_rng(entropy))
+        .unwrap_or_else(|| StdRng::from_entropy());
+
     // run setup phase
-    let keypair = B::setup(program);
+    let keypair = B::setup(program, &mut rng);
 
     // write verification key
     let mut vk_file = File::create(vk_path)

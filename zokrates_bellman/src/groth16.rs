@@ -8,11 +8,12 @@ use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 use zokrates_proof_systems::{Backend, MpcBackend, NonUniversalBackend, Proof, SetupKeypair};
 
-use crate::Bellman;
 use crate::Computation;
+use crate::{get_random_seed, Bellman};
 use crate::{parse_g1, parse_g2};
 use phase2::MPCParameters;
-use rand_0_4::Rng;
+use rand_0_4::{ChaChaRng, SeedableRng};
+use rand_0_8::{CryptoRng, RngCore};
 use std::io::{Read, Write};
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_proof_systems::groth16::{ProofPoints, VerificationKey, G16};
@@ -21,10 +22,11 @@ use zokrates_proof_systems::Scheme;
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
-    fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
+    fn generate_proof<I: IntoIterator<Item = Statement<T>>, R: RngCore + CryptoRng>(
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
+        rng: &mut R,
     ) -> Proof<T, G16> {
         println!("{}", G16_WARNING);
 
@@ -37,7 +39,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
             .map(|e| format!("0x{}", to_hex(e)))
             .collect();
 
-        let proof = computation.prove(&params);
+        let proof = computation.prove(&params, rng);
         let proof_points = ProofPoints {
             a: parse_g1::<T>(&proof.a),
             b: parse_g2::<T>(&proof.b),
@@ -84,12 +86,13 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 }
 
 impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman {
-    fn setup<I: IntoIterator<Item = Statement<T>>>(
+    fn setup<I: IntoIterator<Item = Statement<T>>, R: RngCore + CryptoRng>(
         program: ProgIterator<T, I>,
+        rng: &mut R,
     ) -> SetupKeypair<T, G16> {
         println!("{}", G16_WARNING);
 
-        let parameters = Computation::without_witness(program).setup();
+        let parameters = Computation::without_witness(program).setup(rng);
         let mut pk: Vec<u8> = Vec::new();
         parameters.write(&mut pk).unwrap();
 
@@ -110,13 +113,16 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         Ok(())
     }
 
-    fn contribute<R: Read, W: Write, G: Rng>(
+    fn contribute<R: Read, W: Write, G: RngCore + CryptoRng>(
         params: &mut R,
         rng: &mut G,
         output: &mut W,
     ) -> Result<[u8; 64], String> {
         let mut params =
             MPCParameters::<T::BellmanEngine>::read(params, true).map_err(|e| e.to_string())?;
+
+        let seed = get_random_seed(rng);
+        let rng = &mut ChaChaRng::from_seed(seed.as_ref());
 
         let hash = params.contribute(rng);
         params.write(output).map_err(|e| e.to_string())?;

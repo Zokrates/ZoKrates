@@ -11,7 +11,7 @@ use zokrates_proof_systems::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 use crate::Computation;
 use crate::{parse_fr, serialization, Ark};
 use crate::{parse_g1, parse_g2};
-use rand_0_8::{rngs::StdRng, SeedableRng};
+use rand_0_8::{CryptoRng, RngCore};
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_proof_systems::groth16::{ProofPoints, VerificationKey, G16};
 use zokrates_proof_systems::Scheme;
@@ -19,10 +19,11 @@ use zokrates_proof_systems::Scheme;
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
 impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
-    fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
+    fn generate_proof<I: IntoIterator<Item = Statement<T>>, R: RngCore + CryptoRng>(
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
+        rng: &mut R,
     ) -> Proof<T, G16> {
         println!("{}", G16_WARNING);
 
@@ -39,9 +40,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
         )
         .unwrap();
 
-        let rng = &mut StdRng::from_entropy();
         let proof = Groth16::<T::ArkEngine>::prove(&pk, computation, rng).unwrap();
-
         let proof_points = ProofPoints {
             a: parse_g1::<T>(&proof.a),
             b: parse_g2::<T>(&proof.b),
@@ -86,14 +85,13 @@ impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
 }
 
 impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, G16> for Ark {
-    fn setup<I: IntoIterator<Item = Statement<T>>>(
+    fn setup<I: IntoIterator<Item = Statement<T>>, R: RngCore + CryptoRng>(
         program: ProgIterator<T, I>,
+        rng: &mut R,
     ) -> SetupKeypair<T, G16> {
         println!("{}", G16_WARNING);
 
         let computation = Computation::without_witness(program);
-
-        let rng = &mut StdRng::from_entropy();
         let (pk, vk) = Groth16::<T::ArkEngine>::circuit_specific_setup(computation, rng).unwrap();
 
         let mut pk_vec: Vec<u8> = Vec::new();

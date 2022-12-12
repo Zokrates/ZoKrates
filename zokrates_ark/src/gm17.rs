@@ -9,19 +9,18 @@ use zokrates_field::{ArkFieldExtensions, Field};
 use crate::Computation;
 use crate::{parse_fr, parse_g1, parse_g2};
 use crate::{serialization, Ark};
-use rand_0_8::{rngs::StdRng, SeedableRng};
+use rand_0_8::{CryptoRng, RngCore};
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_proof_systems::gm17::{ProofPoints, VerificationKey, GM17};
 use zokrates_proof_systems::Scheme;
 use zokrates_proof_systems::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 
 impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, GM17> for Ark {
-    fn setup<I: IntoIterator<Item = Statement<T>>>(
+    fn setup<I: IntoIterator<Item = Statement<T>>, R: RngCore + CryptoRng>(
         program: ProgIterator<T, I>,
+        rng: &mut R,
     ) -> SetupKeypair<T, GM17> {
         let computation = Computation::without_witness(program);
-
-        let rng = &mut StdRng::from_entropy();
         let (pk, vk) = ArkGM17::<T::ArkEngine>::circuit_specific_setup(computation, rng).unwrap();
 
         let mut pk_vec: Vec<u8> = Vec::new();
@@ -41,10 +40,11 @@ impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, GM17> for Ark {
 }
 
 impl<T: Field + ArkFieldExtensions> Backend<T, GM17> for Ark {
-    fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
+    fn generate_proof<I: IntoIterator<Item = Statement<T>>, R: RngCore + CryptoRng>(
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
+        rng: &mut R,
     ) -> Proof<T, GM17> {
         let computation = Computation::with_witness(program, witness);
 
@@ -59,9 +59,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, GM17> for Ark {
         )
         .unwrap();
 
-        let rng = &mut StdRng::from_entropy();
         let proof = ArkGM17::<T::ArkEngine>::prove(&pk, computation, rng).unwrap();
-
         let proof_points = ProofPoints {
             a: parse_g1::<T>(&proof.a),
             b: parse_g2::<T>(&proof.b),

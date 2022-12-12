@@ -17,7 +17,7 @@ use ark_poly_commit::{
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use digest::Digest;
-use rand_0_8::{Error, RngCore, SeedableRng};
+use rand_0_8::{CryptoRng, Error, RngCore, SeedableRng};
 use sha3::Keccak256;
 use std::marker::PhantomData;
 
@@ -116,9 +116,7 @@ type MarlinInst<T> = ArkMarlin<
 >;
 
 impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark {
-    fn universal_setup(size: u32) -> Vec<u8> {
-        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
-
+    fn universal_setup<R: RngCore + CryptoRng>(size: u32, rng: &mut R) -> Vec<u8> {
         let srs = MarlinInst::<T>::universal_setup(
             2usize.pow(size),
             2usize.pow(size),
@@ -128,9 +126,7 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         .unwrap();
 
         let mut res = vec![];
-
         srs.serialize(&mut res).unwrap();
-
         res
     }
 
@@ -210,14 +206,13 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
 }
 
 impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
-    fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
+    fn generate_proof<I: IntoIterator<Item = Statement<T>>, R: RngCore + CryptoRng>(
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
+        rng: &mut R,
     ) -> Proof<T, marlin::Marlin> {
         let computation = Computation::with_witness(program, witness);
-
-        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
         let pk = IndexProverKey::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -229,7 +224,6 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
         .unwrap();
 
         let public_inputs = computation.public_inputs_values();
-
         let inputs = public_inputs.iter().map(parse_fr::<T>).collect::<Vec<_>>();
 
         let proof = MarlinInst::<T>::prove(&pk, computation, rng).unwrap();

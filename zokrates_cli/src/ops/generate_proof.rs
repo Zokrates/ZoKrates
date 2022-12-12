@@ -1,5 +1,8 @@
 use crate::cli_constants;
+use crate::common::get_seeded_rng;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use rand_0_8::rngs::StdRng;
+use rand_0_8::SeedableRng;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
@@ -78,6 +81,14 @@ pub fn subcommand() -> App<'static, 'static> {
                 .required(false)
                 .possible_values(cli_constants::SCHEMES)
                 .default_value(constants::G16),
+        )
+        .arg(
+            Arg::with_name("entropy")
+                .short("e")
+                .long("entropy")
+                .help("User provided randomness")
+                .takes_value(true)
+                .required(false),
         )
 }
 
@@ -166,7 +177,12 @@ fn cli_generate_proof<
         .read_to_end(&mut pk)
         .map_err(|why| format!("Could not read {}: {}", pk_path.display(), why))?;
 
-    let proof = B::generate_proof(program, witness, pk);
+    let mut rng = sub_matches
+        .value_of("entropy")
+        .map(|entropy| get_seeded_rng(entropy))
+        .unwrap_or_else(|| StdRng::from_entropy());
+
+    let proof = B::generate_proof(program, witness, pk, &mut rng);
     let mut proof_file = File::create(proof_path).unwrap();
 
     let proof =

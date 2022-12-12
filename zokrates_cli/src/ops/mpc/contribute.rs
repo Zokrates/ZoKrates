@@ -1,5 +1,9 @@
 use crate::cli_constants::MPC_DEFAULT_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use rand_0_8::{
+    rngs::{OsRng, StdRng},
+    Rng, SeedableRng,
+};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -76,12 +80,10 @@ pub fn cli_mpc_contribute<
     // Create an RNG based on a mixture of system randomness and user provided randomness
     let mut rng = {
         use blake2::{Blake2b, Digest};
-        use byteorder::{BigEndian, ReadBytesExt};
-        use rand_0_4::chacha::ChaChaRng;
-        use rand_0_4::{OsRng, Rng, SeedableRng};
+        use byteorder::ReadBytesExt;
 
         let h = {
-            let mut system_rng = OsRng::new().unwrap();
+            let mut system_rng = OsRng::default();
             let mut h = Blake2b::default();
 
             // Gather 1024 bytes of entropy from the system
@@ -97,13 +99,12 @@ pub fn cli_mpc_contribute<
 
         let mut digest = &h[..];
 
-        // Interpret the first 32 bytes of the digest as 8 32-bit words
-        let mut seed = [0u32; 8];
+        let mut seed = [0u8; 32];
         for e in &mut seed {
-            *e = digest.read_u32::<BigEndian>().unwrap();
+            *e = digest.read_u8().unwrap();
         }
 
-        ChaChaRng::from_seed(&seed)
+        StdRng::from_seed(seed)
     };
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());

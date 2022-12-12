@@ -1,5 +1,8 @@
 use crate::cli_constants;
+use crate::common::get_seeded_rng;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use rand_0_8::rngs::StdRng;
+use rand_0_8::SeedableRng;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::Write;
@@ -54,6 +57,14 @@ pub fn subcommand() -> App<'static, 'static> {
                 .required(false)
                 .default_value(cli_constants::UNIVERSAL_SETUP_DEFAULT_SIZE),
         )
+        .arg(
+            Arg::with_name("entropy")
+                .short("e")
+                .long("entropy")
+                .help("User provided randomness")
+                .takes_value(true)
+                .required(false),
+        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -98,8 +109,13 @@ fn cli_universal_setup<T: Field, S: UniversalScheme<T>, B: UniversalBackend<T, S
         .parse::<u32>()
         .map_err(|_| format!("Universal setup size {} is invalid", size))?;
 
+    let mut rng = sub_matches
+        .value_of("entropy")
+        .map(|entropy| get_seeded_rng(entropy))
+        .unwrap_or_else(|| StdRng::from_entropy());
+
     // run universal setup phase
-    let setup = B::universal_setup(size);
+    let setup = B::universal_setup(size, &mut rng);
 
     // write proving key
     let mut u_file = File::create(u_path)
