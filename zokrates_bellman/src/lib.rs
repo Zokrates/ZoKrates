@@ -249,6 +249,8 @@ mod tests {
 
     mod prove {
         use super::*;
+        use rand_0_8::rngs::StdRng;
+        use rand_0_8::SeedableRng;
         use zokrates_ast::flat::Parameter;
         use zokrates_ast::ir::Prog;
 
@@ -261,8 +263,9 @@ mod tests {
             let witness = interpreter.execute(program.clone(), &[]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -281,8 +284,9 @@ mod tests {
 
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -301,8 +305,9 @@ mod tests {
 
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -318,8 +323,9 @@ mod tests {
             let witness = interpreter.execute(program.clone(), &[]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -351,8 +357,9 @@ mod tests {
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -374,8 +381,9 @@ mod tests {
 
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -399,8 +407,9 @@ mod tests {
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
     }
 }

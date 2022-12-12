@@ -179,8 +179,8 @@ fn cli_generate_proof<
 
     let mut rng = sub_matches
         .value_of("entropy")
-        .map(|entropy| get_seeded_rng(entropy))
-        .unwrap_or_else(|| StdRng::from_entropy());
+        .map(get_seeded_rng)
+        .unwrap_or_else(StdRng::from_entropy);
 
     let proof = B::generate_proof(program, witness, pk, &mut rng);
     let mut proof_file = File::create(proof_path).unwrap();

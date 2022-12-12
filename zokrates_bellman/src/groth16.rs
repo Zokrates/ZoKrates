@@ -205,6 +205,8 @@ pub mod serialization {
 
 #[cfg(test)]
 mod tests {
+    use rand_0_8::rngs::StdRng;
+    use rand_0_8::SeedableRng;
     use zokrates_field::Bn128Field;
     use zokrates_interpreter::Interpreter;
 
@@ -220,15 +222,18 @@ mod tests {
             statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
         };
 
-        let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
+        let rng = &mut StdRng::from_entropy();
+        let keypair =
+            <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone(), rng);
         let interpreter = Interpreter::default();
 
         let witness = interpreter
             .execute(program.clone(), &[Bn128Field::from(42)])
             .unwrap();
 
-        let proof =
-            <Bellman as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk);
+        let proof = <Bellman as Backend<Bn128Field, G16>>::generate_proof(
+            program, witness, keypair.pk, rng,
+        );
         let ans = <Bellman as Backend<Bn128Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);

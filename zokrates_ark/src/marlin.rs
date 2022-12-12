@@ -380,6 +380,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
 #[cfg(test)]
 mod tests {
+    use rand_0_8::rngs::StdRng;
     use zokrates_ast::flat::{Parameter, Variable};
     use zokrates_ast::ir::{Prog, QuadComb, Statement};
     use zokrates_interpreter::Interpreter;
@@ -405,7 +406,8 @@ mod tests {
             ],
         };
 
-        let srs = <Ark as UniversalBackend<Bls12_377Field, Marlin>>::universal_setup(5);
+        let rng = &mut StdRng::from_entropy();
+        let srs = <Ark as UniversalBackend<Bls12_377Field, Marlin>>::universal_setup(5, rng);
         let keypair =
             <Ark as UniversalBackend<Bls12_377Field, Marlin>>::setup(srs, program.clone()).unwrap();
         let interpreter = Interpreter::default();
@@ -414,8 +416,9 @@ mod tests {
             .execute(program.clone(), &[Bls12_377Field::from(42)])
             .unwrap();
 
-        let proof =
-            <Ark as Backend<Bls12_377Field, Marlin>>::generate_proof(program, witness, keypair.pk);
+        let proof = <Ark as Backend<Bls12_377Field, Marlin>>::generate_proof(
+            program, witness, keypair.pk, rng,
+        );
         let ans = <Ark as Backend<Bls12_377Field, Marlin>>::verify(keypair.vk, proof);
 
         assert!(ans);
@@ -438,7 +441,8 @@ mod tests {
             ],
         };
 
-        let srs = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::universal_setup(5);
+        let rng = &mut StdRng::from_entropy();
+        let srs = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::universal_setup(5, rng);
         let keypair =
             <Ark as UniversalBackend<Bw6_761Field, Marlin>>::setup(srs, program.clone()).unwrap();
         let interpreter = Interpreter::default();
@@ -447,8 +451,9 @@ mod tests {
             .execute(program.clone(), &[Bw6_761Field::from(42)])
             .unwrap();
 
-        let proof =
-            <Ark as Backend<Bw6_761Field, Marlin>>::generate_proof(program, witness, keypair.pk);
+        let proof = <Ark as Backend<Bw6_761Field, Marlin>>::generate_proof(
+            program, witness, keypair.pk, rng,
+        );
         let ans = <Ark as Backend<Bw6_761Field, Marlin>>::verify(keypair.vk, proof);
 
         assert!(ans);

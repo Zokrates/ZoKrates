@@ -194,8 +194,8 @@ fn cli_setup_non_universal<
 
     let mut rng = sub_matches
         .value_of("entropy")
-        .map(|entropy| get_seeded_rng(entropy))
-        .unwrap_or_else(|| StdRng::from_entropy());
+        .map(get_seeded_rng)
+        .unwrap_or_else(StdRng::from_entropy);
 
     // run setup phase
     let keypair = B::setup(program, &mut rng);

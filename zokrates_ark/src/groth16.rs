@@ -111,6 +111,8 @@ impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, G16> for Ark {
 
 #[cfg(test)]
 mod tests {
+    use rand_0_8::rngs::StdRng;
+    use rand_0_8::SeedableRng;
     use zokrates_ast::flat::{Parameter, Variable};
     use zokrates_ast::ir::{Prog, Statement};
     use zokrates_interpreter::Interpreter;
@@ -126,15 +128,18 @@ mod tests {
             statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
         };
 
-        let keypair = <Ark as NonUniversalBackend<Bls12_377Field, G16>>::setup(program.clone());
+        let rng = &mut StdRng::from_entropy();
+        let keypair =
+            <Ark as NonUniversalBackend<Bls12_377Field, G16>>::setup(program.clone(), rng);
         let interpreter = Interpreter::default();
 
         let witness = interpreter
             .execute(program.clone(), &[Bls12_377Field::from(42)])
             .unwrap();
 
-        let proof =
-            <Ark as Backend<Bls12_377Field, G16>>::generate_proof(program, witness, keypair.pk);
+        let proof = <Ark as Backend<Bls12_377Field, G16>>::generate_proof(
+            program, witness, keypair.pk, rng,
+        );
         let ans = <Ark as Backend<Bls12_377Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);
@@ -148,7 +153,8 @@ mod tests {
             statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
         };
 
-        let keypair = <Ark as NonUniversalBackend<Bw6_761Field, G16>>::setup(program.clone());
+        let rng = &mut StdRng::from_entropy();
+        let keypair = <Ark as NonUniversalBackend<Bw6_761Field, G16>>::setup(program.clone(), rng);
         let interpreter = Interpreter::default();
 
         let witness = interpreter
@@ -156,7 +162,7 @@ mod tests {
             .unwrap();
 
         let proof =
-            <Ark as Backend<Bw6_761Field, G16>>::generate_proof(program, witness, keypair.pk);
+            <Ark as Backend<Bw6_761Field, G16>>::generate_proof(program, witness, keypair.pk, rng);
         let ans = <Ark as Backend<Bw6_761Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);
