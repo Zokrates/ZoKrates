@@ -1,10 +1,7 @@
 use crate::cli_constants::MPC_DEFAULT_PATH;
 use crate::common::get_seeded_rng;
 use clap::{App, Arg, ArgMatches, SubCommand};
-use rand_0_8::{
-    rngs::{OsRng, StdRng},
-    Rng, SeedableRng,
-};
+use rand_0_8::{rngs::StdRng, SeedableRng};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
