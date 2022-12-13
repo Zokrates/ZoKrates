@@ -168,7 +168,7 @@ describe("tests", () => {
     it("compile", () => {
       assert.doesNotThrow(() => {
         const code = `def main(private field a, field b) -> bool {
-            bool check = if (a == 0){ true} else {a * a == b};
+            bool check = if (a == 0) { true } else { a * a == b };
             assert(check);
             return true;
         }`;
@@ -195,6 +195,18 @@ describe("tests", () => {
           keypair = provider.setupWithSrs(srs, artifacts.program);
         } else {
           keypair = provider.setup(artifacts.program);
+        }
+      });
+    });
+
+    it("setup (with user-provided entropy)", () => {
+      assert.doesNotThrow(() => {
+        let entropy = "f5c51ca46c331965";
+        if (options.scheme === "marlin") {
+          const srs = provider.universalSetup(4, entropy);
+          keypair = provider.setupWithSrs(srs, artifacts.program);
+        } else {
+          keypair = provider.setup(artifacts.program, entropy);
         }
       });
     });
@@ -232,6 +244,20 @@ describe("tests", () => {
           artifacts.program,
           computationResult.witness,
           keypair.pk
+        );
+        assert.ok(proof !== undefined);
+        assert.equal(proof.inputs.length, 2);
+      });
+    });
+
+    it("generate proof (with user-provided entropy)", () => {
+      assert.doesNotThrow(() => {
+        let entropy = "326e2c864f414ffb";
+        proof = provider.generateProof(
+          artifacts.program,
+          computationResult.witness,
+          keypair.pk,
+          entropy
         );
         assert.ok(proof !== undefined);
         assert.equal(proof.inputs.length, 2);

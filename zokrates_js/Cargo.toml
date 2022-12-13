@@ -15,6 +15,8 @@ wasm-bindgen = { version = "0.2.46", features = ["serde-serialize"] }
 typed-arena = "1.4.1"
 lazy_static = "1.4.0"
 rand_0_8 = { version = "0.8", package = "rand" }
+blake2 = "0.8.1"
+byteorder = "1"
 zokrates_core = { path = "../zokrates_core", default-features = false, features = ["ark", "bellman"] }
 zokrates_ark = { path = "../zokrates_ark", default-features = false}
 zokrates_bellman = { path = "../zokrates_bellman", default-features = false}

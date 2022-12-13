@@ -3211,6 +3211,8 @@ dependencies = [
 name = "zokrates_js"
 version = "1.1.4"
 dependencies = [
+ "blake2 0.8.1",
+ "byteorder",
  "console_error_panic_hook",
  "indexmap",
  "js-sys",

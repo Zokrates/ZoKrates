@@ -1,4 +1,5 @@
 use crate::cli_constants::MPC_DEFAULT_PATH;
+use crate::common::get_seeded_rng;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use rand_0_8::{
     rngs::{OsRng, StdRng},
@@ -75,37 +76,6 @@ pub fn cli_mpc_contribute<
         File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
-    let entropy = sub_matches.value_of("entropy").unwrap();
-
-    // Create an RNG based on a mixture of system randomness and user provided randomness
-    let mut rng = {
-        use blake2::{Blake2b, Digest};
-        use byteorder::ReadBytesExt;
-
-        let h = {
-            let mut system_rng = OsRng::default();
-            let mut h = Blake2b::default();
-
-            // Gather 1024 bytes of entropy from the system
-            for _ in 0..1024 {
-                let r: u8 = system_rng.gen();
-                h.input(&[r]);
-            }
-
-            // Hash it all up to make a seed
-            h.input(&entropy.as_bytes());
-            h.result()
-        };
-
-        let mut digest = &h[..];
-
-        let mut seed = [0u8; 32];
-        for e in &mut seed {
-            *e = digest.read_u8().unwrap();
-        }
-
-        StdRng::from_seed(seed)
-    };
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)
@@ -114,6 +84,11 @@ pub fn cli_mpc_contribute<
     let mut writer = BufWriter::new(output_file);
 
     println!("Contributing to `{}`...", path.display());
+
+    let mut rng = sub_matches
+        .value_of("entropy")
+        .map(get_seeded_rng)
+        .unwrap_or_else(StdRng::from_entropy);
 
     let hash = B::contribute(&mut reader, &mut rng, &mut writer)
         .map_err(|e| format!("Failed to contribute: {}", e))?;

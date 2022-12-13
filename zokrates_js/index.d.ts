@@ -84,13 +84,14 @@ declare module "zokrates-js" {
       args: any[],
       options?: ComputeOptions
     ): ComputationResult;
-    setup(program: Uint8Array): SetupKeypair;
-    universalSetup(size: number): Uint8Array;
+    setup(program: Uint8Array, entropy?: string): SetupKeypair;
+    universalSetup(size: number, entropy?: string): Uint8Array;
     setupWithSrs(srs: Uint8Array, program: Uint8Array): SetupKeypair;
     generateProof(
       program: Uint8Array,
       witness: string,
-      provingKey: Uint8Array
+      provingKey: Uint8Array,
+      entropy?: string
     ): Proof;
     verify(verificationKey: VerificationKey, proof: Proof): boolean;
     exportSolidityVerifier(verificationKey: VerificationKey): string;

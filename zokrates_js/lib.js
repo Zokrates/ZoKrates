@@ -54,17 +54,17 @@ module.exports = (pkg) => {
       ptr.free();
       return result;
     },
-    setup: (program, options) => {
-      return pkg.setup(program, options);
+    setup: (program, entropy, options) => {
+      return pkg.setup(program, entropy, options);
     },
-    universalSetup: (curve, size) => {
-      return pkg.universal_setup(curve, size);
+    universalSetup: (curve, size, entropy) => {
+      return pkg.universal_setup(curve, size, entropy);
     },
     setupWithSrs: (srs, program, options) => {
       return pkg.setup_with_srs(srs, program, options);
     },
-    generateProof: (program, witness, provingKey, options) => {
-      return pkg.generate_proof(program, witness, provingKey, options);
+    generateProof: (program, witness, provingKey, entropy, options) => {
+      return pkg.generate_proof(program, witness, provingKey, entropy, options);
     },
     verify: (vk, proof, options) => {
       return pkg.verify(vk, proof, options);
@@ -89,13 +89,20 @@ module.exports = (pkg) => {
         }),
       computeWitness: (artifacts, args, computeOptions = {}) =>
         defaultProvider.computeWitness(artifacts, args, computeOptions),
-      setup: (program) => defaultProvider.setup(program, options),
-      universalSetup: (size) =>
-        defaultProvider.universalSetup(options.curve, size),
+      setup: (program, entropy) =>
+        defaultProvider.setup(program, entropy, options),
+      universalSetup: (size, entropy) =>
+        defaultProvider.universalSetup(options.curve, size, entropy),
       setupWithSrs: (srs, program) =>
         defaultProvider.setupWithSrs(srs, program, options),
-      generateProof: (program, witness, provingKey) =>
-        defaultProvider.generateProof(program, witness, provingKey, options),
+      generateProof: (program, witness, provingKey, entropy) =>
+        defaultProvider.generateProof(
+          program,
+          witness,
+          provingKey,
+          entropy,
+          options
+        ),
       verify: (vk, proof) => defaultProvider.verify(vk, proof, options),
       exportSolidityVerifier: (vk) =>
         defaultProvider.exportSolidityVerifier(vk),
