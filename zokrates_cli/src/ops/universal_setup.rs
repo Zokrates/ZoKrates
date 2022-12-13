@@ -7,7 +7,7 @@ use std::path::Path;
 #[cfg(feature = "ark")]
 use zokrates_ark::Ark;
 #[cfg(feature = "bellman")]
-use zokrates_bellman::Bellman;
+use zokrates_bellman_plonk::Bellman as BellmanPlonk;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
@@ -78,14 +78,14 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     match parameters {
         #[cfg(feature = "bellman")]
         Parameters(BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::PLONK) => {
-            cli_universal_setup::<Bn128Field, Plonk, Bellman>(sub_matches)
+            cli_universal_setup::<Bn128Field, Plonk, BellmanPlonk>(sub_matches)
         }
         #[cfg(feature = "bellman")]
         Parameters(
             BackendParameter::Bellman,
             CurveParameter::Bls12_381,
             SchemeParameter::PLONK,
-        ) => cli_universal_setup::<Bls12_381Field, Plonk, Bellman>(sub_matches),
+        ) => cli_universal_setup::<Bls12_381Field, Plonk, BellmanPlonk>(sub_matches),
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
             cli_universal_setup::<Bn128Field, Marlin, Ark>(sub_matches)

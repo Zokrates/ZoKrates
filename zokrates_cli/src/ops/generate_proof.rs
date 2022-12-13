@@ -110,9 +110,11 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         },
         #[cfg(feature = "bellman")]
         Parameters(BackendParameter::Bellman, _, SchemeParameter::PLONK) => match prog {
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, Plonk, Bellman>(p, sub_matches),
+            ProgEnum::Bn128Program(p) => {
+                cli_generate_proof::<_, _, Plonk, BellmanPlonk>(p, sub_matches)
+            }
             ProgEnum::Bls12_381Program(p) => {
-                cli_generate_proof::<_, _, Plonk, Bellman>(p, sub_matches)
+                cli_generate_proof::<_, _, Plonk, BellmanPlonk>(p, sub_matches)
             }
             _ => unreachable!(),
         },

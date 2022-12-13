@@ -9,6 +9,8 @@ use zokrates_ark::Ark;
 use zokrates_ast::ir::{self, ProgEnum};
 #[cfg(feature = "bellman")]
 use zokrates_bellman::Bellman;
+#[cfg(feature = "bellman")]
+use zokrates_bellman_plonk::Bellman as BellmanPlonk;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::Field;
@@ -179,10 +181,10 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
             match prog {
                 ProgEnum::Bn128Program(p) => {
-                    cli_setup_universal::<_, _, Plonk, Bellman>(p, setup, sub_matches)
+                    cli_setup_universal::<_, _, Plonk, BellmanPlonk>(p, setup, sub_matches)
                 }
                 ProgEnum::Bls12_381Program(p) => {
-                    cli_setup_universal::<_, _, Plonk, Bellman>(p, setup, sub_matches)
+                    cli_setup_universal::<_, _, Plonk, BellmanPlonk>(p, setup, sub_matches)
                 }
                 _ => unreachable!(),
             }

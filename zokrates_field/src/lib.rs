@@ -8,6 +8,7 @@ extern crate num_bigint;
 
 #[cfg(feature = "bellman")]
 use bellman_ce::pairing::{ff::ScalarEngine, Engine};
+use bellman_ce_plonk::pairing::{ff::ScalarEngine as ScalarEnginePlonk, Engine as EnginePlonk};
 
 use num_bigint::BigUint;
 use num_traits::{CheckedDiv, One, Zero};
@@ -31,6 +32,16 @@ pub trait BellmanFieldExtensions {
     fn from_bellman(e: <Self::BellmanEngine as ScalarEngine>::Fr) -> Self;
     fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr;
     fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
+}
+
+#[cfg(feature = "bellman")]
+pub trait BellmanPlonkFieldExtensions {
+    /// An associated type to be able to operate with Bellman ff traits
+    type BellmanEngine: EnginePlonk;
+
+    fn from_bellman(e: <Self::BellmanEngine as ScalarEnginePlonk>::Fr) -> Self;
+    fn into_bellman(self) -> <Self::BellmanEngine as ScalarEnginePlonk>::Fr;
+    fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as EnginePlonk>::Fqe;
 }
 
 pub trait ArkFieldExtensions {
@@ -576,33 +587,32 @@ mod prime_field {
 
     #[cfg(feature = "bellman")]
     macro_rules! bellman_extensions {
-        ($bellman_crate:ident, $bellman_type:ty, $fq2_type:ident) => {
-            use crate::BellmanFieldExtensions;
-            use $bellman_crate::pairing::ff::ScalarEngine;
+        ($bellman_crate:ident, $trait:ident, $bellman_type:ty, $fq2_type:ident) => {
+            use crate::$trait;
 
-            impl BellmanFieldExtensions for FieldPrime {
+            impl $trait for FieldPrime {
                 type BellmanEngine = $bellman_type;
 
-                fn from_bellman(e: <Self::BellmanEngine as ScalarEngine>::Fr) -> Self {
-                    use bellman_ce::pairing::ff::{PrimeField, PrimeFieldRepr};
+                fn from_bellman(e: <Self::BellmanEngine as $bellman_crate::pairing::ff::ScalarEngine>::Fr) -> Self {
+                    use $bellman_crate::pairing::ff::{PrimeField, PrimeFieldRepr};
                     let mut res: Vec<u8> = vec![];
                     e.into_repr().write_le(&mut res).unwrap();
                     Self::from_byte_vector(res)
                 }
 
-                fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr {
-                    use bellman_ce::pairing::ff::PrimeField;
+                fn into_bellman(self) -> <Self::BellmanEngine as $bellman_crate::pairing::ff::ScalarEngine>::Fr {
+                    use $bellman_crate::pairing::ff::PrimeField;
                     let s = self.to_dec_string();
-                    <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
+                    <Self::BellmanEngine as $bellman_crate::pairing::ff::ScalarEngine>::Fr::from_str(&s).unwrap()
                 }
 
                 fn new_fq2(
                     c0: &str,
                     c1: &str,
-                ) -> <Self::BellmanEngine as bellman_ce::pairing::Engine>::Fqe {
+                ) -> <Self::BellmanEngine as $bellman_crate::pairing::Engine>::Fqe {
                     $fq2_type {
-                        c0: bellman_ce::pairing::from_hex(c0).unwrap(),
-                        c1: bellman_ce::pairing::from_hex(c1).unwrap(),
+                        c0: $bellman_crate::pairing::from_hex(c0).unwrap(),
+                        c1: $bellman_crate::pairing::from_hex(c1).unwrap(),
                     }
                 }
             }

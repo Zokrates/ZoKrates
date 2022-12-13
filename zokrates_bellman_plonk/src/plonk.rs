@@ -6,7 +6,7 @@ use bellman::plonk::{
     Proof as BellmanProof, SetupPolynomials, VerificationKey as BellmanVerificationKey,
 };
 
-use zokrates_field::BellmanFieldExtensions;
+use zokrates_field::BellmanPlonkFieldExtensions;
 use zokrates_field::Field;
 use zokrates_proof_systems::{Backend, Proof, SetupKeypair, UniversalBackend};
 
@@ -19,7 +19,7 @@ use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_proof_systems::plonk::{Plonk, ProofPoints, VerificationKey};
 use zokrates_proof_systems::Scheme;
 
-impl<T: Field + BellmanFieldExtensions> UniversalBackend<T, Plonk> for Bellman {
+impl<T: Field + BellmanPlonkFieldExtensions> UniversalBackend<T, Plonk> for Bellman {
     fn universal_setup(size: u32) -> Vec<u8> {
         let crs: Crs<T::BellmanEngine, CrsForMonomialForm> =
             Crs::<T::BellmanEngine, CrsForMonomialForm>::dummy_crs(2usize.pow(size) as usize);
@@ -69,7 +69,7 @@ impl<T: Field + BellmanFieldExtensions> UniversalBackend<T, Plonk> for Bellman {
     }
 }
 
-impl<T: Field + BellmanFieldExtensions> Backend<T, Plonk> for Bellman {
+impl<T: Field + BellmanPlonkFieldExtensions> Backend<T, Plonk> for Bellman {
     fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
         program: ProgIterator<T, I>,
         witness: Witness<T>,
@@ -131,7 +131,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, Plonk> for Bellman {
     }
 }
 
-fn deserialize_vk<T: Field + BellmanFieldExtensions>(
+fn deserialize_vk<T: Field + BellmanPlonkFieldExtensions>(
     vk: <Plonk as Scheme<T>>::VerificationKey,
 ) -> BellmanVerificationKey<T::BellmanEngine, PlonkCsWidth4WithNextStepParams> {
     BellmanVerificationKey {
@@ -169,7 +169,7 @@ fn deserialize_vk<T: Field + BellmanFieldExtensions>(
     }
 }
 
-fn serialize_vk<T: Field + BellmanFieldExtensions>(
+fn serialize_vk<T: Field + BellmanPlonkFieldExtensions>(
     vk: BellmanVerificationKey<T::BellmanEngine, PlonkCsWidth4WithNextStepParams>,
 ) -> <Plonk as Scheme<T>>::VerificationKey {
     let domain = bellman::plonk::domains::Domain::<
@@ -205,7 +205,7 @@ fn serialize_vk<T: Field + BellmanFieldExtensions>(
     }
 }
 
-fn deserialize_proof<T: Field + BellmanFieldExtensions>(
+fn deserialize_proof<T: Field + BellmanPlonkFieldExtensions>(
     proof: Proof<T, Plonk>,
 ) -> BellmanProof<T::BellmanEngine, PlonkCsWidth4WithNextStepParams> {
     let inputs = proof.inputs;
@@ -252,7 +252,7 @@ fn deserialize_proof<T: Field + BellmanFieldExtensions>(
     }
 }
 
-fn serialize_proof<T: Field + BellmanFieldExtensions>(
+fn serialize_proof<T: Field + BellmanPlonkFieldExtensions>(
     proof: BellmanProof<T::BellmanEngine, PlonkCsWidth4WithNextStepParams>,
 ) -> Proof<T, Plonk> {
     let public_inputs = proof.input_values.iter().map(parse_fr::<T>).collect();
@@ -318,8 +318,8 @@ mod tests {
         println!("{}", &program);
 
         // generate a dummy universal setup of size 2**10
-        let crs: Crs<<Bn128Field as BellmanFieldExtensions>::BellmanEngine, CrsForMonomialForm> =
-        Crs::<<Bn128Field as BellmanFieldExtensions>::BellmanEngine, CrsForMonomialForm>::dummy_crs(2usize.pow(10) as usize);
+        let crs: Crs<<Bn128Field as BellmanPlonkFieldExtensions>::BellmanEngine, CrsForMonomialForm> =
+        Crs::<<Bn128Field as BellmanPlonkFieldExtensions>::BellmanEngine, CrsForMonomialForm>::dummy_crs(2usize.pow(10) as usize);
 
         // transpile
         let hints = transpile(Computation::without_witness(program.clone())).unwrap();
@@ -348,7 +348,7 @@ mod tests {
 
         // generate a proof with no setup precomputations and no init params for the transcript, using Blake2s
         let proof: BellmanProof<
-            <Bn128Field as BellmanFieldExtensions>::BellmanEngine,
+            <Bn128Field as BellmanPlonkFieldExtensions>::BellmanEngine,
             PlonkCsWidth4WithNextStepParams,
         > = prove_by_steps::<_, _, Blake2sTranscript<_>>(
             computation,
