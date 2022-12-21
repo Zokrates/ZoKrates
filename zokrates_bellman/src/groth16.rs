@@ -6,11 +6,13 @@ use pairing::{ff::to_hex, CurveAffine, Engine};
 
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
+use zokrates_proof_systems::G1Affine;
+use zokrates_proof_systems::G2Affine;
 use zokrates_proof_systems::{Backend, MpcBackend, NonUniversalBackend, Proof, SetupKeypair};
 
 use crate::Bellman;
 use crate::Computation;
-use crate::{parse_g1, parse_g2};
+use crate::{parse_g1, parse_g2, serialization};
 use phase2::MPCParameters;
 use rand_0_4::Rng;
 use std::io::{Read, Write};
@@ -93,7 +95,7 @@ impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman 
         let mut pk: Vec<u8> = Vec::new();
         parameters.write(&mut pk).unwrap();
 
-        let vk = serialization::parameters_to_verification_key::<T>(&parameters);
+        let vk = parameters_to_verification_key::<T>(&parameters);
         SetupKeypair::new(vk, pk)
     }
 }
@@ -148,52 +150,25 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         let mut pk: Vec<u8> = Vec::new();
         params.write(&mut pk).map_err(|e| e.to_string())?;
 
-        let vk = serialization::parameters_to_verification_key::<T>(params);
+        let vk = parameters_to_verification_key::<T>(params);
         Ok(SetupKeypair::new(vk, pk))
     }
 }
 
-pub mod serialization {
-    use super::*;
-    use pairing::from_hex;
-    use zokrates_proof_systems::{G1Affine, G2Affine};
-
-    pub fn parameters_to_verification_key<T: Field + BellmanFieldExtensions>(
-        parameters: &Parameters<T::BellmanEngine>,
-    ) -> VerificationKey<G1Affine, G2Affine> {
-        VerificationKey {
-            alpha: parse_g1::<T>(&parameters.vk.alpha_g1),
-            beta: parse_g2::<T>(&parameters.vk.beta_g2),
-            gamma: parse_g2::<T>(&parameters.vk.gamma_g2),
-            delta: parse_g2::<T>(&parameters.vk.delta_g2),
-            gamma_abc: parameters
-                .vk
-                .ic
-                .iter()
-                .map(|g1| parse_g1::<T>(g1))
-                .collect(),
-        }
-    }
-
-    pub fn to_g1<T: BellmanFieldExtensions>(
-        g1: G1Affine,
-    ) -> <T::BellmanEngine as Engine>::G1Affine {
-        <T::BellmanEngine as Engine>::G1Affine::from_xy_unchecked(
-            from_hex(&g1.x).unwrap(),
-            from_hex(&g1.y).unwrap(),
-        )
-    }
-    pub fn to_g2<T: BellmanFieldExtensions>(
-        g2: G2Affine,
-    ) -> <T::BellmanEngine as Engine>::G2Affine {
-        match g2 {
-            G2Affine::Fq2(g2) => {
-                let x = T::new_fq2(&(g2.x).0, &(g2.x).1);
-                let y = T::new_fq2(&(g2.y).0, &(g2.y).1);
-                <T::BellmanEngine as Engine>::G2Affine::from_xy_unchecked(x, y)
-            }
-            _ => unreachable!(),
-        }
+pub fn parameters_to_verification_key<T: Field + BellmanFieldExtensions>(
+    parameters: &Parameters<T::BellmanEngine>,
+) -> VerificationKey<G1Affine, G2Affine> {
+    VerificationKey {
+        alpha: parse_g1::<T>(&parameters.vk.alpha_g1),
+        beta: parse_g2::<T>(&parameters.vk.beta_g2),
+        gamma: parse_g2::<T>(&parameters.vk.gamma_g2),
+        delta: parse_g2::<T>(&parameters.vk.delta_g2),
+        gamma_abc: parameters
+            .vk
+            .ic
+            .iter()
+            .map(|g1| parse_g1::<T>(g1))
+            .collect(),
     }
 }
 

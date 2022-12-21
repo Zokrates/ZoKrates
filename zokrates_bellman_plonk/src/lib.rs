@@ -201,7 +201,7 @@ impl<T: BellmanPlonkFieldExtensions + Field, I: IntoIterator<Item = Statement<T>
 
 pub mod serialization {
     use super::*;
-    use bellman::{pairing::from_hex, CurveAffine, Engine};
+    use bellman::{pairing::from_hex, pairing::CurveAffine, pairing::Engine};
     use zokrates_proof_systems::{G1Affine, G2Affine};
 
     pub fn to_g1<T: BellmanPlonkFieldExtensions>(
@@ -244,7 +244,7 @@ pub mod serialization {
 
 mod parse {
     use super::*;
-    use bellman::{pairing::CurveAffine, PrimeField};
+    use bellman::{pairing::ff::PrimeField, pairing::CurveAffine};
     use zokrates_proof_systems::{Fq2, Fr, G1Affine, G2Affine, GAffine};
 
     fn to_hex(bytes: &[u8]) -> String {
@@ -278,7 +278,7 @@ mod parse {
     pub fn parse_fr<T: BellmanPlonkFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::ff::ScalarEngine>::Fr,
     ) -> Fr {
-        use crate::bellman::PrimeFieldRepr;
+        use bellman::pairing::ff::PrimeFieldRepr;
         let mut bytes: Vec<u8> = Vec::new();
         e.into_repr().write_le(&mut bytes).unwrap();
         bytes.reverse();
