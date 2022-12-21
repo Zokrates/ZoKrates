@@ -2,6 +2,7 @@ pub mod to_token;
 
 mod scheme;
 mod solidity;
+mod solidity_renderers;
 mod tagged;
 
 pub use self::scheme::*;

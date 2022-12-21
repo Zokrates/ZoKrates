@@ -23,7 +23,7 @@ mod integration {
     use zokrates_ast::typed::abi::Abi;
     use zokrates_field::Bn128Field;
     use zokrates_proof_systems::{
-        to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17,
+        to_token::ToToken, Marlin, Plonk, Proof, SolidityCompatibleScheme, G16, GM17,
         SOLIDITY_G2_ADDITION_LIB,
     };
 
@@ -43,7 +43,6 @@ mod integration {
     fn test_compile_and_witness_dir() {
         let global_dir = TempDir::new("global").unwrap();
         let global_base = global_dir.path();
-        let universal_setup_path = global_base.join("universal_setup.dat");
 
         // GENERATE A UNIVERSAL SETUP
         assert_cli::Assert::main_binary()
@@ -54,7 +53,27 @@ mod integration {
                 "--proving-scheme",
                 "marlin",
                 "--universal-setup-path",
-                universal_setup_path.to_str().unwrap(),
+                global_base
+                    .join("universal_setup_marlin.dat")
+                    .to_str()
+                    .unwrap(),
+            ])
+            .succeeds()
+            .unwrap();
+        assert_cli::Assert::main_binary()
+            .with_args(&[
+                "universal-setup",
+                "--backend",
+                "bellman",
+                "--size",
+                "10",
+                "--proving-scheme",
+                "plonk",
+                "--universal-setup-path",
+                global_base
+                    .join("universal_setup_plonk.dat")
+                    .to_str()
+                    .unwrap(),
             ])
             .succeeds()
             .unwrap();
@@ -89,6 +108,8 @@ mod integration {
         expected_witness_path: &Path,
         global_path: &Path,
     ) {
+        println!("Running test for program: {:?}", program_name);
+
         let tmp_dir = TempDir::new(program_name).unwrap();
         let tmp_base = tmp_dir.path();
         let test_case_path = tmp_base.join(program_name);
@@ -97,7 +118,6 @@ mod integration {
         let witness_path = tmp_base.join(program_name).join("witness");
         let inline_witness_path = tmp_base.join(program_name).join("inline_witness");
         let proof_path = tmp_base.join(program_name).join("proof.json");
-        let universal_setup_path = global_path.join("universal_setup.dat");
         let verification_key_path = tmp_base
             .join(program_name)
             .join("verification")
@@ -235,7 +255,7 @@ mod integration {
         }
 
         let backends = map! {
-            "bellman" => vec!["g16"],
+            "bellman" => vec!["g16", "plonk"],
             "ark" => vec!["g16", "gm17", "marlin"]
         };
 
@@ -243,6 +263,8 @@ mod integration {
             for scheme in &schemes {
                 println!("test with {}, {}", backend, scheme);
                 // SETUP
+                let universal_setup_path =
+                    global_path.join(format!("universal_setup_{}.dat", scheme));
                 let setup = assert_cli::Assert::main_binary()
                     .with_args(&[
                         "setup",
@@ -263,6 +285,10 @@ mod integration {
                     .stdout()
                     .doesnt_contain("This program is too small to generate a setup with Marlin")
                     .execute();
+
+                if let Err(e) = &setup {
+                    eprint!("{}", e);
+                }
 
                 if setup.is_ok() {
                     // GENERATE-PROOF
@@ -318,7 +344,6 @@ mod integration {
                             .unwrap();
                     match *scheme {
                         "marlin" => {
-                            // Get the proof
                             let proof: Proof<Bn128Field, Marlin> = serde_json::from_reader(
                                 File::open(proof_path.to_str().unwrap()).unwrap(),
                             )
@@ -326,8 +351,15 @@ mod integration {
 
                             test_solidity_verifier(contract_str, proof);
                         }
+                        "plonk" => {
+                            let proof: Proof<Bn128Field, Plonk> = serde_json::from_reader(
+                                File::open(proof_path.to_str().unwrap()).unwrap(),
+                            )
+                            .unwrap();
+
+                            test_solidity_verifier(contract_str, proof);
+                        }
                         "g16" => {
-                            // Get the proof
                             let proof: Proof<Bn128Field, G16> = serde_json::from_reader(
                                 File::open(proof_path.to_str().unwrap()).unwrap(),
                             )
@@ -336,7 +368,6 @@ mod integration {
                             test_solidity_verifier(contract_str, proof);
                         }
                         "gm17" => {
-                            // Get the proof
                             let proof: Proof<Bn128Field, GM17> = serde_json::from_reader(
                                 File::open(proof_path.to_str().unwrap()).unwrap(),
                             )
@@ -411,7 +442,6 @@ mod integration {
                 })
                 .collect::<Vec<_>>(),
         );
-
         let inputs = [proof_token, input_token.clone()];
 
         // Call verify function on contract
@@ -445,7 +475,7 @@ mod integration {
             )
             .unwrap();
 
-        assert_eq!(result.op_out, Return::InvalidOpcode);
+        assert!(result.op_out == Return::InvalidOpcode || result.op_out == Return::Revert);
     }
 
     fn test_compile_and_smtlib2(
