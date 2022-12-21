@@ -239,8 +239,8 @@ mod integration {
         }
 
         let backends = map! {
-            "bellman" => vec!["plonk"],
-            "ark" => vec![]
+            "bellman" => vec!["g16", "plonk"],
+            "ark" => vec!["g16", "gm17", "marlin"]
         };
 
         for (backend, schemes) in backends {

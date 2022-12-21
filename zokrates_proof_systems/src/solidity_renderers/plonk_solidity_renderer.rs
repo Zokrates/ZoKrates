@@ -1,5 +1,5 @@
 // Copied and adjusted from:
-// https://github.com/matter-labs/solidity_plonk_verifier/blob/master/bellman_vk_codegen/src/lib.rs
+// https://github.com/matter-labs/solidity_plonk_verifier/blob/3c458aff9005c62119113653bba17e0881c41675/bellman_vk_codegen/src/lib.rs
 
 use handlebars::*;
 use zokrates_field::Field;
@@ -71,9 +71,6 @@ pub fn render_verification_key<T: Field>(vk: &<Plonk as Scheme<T>>::Verification
     handlebars
         .register_template_string("contract", &template_str)
         .expect("must read the template");
-
-    // make data and render it
-    // println!("{}", handlebars.render("contract", &map).unwrap());
 
     handlebars.render("contract", &map).unwrap()
 }

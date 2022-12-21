@@ -1,5 +1,8 @@
 pragma solidity ^0.8.0;
 
+// Copied and adjusted from:
+// https://github.com/matter-labs/solidity_plonk_verifier/blob/16c1c8114c008c71e90265d33e1dfcff0a1ee1af/bellman_vk_codegen/template.sol
+
 library PairingsBn254 {
     uint256 constant q_mod = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
     uint256 constant r_mod = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
