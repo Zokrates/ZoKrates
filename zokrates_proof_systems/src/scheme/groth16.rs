@@ -5,17 +5,17 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
-#[derive(Serialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct G16;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ProofPoints<G1, G2> {
     pub a: G1,
     pub b: G2,
     pub c: G1,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct VerificationKey<G1, G2> {
     pub alpha: G1,
     pub beta: G2,

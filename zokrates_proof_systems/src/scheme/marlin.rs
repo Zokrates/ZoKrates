@@ -7,7 +7,7 @@ use zokrates_field::Field;
 #[derive(Serialize, Debug, Clone)]
 pub struct Marlin;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ProofPoints<Fr, G1> {
     pub commitments: Vec<Vec<(G1, Option<G1>)>>,
     pub evaluations: Vec<Fr>,
@@ -46,7 +46,7 @@ impl<Fr: Clone, G1: Clone> From<ProofPoints<Fr, G1>> for SolidityProof<Fr, G1> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct KZGVerifierKey<G1, G2> {
     /// The generator of G1.
     pub g: G1,

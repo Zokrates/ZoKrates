@@ -45,7 +45,7 @@ impl<T: Field, S: Scheme<T>> Proof<T, S> {
 
 pub type Fr = String;
 pub type Fq = String;
-#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Fq2(pub String, pub String);
 
 impl fmt::Display for Fq2 {
@@ -54,7 +54,7 @@ impl fmt::Display for Fq2 {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GAffine<F> {
     pub x: F,
     pub y: F,

@@ -9,10 +9,10 @@ use zokrates_field::{Bn128Field, Field};
 
 use crate::solidity_renderers::plonk_solidity_renderer::render_verification_key;
 
-#[derive(Serialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Plonk;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct VerificationKey<G1, G2> {
     pub n: u32,
     pub num_inputs: u32,
@@ -26,7 +26,7 @@ pub struct VerificationKey<G1, G2> {
     pub omega: Fr,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ProofPoints<G1> {
     pub num_inputs: u32,
     pub n: u32,
@@ -76,7 +76,7 @@ impl ToToken<Bn128Field> for Plonk {
             proof
                 .quotient_poly_commitments
                 .iter()
-                .map(|x| encode_g1_element(x))
+                .map(encode_g1_element)
                 .collect(),
         );
 
@@ -84,7 +84,7 @@ impl ToToken<Bn128Field> for Plonk {
             proof
                 .wire_values_at_z
                 .iter()
-                .map(|x| encode_fr_element_as_tuple(x))
+                .map(encode_fr_element_as_tuple)
                 .collect(),
         );
 
@@ -92,7 +92,7 @@ impl ToToken<Bn128Field> for Plonk {
             proof
                 .wire_values_at_z_omega
                 .iter()
-                .map(|x| encode_fr_element_as_tuple(x))
+                .map(encode_fr_element_as_tuple)
                 .collect(),
         );
 
@@ -107,7 +107,7 @@ impl ToToken<Bn128Field> for Plonk {
             proof
                 .permutation_polynomials_at_z
                 .iter()
-                .map(|x| encode_fr_element_as_tuple(x))
+                .map(encode_fr_element_as_tuple)
                 .collect(),
         );
 
