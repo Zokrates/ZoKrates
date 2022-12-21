@@ -50,7 +50,7 @@ pub struct Fq2(pub String, pub String);
 
 impl fmt::Display for Fq2 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.0, self.1)
+        write!(f, "[{}, {}]", self.0, self.1)
     }
 }
 
@@ -84,7 +84,7 @@ impl<F: fmt::Display> fmt::Display for GAffine<F> {
         if self.is_infinity {
             write!(f, "Infinity")
         } else {
-            write!(f, "({}, {})", self.x, self.y)
+            write!(f, "[{}, {}]", self.x, self.y)
         }
     }
 }

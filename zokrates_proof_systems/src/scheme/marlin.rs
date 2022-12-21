@@ -96,6 +96,8 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
         let (template, solidity_pairing_lib) =
             (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(false));
 
+        let trim = |s: String| String::from(&s[1..s.len() - 1]);
+
         // Replace public parameters in template
         let src = template
             .replace(
@@ -109,7 +111,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
                         populate_index_comms,
                         "vk.index_comms[{}] = Pairing.G1Point({});",
                         i,
-                        &g.to_string()
+                        &trim(g.to_string())
                     )
                     .unwrap();
                     if i < vk.index_comms.len() - 1 {
@@ -118,10 +120,10 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
                 }
                 populate_index_comms
             })
-            .replace("<%vk_kzg_g%>", &vk.vk.g.to_string())
-            .replace("<%vk_kzg_gamma_g%>", &vk.vk.gamma_g.to_string())
-            .replace("<%vk_kzg_h%>", &vk.vk.h.to_string())
-            .replace("<%vk_kzg_beta_h%>", &vk.vk.beta_h.to_string())
+            .replace("<%vk_kzg_g%>", &trim(vk.vk.g.to_string()))
+            .replace("<%vk_kzg_gamma_g%>", &trim(vk.vk.gamma_g.to_string()))
+            .replace("<%vk_kzg_h%>", &trim(vk.vk.h.to_string()))
+            .replace("<%vk_kzg_beta_h%>", &trim(vk.vk.beta_h.to_string()))
             .replace(
                 "<%vk_degree_bounds_length%>",
                 &vk.degree_bounds_and_shift_powers
@@ -136,14 +138,16 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
                 } else {
                     vk.num_constraints.next_power_of_two()
                 };
-                vk.degree_bounds_and_shift_powers
-                    .as_ref()
-                    .unwrap()
-                    .iter()
-                    .find(|(b, _)| *b == h_domain_size - 2)
-                    .unwrap()
-                    .1
-                    .to_string()
+                trim(
+                    vk.degree_bounds_and_shift_powers
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .find(|(b, _)| *b == h_domain_size - 2)
+                        .unwrap()
+                        .1
+                        .to_string(),
+                )
             })
             .replace("<%vk_g2_shift%>", &{
                 let k_domain_size = if vk.num_non_zero.is_power_of_two() {
@@ -151,14 +155,16 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
                 } else {
                     vk.num_non_zero.next_power_of_two()
                 };
-                vk.degree_bounds_and_shift_powers
-                    .as_ref()
-                    .unwrap()
-                    .iter()
-                    .find(|(b, _)| *b == k_domain_size - 2)
-                    .unwrap()
-                    .1
-                    .to_string()
+                trim(
+                    vk.degree_bounds_and_shift_powers
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .find(|(b, _)| *b == k_domain_size - 2)
+                        .unwrap()
+                        .1
+                        .to_string(),
+                )
             })
             .replace("<%fs_init_seed_len%>", &(vk.fs_seed.len() / 32).to_string())
             .replace("<%fs_init_seed_overflow_len%>", &{
