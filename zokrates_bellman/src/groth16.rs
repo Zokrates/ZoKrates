@@ -6,9 +6,9 @@ use pairing::{ff::to_hex, CurveAffine, Engine};
 
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
-use zokrates_proof_systems::G1Affine;
-use zokrates_proof_systems::G2Affine;
-use zokrates_proof_systems::{Backend, MpcBackend, NonUniversalBackend, Proof, SetupKeypair};
+use zokrates_proof_systems::{
+    Backend, G1Affine, G2Affine, MpcBackend, NonUniversalBackend, Proof, SetupKeypair,
+};
 
 use crate::Bellman;
 use crate::Computation;
