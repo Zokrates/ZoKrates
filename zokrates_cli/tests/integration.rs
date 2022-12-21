@@ -43,9 +43,23 @@ mod integration {
     fn test_compile_and_witness_dir() {
         let global_dir = TempDir::new("global").unwrap();
         let global_base = global_dir.path();
-        let universal_setup_path = global_base.join("universal_setup.dat");
 
         // GENERATE A UNIVERSAL SETUP
+        assert_cli::Assert::main_binary()
+            .with_args(&[
+                "universal-setup",
+                "--size",
+                "10",
+                "--proving-scheme",
+                "marlin",
+                "--universal-setup-path",
+                global_base
+                    .join("universal_setup_marlin.dat")
+                    .to_str()
+                    .unwrap(),
+            ])
+            .succeeds()
+            .unwrap();
         assert_cli::Assert::main_binary()
             .with_args(&[
                 "universal-setup",
@@ -56,7 +70,10 @@ mod integration {
                 "--proving-scheme",
                 "plonk",
                 "--universal-setup-path",
-                universal_setup_path.to_str().unwrap(),
+                global_base
+                    .join("universal_setup_plonk.dat")
+                    .to_str()
+                    .unwrap(),
             ])
             .succeeds()
             .unwrap();
@@ -101,7 +118,6 @@ mod integration {
         let witness_path = tmp_base.join(program_name).join("witness");
         let inline_witness_path = tmp_base.join(program_name).join("inline_witness");
         let proof_path = tmp_base.join(program_name).join("proof.json");
-        let universal_setup_path = global_path.join("universal_setup.dat");
         let verification_key_path = tmp_base
             .join(program_name)
             .join("verification")
@@ -239,14 +255,16 @@ mod integration {
         }
 
         let backends = map! {
-            "bellman" => vec!["plonk"],
-            "ark" => vec![]
+            "bellman" => vec!["g16", "plonk"],
+            "ark" => vec!["g16", "gm17", "marlin"]
         };
 
         for (backend, schemes) in backends {
             for scheme in &schemes {
                 println!("test with {}, {}", backend, scheme);
                 // SETUP
+                let universal_setup_path =
+                    global_path.join(format!("universal_setup_{}.dat", scheme));
                 let setup = assert_cli::Assert::main_binary()
                     .with_args(&[
                         "setup",
