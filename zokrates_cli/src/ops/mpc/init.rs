@@ -4,8 +4,9 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use zokrates_ast::ir::{self, ProgEnum};
+use zokrates_bellman::Bellman;
 use zokrates_field::{BellmanFieldExtensions, Field};
-use zokrates_proof_systems::{MpcBackend, MpcScheme};
+use zokrates_proof_systems::{MpcBackend, MpcScheme, G16};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("init")
@@ -50,8 +51,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut reader = BufReader::new(file);
 
     match ProgEnum::deserialize(&mut reader)? {
-        // ProgEnum::Bn128Program(p) => cli_mpc_init::<_, _, G16, Bellman>(p, sub_matches),
-        // ProgEnum::Bls12_381Program(p) => cli_mpc_init::<_, _, G16, Bellman>(p, sub_matches),
+        ProgEnum::Bn128Program(p) => cli_mpc_init::<_, _, G16, Bellman>(p, sub_matches),
+        ProgEnum::Bls12_381Program(p) => cli_mpc_init::<_, _, G16, Bellman>(p, sub_matches),
         _ => Err("Current protocol only supports bn128/bls12_381 programs".into()),
     }
 }
