@@ -437,8 +437,9 @@ dependencies = [
 [[package]]
 name = "bellman_ce"
 version = "0.3.2"
-source = "git+https://github.com/georgwiese/bellman?rev=b356c7001f30da23bfad2b43eb0b7ca9804c8252#b356c7001f30da23bfad2b43eb0b7ca9804c8252"
+source = "git+https://github.com/georgwiese/bellman?rev=e027c4bbf7ef9068bedcc4c886188ef243c583e4#e027c4bbf7ef9068bedcc4c886188ef243c583e4"
 dependencies = [
+ "arrayvec 0.7.2",
  "bit-vec",
  "blake2s_const",
  "blake2s_simd",
@@ -452,6 +453,7 @@ dependencies = [
  "pairing_ce 0.28.2",
  "rand 0.4.6",
  "serde",
+ "smallvec",
  "tiny-keccak 1.5.0",
  "web-sys",
 ]
@@ -555,7 +557,7 @@ dependencies = [
 [[package]]
 name = "blake2s_const"
 version = "0.6.0"
-source = "git+https://github.com/georgwiese/bellman?rev=b356c7001f30da23bfad2b43eb0b7ca9804c8252#b356c7001f30da23bfad2b43eb0b7ca9804c8252"
+source = "git+https://github.com/georgwiese/bellman?rev=e027c4bbf7ef9068bedcc4c886188ef243c583e4#e027c4bbf7ef9068bedcc4c886188ef243c583e4"
 dependencies = [
  "arrayref",
  "arrayvec 0.5.2",
@@ -2569,6 +2571,12 @@ name = "slab"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb703cfe953bccee95685111adeedb76fabe4e97549a58d16f03ea7b9367bb32"
+
+[[package]]
+name = "smallvec"
+version = "1.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 
 [[package]]
 name = "solc"
