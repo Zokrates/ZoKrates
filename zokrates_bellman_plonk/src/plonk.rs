@@ -201,7 +201,7 @@ fn serialize_vk<T: Field + BellmanPlonkFieldExtensions>(
             .try_into()
             .map_err(|_| ())
             .unwrap(),
-        omega: omega,
+        omega,
     }
 }
 
