@@ -66,7 +66,7 @@ impl ToToken<Bn128Field> for Plonk {
             proof
                 .wire_commitments
                 .iter()
-                .map(|x| encode_g1_element(x))
+                .map(encode_g1_element(x)
                 .collect(),
         );
 

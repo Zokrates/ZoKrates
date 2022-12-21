@@ -58,7 +58,7 @@ pub struct KZGVerifierKey<G1, G2> {
     pub beta_h: G2,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct VerificationKey<Fr, G1, G2> {
     // Useful values to precompute for solidity contract
     pub fs_seed: Vec<u8>,

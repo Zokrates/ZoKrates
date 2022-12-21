@@ -91,7 +91,7 @@ impl<F: fmt::Display> fmt::Display for GAffine<F> {
 
 pub type G1Affine = GAffine<Fq>;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Eq)]
 #[serde(untagged)]
 pub enum G2Affine {
     Fq2(G2AffineFq2),
