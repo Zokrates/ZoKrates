@@ -59,13 +59,6 @@ jobs:
       - setup-sccache
       - restore-sccache-cache
       - run:
-          name: Check format
-          command: cargo fmt --all -- --check
-      - run:
-          name: Run clippy
-          no_output_timeout: 1h
-          command: cargo clippy -j 4 -- -D warnings
-      - run:
           name: Run tests
           no_output_timeout: 1h
           command: RUSTFLAGS="-D warnings" RUST_BACKTRACE=FULL ./test_plonk.sh
