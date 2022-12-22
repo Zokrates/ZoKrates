@@ -20,7 +20,7 @@ num-integer = { version = "0.1", default-features = false }
 
 # bellman
 bellman_ce = { version = "^0.3", default-features = false, optional = true }
-bellman_ce_plonk = { package = "bellman_ce", git = "https://github.com/georgwiese/bellman", rev="e027c4bbf7ef9068bedcc4c886188ef243c583e4", default-features = false, features = ["plonk", "multicore"], optional = true }
+bellman_ce_plonk = { package = "bellman_ce", git = "https://github.com/georgwiese/bellman", rev="dbed83d1971c29e8fdb07d341e8593fef8ba5eab", default-features = false, features = ["plonk", "multicore"], optional = true }
 
 # ark
 ark-ff = { version = "^0.3.0", default-features = false }

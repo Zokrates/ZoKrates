@@ -437,7 +437,7 @@ dependencies = [
 [[package]]
 name = "bellman_ce"
 version = "0.3.2"
-source = "git+https://github.com/georgwiese/bellman?rev=e027c4bbf7ef9068bedcc4c886188ef243c583e4#e027c4bbf7ef9068bedcc4c886188ef243c583e4"
+source = "git+https://github.com/georgwiese/bellman?rev=dbed83d1971c29e8fdb07d341e8593fef8ba5eab#dbed83d1971c29e8fdb07d341e8593fef8ba5eab"
 dependencies = [
  "arrayvec 0.7.2",
  "bit-vec",
@@ -557,7 +557,7 @@ dependencies = [
 [[package]]
 name = "blake2s_const"
 version = "0.6.0"
-source = "git+https://github.com/georgwiese/bellman?rev=e027c4bbf7ef9068bedcc4c886188ef243c583e4#e027c4bbf7ef9068bedcc4c886188ef243c583e4"
+source = "git+https://github.com/georgwiese/bellman?rev=dbed83d1971c29e8fdb07d341e8593fef8ba5eab#dbed83d1971c29e8fdb07d341e8593fef8ba5eab"
 dependencies = [
  "arrayref",
  "arrayvec 0.5.2",
