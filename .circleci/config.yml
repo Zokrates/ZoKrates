@@ -47,20 +47,6 @@ jobs:
           no_output_timeout: 1h
           command: RUSTFLAGS="-D warnings" RUST_BACKTRACE=FULL ./test.sh
       - save-sccache-cache
-    docker:
-      - image: zokrates/env:latest
-    resource_class: large
-    steps:
-      - checkout
-      - run:
-          name: Version information
-          command: rustc --version; cargo --version; rustup --version
-      - setup-sccache
-      - restore-sccache-cache
-      - run:
-          name: Build
-          command: RUSTFLAGS="-D warnings" ./build.sh
-      - save-sccache-cache
   test_plonk:
     docker:
       - image: zokrates/env:latest
