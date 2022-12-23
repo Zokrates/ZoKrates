@@ -16,6 +16,8 @@ use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Not, Rem, Sub};
 use zokrates_field::Field;
 
+use super::ValueExpression;
+
 type TypedExpressionPair<'ast, T> = (TypedExpression<'ast, T>, TypedExpression<'ast, T>);
 
 impl<'ast, T: Field> TypedExpressionOrSpread<'ast, T> {
@@ -425,27 +427,25 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
 
     pub fn try_from_int(i: IntExpression<'ast, T>) -> Result<Self, IntExpression<'ast, T>> {
         match i {
-            IntExpression::Value(i) => Ok(Self::Number(T::try_from(i.clone()).map_err(|_| i)?)),
-            IntExpression::Add(box e1, box e2) => Ok(Self::Add(
-                box Self::try_from_int(e1)?,
-                box Self::try_from_int(e2)?,
-            )),
-            IntExpression::Sub(box e1, box e2) => Ok(Self::Sub(
-                box Self::try_from_int(e1)?,
-                box Self::try_from_int(e2)?,
-            )),
-            IntExpression::Mult(box e1, box e2) => Ok(Self::Mult(
-                box Self::try_from_int(e1)?,
-                box Self::try_from_int(e2)?,
-            )),
+            IntExpression::Value(i) => Ok(Self::Number(ValueExpression::new(
+                T::try_from(i.clone()).map_err(|_| i)?,
+            ))),
+            IntExpression::Add(box e1, box e2) => {
+                Ok(Self::add(Self::try_from_int(e1)?, Self::try_from_int(e2)?))
+            }
+            IntExpression::Sub(box e1, box e2) => {
+                Ok(Self::sub(Self::try_from_int(e1)?, Self::try_from_int(e2)?))
+            }
+            IntExpression::Mult(box e1, box e2) => {
+                Ok(Self::mul(Self::try_from_int(e1)?, Self::try_from_int(e2)?))
+            }
             IntExpression::Pow(box e1, box e2) => Ok(Self::Pow(
                 box Self::try_from_int(e1)?,
                 box UExpression::try_from_int(e2, &UBitwidth::B32)?,
             )),
-            IntExpression::Div(box e1, box e2) => Ok(Self::Div(
-                box Self::try_from_int(e1)?,
-                box Self::try_from_int(e2)?,
-            )),
+            IntExpression::Div(box e1, box e2) => {
+                Ok(Self::div(Self::try_from_int(e1)?, Self::try_from_int(e2)?))
+            }
             IntExpression::Pos(box e) => Ok(Self::Pos(box Self::try_from_int(e)?)),
             IntExpression::Neg(box e) => Ok(Self::Neg(box Self::try_from_int(e)?)),
             IntExpression::Conditional(c) => Ok(Self::Conditional(ConditionalExpression::new(

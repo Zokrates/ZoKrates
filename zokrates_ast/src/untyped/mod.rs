@@ -8,16 +8,15 @@
 mod from_ast;
 mod node;
 pub mod parameter;
-mod position;
 pub mod types;
 pub mod variable;
 
 pub use self::node::{Node, NodeValue};
 pub use self::parameter::{Parameter, ParameterNode};
-pub use self::position::Position;
 use self::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use self::variable::{Variable, VariableNode};
 use crate::common::FlatEmbed;
+pub use crate::common::Position;
 use std::path::{Path, PathBuf};
 
 use std::fmt;

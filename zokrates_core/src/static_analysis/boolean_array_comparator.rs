@@ -1,7 +1,7 @@
 use zokrates_ast::typed::{
-    folder::*, ArrayExpressionInner, ArrayValue, BooleanExpression, ConditionalExpression,
-    ConditionalKind, EqExpression, FieldElementExpression, SelectExpression, Type, TypedExpression,
-    TypedProgram, UExpressionInner,
+    folder::*, Add, ArrayExpressionInner, ArrayValue, BooleanExpression, ConditionalExpression,
+    ConditionalKind, EqExpression, Expr, FieldElementExpression, SelectExpression, Type,
+    TypedExpression, TypedProgram, UExpressionInner,
 };
 use zokrates_field::Field;
 
@@ -62,7 +62,7 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                                                 ConditionalExpression::new(
                                                     c.clone(),
                                                     FieldElementExpression::Pow(
-                                                        box FieldElementExpression::Number(
+                                                        box FieldElementExpression::from_value(
                                                             T::from(2),
                                                         ),
                                                         box (index as u32).into(),
@@ -73,13 +73,11 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                                             )
                                         })
                                         .fold(None, |acc, e| match acc {
-                                            Some(acc) => {
-                                                Some(FieldElementExpression::Add(box acc, box e))
-                                            }
+                                            Some(acc) => Some(FieldElementExpression::add(acc, e)),
                                             None => Some(e),
                                         })
                                         .unwrap_or_else(|| {
-                                            FieldElementExpression::Number(T::zero())
+                                            FieldElementExpression::from_value(T::zero())
                                         }),
                                 )
                                 .into()

@@ -156,15 +156,15 @@ impl fmt::Display for CompileErrorInner {
             CompileErrorInner::SemanticError(ref e) => {
                 let location = e
                     .pos()
-                    .map(|p| format!("{}", p.0))
+                    .map(|p| format!("{}", p.from))
                     .unwrap_or_else(|| "".to_string());
                 write!(f, "{}\n\t{}", location, e.message())
             }
             CompileErrorInner::ReadError(ref e) => write!(f, "\n\t{}", e),
             CompileErrorInner::ImportError(ref e) => {
                 let location = e
-                    .pos()
-                    .map(|p| format!("{}", p.0))
+                    .span()
+                    .map(|p| format!("{}", p.from))
                     .unwrap_or_else(|| "".to_string());
                 write!(f, "{}\n\t{}", location, e.message())
             }

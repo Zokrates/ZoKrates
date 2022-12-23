@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
+use zokrates_ast::common::operators::Operator;
 use zokrates_ast::typed::types::{ConcreteArrayType, IntoType, UBitwidth};
-use zokrates_ast::typed::{self, Expr, Typed};
+use zokrates_ast::typed::{self, Basic, Expr, Typed};
 use zokrates_ast::zir::{self, Id, Select};
 use zokrates_field::Field;
 
@@ -355,6 +356,19 @@ impl<'ast, T: Field> Flattener<T> {
         c: typed::ConditionalExpression<'ast, T, E>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         fold_conditional_expression(self, statements_buffer, c)
+    }
+
+    fn fold_binary_expression<
+        L: Flatten<'ast, T> + typed::Expr<'ast, T>,
+        R: Flatten<'ast, T> + typed::Expr<'ast, T>,
+        E: Flatten<'ast, T> + typed::Expr<'ast, T> + Basic,
+        Op: Operator<L, R, E>,
+    >(
+        &mut self,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+        e: typed::BinaryExpression<Op, L, R, E>,
+    ) -> E::ZirExpressionType {
+        fold_binary_expression(self, statements_buffer, e)
     }
 
     fn fold_member_expression<E>(
@@ -841,6 +855,21 @@ fn fold_conditional_expression<'ast, T: Field, E: Flatten<'ast, T>>(
         .collect()
 }
 
+fn fold_binary_expression<
+    'ast,
+    T: Field,
+    L: Flatten<'ast, T> + typed::Expr<'ast, T>,
+    R: Flatten<'ast, T> + typed::Expr<'ast, T>,
+    E: Flatten<'ast, T> + typed::Expr<'ast, T> + Basic,
+    Op: Operator<L, R, E>,
+>(
+    _: &mut Flattener<T>,
+    _: &mut Vec<zir::ZirStatement<'ast, T>>,
+    _: typed::BinaryExpression<Op, L, R, E>,
+) -> E::ZirExpressionType {
+    unimplemented!()
+}
+
 fn fold_identifier_expression<'ast, T: Field, E: Expr<'ast, T>>(
     f: &mut Flattener<T>,
     ty: E::ConcreteTy,
@@ -855,33 +884,17 @@ fn fold_field_expression<'ast, T: Field>(
     e: typed::FieldElementExpression<'ast, T>,
 ) -> zir::FieldElementExpression<'ast, T> {
     match e {
-        typed::FieldElementExpression::Number(n) => zir::FieldElementExpression::Number(n),
+        typed::FieldElementExpression::Number(n) => zir::FieldElementExpression::Number(n.value),
         typed::FieldElementExpression::Identifier(id) => f
             .fold_identifier_expression(typed::ConcreteType::FieldElement, id)
             .pop()
             .unwrap()
             .try_into()
             .unwrap(),
-        typed::FieldElementExpression::Add(box e1, box e2) => {
-            let e1 = f.fold_field_expression(statements_buffer, e1);
-            let e2 = f.fold_field_expression(statements_buffer, e2);
-            zir::FieldElementExpression::Add(box e1, box e2)
-        }
-        typed::FieldElementExpression::Sub(box e1, box e2) => {
-            let e1 = f.fold_field_expression(statements_buffer, e1);
-            let e2 = f.fold_field_expression(statements_buffer, e2);
-            zir::FieldElementExpression::Sub(box e1, box e2)
-        }
-        typed::FieldElementExpression::Mult(box e1, box e2) => {
-            let e1 = f.fold_field_expression(statements_buffer, e1);
-            let e2 = f.fold_field_expression(statements_buffer, e2);
-            zir::FieldElementExpression::Mult(box e1, box e2)
-        }
-        typed::FieldElementExpression::Div(box e1, box e2) => {
-            let e1 = f.fold_field_expression(statements_buffer, e1);
-            let e2 = f.fold_field_expression(statements_buffer, e2);
-            zir::FieldElementExpression::Div(box e1, box e2)
-        }
+        typed::FieldElementExpression::Add(e) => f.fold_binary_expression(statements_buffer, e),
+        typed::FieldElementExpression::Sub(e) => f.fold_binary_expression(statements_buffer, e),
+        typed::FieldElementExpression::Mult(e) => f.fold_binary_expression(statements_buffer, e),
+        typed::FieldElementExpression::Div(e) => f.fold_binary_expression(statements_buffer, e),
         typed::FieldElementExpression::Pow(box e1, box e2) => {
             let e1 = f.fold_field_expression(statements_buffer, e1);
             let e2 = f.fold_uint_expression(statements_buffer, e2);

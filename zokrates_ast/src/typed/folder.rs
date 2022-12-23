@@ -331,6 +331,19 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_conditional_expression(self, ty, e)
     }
 
+    fn fold_binary_expression<
+        L: Expr<'ast, T> + Fold<'ast, T>,
+        R: Expr<'ast, T> + Fold<'ast, T>,
+        E: Expr<'ast, T> + Fold<'ast, T>,
+        Op: Operator<L, R, E>,
+    >(
+        &mut self,
+        ty: &E::Ty,
+        e: BinaryExpression<Op, L, R, E>,
+    ) -> BinaryOrExpression<'ast, T, L, R, E, Op> {
+        fold_binary_expression(self, ty, e)
+    }
+
     fn fold_member_expression<
         E: Expr<'ast, T> + Member<'ast, T> + From<TypedExpression<'ast, T>>,
     >(
@@ -726,26 +739,22 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
         },
         Block(block) => Block(f.fold_block_expression(block)),
         Number(n) => Number(n),
-        Add(box e1, box e2) => {
-            let e1 = f.fold_field_expression(e1);
-            let e2 = f.fold_field_expression(e2);
-            Add(box e1, box e2)
-        }
-        Sub(box e1, box e2) => {
-            let e1 = f.fold_field_expression(e1);
-            let e2 = f.fold_field_expression(e2);
-            Sub(box e1, box e2)
-        }
-        Mult(box e1, box e2) => {
-            let e1 = f.fold_field_expression(e1);
-            let e2 = f.fold_field_expression(e2);
-            Mult(box e1, box e2)
-        }
-        Div(box e1, box e2) => {
-            let e1 = f.fold_field_expression(e1);
-            let e2 = f.fold_field_expression(e2);
-            Div(box e1, box e2)
-        }
+        Add(e) => match f.fold_binary_expression(&Type::FieldElement, e) {
+            BinaryOrExpression::Binary(e) => Add(e),
+            BinaryOrExpression::Expression(u) => u,
+        },
+        Sub(e) => match f.fold_binary_expression(&Type::FieldElement, e) {
+            BinaryOrExpression::Binary(e) => Sub(e),
+            BinaryOrExpression::Expression(u) => u,
+        },
+        Mult(e) => match f.fold_binary_expression(&Type::FieldElement, e) {
+            BinaryOrExpression::Binary(e) => Mult(e),
+            BinaryOrExpression::Expression(u) => u,
+        },
+        Div(e) => match f.fold_binary_expression(&Type::FieldElement, e) {
+            BinaryOrExpression::Binary(e) => Div(e),
+            BinaryOrExpression::Expression(u) => u,
+        },
         Pow(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_uint_expression(e2);
@@ -798,12 +807,31 @@ pub fn fold_conditional_expression<
     _: &E::Ty,
     e: ConditionalExpression<'ast, T, E>,
 ) -> ConditionalOrExpression<'ast, T, E> {
-    ConditionalOrExpression::Conditional(ConditionalExpression::new(
-        f.fold_boolean_expression(*e.condition),
-        e.consequence.fold(f),
-        e.alternative.fold(f),
-        e.kind,
-    ))
+    ConditionalOrExpression::Conditional(
+        ConditionalExpression::new(
+            f.fold_boolean_expression(*e.condition),
+            e.consequence.fold(f),
+            e.alternative.fold(f),
+            e.kind,
+        )
+        .span(e.span),
+    )
+}
+
+pub fn fold_binary_expression<
+    'ast,
+    T: Field,
+    L: Expr<'ast, T> + Fold<'ast, T> + From<TypedExpression<'ast, T>>,
+    R: Expr<'ast, T> + Fold<'ast, T> + From<TypedExpression<'ast, T>>,
+    E: Expr<'ast, T> + Fold<'ast, T> + From<TypedExpression<'ast, T>>,
+    F: Folder<'ast, T>,
+    Op: Operator<L, R, E>,
+>(
+    f: &mut F,
+    _: &E::Ty,
+    e: BinaryExpression<Op, L, R, E>,
+) -> BinaryOrExpression<'ast, T, L, R, E, Op> {
+    BinaryOrExpression::Binary(BinaryExpression::new(e.left.fold(f), e.right.fold(f)).span(e.span))
 }
 
 pub fn fold_member_expression<
@@ -816,10 +844,9 @@ pub fn fold_member_expression<
     _: &E::Ty,
     e: MemberExpression<'ast, T, E>,
 ) -> MemberOrExpression<'ast, T, E> {
-    MemberOrExpression::Member(MemberExpression::new(
-        f.fold_struct_expression(*e.struc),
-        e.id,
-    ))
+    MemberOrExpression::Member(
+        MemberExpression::new(f.fold_struct_expression(*e.struc), e.id).span(e.span),
+    )
 }
 
 pub fn fold_element_expression<
@@ -832,10 +859,9 @@ pub fn fold_element_expression<
     _: &E::Ty,
     e: ElementExpression<'ast, T, E>,
 ) -> ElementOrExpression<'ast, T, E> {
-    ElementOrExpression::Element(ElementExpression::new(
-        f.fold_tuple_expression(*e.tuple),
-        e.index,
-    ))
+    ElementOrExpression::Element(
+        ElementExpression::new(f.fold_tuple_expression(*e.tuple), e.index).span(e.span),
+    )
 }
 
 pub fn fold_eq_expression<'ast, T: Field, E: Fold<'ast, T>, F: Folder<'ast, T>>(
@@ -855,10 +881,13 @@ pub fn fold_select_expression<
     _: &E::Ty,
     e: SelectExpression<'ast, T, E>,
 ) -> SelectOrExpression<'ast, T, E> {
-    SelectOrExpression::Select(SelectExpression::new(
-        f.fold_array_expression(*e.array),
-        f.fold_uint_expression(*e.index),
-    ))
+    SelectOrExpression::Select(
+        SelectExpression::new(
+            f.fold_array_expression(*e.array),
+            f.fold_uint_expression(*e.index),
+        )
+        .span(e.span),
+    )
 }
 
 pub fn fold_int_expression<'ast, T: Field, F: Folder<'ast, T>>(
@@ -1118,14 +1147,15 @@ pub fn fold_block_expression<'ast, T: Field, E: Fold<'ast, T>, F: Folder<'ast, T
     f: &mut F,
     block: BlockExpression<'ast, T, E>,
 ) -> BlockExpression<'ast, T, E> {
-    BlockExpression {
-        statements: block
+    BlockExpression::new(
+        block
             .statements
             .into_iter()
             .flat_map(|s| f.fold_statement(s))
             .collect(),
-        value: box block.value.fold(f),
-    }
+        block.value.fold(f),
+    )
+    .span(block.span)
 }
 
 pub fn fold_declaration_function_key<'ast, T: Field, F: Folder<'ast, T>>(

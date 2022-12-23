@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
+use zokrates_ast::common::operators::Operator;
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::Type;
@@ -417,7 +418,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                 .unwrap()
                                 {
                                     FieldElementExpression::Number(num) => {
-                                        let mut acc = num.clone();
+                                        let mut acc = num.value.clone();
                                         let mut res = vec![];
 
                                         for i in (0..bit_width as usize).rev() {
@@ -762,50 +763,35 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         }
     }
 
+    fn fold_binary_expression<
+        L: Expr<'ast, T> + PartialEq + ResultFold<'ast, T>,
+        R: Expr<'ast, T> + PartialEq + ResultFold<'ast, T>,
+        E: Expr<'ast, T> + PartialEq + ResultFold<'ast, T>,
+        Op: Operator<L, R, E>,
+    >(
+        &mut self,
+        _: &E::Ty,
+        e: BinaryExpression<Op, L, R, E>,
+    ) -> Result<BinaryOrExpression<'ast, T, L, R, E, Op>, Self::Error> {
+        let left = e.left.fold(self)?;
+        let right = e.right.fold(self)?;
+
+        Ok(match (left.as_value(), right.as_value()) {
+            (Some(left), Some(right)) => BinaryOrExpression::Expression(
+                E::from_value(Op::apply(left.clone(), right.clone())).span(e.span),
+            ),
+            _ => BinaryOrExpression::Binary(BinaryExpression::new(left, right).span(e.span)),
+        })
+    }
+
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> Result<FieldElementExpression<'ast, T>, Error> {
         match e {
-            FieldElementExpression::Add(box e1, box e2) => match (
-                self.fold_field_expression(e1)?,
-                self.fold_field_expression(e2)?,
-            ) {
-                (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                    Ok(FieldElementExpression::Number(n1 + n2))
-                }
-                (e1, e2) => Ok(FieldElementExpression::Add(box e1, box e2)),
-            },
-            FieldElementExpression::Sub(box e1, box e2) => match (
-                self.fold_field_expression(e1)?,
-                self.fold_field_expression(e2)?,
-            ) {
-                (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                    Ok(FieldElementExpression::Number(n1 - n2))
-                }
-                (e1, e2) => Ok(FieldElementExpression::Sub(box e1, box e2)),
-            },
-            FieldElementExpression::Mult(box e1, box e2) => match (
-                self.fold_field_expression(e1)?,
-                self.fold_field_expression(e2)?,
-            ) {
-                (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                    Ok(FieldElementExpression::Number(n1 * n2))
-                }
-                (e1, e2) => Ok(FieldElementExpression::Mult(box e1, box e2)),
-            },
-            FieldElementExpression::Div(box e1, box e2) => match (
-                self.fold_field_expression(e1)?,
-                self.fold_field_expression(e2)?,
-            ) {
-                (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                    Ok(FieldElementExpression::Number(n1 / n2))
-                }
-                (e1, e2) => Ok(FieldElementExpression::Div(box e1, box e2)),
-            },
             FieldElementExpression::Neg(box e) => match self.fold_field_expression(e)? {
                 FieldElementExpression::Number(n) => {
-                    Ok(FieldElementExpression::Number(T::zero() - n))
+                    Ok(FieldElementExpression::from_value(T::zero() - n.value))
                 }
                 e => Ok(FieldElementExpression::Neg(box e)),
             },
@@ -818,11 +804,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 let e2 = self.fold_uint_expression(e2)?;
                 match (e1, e2.into_inner()) {
                     (_, UExpressionInner::Value(ref n2)) if *n2 == 0 => {
-                        Ok(FieldElementExpression::Number(T::from(1)))
+                        Ok(FieldElementExpression::from_value(T::from(1)))
                     }
-                    (FieldElementExpression::Number(n1), UExpressionInner::Value(n2)) => {
-                        Ok(FieldElementExpression::Number(n1.pow(n2 as usize)))
-                    }
+                    (FieldElementExpression::Number(n1), UExpressionInner::Value(n2)) => Ok(
+                        FieldElementExpression::from_value(n1.value.pow(n2 as usize)),
+                    ),
                     (e1, UExpressionInner::Value(n2)) => Ok(FieldElementExpression::Pow(
                         box e1,
                         box UExpressionInner::Value(n2).annotate(UBitwidth::B32),
