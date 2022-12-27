@@ -1,9 +1,8 @@
 use blake2::{Blake2b, Digest};
 use byteorder::ReadBytesExt;
-use rand_0_8::rngs::StdRng;
-use rand_0_8::SeedableRng;
+use rand_0_8::{rngs::StdRng, SeedableRng};
 
-pub fn get_seeded_rng(entropy: &str) -> StdRng {
+pub fn get_rng_from_entropy(entropy: &str) -> StdRng {
     let h = {
         let mut h = Blake2b::default();
         h.input(&entropy.as_bytes());

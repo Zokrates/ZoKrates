@@ -3211,8 +3211,6 @@ dependencies = [
 name = "zokrates_js"
 version = "1.1.4"
 dependencies = [
- "blake2 0.8.1",
- "byteorder",
  "console_error_panic_hook",
  "indexmap",
  "js-sys",
@@ -3262,9 +3260,10 @@ dependencies = [
 name = "zokrates_proof_systems"
 version = "0.1.0"
 dependencies = [
+ "blake2 0.8.1",
+ "byteorder",
  "cfg-if 0.1.10",
  "ethabi",
- "getrandom",
  "hex 0.4.3",
  "primitive-types",
  "rand 0.8.5",

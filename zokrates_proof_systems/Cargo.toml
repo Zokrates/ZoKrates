@@ -13,4 +13,5 @@ cfg-if = "0.1"
 ethabi = "17.0.0"
 primitive-types = { version = "0.11", features = ["rlp"] }
 rand_0_8 = { version = "0.8", package = "rand" }
-getrandom = { version = "0.2", features = ["js"] }
+blake2 = "0.8.1"
+byteorder = "1"

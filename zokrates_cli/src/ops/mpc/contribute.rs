@@ -1,5 +1,4 @@
 use crate::cli_constants::MPC_DEFAULT_PATH;
-use crate::common::get_seeded_rng;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use rand_0_8::{rngs::StdRng, SeedableRng};
 use std::fs::File;
@@ -8,6 +7,7 @@ use std::path::Path;
 use zokrates_bellman::Bellman;
 use zokrates_common::constants::{BLS12_381, BN128};
 use zokrates_field::{BellmanFieldExtensions, Bls12_381Field, Bn128Field, Field};
+use zokrates_proof_systems::rng::get_rng_from_entropy;
 use zokrates_proof_systems::{MpcBackend, MpcScheme, G16};
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -84,7 +84,7 @@ pub fn cli_mpc_contribute<
 
     let mut rng = sub_matches
         .value_of("entropy")
-        .map(get_seeded_rng)
+        .map(get_rng_from_entropy)
         .unwrap_or_else(StdRng::from_entropy);
 
     let hash = B::contribute(&mut reader, &mut rng, &mut writer)

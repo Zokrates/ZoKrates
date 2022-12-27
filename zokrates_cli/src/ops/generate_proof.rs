@@ -1,5 +1,4 @@
 use crate::cli_constants;
-use crate::common::get_seeded_rng;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use rand_0_8::rngs::StdRng;
 use rand_0_8::SeedableRng;
@@ -15,6 +14,7 @@ use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::Field;
+use zokrates_proof_systems::rng::get_rng_from_entropy;
 #[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
 
@@ -179,7 +179,7 @@ fn cli_generate_proof<
 
     let mut rng = sub_matches
         .value_of("entropy")
-        .map(get_seeded_rng)
+        .map(get_rng_from_entropy)
         .unwrap_or_else(StdRng::from_entropy);
 
     let proof = B::generate_proof(program, witness, pk, &mut rng);

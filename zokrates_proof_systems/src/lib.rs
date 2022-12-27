@@ -1,3 +1,4 @@
+pub mod rng;
 pub mod to_token;
 
 mod scheme;

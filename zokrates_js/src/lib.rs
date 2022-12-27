@@ -3,7 +3,7 @@ mod util;
 #[macro_use]
 extern crate lazy_static;
 
-use crate::util::{get_seeded_rng, normalize_path};
+use crate::util::normalize_path;
 use rand_0_8::{rngs::StdRng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
@@ -28,6 +28,7 @@ use zokrates_core::compile::{
 use zokrates_core::imports::Error;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_proof_systems::groth16::G16;
+use zokrates_proof_systems::rng::get_rng_from_entropy;
 use zokrates_proof_systems::{
     Backend, Marlin, NonUniversalBackend, NonUniversalScheme, Proof, Scheme,
     SolidityCompatibleField, SolidityCompatibleScheme, TaggedKeypair, TaggedProof,
@@ -544,7 +545,7 @@ pub fn setup(program: &[u8], entropy: JsValue, options: JsValue) -> Result<JsVal
 
     let mut rng = entropy
         .as_string()
-        .map(|s| get_seeded_rng(&s))
+        .map(|s| get_rng_from_entropy(&s))
         .unwrap_or_else(StdRng::from_entropy);
 
     match (backend, scheme) {
@@ -622,7 +623,7 @@ pub fn universal_setup(curve: JsValue, size: u32, entropy: JsValue) -> Result<Ve
 
     let mut rng = entropy
         .as_string()
-        .map(|s| get_seeded_rng(&s))
+        .map(|s| get_rng_from_entropy(&s))
         .unwrap_or_else(StdRng::from_entropy);
 
     match curve {
@@ -683,7 +684,7 @@ pub fn generate_proof(
 
     let mut rng = entropy
         .as_string()
-        .map(|s| get_seeded_rng(&s))
+        .map(|s| get_rng_from_entropy(&s))
         .unwrap_or_else(StdRng::from_entropy);
 
     match (backend, scheme) {
