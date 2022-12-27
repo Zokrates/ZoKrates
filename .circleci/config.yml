@@ -57,7 +57,7 @@ jobs:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
       - setup-sccache
-      - restore-sccache-cache
+      # - restore-sccache-cache
       - run:
           name: Test on firefox
           command: |
