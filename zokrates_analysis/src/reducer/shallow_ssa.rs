@@ -121,6 +121,16 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
 
         fold_function(self, f)
     }
+
+    fn fold_assignee<T: Field>(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
+        match a {
+            TypedAssignee::Identifier(v) => {
+                let v = self.issue_next_ssa_variable(v);
+                TypedAssignee::Identifier(self.fold_variable(v))
+            }
+            a => fold_assignee(self, a),
+        }
+    }
 }
 
 impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
@@ -131,13 +141,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         match s {
             TypedAssemblyStatement::Assignment(a, e) => {
                 let e = self.fold_expression(e);
-                let a = match a {
-                    TypedAssignee::Identifier(v) => {
-                        let v = self.issue_next_ssa_variable(v);
-                        TypedAssignee::Identifier(self.fold_variable(v))
-                    }
-                    a => fold_assignee(self, a),
-                };
+                let a = self.fold_assignee(a);
                 vec![TypedAssemblyStatement::Assignment(a, e)]
             }
             s => fold_assembly_statement(self, s),
@@ -147,26 +151,12 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         match s {
             TypedStatement::Definition(a, DefinitionRhs::Expression(e)) => {
                 let e = self.fold_expression(e);
-
-                let a = match a {
-                    TypedAssignee::Identifier(v) => {
-                        let v = self.issue_next_ssa_variable(v);
-                        TypedAssignee::Identifier(self.fold_variable(v))
-                    }
-                    a => fold_assignee(self, a),
-                };
-
+                let a = self.fold_assignee(a);
                 vec![TypedStatement::definition(a, e)]
             }
             TypedStatement::Definition(assignee, DefinitionRhs::EmbedCall(embed_call)) => {
-                let assignee = match assignee {
-                    TypedAssignee::Identifier(v) => {
-                        let v = self.issue_next_ssa_variable(v);
-                        TypedAssignee::Identifier(self.fold_variable(v))
-                    }
-                    a => fold_assignee(self, a),
-                };
                 let embed_call = self.fold_embed_call(embed_call);
+                let assignee = self.fold_assignee(assignee);
                 vec![TypedStatement::embed_call_definition(assignee, embed_call)]
             }
             TypedStatement::For(v, from, to, stats) => {
