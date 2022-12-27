@@ -2231,20 +2231,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) {
         match stat {
             ZirAssemblyStatement::Assignment(assignees, function) => {
-                let outputs: Vec<Variable> = assignees
-                    .into_iter()
-                    .map(|assignee| {
-                        self.layout
-                            .get(&assignee.id)
-                            .cloned()
-                            .unwrap_or_else(|| self.use_variable(&assignee))
-                    })
-                    .collect();
                 let inputs: Vec<FlatExpression<T>> = function
                     .arguments
                     .iter()
                     .cloned()
                     .map(|p| self.layout.get(&p.id.id).cloned().unwrap().into())
+                    .collect();
+                let outputs: Vec<Variable> = assignees
+                    .into_iter()
+                    .map(|assignee| self.use_variable(&assignee))
                     .collect();
                 let directive = FlatDirective::new(outputs, Solver::Zir(function), inputs);
                 statements_flattened.push_back(FlatStatement::Directive(directive));
