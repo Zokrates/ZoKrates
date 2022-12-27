@@ -7,7 +7,7 @@
       },
       "output": {
         "Ok": {
-          "value": ["1", "0", "0", "0"]
+          "value": ["0", "0", "0", "1"]
         }
       }
     },
@@ -17,7 +17,7 @@
       },
       "output": {
         "Ok": {
-          "value": ["0", "1", "0", "0"]
+          "value": ["0", "0", "1", "0"]
         }
       }
     },
@@ -27,7 +27,7 @@
       },
       "output": {
         "Ok": {
-          "value": ["1", "1", "0", "0"]
+          "value": ["0", "0", "1", "1"]
         }
       }
     },
@@ -52,7 +52,7 @@
               "SourceAssemblyConstraint": {
                 "file": "tests/tests/assembly/bitify.zok",
                 "position": {
-                  "line": 14,
+                  "line": 13,
                   "col": 9
                 }
               }
