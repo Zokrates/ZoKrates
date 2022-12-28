@@ -1,4 +1,6 @@
-pub mod groth16;
+pub mod plonk;
+
+extern crate bellman_ce as bellman;
 
 use bellman::groth16::Proof;
 use bellman::groth16::{
@@ -12,7 +14,7 @@ use bellman::{
 use std::collections::BTreeMap;
 use zokrates_ast::common::Variable;
 use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
-use zokrates_field::BellmanFieldExtensions;
+use zokrates_field::BellmanPlonkFieldExtensions;
 use zokrates_field::Field;
 
 use rand_0_4::ChaChaRng;
@@ -43,7 +45,7 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
     }
 }
 
-fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::BellmanEngine>>(
+fn bellman_combination<T: BellmanPlonkFieldExtensions, CS: ConstraintSystem<T::BellmanEngine>>(
     l: CanonicalLinComb<T>,
     cs: &mut CS,
     symbols: &mut BTreeMap<Variable, BellmanVariable>,
@@ -83,7 +85,7 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
+impl<T: BellmanPlonkFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
     Circuit<T::BellmanEngine> for Computation<T, I>
 {
     fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
@@ -148,7 +150,9 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
     }
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+impl<T: BellmanPlonkFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
+    Computation<T, I>
+{
     fn get_random_seed(&self) -> Result<[u32; 8], getrandom::Error> {
         let mut seed = [0u8; 32];
         getrandom::getrandom(&mut seed)?;
@@ -200,7 +204,7 @@ pub mod serialization {
     use bellman::{pairing::from_hex, pairing::CurveAffine, pairing::Engine};
     use zokrates_proof_systems::{G1Affine, G2Affine};
 
-    pub fn to_g1<T: BellmanFieldExtensions>(
+    pub fn to_g1<T: BellmanPlonkFieldExtensions>(
         g1: G1Affine,
     ) -> <T::BellmanEngine as Engine>::G1Affine {
         if g1.is_infinity {
@@ -212,7 +216,7 @@ pub mod serialization {
             from_hex(&g1.y).unwrap(),
         )
     }
-    pub fn to_g2<T: BellmanFieldExtensions>(
+    pub fn to_g2<T: BellmanPlonkFieldExtensions>(
         g2: G2Affine,
     ) -> <T::BellmanEngine as Engine>::G2Affine {
         match g2 {
@@ -229,7 +233,7 @@ pub mod serialization {
         }
     }
 
-    pub fn to_fr<T: Field + BellmanFieldExtensions>(
+    pub fn to_fr<T: Field + BellmanPlonkFieldExtensions>(
         e: String,
     ) -> <T::BellmanEngine as ScalarEngine>::Fr {
         T::try_from_str(e.trim_start_matches("0x"), 16)
@@ -249,7 +253,7 @@ mod parse {
         hex
     }
 
-    pub fn parse_g1<T: BellmanFieldExtensions>(
+    pub fn parse_g1<T: BellmanPlonkFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
     ) -> G1Affine {
         if e.is_zero() {
@@ -271,7 +275,7 @@ mod parse {
         }
     }
 
-    pub fn parse_fr<T: BellmanFieldExtensions>(
+    pub fn parse_fr<T: BellmanPlonkFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::ff::ScalarEngine>::Fr,
     ) -> Fr {
         use bellman::pairing::ff::PrimeFieldRepr;
@@ -282,7 +286,7 @@ mod parse {
         format!("0x{}", hex::encode(&bytes))
     }
 
-    pub fn parse_g2<T: BellmanFieldExtensions>(
+    pub fn parse_g2<T: BellmanPlonkFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
     ) -> G2Affine {
         if e.is_zero() {

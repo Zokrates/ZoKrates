@@ -2,6 +2,7 @@ pub mod to_token;
 
 mod scheme;
 mod solidity;
+mod solidity_renderers;
 mod tagged;
 
 pub use self::scheme::*;
@@ -44,16 +45,16 @@ impl<T: Field, S: Scheme<T>> Proof<T, S> {
 
 pub type Fr = String;
 pub type Fq = String;
-#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Fq2(pub String, pub String);
 
 impl fmt::Display for Fq2 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.0, self.1)
+        write!(f, "[{}, {}]", self.0, self.1)
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GAffine<F> {
     pub x: F,
     pub y: F,
@@ -83,14 +84,14 @@ impl<F: fmt::Display> fmt::Display for GAffine<F> {
         if self.is_infinity {
             write!(f, "Infinity")
         } else {
-            write!(f, "({}, {})", self.x, self.y)
+            write!(f, "[{}, {}]", self.x, self.y)
         }
     }
 }
 
 pub type G1Affine = GAffine<Fq>;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Eq)]
 #[serde(untagged)]
 pub enum G2Affine {
     Fq2(G2AffineFq2),

@@ -7,9 +7,19 @@ ark_extensions!(Bn254);
 #[cfg(feature = "bellman")]
 use bellman_ce::pairing::bn256::{Bn256, Fq2};
 
+#[cfg(feature = "bellman")]
+use bellman_ce_plonk::pairing::bn256::{Bn256 as Bn256Plonk, Fq2 as Fq2Plonk};
+
 use crate::G2Type;
 #[cfg(feature = "bellman")]
-bellman_extensions!(Bn256, Fq2);
+bellman_extensions!(bellman_ce, BellmanFieldExtensions, Bn256, Fq2);
+#[cfg(feature = "bellman")]
+bellman_extensions!(
+    bellman_ce_plonk,
+    BellmanPlonkFieldExtensions,
+    Bn256Plonk,
+    Fq2Plonk
+);
 
 #[cfg(test)]
 mod tests {
@@ -306,7 +316,12 @@ mod tests {
             let rng = &mut thread_rng();
             for _ in 0..1000 {
                 let a: Fr = rng.gen();
-                assert_eq!(FieldPrime::from_bellman(a).into_bellman(), a);
+                assert_eq!(
+                    BellmanFieldExtensions::into_bellman(
+                        <FieldPrime as BellmanFieldExtensions>::from_bellman(a)
+                    ),
+                    a
+                );
             }
         }
 
@@ -317,8 +332,13 @@ mod tests {
             for _ in 0..1000 {
                 let a: Fr = rng.gen();
                 // now test idempotence
-                let a = FieldPrime::from_bellman(a);
-                assert_eq!(FieldPrime::from_bellman(a.clone().into_bellman()), a);
+                let a = <FieldPrime as BellmanFieldExtensions>::from_bellman(a);
+                assert_eq!(
+                    <FieldPrime as BellmanFieldExtensions>::from_bellman(
+                        BellmanFieldExtensions::into_bellman(a.clone())
+                    ),
+                    a
+                );
             }
         }
 
@@ -326,21 +346,24 @@ mod tests {
         fn one() {
             let a = FieldPrime::from(1);
 
-            assert_eq!(a.into_bellman(), Fr::one());
+            assert_eq!(BellmanFieldExtensions::into_bellman(a), Fr::one());
         }
 
         #[test]
         fn zero() {
             let a = FieldPrime::from(0);
 
-            assert_eq!(a.into_bellman(), Fr::zero());
+            assert_eq!(BellmanFieldExtensions::into_bellman(a), Fr::zero());
         }
 
         #[test]
         fn minus_one() {
             let mut a: Fr = Fr::one();
             a.negate();
-            assert_eq!(FieldPrime::from_bellman(a), FieldPrime::from(-1));
+            assert_eq!(
+                <FieldPrime as BellmanFieldExtensions>::from_bellman(a),
+                FieldPrime::from(-1)
+            );
         }
 
         #[test]
@@ -350,13 +373,13 @@ mod tests {
             let mut a: Fr = rng.gen();
             let b: Fr = rng.gen();
 
-            let aa = FieldPrime::from_bellman(a);
-            let bb = FieldPrime::from_bellman(b);
+            let aa = <FieldPrime as BellmanFieldExtensions>::from_bellman(a);
+            let bb = <FieldPrime as BellmanFieldExtensions>::from_bellman(b);
             let cc = aa + bb;
 
             a.add_assign(&b);
 
-            assert_eq!(FieldPrime::from_bellman(a), cc);
+            assert_eq!(<FieldPrime as BellmanFieldExtensions>::from_bellman(a), cc);
         }
     }
 }

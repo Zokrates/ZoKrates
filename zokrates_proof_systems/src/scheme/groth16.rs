@@ -5,17 +5,17 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
-#[derive(Serialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct G16;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ProofPoints<G1, G2> {
     pub a: G1,
     pub b: G2,
     pub c: G1,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct VerificationKey<G1, G2> {
     pub alpha: G1,
     pub beta: G2,
@@ -48,20 +48,22 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for G16 {
         let input_loop = Regex::new(r#"(<%input_loop%>)"#).unwrap();
         let input_argument = Regex::new(r#"(<%input_argument%>)"#).unwrap();
 
+        let trim = |s: String| String::from(&s[1..s.len() - 1]);
+
         template_text = vk_regex
-            .replace(template_text.as_str(), vk.alpha.to_string().as_str())
+            .replace(template_text.as_str(), trim(vk.alpha.to_string()).as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), vk.beta.to_string().as_str())
+            .replace(template_text.as_str(), trim(vk.beta.to_string()).as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), vk.gamma.to_string().as_str())
+            .replace(template_text.as_str(), trim(vk.gamma.to_string()).as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), vk.delta.to_string().as_str())
+            .replace(template_text.as_str(), trim(vk.delta.to_string()).as_str())
             .into_owned();
 
         let gamma_abc_count: usize = vk.gamma_abc.len();
@@ -110,7 +112,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for G16 {
                 format!(
                     "vk.gamma_abc[{}] = Pairing.G1Point({});",
                     i,
-                    g1.to_string().as_str()
+                    trim(g1.to_string()).as_str()
                 )
                 .as_str(),
             );

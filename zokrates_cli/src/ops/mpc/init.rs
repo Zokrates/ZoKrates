@@ -51,8 +51,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut reader = BufReader::new(file);
 
     match ProgEnum::deserialize(&mut reader)? {
-        // ProgEnum::Bn128Program(p) => cli_mpc_init::<_, _, G16, Bellman>(p, sub_matches),
-        // ProgEnum::Bls12_381Program(p) => cli_mpc_init::<_, _, G16, Bellman>(p, sub_matches),
+        ProgEnum::Bn128Program(p) => cli_mpc_init::<_, _, G16, Bellman>(p, sub_matches),
+        ProgEnum::Bls12_381Program(p) => cli_mpc_init::<_, _, G16, Bellman>(p, sub_matches),
         _ => Err("Current protocol only supports bn128/bls12_381 programs".into()),
     }
 }

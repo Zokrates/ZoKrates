@@ -6,15 +6,15 @@ use super::{
 };
 
 /// Helper methods for parsing group structure
-pub fn encode_g1_element(g: &G1Affine) -> (U256, U256) {
-    (
-        U256::from(&hex::decode(&g.x.trim_start_matches("0x")).unwrap()[..]),
-        U256::from(&hex::decode(&g.y.trim_start_matches("0x")).unwrap()[..]),
-    )
+pub fn encode_g1_element(g: &G1Affine) -> Token {
+    let x = U256::from(&hex::decode(&g.x.trim_start_matches("0x")).unwrap()[..]);
+    let y = U256::from(&hex::decode(&g.y.trim_start_matches("0x")).unwrap()[..]);
+
+    Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
 }
 
-pub fn encode_g2_element(g: &G2Affine) -> ((U256, U256), (U256, U256)) {
-    match g {
+pub fn encode_g2_element(g: &G2Affine) -> Token {
+    let ((x0, y0), (x1, y1)) = match g {
         G2Affine::Fq2(g) => (
             (
                 U256::from(&hex::decode(&g.x.0.trim_start_matches("0x")).unwrap()[..]),
@@ -26,11 +26,24 @@ pub fn encode_g2_element(g: &G2Affine) -> ((U256, U256), (U256, U256)) {
             ),
         ),
         _ => unreachable!(),
-    }
+    };
+
+    Token::Tuple(vec![
+        Token::FixedArray(vec![Token::Uint(x0), Token::Uint(y0)]),
+        Token::FixedArray(vec![Token::Uint(x1), Token::Uint(y1)]),
+    ])
 }
 
-pub fn encode_fr_element(f: &Fr) -> U256 {
-    U256::from(&hex::decode(&f.trim_start_matches("0x")).unwrap()[..])
+pub fn encode_fr_element(f: &Fr) -> Token {
+    Token::Uint(U256::from(
+        &hex::decode(&f.trim_start_matches("0x")).unwrap()[..],
+    ))
+}
+
+pub fn encode_fr_element_as_tuple(f: &Fr) -> Token {
+    Token::Tuple(vec![Token::Uint(U256::from(
+        &hex::decode(&f.trim_start_matches("0x")).unwrap()[..],
+    ))])
 }
 
 pub trait ToToken<T: SolidityCompatibleField>: SolidityCompatibleScheme<T> {
@@ -41,23 +54,11 @@ pub trait ToToken<T: SolidityCompatibleField>: SolidityCompatibleScheme<T> {
 
 impl<T: SolidityCompatibleField> ToToken<T> for G16 {
     fn to_token(proof: Self::Proof) -> Token {
-        let a = {
-            let (x, y) = encode_g1_element(&proof.a);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
+        let a = encode_g1_element(&proof.a);
 
-        let b = {
-            let ((x0, y0), (x1, y1)) = encode_g2_element(&proof.b);
-            Token::Tuple(vec![
-                Token::FixedArray(vec![Token::Uint(x0), Token::Uint(y0)]),
-                Token::FixedArray(vec![Token::Uint(x1), Token::Uint(y1)]),
-            ])
-        };
+        let b = encode_g2_element(&proof.b);
 
-        let c = {
-            let (x, y) = encode_g1_element(&proof.c);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
+        let c = encode_g1_element(&proof.c);
 
         let proof_tokens = vec![a, b, c];
 
@@ -72,23 +73,11 @@ impl<T: SolidityCompatibleField> ToToken<T> for G16 {
 
 impl<T: SolidityCompatibleField> ToToken<T> for GM17 {
     fn to_token(proof: Self::Proof) -> Token {
-        let a = {
-            let (x, y) = encode_g1_element(&proof.a);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
+        let a = encode_g1_element(&proof.a);
 
-        let b = {
-            let ((x0, y0), (x1, y1)) = encode_g2_element(&proof.b);
-            Token::Tuple(vec![
-                Token::FixedArray(vec![Token::Uint(x0), Token::Uint(y0)]),
-                Token::FixedArray(vec![Token::Uint(x1), Token::Uint(y1)]),
-            ])
-        };
+        let b = encode_g2_element(&proof.b);
 
-        let c = {
-            let (x, y) = encode_g1_element(&proof.c);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
+        let c = encode_g1_element(&proof.c);
 
         let proof_tokens = vec![a, b, c];
 
@@ -103,64 +92,29 @@ impl<T: SolidityCompatibleField> ToToken<T> for GM17 {
 
 impl<T: SolidityCompatibleField> ToToken<T> for Marlin {
     fn to_token(proof: Self::Proof) -> Token {
-        let comms_1_token = Token::Array(
-            proof
-                .comms_1
-                .iter()
-                .map(encode_g1_element)
-                .map(|(x, y)| Token::Tuple(vec![Token::Uint(x), Token::Uint(y)]))
-                .collect(),
-        );
+        let comms_1_token = Token::Array(proof.comms_1.iter().map(encode_g1_element).collect());
 
-        let comms_2_token = Token::Array(
-            proof
-                .comms_2
-                .iter()
-                .map(encode_g1_element)
-                .map(|(x, y)| Token::Tuple(vec![Token::Uint(x), Token::Uint(y)]))
-                .collect(),
-        );
+        let comms_2_token = Token::Array(proof.comms_2.iter().map(encode_g1_element).collect());
 
-        let degree_bound_comms_2_g1_token = {
-            let (x, y) = encode_g1_element(&proof.degree_bound_comms_2_g1);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
+        let degree_bound_comms_2_g1_token = encode_g1_element(&proof.degree_bound_comms_2_g1);
 
-        let comms_3_token = Token::Array(
-            proof
-                .comms_3
-                .iter()
-                .map(encode_g1_element)
-                .map(|(x, y)| Token::Tuple(vec![Token::Uint(x), Token::Uint(y)]))
-                .collect(),
-        );
+        let comms_3_token = Token::Array(proof.comms_3.iter().map(encode_g1_element).collect());
 
-        let degree_bound_comms_3_g2_token = {
-            let (x, y) = encode_g1_element(&proof.degree_bound_comms_3_g2);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
+        let degree_bound_comms_3_g2_token = encode_g1_element(&proof.degree_bound_comms_3_g2);
 
         let evals_token = Token::Array(
             proof
                 .evals
                 .into_iter()
                 .map(|f| encode_fr_element(&f))
-                .map(Token::Uint)
                 .collect::<Vec<_>>(),
         );
 
-        let pc_lc_opening_1_token = {
-            let (x, y) = encode_g1_element(&proof.batch_lc_proof_1);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
+        let pc_lc_opening_1_token = encode_g1_element(&proof.batch_lc_proof_1);
 
-        let degree_bound_pc_lc_opening_1_token =
-            Token::Uint(encode_fr_element(&proof.batch_lc_proof_1_r));
+        let degree_bound_pc_lc_opening_1_token = encode_fr_element(&proof.batch_lc_proof_1_r);
 
-        let pc_lc_opening_2_token = {
-            let (x, y) = encode_g1_element(&proof.batch_lc_proof_2);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
+        let pc_lc_opening_2_token = encode_g1_element(&proof.batch_lc_proof_2);
 
         let proof_tokens = vec![
             comms_1_token,

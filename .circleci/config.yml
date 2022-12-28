@@ -45,7 +45,7 @@ jobs:
       - run:
           name: Run tests
           no_output_timeout: 1h
-          command: RUSTFLAGS="-D warnings" ./test.sh
+          command: RUSTFLAGS="-D warnings" RUST_BACKTRACE=1 ./test.sh
       - save-sccache-cache
   wasm_test:
     docker:
@@ -79,7 +79,7 @@ jobs:
       - run:
           name: Run integration tests
           no_output_timeout: "30m"
-          command: RUSTFLAGS="-D warnings" ./integration_test.sh
+          command: RUSTFLAGS="-D warnings" RUST_BACKTRACE=1 ./integration_test.sh
       - save-sccache-cache
   deploy:
     docker:

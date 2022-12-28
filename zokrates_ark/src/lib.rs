@@ -157,7 +157,7 @@ mod parse {
     use super::*;
     use ark_ff::ToBytes;
     use zokrates_field::G2Type;
-    use zokrates_proof_systems::{Fq2, Fr, G1Affine, G2Affine, G2AffineFq, G2AffineFq2, GAffine};
+    use zokrates_proof_systems::{Fq2, Fr, G1Affine, G2Affine, G2AffineFq, GAffine};
 
     pub fn parse_g1<T: Field + ArkFieldExtensions>(
         e: &<T::ArkEngine as PairingEngine>::G1Affine,

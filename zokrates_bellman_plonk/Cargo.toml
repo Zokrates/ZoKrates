@@ -1,19 +1,18 @@
 [package]
-name = "zokrates_bellman"
+name = "zokrates_bellman_plonk"
 version = "0.1.0"
 edition = "2021"
 
 [features]
-wasm = ["bellman/nolog", "bellman/wasm"]
-multicore = ["bellman/multicore", "phase2/multicore"]
+wasm = ["bellman_ce/nolog", "bellman_ce/wasm"]
+multicore = ["bellman_ce/multicore", "phase2/multicore"]
 
 [dependencies]
 zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
 zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
 zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
 
-bellman = { package = "bellman_ce", version = "^0.3", default-features = false }
-pairing = { package = "pairing_ce", version = "^0.21" }
+bellman_ce = { git = "https://github.com/georgwiese/bellman", rev="dbed83d1971c29e8fdb07d341e8593fef8ba5eab", default-features = false, features = ["plonk", "multicore"] }
 phase2 = { git = "https://github.com/Zokrates/phase2", default-features = false }
 rand_0_4 = { version = "0.4", package = "rand" }#
 getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
