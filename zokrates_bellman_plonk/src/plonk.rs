@@ -6,6 +6,7 @@ use bellman::plonk::{
     Proof as BellmanProof, SetupPolynomials, VerificationKey as BellmanVerificationKey,
 };
 
+use num_cpus;
 use zokrates_field::BellmanPlonkFieldExtensions;
 use zokrates_field::Field;
 use zokrates_proof_systems::{Backend, Proof, SetupKeypair, UniversalBackend};
@@ -86,6 +87,8 @@ impl<T: Field + BellmanPlonkFieldExtensions> Backend<T, Plonk> for Bellman {
         let setup: SetupPolynomials<T::BellmanEngine, PlonkCsWidth4WithNextStepParams> =
             SetupPolynomials::read(proving_key).unwrap();
 
+        let num_cpus = num_cpus::get_physical();
+        println!("Num CPUs: {}", num_cpus);
         let proof: BellmanProof<T::BellmanEngine, PlonkCsWidth4WithNextStepParams> =
             prove_by_steps::<_, _, RollingKeccakTranscript<_>>(
                 computation,
@@ -94,7 +97,7 @@ impl<T: Field + BellmanPlonkFieldExtensions> Backend<T, Plonk> for Bellman {
                 None,
                 &Crs::<T::BellmanEngine, CrsForMonomialForm>::dummy_crs(2usize.pow(10)),
                 None,
-                Some(4),
+                Some(num_cpus),
             )
             .unwrap();
 
@@ -348,6 +351,8 @@ mod tests {
         assert!(is_satisfied(computation.clone(), &hints).is_ok());
 
         // generate a proof with no setup precomputations and no init params for the transcript, using Blake2s
+        let num_cpus = num_cpus::get_physical();
+        println!("Num CPUs: {}", num_cpus);
         let proof: BellmanProof<
             <Bn128Field as BellmanPlonkFieldExtensions>::BellmanEngine,
             PlonkCsWidth4WithNextStepParams,
@@ -358,7 +363,7 @@ mod tests {
             None,
             &crs,
             None,
-            Some(4),
+            Some(num_cpus),
         )
         .unwrap();
 

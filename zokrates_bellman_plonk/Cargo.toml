@@ -17,6 +17,7 @@ phase2 = { git = "https://github.com/Zokrates/phase2", default-features = false 
 rand_0_4 = { version = "0.4", package = "rand" }#
 getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
 hex = "0.4.2"
+num_cpus = "1.14.0"
 
 [dev-dependencies]
 zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", features = ["bellman"] }
