@@ -97,7 +97,7 @@ impl<T: Field + BellmanPlonkFieldExtensions> Backend<T, Plonk> for Bellman {
                 None,
                 &Crs::<T::BellmanEngine, CrsForMonomialForm>::dummy_crs(2usize.pow(10)),
                 None,
-                None,
+                Some(16),
             )
             .unwrap();
 
@@ -363,7 +363,7 @@ mod tests {
             None,
             &crs,
             None,
-            None,
+            Some(16),
         )
         .unwrap();
 
