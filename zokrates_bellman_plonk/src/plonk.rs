@@ -94,6 +94,9 @@ impl<T: Field + BellmanPlonkFieldExtensions> Backend<T, Plonk> for Bellman {
                 None,
                 &Crs::<T::BellmanEngine, CrsForMonomialForm>::dummy_crs(2usize.pow(10)),
                 None,
+                // The multithreaded bellman_ce implementation does not work properly with any number of CPUs,
+                // so we hard-code 4 threads here...
+                Some(4),
             )
             .unwrap();
 
@@ -357,6 +360,9 @@ mod tests {
             None,
             &crs,
             None,
+            // The multithreaded bellman_ce implementation does not work properly with any number of CPUs,
+            // so we hard-code 4 threads here...
+            Some(4),
         )
         .unwrap();
 
