@@ -1,0 +1,20 @@
+def bitify<N>(field num) -> field[N] {
+    field[N] mut out = [0; N];
+    field mut aux = 0;
+    for u32 i in 0..N {
+        u32 j = N - i - 1;
+        asm {
+            out[i] <-- (num >> j) & 1;
+            out[i] * (out[i] - 1) === 0;
+        }
+        aux = aux + out[i] * (2**j);
+    }
+    asm {
+        aux === num;
+    }
+    return out;
+}
+
+def main(field input) -> field[4] {
+    return bitify(input);
+}

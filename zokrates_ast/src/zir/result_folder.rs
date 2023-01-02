@@ -61,6 +61,13 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         self.fold_variable(a)
     }
 
+    fn fold_assembly_statement(
+        &mut self,
+        s: ZirAssemblyStatement<'ast, T>,
+    ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
+        fold_assembly_statement(self, s)
+    }
+
     fn fold_statement(
         &mut self,
         s: ZirStatement<'ast, T>,
@@ -152,6 +159,26 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_uint_expression_inner(self, bitwidth, e)
     }
 }
+pub fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: ZirAssemblyStatement<'ast, T>,
+) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, F::Error> {
+    Ok(match s {
+        ZirAssemblyStatement::Assignment(assignees, function) => {
+            let assignees = assignees
+                .into_iter()
+                .map(|a| f.fold_assignee(a))
+                .collect::<Result<_, _>>()?;
+            let function = f.fold_function(function)?;
+            vec![ZirAssemblyStatement::Assignment(assignees, function)]
+        }
+        ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {
+            let lhs = f.fold_field_expression(lhs)?;
+            let rhs = f.fold_field_expression(rhs)?;
+            vec![ZirAssemblyStatement::Constraint(lhs, rhs, metadata)]
+        }
+    })
+}
 
 pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
@@ -207,6 +234,16 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
             ZirStatement::Log(l, e)
         }
+        ZirStatement::Assembly(statements) => {
+            let statements = statements
+                .into_iter()
+                .map(|s| f.fold_assembly_statement(s))
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .flatten()
+                .collect();
+            ZirStatement::Assembly(statements)
+        }
     };
     Ok(vec![res])
 }
@@ -253,6 +290,36 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
             let e1 = f.fold_field_expression(e1)?;
             let e2 = f.fold_uint_expression(e2)?;
             FieldElementExpression::Pow(box e1, box e2)
+        }
+        FieldElementExpression::Xor(box left, box right) => {
+            let left = f.fold_field_expression(left)?;
+            let right = f.fold_field_expression(right)?;
+
+            FieldElementExpression::Xor(box left, box right)
+        }
+        FieldElementExpression::And(box left, box right) => {
+            let left = f.fold_field_expression(left)?;
+            let right = f.fold_field_expression(right)?;
+
+            FieldElementExpression::And(box left, box right)
+        }
+        FieldElementExpression::Or(box left, box right) => {
+            let left = f.fold_field_expression(left)?;
+            let right = f.fold_field_expression(right)?;
+
+            FieldElementExpression::Or(box left, box right)
+        }
+        FieldElementExpression::LeftShift(box e, box by) => {
+            let e = f.fold_field_expression(e)?;
+            let by = f.fold_uint_expression(by)?;
+
+            FieldElementExpression::LeftShift(box e, box by)
+        }
+        FieldElementExpression::RightShift(box e, box by) => {
+            let e = f.fold_field_expression(e)?;
+            let by = f.fold_uint_expression(by)?;
+
+            FieldElementExpression::RightShift(box e, box by)
         }
         FieldElementExpression::Conditional(c) => {
             match f.fold_conditional_expression(&Type::FieldElement, c)? {

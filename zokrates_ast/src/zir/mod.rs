@@ -1,6 +1,7 @@
 pub mod folder;
 mod from_typed;
 mod identifier;
+pub mod lqc;
 mod parameter;
 pub mod result_folder;
 pub mod types;
@@ -10,7 +11,7 @@ mod variable;
 pub use self::parameter::Parameter;
 pub use self::types::{Type, UBitwidth};
 pub use self::variable::Variable;
-use crate::common::{FlatEmbed, FormatString};
+use crate::common::{FlatEmbed, FormatString, SourceMetadata};
 use crate::typed::ConcreteType;
 pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 
@@ -21,6 +22,7 @@ use zokrates_field::Field;
 
 pub use self::folder::Folder;
 pub use self::identifier::{Identifier, SourceIdentifier};
+use serde::{Deserialize, Serialize};
 
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -34,11 +36,13 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
     }
 }
 /// A typed function
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub struct ZirFunction<'ast, T> {
     /// Arguments of the function
+    #[serde(borrow)]
     pub arguments: Vec<Parameter<'ast>>,
     /// Vector of statements that are executed when running the function
+    #[serde(borrow)]
     pub statements: Vec<ZirStatement<'ast, T>>,
     /// function signature
     pub signature: Signature,
@@ -67,7 +71,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
             writeln!(f)?;
         }
 
-        writeln!(f, "}}")
+        write!(f, "}}")
     }
 }
 
@@ -88,9 +92,9 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirFunction<'ast, T> {
 
 pub type ZirAssignee<'ast> = Variable<'ast>;
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub enum RuntimeError {
-    SourceAssertion(String),
+    SourceAssertion(SourceMetadata),
     SelectRangeCheck,
     DivisionByZero,
     IncompleteDynamicRange,
@@ -99,7 +103,7 @@ pub enum RuntimeError {
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RuntimeError::SourceAssertion(message) => write!(f, "{}", message),
+            RuntimeError::SourceAssertion(metadata) => write!(f, "{}", metadata),
             RuntimeError::SelectRangeCheck => write!(f, "Range check on array access"),
             RuntimeError::DivisionByZero => write!(f, "Division by zero"),
             RuntimeError::IncompleteDynamicRange => write!(f, "Dynamic comparison is incomplete"),
@@ -109,12 +113,46 @@ impl fmt::Display for RuntimeError {
 
 impl RuntimeError {
     pub fn mock() -> Self {
-        RuntimeError::SourceAssertion(String::default())
+        RuntimeError::SourceAssertion(SourceMetadata::default())
+    }
+}
+
+#[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
+pub enum ZirAssemblyStatement<'ast, T> {
+    Assignment(
+        #[serde(borrow)] Vec<ZirAssignee<'ast>>,
+        ZirFunction<'ast, T>,
+    ),
+    Constraint(
+        FieldElementExpression<'ast, T>,
+        FieldElementExpression<'ast, T>,
+        SourceMetadata,
+    ),
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ZirAssemblyStatement::Assignment(ref lhs, ref rhs) => {
+                write!(
+                    f,
+                    "{} <-- {};",
+                    lhs.iter()
+                        .map(|a| a.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    rhs
+                )
+            }
+            ZirAssemblyStatement::Constraint(ref lhs, ref rhs, _) => {
+                write!(f, "{} === {};", lhs, rhs)
+            }
+        }
     }
 }
 
 /// A statement in a `ZirFunction`
-#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
 pub enum ZirStatement<'ast, T> {
     Return(Vec<ZirExpression<'ast, T>>),
     Definition(ZirAssignee<'ast>, ZirExpression<'ast, T>),
@@ -129,6 +167,8 @@ pub enum ZirStatement<'ast, T> {
         FormatString,
         Vec<(ConcreteType, Vec<ZirExpression<'ast, T>>)>,
     ),
+    #[serde(borrow)]
+    Assembly(Vec<ZirAssemblyStatement<'ast, T>>),
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
@@ -142,15 +182,19 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
         write!(f, "{}", "\t".repeat(depth))?;
         match self {
             ZirStatement::Return(ref exprs) => {
-                write!(
-                    f,
-                    "return {};",
-                    exprs
-                        .iter()
-                        .map(|e| e.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
+                write!(f, "return")?;
+                if !exprs.is_empty() {
+                    write!(
+                        f,
+                        " {}",
+                        exprs
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )?;
+                }
+                write!(f, ";")
             }
             ZirStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "{} = {};", lhs, rhs)
@@ -166,7 +210,7 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                     s.fmt_indented(f, depth + 1)?;
                     writeln!(f)?;
                 }
-                write!(f, "{}}};", "\t".repeat(depth))
+                write!(f, "{}}}", "\t".repeat(depth))
             }
             ZirStatement::Assertion(ref e, ref error) => {
                 write!(f, "assert({}", e)?;
@@ -200,6 +244,13 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            ZirStatement::Assembly(statements) => {
+                writeln!(f, "asm {{")?;
+                for s in statements {
+                    writeln!(f, "{}{}", "\t".repeat(depth + 1), s)?;
+                }
+                write!(f, "{}}}", "\t".repeat(depth))
+            }
         }
     }
 }
@@ -208,8 +259,9 @@ pub trait Typed {
     fn get_type(&self) -> Type;
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub struct IdentifierExpression<'ast, E> {
+    #[serde(borrow)]
     pub id: Identifier<'ast>,
     ty: PhantomData<E>,
 }
@@ -229,8 +281,9 @@ impl<'ast, E> IdentifierExpression<'ast, E> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub struct ConditionalExpression<'ast, T, E> {
+    #[serde(borrow)]
     pub condition: Box<BooleanExpression<'ast, T>>,
     pub consequence: Box<E>,
     pub alternative: Box<E>,
@@ -256,9 +309,10 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for ConditionalExpress
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub struct SelectExpression<'ast, T, E> {
     pub array: Vec<E>,
+    #[serde(borrow)]
     pub index: Box<UExpression<'ast, T>>,
 }
 
@@ -287,11 +341,11 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for SelectExpression<'
 }
 
 /// A typed expression
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub enum ZirExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
-    Uint(UExpression<'ast, T>),
+    Uint(#[serde(borrow)] UExpression<'ast, T>),
 }
 
 impl<'ast, T: Field> From<BooleanExpression<'ast, T>> for ZirExpression<'ast, T> {
@@ -364,15 +418,20 @@ pub trait MultiTyped {
     fn get_types(&self) -> &Vec<Type>;
 }
 
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub enum ZirExpressionList<'ast, T> {
-    EmbedCall(FlatEmbed, Vec<u32>, Vec<ZirExpression<'ast, T>>),
+    EmbedCall(
+        FlatEmbed,
+        Vec<u32>,
+        #[serde(borrow)] Vec<ZirExpression<'ast, T>>,
+    ),
 }
 
 /// An expression of type `field`
-#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
 pub enum FieldElementExpression<'ast, T> {
     Number(T),
+    #[serde(borrow)]
     Identifier(IdentifierExpression<'ast, Self>),
     Select(SelectExpression<'ast, T, Self>),
     Add(
@@ -393,15 +452,56 @@ pub enum FieldElementExpression<'ast, T> {
     ),
     Pow(
         Box<FieldElementExpression<'ast, T>>,
+        #[serde(borrow)] Box<UExpression<'ast, T>>,
+    ),
+    And(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    Or(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    Xor(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    LeftShift(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<UExpression<'ast, T>>,
+    ),
+    RightShift(
+        Box<FieldElementExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
     ),
     Conditional(ConditionalExpression<'ast, T, FieldElementExpression<'ast, T>>),
 }
 
+impl<'ast, T> FieldElementExpression<'ast, T> {
+    pub fn is_linear(&self) -> bool {
+        match self {
+            FieldElementExpression::Number(_) => true,
+            FieldElementExpression::Identifier(_) => true,
+            FieldElementExpression::Add(box left, box right) => {
+                left.is_linear() && right.is_linear()
+            }
+            FieldElementExpression::Sub(box left, box right) => {
+                left.is_linear() && right.is_linear()
+            }
+            FieldElementExpression::Mult(box left, box right) => matches!(
+                (left, right),
+                (FieldElementExpression::Number(_), _) | (_, FieldElementExpression::Number(_))
+            ),
+            _ => false,
+        }
+    }
+}
+
 /// An expression of type `bool`
-#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
 pub enum BooleanExpression<'ast, T> {
     Value(bool),
+    #[serde(borrow)]
     Identifier(IdentifierExpression<'ast, Self>),
     Select(SelectExpression<'ast, T, Self>),
     FieldLt(
@@ -501,6 +601,15 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
+            FieldElementExpression::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
+            FieldElementExpression::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
+            FieldElementExpression::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+            FieldElementExpression::LeftShift(ref lhs, ref rhs) => {
+                write!(f, "({} << {})", lhs, rhs)
+            }
+            FieldElementExpression::RightShift(ref lhs, ref rhs) => {
+                write!(f, "({} >> {})", lhs, rhs)
+            }
             FieldElementExpression::Conditional(ref c) => {
                 write!(f, "{}", c)
             }
@@ -802,5 +911,38 @@ impl IntoType for Type {
 impl IntoType for UBitwidth {
     fn into_type(self) -> Type {
         Type::Uint(self)
+    }
+}
+
+pub trait Constant: Sized {
+    // return whether this is constant
+    fn is_constant(&self) -> bool;
+}
+
+impl<'ast, T: Field> Constant for ZirExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        match self {
+            ZirExpression::FieldElement(e) => e.is_constant(),
+            ZirExpression::Boolean(e) => e.is_constant(),
+            ZirExpression::Uint(e) => e.is_constant(),
+        }
+    }
+}
+
+impl<'ast, T: Field> Constant for FieldElementExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, FieldElementExpression::Number(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for BooleanExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, BooleanExpression::Value(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for UExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self.as_inner(), UExpressionInner::Value(..))
     }
 }

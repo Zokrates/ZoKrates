@@ -147,6 +147,10 @@ impl Importer {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::Unpack),
                 },
+                "field_to_bool_unsafe" => SymbolDeclaration {
+                    id: symbol.get_alias(),
+                    symbol: Symbol::Flat(FlatEmbed::FieldToBoolUnsafe),
+                },
                 "bit_array_le" => SymbolDeclaration {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::BitArrayLe),

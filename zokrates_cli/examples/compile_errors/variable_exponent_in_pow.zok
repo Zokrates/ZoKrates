@@ -1,0 +1,3 @@
+def main(field a, u32 b) -> field {
+    return a**b;
+}

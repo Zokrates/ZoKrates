@@ -96,7 +96,7 @@ jobs:
   zokrates_js_build:
     docker:
       - image: zokrates/env:latest
-    resource_class: large
+    resource_class: xlarge
     working_directory: ~/project/zokrates_js
     steps:
       - checkout:
@@ -111,7 +111,7 @@ jobs:
   zokrates_js_test:
     docker:
       - image: zokrates/env:latest
-    resource_class: large
+    resource_class: xlarge
     working_directory: ~/project/zokrates_js
     steps:
       - checkout:

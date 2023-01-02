@@ -1,0 +1,8 @@
+def main() {
+    field mut a = 0;
+    asm {
+        a <-- 1;
+        a === 1;
+    }
+    return;
+}

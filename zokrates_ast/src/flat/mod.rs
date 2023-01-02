@@ -24,14 +24,14 @@ use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
 
-pub type FlatProg<T> = FlatFunction<T>;
+pub type FlatProg<'ast, T> = FlatFunction<'ast, T>;
 
-pub type FlatFunction<T> = FlatFunctionIterator<T, Vec<FlatStatement<T>>>;
+pub type FlatFunction<'ast, T> = FlatFunctionIterator<'ast, T, Vec<FlatStatement<'ast, T>>>;
 
-pub type FlatProgIterator<T, I> = FlatFunctionIterator<T, I>;
+pub type FlatProgIterator<'ast, T, I> = FlatFunctionIterator<'ast, T, I>;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct FlatFunctionIterator<T, I: IntoIterator<Item = FlatStatement<T>>> {
+pub struct FlatFunctionIterator<'ast, T, I: IntoIterator<Item = FlatStatement<'ast, T>>> {
     /// Arguments of the function
     pub arguments: Vec<Parameter>,
     /// Vector of statements that are executed when running the function
@@ -40,8 +40,8 @@ pub struct FlatFunctionIterator<T, I: IntoIterator<Item = FlatStatement<T>>> {
     pub return_count: usize,
 }
 
-impl<T, I: IntoIterator<Item = FlatStatement<T>>> FlatFunctionIterator<T, I> {
-    pub fn collect(self) -> FlatFunction<T> {
+impl<'ast, T, I: IntoIterator<Item = FlatStatement<'ast, T>>> FlatFunctionIterator<'ast, T, I> {
+    pub fn collect(self) -> FlatFunction<'ast, T> {
         FlatFunction {
             statements: self.statements.into_iter().collect(),
             arguments: self.arguments,
@@ -50,7 +50,7 @@ impl<T, I: IntoIterator<Item = FlatStatement<T>>> FlatFunctionIterator<T, I> {
     }
 }
 
-impl<T: Field> fmt::Display for FlatFunction<T> {
+impl<'ast, T: Field> fmt::Display for FlatFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -81,16 +81,24 @@ impl<T: Field> fmt::Display for FlatFunction<T> {
 /// * r1cs - R1CS in standard JSON data format
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub enum FlatStatement<T> {
+pub enum FlatStatement<'ast, T> {
+    Block(Vec<FlatStatement<'ast, T>>),
     Condition(FlatExpression<T>, FlatExpression<T>, RuntimeError),
     Definition(Variable, FlatExpression<T>),
-    Directive(FlatDirective<T>),
+    Directive(FlatDirective<'ast, T>),
     Log(FormatString, Vec<(ConcreteType, Vec<FlatExpression<T>>)>),
 }
 
-impl<T: Field> fmt::Display for FlatStatement<T> {
+impl<'ast, T: Field> fmt::Display for FlatStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            FlatStatement::Block(ref statements) => {
+                writeln!(f, "{{")?;
+                for s in statements {
+                    writeln!(f, "{}", s)?;
+                }
+                writeln!(f, "}}")
+            }
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             FlatStatement::Condition(ref lhs, ref rhs, ref message) => {
                 write!(f, "{} == {} // {}", lhs, rhs, message)
@@ -116,12 +124,18 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
     }
 }
 
-impl<T: Field> FlatStatement<T> {
+impl<'ast, T: Field> FlatStatement<'ast, T> {
     pub fn apply_substitution(
         self,
-        substitution: &HashMap<Variable, Variable>,
+        substitution: &'ast HashMap<Variable, Variable>,
     ) -> FlatStatement<T> {
         match self {
+            FlatStatement::Block(statements) => FlatStatement::Block(
+                statements
+                    .into_iter()
+                    .map(|s| s.apply_substitution(substitution))
+                    .collect(),
+            ),
             FlatStatement::Definition(id, x) => FlatStatement::Definition(
                 *id.apply_substitution(substitution),
                 x.apply_substitution(substitution),
@@ -167,16 +181,16 @@ impl<T: Field> FlatStatement<T> {
 }
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
-pub struct FlatDirective<T> {
+pub struct FlatDirective<'ast, T> {
     pub inputs: Vec<FlatExpression<T>>,
     pub outputs: Vec<Variable>,
-    pub solver: Solver,
+    pub solver: Solver<'ast, T>,
 }
 
-impl<T> FlatDirective<T> {
+impl<'ast, T> FlatDirective<'ast, T> {
     pub fn new<E: Into<FlatExpression<T>>>(
         outputs: Vec<Variable>,
-        solver: Solver,
+        solver: Solver<'ast, T>,
         inputs: Vec<E>,
     ) -> Self {
         let (in_len, out_len) = solver.get_signature();
@@ -190,7 +204,7 @@ impl<T> FlatDirective<T> {
     }
 }
 
-impl<T: Field> fmt::Display for FlatDirective<T> {
+impl<'ast, T: Field> fmt::Display for FlatDirective<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,

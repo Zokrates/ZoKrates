@@ -8,11 +8,12 @@ use zokrates_parser::Rule;
 extern crate lazy_static;
 
 pub use ast::{
-    Access, Arguments, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement,
-    Assignee, AssigneeAccess, BasicOrStructOrTupleType, BasicType, BinaryExpression,
-    BinaryOperator, CallAccess, ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression,
-    DecimalNumber, DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType,
-    File, FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
+    Access, Arguments, ArrayAccess, ArrayInitializerExpression, ArrayType, AssemblyStatement,
+    AssemblyStatementInner, AssertionStatement, Assignee, AssigneeAccess, AssignmentOperator,
+    BasicOrStructOrTupleType, BasicType, BinaryExpression, BinaryOperator, CallAccess,
+    ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber,
+    DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType, File,
+    FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
     IdentifierExpression, IdentifierOrDecimal, IfElseExpression, ImportDirective, ImportSymbol,
     InlineArrayExpression, InlineStructExpression, InlineStructMember, InlineTupleExpression,
     IterationStatement, LiteralExpression, LogStatement, Parameter, PostfixExpression, Range,
@@ -366,6 +367,7 @@ mod ast {
         Assertion(AssertionStatement<'ast>),
         Iteration(IterationStatement<'ast>),
         Log(LogStatement<'ast>),
+        Assembly(AssemblyStatement<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -427,6 +429,55 @@ mod ast {
     #[pest_ast(rule(Rule::return_statement))]
     pub struct ReturnStatement<'ast> {
         pub expression: Option<Expression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
+    #[pest_ast(rule(Rule::op_asm))]
+    pub enum AssignmentOperator {
+        Assign(AssignOperator),
+        AssignConstrain(AssignConstrainOperator),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
+    #[pest_ast(rule(Rule::op_asm_assign))]
+    pub struct AssignOperator;
+
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
+    #[pest_ast(rule(Rule::op_asm_assign_constrain))]
+    pub struct AssignConstrainOperator;
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::asm_assignment))]
+    pub struct AssemblyAssignment<'ast> {
+        pub assignee: Assignee<'ast>,
+        pub operator: AssignmentOperator,
+        pub expression: Expression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::asm_constraint))]
+    pub struct AssemblyConstraint<'ast> {
+        pub lhs: Expression<'ast>,
+        pub rhs: Expression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::asm_statement_inner))]
+    pub enum AssemblyStatementInner<'ast> {
+        Assignment(AssemblyAssignment<'ast>),
+        Constraint(AssemblyConstraint<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::asm_statement))]
+    pub struct AssemblyStatement<'ast> {
+        pub inner: Vec<AssemblyStatementInner<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }

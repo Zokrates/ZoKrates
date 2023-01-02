@@ -167,12 +167,13 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 }
 
 fn cli_setup_non_universal<
+    'a,
     T: Field,
-    I: Iterator<Item = ir::Statement<T>>,
+    I: Iterator<Item = ir::Statement<'a, T>>,
     S: NonUniversalScheme<T>,
     B: NonUniversalBackend<T, S>,
 >(
-    program: ir::ProgIterator<T, I>,
+    program: ir::ProgIterator<'a, T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Performing setup...");
@@ -211,12 +212,13 @@ fn cli_setup_non_universal<
 }
 
 fn cli_setup_universal<
+    'a,
     T: Field,
-    I: Iterator<Item = ir::Statement<T>>,
+    I: Iterator<Item = ir::Statement<'a, T>>,
     S: UniversalScheme<T>,
     B: UniversalBackend<T, S>,
 >(
-    program: ir::ProgIterator<T, I>,
+    program: ir::ProgIterator<'a, T, I>,
     srs: Vec<u8>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {

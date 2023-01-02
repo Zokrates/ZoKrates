@@ -1,15 +1,18 @@
 use crate::zir::types::MemberId;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 use crate::typed::Identifier as CoreIdentifier;
 
-#[derive(Debug, PartialEq, Clone, Hash, Eq)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, Serialize, Deserialize)]
 pub enum Identifier<'ast> {
+    #[serde(borrow)]
     Source(SourceIdentifier<'ast>),
 }
 
-#[derive(Debug, PartialEq, Clone, Hash, Eq)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, Serialize, Deserialize)]
 pub enum SourceIdentifier<'ast> {
+    #[serde(borrow)]
     Basic(CoreIdentifier<'ast>),
     Select(Box<SourceIdentifier<'ast>>, u32),
     Member(Box<SourceIdentifier<'ast>>, MemberId),

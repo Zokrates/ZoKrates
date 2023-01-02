@@ -16,8 +16,8 @@ use zokrates_proof_systems::Scheme;
 use zokrates_proof_systems::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 
 impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, GM17> for Ark {
-    fn setup<I: IntoIterator<Item = Statement<T>>>(
-        program: ProgIterator<T, I>,
+    fn setup<'a, I: IntoIterator<Item = Statement<'a, T>>>(
+        program: ProgIterator<'a, T, I>,
     ) -> SetupKeypair<T, GM17> {
         let computation = Computation::without_witness(program);
 
@@ -41,8 +41,8 @@ impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, GM17> for Ark {
 }
 
 impl<T: Field + ArkFieldExtensions> Backend<T, GM17> for Ark {
-    fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
-        program: ProgIterator<T, I>,
+    fn generate_proof<'a, I: IntoIterator<Item = Statement<'a, T>>>(
+        program: ProgIterator<'a, T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
     ) -> Proof<T, GM17> {

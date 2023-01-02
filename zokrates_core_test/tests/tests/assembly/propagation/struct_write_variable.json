@@ -1,0 +1,23 @@
+{
+  "curves": ["Bn128"],
+  "max_constraint_count": 4,
+  "tests": [
+    {
+      "input": {
+        "values": [
+          {
+            "a": ["0", "0"]
+          },
+          "42"
+        ]
+      },
+      "output": {
+        "Ok": {
+          "value": {
+            "a": ["42", "84"]
+          }
+        }
+      }
+    }
+  ]
+}

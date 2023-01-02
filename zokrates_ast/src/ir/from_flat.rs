@@ -17,9 +17,9 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-pub fn from_flat<T: Field, I: IntoIterator<Item = FlatStatement<T>>>(
-    flat_prog_iterator: FlatProgIterator<T, I>,
-) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
+pub fn from_flat<'ast, T: Field, I: IntoIterator<Item = FlatStatement<'ast, T>>>(
+    flat_prog_iterator: FlatProgIterator<'ast, T, I>,
+) -> ProgIterator<T, impl IntoIterator<Item = Statement<'ast, T>>> {
     ProgIterator {
         statements: flat_prog_iterator.statements.into_iter().map(Into::into),
         arguments: flat_prog_iterator.arguments,
@@ -52,9 +52,12 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
     }
 }
 
-impl<T: Field> From<FlatStatement<T>> for Statement<T> {
-    fn from(flat_statement: FlatStatement<T>) -> Statement<T> {
+impl<'ast, T: Field> From<FlatStatement<'ast, T>> for Statement<'ast, T> {
+    fn from(flat_statement: FlatStatement<'ast, T>) -> Statement<'ast, T> {
         match flat_statement {
+            FlatStatement::Block(statements) => {
+                Statement::Block(statements.into_iter().map(Statement::from).collect())
+            }
             FlatStatement::Condition(linear, quadratic, message) => match quadratic {
                 FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
                     QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
@@ -83,8 +86,8 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
     }
 }
 
-impl<T: Field> From<FlatDirective<T>> for Directive<T> {
-    fn from(ds: FlatDirective<T>) -> Directive<T> {
+impl<'ast, T: Field> From<FlatDirective<'ast, T>> for Directive<'ast, T> {
+    fn from(ds: FlatDirective<'ast, T>) -> Directive<T> {
         Directive {
             inputs: ds
                 .inputs
