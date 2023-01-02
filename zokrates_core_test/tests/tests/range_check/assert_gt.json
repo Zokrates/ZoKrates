@@ -11,7 +11,13 @@
         "Err": {
           "UnsatisfiedConstraint": {
             "error": {
-              "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_gt.zok:2:5"
+              "SourceAssertion": {
+                "file": "./tests/tests/range_check/assert_gt.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
             }
           }
         }
@@ -25,7 +31,13 @@
         "Err": {
           "UnsatisfiedConstraint": {
             "error": {
-              "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_gt.zok:2:5"
+              "SourceAssertion": {
+                "file": "./tests/tests/range_check/assert_gt.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
             }
           }
         }
@@ -39,7 +51,13 @@
         "Err": {
           "UnsatisfiedConstraint": {
             "error": {
-              "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_gt.zok:2:5"
+              "SourceAssertion": {
+                "file": "./tests/tests/range_check/assert_gt.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
             }
           }
         }

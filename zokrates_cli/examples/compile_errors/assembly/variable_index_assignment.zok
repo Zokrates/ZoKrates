@@ -1,0 +1,6 @@
+def main(field[2] mut a, u32 i) -> field[2] {
+   asm {
+      a[i] <== 42; // assigning to a variable index is not allowed in assembly
+   }
+   return a;
+}

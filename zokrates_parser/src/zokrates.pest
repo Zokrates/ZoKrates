@@ -52,7 +52,7 @@ _mut = {"mut"}
 
 
 // Statements
-statement = { (iteration_statement // does not require semicolon
+statement = { (iteration_statement | asm_statement // does not require semicolon
               | ((log_statement
                 |return_statement
                 | definition_statement
@@ -65,6 +65,16 @@ iteration_statement = { "for" ~ typed_identifier ~ "in" ~ expression ~ ".." ~ ex
 return_statement = { "return" ~ expression? }
 definition_statement = { typed_identifier_or_assignee ~ "=" ~ expression }
 assertion_statement = {"assert" ~ "(" ~ expression ~ ("," ~ quoted_string)? ~ ")"}
+
+op_asm_assign = @{"<--"}
+op_asm_assign_constrain = @{"<=="}
+op_asm = { op_asm_assign | op_asm_assign_constrain }
+
+asm_assignment = { assignee ~ op_asm ~ expression }
+asm_constraint = { expression ~ "===" ~ expression }
+
+asm_statement_inner = { (asm_assignment | asm_constraint) ~ semicolon }
+asm_statement = { "asm" ~ "{" ~ NEWLINE* ~ asm_statement_inner* ~ NEWLINE* ~ "}" }
 
 typed_identifier_or_assignee = { typed_identifier | assignee }
 

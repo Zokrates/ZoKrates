@@ -446,6 +446,24 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                 box Self::try_from_int(e1)?,
                 box Self::try_from_int(e2)?,
             )),
+            IntExpression::And(box e1, box e2) => Ok(Self::And(
+                box Self::try_from_int(e1)?,
+                box Self::try_from_int(e2)?,
+            )),
+            IntExpression::Or(box e1, box e2) => Ok(Self::Or(
+                box Self::try_from_int(e1)?,
+                box Self::try_from_int(e2)?,
+            )),
+            IntExpression::Xor(box e1, box e2) => Ok(Self::Xor(
+                box Self::try_from_int(e1)?,
+                box Self::try_from_int(e2)?,
+            )),
+            IntExpression::LeftShift(box e1, box e2) => {
+                Ok(Self::LeftShift(box Self::try_from_int(e1)?, box e2))
+            }
+            IntExpression::RightShift(box e1, box e2) => {
+                Ok(Self::RightShift(box Self::try_from_int(e1)?, box e2))
+            }
             IntExpression::Pos(box e) => Ok(Self::Pos(box Self::try_from_int(e)?)),
             IntExpression::Neg(box e) => Ok(Self::Neg(box Self::try_from_int(e)?)),
             IntExpression::Conditional(c) => Ok(Self::Conditional(ConditionalExpression::new(
@@ -843,11 +861,6 @@ mod tests {
 
         let should_error = vec![
             BigUint::parse_bytes(b"99999999999999999999999999999999999999999999999999999999999999999999999999999999999", 10).unwrap().into(),
-            IntExpression::xor(n.clone(), n.clone()),
-            IntExpression::or(n.clone(), n.clone()),
-            IntExpression::and(n.clone(), n.clone()),
-            IntExpression::left_shift(n.clone(), i.clone()),
-            IntExpression::right_shift(n.clone(), i.clone()),
             IntExpression::not(n.clone()),
         ];
 

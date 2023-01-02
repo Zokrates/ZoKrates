@@ -22,8 +22,8 @@ use zokrates_proof_systems::Scheme;
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
-    fn generate_proof<I: IntoIterator<Item = Statement<T>>, R: RngCore + CryptoRng>(
-        program: ProgIterator<T, I>,
+    fn generate_proof<'a, I: IntoIterator<Item = Statement<'a, T>>, R: RngCore + CryptoRng>(
+        program: ProgIterator<'a, T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
         rng: &mut R,
@@ -86,8 +86,8 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 }
 
 impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman {
-    fn setup<I: IntoIterator<Item = Statement<T>>, R: RngCore + CryptoRng>(
-        program: ProgIterator<T, I>,
+    fn setup<'a, I: IntoIterator<Item = Statement<'a, T>>, R: RngCore + CryptoRng>(
+        program: ProgIterator<'a, T, I>,
         rng: &mut R,
     ) -> SetupKeypair<T, G16> {
         println!("{}", G16_WARNING);
@@ -102,8 +102,8 @@ impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman 
 }
 
 impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
-    fn initialize<R: Read, W: Write, I: IntoIterator<Item = Statement<T>>>(
-        program: ProgIterator<T, I>,
+    fn initialize<'a, R: Read, W: Write, I: IntoIterator<Item = Statement<'a, T>>>(
+        program: ProgIterator<'a, T, I>,
         phase1_radix: &mut R,
         output: &mut W,
     ) -> Result<(), String> {
@@ -130,9 +130,9 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         Ok(hash)
     }
 
-    fn verify<P: Read, R: Read, I: IntoIterator<Item = Statement<T>>>(
+    fn verify<'a, P: Read, R: Read, I: IntoIterator<Item = Statement<'a, T>>>(
         params: &mut P,
-        program: ProgIterator<T, I>,
+        program: ProgIterator<'a, T, I>,
         phase1_radix: &mut R,
     ) -> Result<Vec<[u8; 64]>, String> {
         let params =

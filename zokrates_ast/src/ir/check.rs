@@ -13,7 +13,9 @@ pub struct UnconstrainedVariableDetector {
 }
 
 impl UnconstrainedVariableDetector {
-    pub fn new<T: Field, I: IntoIterator<Item = Statement<T>>>(p: &ProgIterator<T, I>) -> Self {
+    pub fn new<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>>(
+        p: &ProgIterator<'ast, T, I>,
+    ) -> Self {
         UnconstrainedVariableDetector {
             variables: p
                 .arguments
@@ -32,7 +34,7 @@ impl UnconstrainedVariableDetector {
     }
 }
 
-impl<T: Field> Folder<T> for UnconstrainedVariableDetector {
+impl<'ast, T: Field> Folder<'ast, T> for UnconstrainedVariableDetector {
     fn fold_argument(&mut self, p: Parameter) -> Parameter {
         p
     }
@@ -40,7 +42,7 @@ impl<T: Field> Folder<T> for UnconstrainedVariableDetector {
         self.variables.remove(&v);
         v
     }
-    fn fold_directive(&mut self, d: Directive<T>) -> Directive<T> {
+    fn fold_directive(&mut self, d: Directive<'ast, T>) -> Directive<'ast, T> {
         self.variables.extend(d.outputs.iter());
         d
     }

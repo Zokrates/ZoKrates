@@ -21,10 +21,8 @@ use zokrates_ast::typed::types::{ConcreteSignature, ConcreteType, GTupleType};
 use zokrates_bellman::Bellman;
 use zokrates_circom::{write_r1cs, write_witness};
 use zokrates_common::helpers::{BackendParameter, CurveParameter, SchemeParameter};
-use zokrates_common::Resolver;
-use zokrates_core::compile::{
-    compile as core_compile, CompilationArtifacts, CompileConfig, CompileError,
-};
+use zokrates_common::{CompileConfig, Resolver};
+use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, CompileError};
 use zokrates_core::imports::Error;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_proof_systems::groth16::G16;
@@ -45,6 +43,7 @@ pub struct CompilationResult {
     program: Vec<u8>,
     abi: Abi,
     snarkjs_program: Option<Vec<u8>>,
+    constraint_count: u32,
 }
 
 #[wasm_bindgen]
@@ -64,6 +63,10 @@ impl CompilationResult {
             arr.copy_from(p);
             arr
         })
+    }
+
+    pub fn constraint_count(&self) -> JsValue {
+        JsValue::from_serde(&self.constraint_count).unwrap()
     }
 }
 
@@ -258,6 +261,7 @@ mod internal {
         let abi = artifacts.abi().clone();
 
         let program = artifacts.prog().collect();
+        let constraint_count = program.constraint_count() as u32;
         let snarkjs_program = with_snarkjs_program.then(|| {
             let mut buffer = Cursor::new(vec![]);
             write_r1cs(&mut buffer, program.clone()).unwrap();
@@ -270,6 +274,7 @@ mod internal {
             abi,
             program: buffer.into_inner(),
             snarkjs_program,
+            constraint_count,
         })
     }
 
@@ -354,13 +359,14 @@ mod internal {
     }
 
     pub fn setup_universal<
+        'a,
         T: Field,
-        I: IntoIterator<Item = ir::Statement<T>>,
+        I: IntoIterator<Item = ir::Statement<'a, T>>,
         S: UniversalScheme<T> + Serialize,
         B: UniversalBackend<T, S>,
     >(
         srs: &[u8],
-        program: ir::ProgIterator<T, I>,
+        program: ir::ProgIterator<'a, T, I>,
     ) -> Result<JsValue, JsValue> {
         let keypair = B::setup(srs.to_vec(), program).map_err(|e| JsValue::from_str(&e))?;
         Ok(JsValue::from_serde(&TaggedKeypair::<T, S>::new(keypair)).unwrap())

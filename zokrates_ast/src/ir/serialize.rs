@@ -12,32 +12,35 @@ const ZOKRATES_VERSION_2: &[u8; 4] = &[0, 0, 0, 2];
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum ProgEnum<
-    Bls12_381I: IntoIterator<Item = Statement<Bls12_381Field>>,
-    Bn128I: IntoIterator<Item = Statement<Bn128Field>>,
-    Bls12_377I: IntoIterator<Item = Statement<Bls12_377Field>>,
-    Bw6_761I: IntoIterator<Item = Statement<Bw6_761Field>>,
+    'ast,
+    Bls12_381I: IntoIterator<Item = Statement<'ast, Bls12_381Field>>,
+    Bn128I: IntoIterator<Item = Statement<'ast, Bn128Field>>,
+    Bls12_377I: IntoIterator<Item = Statement<'ast, Bls12_377Field>>,
+    Bw6_761I: IntoIterator<Item = Statement<'ast, Bw6_761Field>>,
 > {
-    Bls12_381Program(ProgIterator<Bls12_381Field, Bls12_381I>),
-    Bn128Program(ProgIterator<Bn128Field, Bn128I>),
-    Bls12_377Program(ProgIterator<Bls12_377Field, Bls12_377I>),
-    Bw6_761Program(ProgIterator<Bw6_761Field, Bw6_761I>),
+    Bls12_381Program(ProgIterator<'ast, Bls12_381Field, Bls12_381I>),
+    Bn128Program(ProgIterator<'ast, Bn128Field, Bn128I>),
+    Bls12_377Program(ProgIterator<'ast, Bls12_377Field, Bls12_377I>),
+    Bw6_761Program(ProgIterator<'ast, Bw6_761Field, Bw6_761I>),
 }
 
-type MemoryProgEnum = ProgEnum<
-    Vec<Statement<Bls12_381Field>>,
-    Vec<Statement<Bn128Field>>,
-    Vec<Statement<Bls12_377Field>>,
-    Vec<Statement<Bw6_761Field>>,
+type MemoryProgEnum<'ast> = ProgEnum<
+    'ast,
+    Vec<Statement<'ast, Bls12_381Field>>,
+    Vec<Statement<'ast, Bn128Field>>,
+    Vec<Statement<'ast, Bls12_377Field>>,
+    Vec<Statement<'ast, Bw6_761Field>>,
 >;
 
 impl<
-        Bls12_381I: IntoIterator<Item = Statement<Bls12_381Field>>,
-        Bn128I: IntoIterator<Item = Statement<Bn128Field>>,
-        Bls12_377I: IntoIterator<Item = Statement<Bls12_377Field>>,
-        Bw6_761I: IntoIterator<Item = Statement<Bw6_761Field>>,
-    > ProgEnum<Bls12_381I, Bn128I, Bls12_377I, Bw6_761I>
+        'ast,
+        Bls12_381I: IntoIterator<Item = Statement<'ast, Bls12_381Field>>,
+        Bn128I: IntoIterator<Item = Statement<'ast, Bn128Field>>,
+        Bls12_377I: IntoIterator<Item = Statement<'ast, Bls12_377Field>>,
+        Bw6_761I: IntoIterator<Item = Statement<'ast, Bw6_761Field>>,
+    > ProgEnum<'ast, Bls12_381I, Bn128I, Bls12_377I, Bw6_761I>
 {
-    pub fn collect(self) -> MemoryProgEnum {
+    pub fn collect(self) -> MemoryProgEnum<'ast> {
         match self {
             ProgEnum::Bls12_381Program(p) => ProgEnum::Bls12_381Program(p.collect()),
             ProgEnum::Bn128Program(p) => ProgEnum::Bn128Program(p.collect()),
@@ -55,7 +58,7 @@ impl<
     }
 }
 
-impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, I> {
     /// serialize a program iterator, returning the number of constraints serialized
     /// Note that we only return constraints, not other statements such as directives
     pub fn serialize<W: Write>(self, mut w: W) -> Result<usize, DynamicError> {
@@ -106,10 +109,11 @@ impl<'de, R: serde_cbor::de::Read<'de>, T: serde::Deserialize<'de>> Iterator
 
 impl<'de, R: Read>
     ProgEnum<
-        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<Bls12_381Field>>,
-        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<Bn128Field>>,
-        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<Bls12_377Field>>,
-        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<Bw6_761Field>>,
+        'de,
+        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bls12_381Field>>,
+        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bn128Field>>,
+        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bls12_377Field>>,
+        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bw6_761Field>>,
     >
 {
     pub fn deserialize(mut r: R) -> Result<Self, String> {

@@ -23,20 +23,20 @@ pub use self::parse::*;
 pub struct Bellman;
 
 #[derive(Clone)]
-pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
-    program: ProgIterator<T, I>,
+pub struct Computation<'a, T, I: IntoIterator<Item = Statement<'a, T>>> {
+    program: ProgIterator<'a, T, I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T: Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
-    pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
+impl<'a, T: Field, I: IntoIterator<Item = Statement<'a, T>>> Computation<'a, T, I> {
+    pub fn with_witness(program: ProgIterator<'a, T, I>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
         }
     }
 
-    pub fn without_witness(program: ProgIterator<T, I>) -> Self {
+    pub fn without_witness(program: ProgIterator<'a, T, I>) -> Self {
         Computation {
             program,
             witness: None,
@@ -84,8 +84,8 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
-    Circuit<T::BellmanEngine> for Computation<T, I>
+impl<'a, T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<'a, T>>>
+    Circuit<T::BellmanEngine> for Computation<'a, T, I>
 {
     fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
@@ -161,7 +161,9 @@ pub fn get_random_seed<R: RngCore + CryptoRng>(rng: &mut R) -> [u32; 8] {
     seed
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+impl<'a, T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<'a, T>>>
+    Computation<'a, T, I>
+{
     pub fn prove<R: RngCore + CryptoRng>(
         self,
         params: &Parameters<T::BellmanEngine>,

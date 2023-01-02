@@ -1,5 +1,7 @@
+use crate::common::SourceMetadata;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::fmt::Write;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum RuntimeError {
@@ -25,7 +27,8 @@ pub enum RuntimeError {
     Euclidean,
     ShaXor,
     Division,
-    SourceAssertion(String),
+    SourceAssertion(SourceMetadata),
+    SourceAssemblyConstraint(SourceMetadata),
     ArgumentBitness,
     SelectRangeCheck,
 }
@@ -33,7 +36,9 @@ pub enum RuntimeError {
 impl From<crate::zir::RuntimeError> for RuntimeError {
     fn from(error: crate::zir::RuntimeError) -> Self {
         match error {
-            crate::zir::RuntimeError::SourceAssertion(s) => RuntimeError::SourceAssertion(s),
+            crate::zir::RuntimeError::SourceAssertion(metadata) => {
+                RuntimeError::SourceAssertion(metadata)
+            }
             crate::zir::RuntimeError::SelectRangeCheck => RuntimeError::SelectRangeCheck,
             crate::zir::RuntimeError::DivisionByZero => RuntimeError::Inverse,
             crate::zir::RuntimeError::IncompleteDynamicRange => {
@@ -49,7 +54,8 @@ impl RuntimeError {
 
         !matches!(
             self,
-            SourceAssertion(_)
+            SourceAssemblyConstraint(_)
+                | SourceAssertion(_)
                 | Inverse
                 | SelectRangeCheck
                 | ArgumentBitness
@@ -62,6 +68,7 @@ impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use RuntimeError::*;
 
+        let mut buf = String::new();
         let msg = match self {
             BellmanConstraint => "Bellman constraint is unsatisfied",
             BellmanOneBinding => "Bellman ~one binding is unsatisfied",
@@ -87,7 +94,14 @@ impl fmt::Display for RuntimeError {
             Euclidean => "Euclidean check failed",
             ShaXor => "Internal Sha check failed",
             Division => "Division check failed",
-            SourceAssertion(m) => m.as_str(),
+            SourceAssertion(m) => {
+                write!(&mut buf, "Assertion failed at {}", m).unwrap();
+                buf.as_str()
+            }
+            SourceAssemblyConstraint(m) => {
+                write!(&mut buf, "Unsatisfied constraint at {}", m).unwrap();
+                buf.as_str()
+            }
             ArgumentBitness => "Argument bitness check failed",
             SelectRangeCheck => "Out of bounds array access",
         };

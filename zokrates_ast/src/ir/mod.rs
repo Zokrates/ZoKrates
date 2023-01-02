@@ -8,6 +8,7 @@ use std::hash::Hash;
 use zokrates_field::Field;
 
 mod check;
+mod clean;
 mod expression;
 pub mod folder;
 pub mod from_flat;
@@ -28,19 +29,22 @@ pub use self::witness::Witness;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Derivative)]
 #[derivative(Hash, PartialEq, Eq)]
-pub enum Statement<T> {
+pub enum Statement<'ast, T> {
+    #[serde(skip)]
+    Block(Vec<Statement<'ast, T>>),
     Constraint(
         QuadComb<T>,
         LinComb<T>,
         #[derivative(Hash = "ignore")] Option<RuntimeError>,
     ),
-    Directive(Directive<T>),
+    #[serde(borrow)]
+    Directive(Directive<'ast, T>),
     Log(FormatString, Vec<(ConcreteType, Vec<LinComb<T>>)>),
 }
 
 pub type PublicInputs = BTreeSet<Variable>;
 
-impl<T: Field> Statement<T> {
+impl<'ast, T: Field> Statement<'ast, T> {
     pub fn definition<U: Into<QuadComb<T>>>(v: Variable, e: U) -> Self {
         Statement::Constraint(e.into(), v.into(), None)
     }
@@ -51,13 +55,14 @@ impl<T: Field> Statement<T> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
-pub struct Directive<T> {
+pub struct Directive<'ast, T> {
     pub inputs: Vec<QuadComb<T>>,
     pub outputs: Vec<Variable>,
-    pub solver: Solver,
+    #[serde(borrow)]
+    pub solver: Solver<'ast, T>,
 }
 
-impl<T: Field> fmt::Display for Directive<T> {
+impl<'ast, T: Field> fmt::Display for Directive<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -77,9 +82,16 @@ impl<T: Field> fmt::Display for Directive<T> {
     }
 }
 
-impl<T: Field> fmt::Display for Statement<T> {
+impl<'ast, T: Field> fmt::Display for Statement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Statement::Block(ref statements) => {
+                writeln!(f, "{{")?;
+                for s in statements {
+                    writeln!(f, "{}", s)?;
+                }
+                write!(f, "}}")
+            }
             Statement::Constraint(ref quad, ref lin, ref error) => write!(
                 f,
                 "{} == {}{}",
@@ -111,16 +123,16 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-pub type Prog<T> = ProgIterator<T, Vec<Statement<T>>>;
+pub type Prog<'ast, T> = ProgIterator<'ast, T, Vec<Statement<'ast, T>>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
-pub struct ProgIterator<T, I: IntoIterator<Item = Statement<T>>> {
+pub struct ProgIterator<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> {
     pub arguments: Vec<Parameter>,
     pub return_count: usize,
     pub statements: I,
 }
 
-impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+impl<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, I> {
     pub fn new(arguments: Vec<Parameter>, statements: I, return_count: usize) -> Self {
         Self {
             arguments,
@@ -129,7 +141,7 @@ impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
         }
     }
 
-    pub fn collect(self) -> ProgIterator<T, Vec<Statement<T>>> {
+    pub fn collect(self) -> ProgIterator<'ast, T, Vec<Statement<'ast, T>>> {
         ProgIterator {
             statements: self.statements.into_iter().collect::<Vec<_>>(),
             arguments: self.arguments,
@@ -154,7 +166,7 @@ impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     }
 }
 
-impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, I> {
     pub fn public_inputs_values(&self, witness: &Witness<T>) -> Vec<T> {
         self.arguments
             .iter()
@@ -165,7 +177,7 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     }
 }
 
-impl<T> Prog<T> {
+impl<'ast, T> Prog<'ast, T> {
     pub fn constraint_count(&self) -> usize {
         self.statements
             .iter()
@@ -173,7 +185,9 @@ impl<T> Prog<T> {
             .count()
     }
 
-    pub fn into_prog_iter(self) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
+    pub fn into_prog_iter(
+        self,
+    ) -> ProgIterator<'ast, T, impl IntoIterator<Item = Statement<'ast, T>>> {
         ProgIterator {
             statements: self.statements.into_iter(),
             arguments: self.arguments,
@@ -182,7 +196,7 @@ impl<T> Prog<T> {
     }
 }
 
-impl<T: Field> fmt::Display for Prog<T> {
+impl<'ast, T: Field> fmt::Display for Prog<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let returns = (0..self.return_count)
             .map(Variable::public)

@@ -1,0 +1,65 @@
+{
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["1"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["0", "0", "0", "1"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["0", "0", "1", "0"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["3"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["0", "0", "1", "1"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["15"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["1", "1", "1", "1"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["16"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": {
+              "SourceAssemblyConstraint": {
+                "file": "tests/tests/assembly/bitify.zok",
+                "position": {
+                  "line": 13,
+                  "col": 9
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

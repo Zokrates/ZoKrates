@@ -130,9 +130,9 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         res
     }
 
-    fn setup<I: IntoIterator<Item = Statement<T>>>(
+    fn setup<'a, I: IntoIterator<Item = Statement<'a, T>>>(
         srs: Vec<u8>,
-        program: ProgIterator<T, I>,
+        program: ProgIterator<'a, T, I>,
     ) -> Result<SetupKeypair<T, marlin::Marlin>, String> {
         let program = program.collect();
 
@@ -206,8 +206,8 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
 }
 
 impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
-    fn generate_proof<I: IntoIterator<Item = Statement<T>>, R: RngCore + CryptoRng>(
-        program: ProgIterator<T, I>,
+    fn generate_proof<'a, I: IntoIterator<Item = Statement<'a, T>>, R: RngCore + CryptoRng>(
+        program: ProgIterator<'a, T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
         rng: &mut R,

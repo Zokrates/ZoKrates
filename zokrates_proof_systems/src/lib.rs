@@ -96,8 +96,8 @@ impl ToString for G2AffineFq2 {
 }
 
 pub trait Backend<T: Field, S: Scheme<T>> {
-    fn generate_proof<I: IntoIterator<Item = ir::Statement<T>>, R: RngCore + CryptoRng>(
-        program: ir::ProgIterator<T, I>,
+    fn generate_proof<'a, I: IntoIterator<Item = ir::Statement<'a, T>>, R: RngCore + CryptoRng>(
+        program: ir::ProgIterator<'a, T, I>,
         witness: ir::Witness<T>,
         proving_key: Vec<u8>,
         rng: &mut R,
@@ -106,8 +106,8 @@ pub trait Backend<T: Field, S: Scheme<T>> {
     fn verify(vk: S::VerificationKey, proof: Proof<T, S>) -> bool;
 }
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
-    fn setup<I: IntoIterator<Item = ir::Statement<T>>, R: RngCore + CryptoRng>(
-        program: ir::ProgIterator<T, I>,
+    fn setup<'a, I: IntoIterator<Item = ir::Statement<'a, T>>, R: RngCore + CryptoRng>(
+        program: ir::ProgIterator<'a, T, I>,
         rng: &mut R,
     ) -> SetupKeypair<T, S>;
 }
@@ -115,15 +115,15 @@ pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S>
 pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
     fn universal_setup<R: RngCore + CryptoRng>(size: u32, rng: &mut R) -> Vec<u8>;
 
-    fn setup<I: IntoIterator<Item = ir::Statement<T>>>(
+    fn setup<'a, I: IntoIterator<Item = ir::Statement<'a, T>>>(
         srs: Vec<u8>,
-        program: ir::ProgIterator<T, I>,
+        program: ir::ProgIterator<'a, T, I>,
     ) -> Result<SetupKeypair<T, S>, String>;
 }
 
 pub trait MpcBackend<T: Field, S: Scheme<T>> {
-    fn initialize<R: Read, W: Write, I: IntoIterator<Item = ir::Statement<T>>>(
-        program: ir::ProgIterator<T, I>,
+    fn initialize<'a, R: Read, W: Write, I: IntoIterator<Item = ir::Statement<'a, T>>>(
+        program: ir::ProgIterator<'a, T, I>,
         phase1_radix: &mut R,
         output: &mut W,
     ) -> Result<(), String>;
@@ -134,9 +134,9 @@ pub trait MpcBackend<T: Field, S: Scheme<T>> {
         output: &mut W,
     ) -> Result<[u8; 64], String>;
 
-    fn verify<P: Read, R: Read, I: IntoIterator<Item = ir::Statement<T>>>(
+    fn verify<'a, P: Read, R: Read, I: IntoIterator<Item = ir::Statement<'a, T>>>(
         params: &mut P,
-        program: ir::ProgIterator<T, I>,
+        program: ir::ProgIterator<'a, T, I>,
         phase1_radix: &mut R,
     ) -> Result<Vec<[u8; 64]>, String>;
 

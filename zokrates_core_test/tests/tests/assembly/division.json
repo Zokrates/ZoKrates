@@ -1,0 +1,36 @@
+{
+  "curves": ["Bn128"],
+  "max_constraint_count": 3,
+  "tests": [
+    {
+      "input": {
+        "values": ["4", "2"]
+      },
+      "output": {
+        "Ok": {
+          "value": "2"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0", "0"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": {
+              "SourceAssemblyConstraint": {
+                "file": "tests/tests/assembly/division.zok",
+                "position": {
+                  "line": 6,
+                  "col": 9
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

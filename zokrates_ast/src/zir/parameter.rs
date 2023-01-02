@@ -1,8 +1,10 @@
 use crate::zir::Variable;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub struct Parameter<'ast> {
+    #[serde(borrow)]
     pub id: Variable<'ast>,
     pub private: bool,
 }
