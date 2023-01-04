@@ -74,13 +74,13 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<Variable>, usize, Vec<Const
         Statement::Directive(..) => None,
         Statement::Log(..) => None,
     }) {
-        for (k, _) in &quad.left.0 {
+        for (k, _) in &quad.left.value {
             ordered_variables_set.insert(k);
         }
-        for (k, _) in &quad.right.0 {
+        for (k, _) in &quad.right.value {
             ordered_variables_set.insert(k);
         }
-        for (k, _) in &lin.0 {
+        for (k, _) in &lin.value {
             ordered_variables_set.insert(k);
         }
     }
@@ -100,16 +100,16 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<Variable>, usize, Vec<Const
     }) {
         constraints.push((
             quad.left
-                .0
+                .value
                 .into_iter()
                 .map(|(k, v)| (*variables.get(&k).unwrap(), v))
                 .collect(),
             quad.right
-                .0
+                .value
                 .into_iter()
                 .map(|(k, v)| (*variables.get(&k).unwrap(), v))
                 .collect(),
-            lin.0
+            lin.value
                 .into_iter()
                 .map(|(k, v)| (*variables.get(&k).unwrap(), v))
                 .collect(),
@@ -350,7 +350,7 @@ mod tests {
             return_count: 1,
             statements: vec![
                 Statement::Constraint(
-                    QuadComb::from_linear_combinations(
+                    QuadComb::new(
                         LinComb::from(Variable::new(0)),
                         LinComb::from(Variable::new(0)),
                     ),

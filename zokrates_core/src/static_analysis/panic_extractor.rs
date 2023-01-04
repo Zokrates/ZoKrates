@@ -1,6 +1,11 @@
-use zokrates_ast::zir::{
-    folder::*, BooleanExpression, Conditional, ConditionalExpression, ConditionalOrExpression,
-    FieldElementExpression, RuntimeError, UBitwidth, UExpressionInner, ZirProgram, ZirStatement,
+use std::ops::*;
+use zokrates_ast::{
+    common::Fold,
+    zir::{
+        folder::*, BooleanExpression, Conditional, ConditionalExpression, ConditionalOrExpression,
+        FieldElementExpression, RuntimeError, UBitwidth, UExpression, UExpressionInner, ZirProgram,
+        ZirStatement,
+    },
 };
 use zokrates_field::Field;
 
@@ -56,24 +61,24 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
         e: FieldElementExpression<'ast, T>,
     ) -> FieldElementExpression<'ast, T> {
         match e {
-            FieldElementExpression::Div(box n, box d) => {
-                let n = self.fold_field_expression(n);
-                let d = self.fold_field_expression(d);
+            FieldElementExpression::Div(e) => {
+                let n = self.fold_field_expression(*e.left);
+                let d = self.fold_field_expression(*e.right);
                 self.panic_buffer.push(ZirStatement::Assertion(
-                    BooleanExpression::Not(box BooleanExpression::FieldEq(
-                        box d.clone(),
-                        box FieldElementExpression::Number(T::zero()),
+                    BooleanExpression::not(BooleanExpression::field_eq(
+                        d.clone(),
+                        FieldElementExpression::from_value(T::zero()),
                     )),
                     RuntimeError::DivisionByZero,
                 ));
-                FieldElementExpression::Div(box n, box d)
+                FieldElementExpression::div(n, d)
             }
             e => fold_field_expression(self, e),
         }
     }
 
     fn fold_conditional_expression<
-        E: zokrates_ast::zir::Expr<'ast, T> + Fold<'ast, T> + Conditional<'ast, T>,
+        E: zokrates_ast::zir::Expr<'ast, T> + Fold<Self> + Conditional<'ast, T>,
     >(
         &mut self,
         _: &E::Ty,
@@ -109,17 +114,17 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
         match e {
-            UExpressionInner::Div(box n, box d) => {
-                let n = self.fold_uint_expression(n);
-                let d = self.fold_uint_expression(d);
+            UExpressionInner::Div(e) => {
+                let n = self.fold_uint_expression(*e.left);
+                let d = self.fold_uint_expression(*e.right);
                 self.panic_buffer.push(ZirStatement::Assertion(
-                    BooleanExpression::Not(box BooleanExpression::UintEq(
-                        box d.clone(),
-                        box UExpressionInner::Value(0).annotate(b),
+                    BooleanExpression::not(BooleanExpression::uint_eq(
+                        d.clone(),
+                        UExpression::from_value(0).annotate(b),
                     )),
                     RuntimeError::DivisionByZero,
                 ));
-                UExpressionInner::Div(box n, box d)
+                UExpression::div(n, d).into_inner()
             }
             e => fold_uint_expression_inner(self, b, e),
         }
@@ -143,8 +148,8 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
 
                 let safe_width = bit_width - 2; // dynamic comparison is not complete, it only applies to field elements whose difference is strictly smaller than 2**(bitwidth - 2)
 
-                let offset = FieldElementExpression::Number(T::from(2).pow(safe_width));
-                let max = FieldElementExpression::Number(T::from(2).pow(safe_width + 1));
+                let offset = FieldElementExpression::number(T::from(2).pow(safe_width));
+                let max = FieldElementExpression::number(T::from(2).pow(safe_width + 1));
 
                 // `|left - right|` must be of bitwidth at most `safe_bitwidth`
                 // this means we need to guarantee the following: `-2**(safe_width) < left - right < 2**(safe_width)`
@@ -155,10 +160,8 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 // `2**(safe_width) + left - right < 2**(safe_width + 1)`
                 self.panic_buffer.push(ZirStatement::Assertion(
                     BooleanExpression::FieldLt(
-                        box FieldElementExpression::Add(
-                            box offset.clone(),
-                            box FieldElementExpression::Sub(box left.clone(), box right.clone()),
-                        ),
+                        box (offset.clone()
+                            + FieldElementExpression::sub(left.clone(), right.clone())),
                         box max,
                     ),
                     RuntimeError::IncompleteDynamicRange,
@@ -168,7 +171,7 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 // `2**(safe_width) + left - right != 0`
                 self.panic_buffer.push(ZirStatement::Assertion(
                     BooleanExpression::Not(box BooleanExpression::FieldEq(
-                        box FieldElementExpression::Sub(box right.clone(), box left.clone()),
+                        box FieldElementExpression::sub(right.clone(), left.clone()),
                         box offset,
                     )),
                     RuntimeError::IncompleteDynamicRange,

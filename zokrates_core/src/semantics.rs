@@ -8,7 +8,8 @@ use num_bigint::BigUint;
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
-use zokrates_ast::common::{FormatString, Span};
+use zokrates_ast::common::expressions::ValueExpression;
+use zokrates_ast::common::{FormatString, Span, WithSpan};
 use zokrates_ast::typed::types::{GGenericsAssignment, GTupleType, GenericsAssignment};
 use zokrates_ast::typed::SourceIdentifier;
 use zokrates_ast::typed::*;
@@ -16,6 +17,8 @@ use zokrates_ast::typed::{DeclarationParameter, DeclarationVariable, Variable};
 use zokrates_ast::untyped::Identifier;
 use zokrates_ast::untyped::*;
 use zokrates_field::Field;
+
+use std::ops::*;
 
 use zokrates_ast::untyped::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
@@ -2354,8 +2357,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let span = expr.span();
 
         match expr.value {
-            Expression::IntConstant(v) => Ok(IntExpression::Value(v).into()),
-            Expression::BooleanConstant(b) => Ok(BooleanExpression::Value(b).into()),
+            Expression::IntConstant(v) => Ok(IntExpression::from_value(v).into()),
+            Expression::BooleanConstant(b) => Ok(BooleanExpression::from_value(b).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
                 match self.scope.get(&name) {
@@ -2565,7 +2568,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::Uint(e2)) => Ok(
-                        TypedExpression::FieldElement(FieldElementExpression::Pow(box e1, box e2)),
+                        TypedExpression::FieldElement(FieldElementExpression::pow(e1, e2)),
                     ),
                     (t1, t2) => Err(ErrorInner {
                         span: Some(span),
@@ -2706,10 +2709,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     })?,
             )
             .into()),
-            Expression::U8Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(8).into()),
-            Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
-            Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
-            Expression::U64Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(64).into()),
+            Expression::U8Constant(n) => Ok(UExpression::from_value(n.into()).annotate(8).into()),
+            Expression::U16Constant(n) => Ok(UExpression::from_value(n.into()).annotate(16).into()),
+            Expression::U32Constant(n) => Ok(UExpression::from_value(n.into()).annotate(32).into()),
+            Expression::U64Constant(n) => Ok(UExpression::from_value(n.into()).annotate(64).into()),
             Expression::FunctionCall(box fun_id_expression, generics, arguments) => self
                 .check_function_call_expression(
                     fun_id_expression,
@@ -2839,24 +2842,24 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::FieldEq(BinaryExpression::new(e1, e2)).into())
                     }
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::BoolEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::BoolEq(BinaryExpression::new(e1, e2)).into())
                     }
                     (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
-                        Ok(BooleanExpression::ArrayEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::ArrayEq(BinaryExpression::new(e1, e2)).into())
                     }
                     (TypedExpression::Struct(e1), TypedExpression::Struct(e2)) => {
-                        Ok(BooleanExpression::StructEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::StructEq(BinaryExpression::new(e1, e2)).into())
                     }
                     (TypedExpression::Tuple(e1), TypedExpression::Tuple(e2)) => {
-                        Ok(BooleanExpression::TupleEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::TupleEq(BinaryExpression::new(e1, e2)).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
                     {
-                        Ok(BooleanExpression::UintEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::UintEq(BinaryExpression::new(e1, e2)).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         span: Some(span),
@@ -3194,7 +3197,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Type::Int => expressions_or_spreads_checked,
                     t => {
                         let target_array_ty =
-                            ArrayType::new(t, UExpressionInner::Value(0).annotate(UBitwidth::B32));
+                            ArrayType::new(t, UExpression::from_value(0).annotate(UBitwidth::B32));
 
                         expressions_or_spreads_checked
                             .into_iter()
@@ -3222,11 +3225,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .map(|e| e.size())
                     .fold(None, |acc, e| match acc {
                         Some((c_acc, e_acc)) => match e.as_inner() {
-                            UExpressionInner::Value(e) => Some(((c_acc + *e as u32), e_acc)),
+                            UExpressionInner::Value(e) => Some(((c_acc + e.value as u32), e_acc)),
                             _ => Some((c_acc, e_acc + e)),
                         },
                         None => match e.as_inner() {
-                            UExpressionInner::Value(e) => Some((*e as u32, 0u32.into())),
+                            UExpressionInner::Value(e) => Some((e.value as u32, 0u32.into())),
                             _ => Some((0u32, e)),
                         },
                     })
@@ -3234,7 +3237,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .unwrap_or_else(|| 0u32.into());
 
                 Ok(
-                    ArrayExpressionInner::Value(unwrapped_expressions_or_spreads.into())
+                    ArrayExpression::from_value(unwrapped_expressions_or_spreads.into())
                         .annotate(inferred_type, size)
                         .into(),
                 )
@@ -3245,7 +3248,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .map(|e| self.check_expression(e, module_id, types))
                     .collect::<Result<_, _>>()?;
                 let ty = TupleType::new(elements.iter().map(|e| e.get_type()).collect());
-                Ok(TupleExpressionInner::Value(elements).annotate(ty).into())
+                Ok(TupleExpression::from_value(elements).annotate(ty).into())
             }
             Expression::ArrayInitializer(box e, box count) => {
                 let e = self.check_expression(e, module_id, types)?;
@@ -3393,7 +3396,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     members,
                 };
 
-                Ok(StructExpressionInner::Value(inferred_values)
+                Ok(StructExpression::from_value(inferred_values)
                     .annotate(inferred_struct_type)
                     .into())
             }
@@ -3659,8 +3662,6 @@ mod tests {
     }
     mod constants {
         use super::*;
-
-        use std::ops::Add;
 
         #[test]
         fn field_in_range() {

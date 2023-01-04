@@ -28,11 +28,16 @@ pub use self::types::{
 };
 use self::types::{ConcreteArrayType, ConcreteStructType};
 
-use crate::common::{Span, Value};
+use crate::common::expressions::{
+    self, BinaryExpression, BooleanValueExpression, FieldValueExpression, UnaryExpression,
+    ValueExpression,
+};
+use crate::common::{Span, Value, WithSpan};
 use crate::typed::types::{ConcreteGenericsAssignment, IntoType};
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
 use std::marker::PhantomData;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 pub use crate::typed::integer::IntExpression;
@@ -87,6 +92,9 @@ pub struct TypedProgram<'ast, T> {
     pub modules: TypedModules<'ast, T>,
     pub main: OwnedTypedModuleId,
 }
+
+pub type IdentifierOrExpression<'ast, T, E> =
+    expressions::IdentifierOrExpression<Identifier<'ast>, E, <E as Expr<'ast, T>>::Inner>;
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn abi(&self) -> Abi {
@@ -512,7 +520,7 @@ impl<'ast, T: Clone> TypedExpressionOrSpread<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionOrSpread<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TypedExpressionOrSpread::Expression(e) => write!(f, "{}", e),
+            TypedExpressionOrSpread::Expression(ref e) => write!(f, "{}", e),
             TypedExpressionOrSpread::Spread(s) => write!(f, "{}", s),
         }
     }
@@ -672,7 +680,7 @@ impl<'ast, T: fmt::Display> fmt::Display for DefinitionRhs<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             DefinitionRhs::EmbedCall(c) => write!(f, "{}", c),
-            DefinitionRhs::Expression(e) => write!(f, "{}", e),
+            DefinitionRhs::Expression(ref e) => write!(f, "{}", e),
         }
     }
 }
@@ -789,9 +797,9 @@ pub enum TypedExpression<'ast, T> {
     Int(IntExpression<'ast, T>),
 }
 
-impl<'ast, T> TypedExpression<'ast, T> {
+impl<'ast, T: Field> TypedExpression<'ast, T> {
     pub fn empty_tuple() -> TypedExpression<'ast, T> {
-        TypedExpression::Tuple(TupleExpressionInner::Value(vec![]).annotate(TupleType::new(vec![])))
+        TypedExpression::Tuple(TupleExpression::from_value(vec![]).annotate(TupleType::new(vec![])))
     }
 }
 
@@ -936,29 +944,6 @@ impl<'ast, T: Clone> Typed<'ast, T> for BooleanExpression<'ast, T> {
 }
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
-pub struct EqExpression<E> {
-    pub span: Option<Span>,
-    pub left: Box<E>,
-    pub right: Box<E>,
-}
-
-impl<E> EqExpression<E> {
-    pub fn new(left: E, right: E) -> Self {
-        EqExpression {
-            span: None,
-            left: box left,
-            right: box right,
-        }
-    }
-}
-
-impl<E: fmt::Display> fmt::Display for EqExpression<E> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({} == {})", self.left, self.right)
-    }
-}
-
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct BlockExpression<'ast, T, E> {
     pub span: Option<Span>,
     pub statements: Vec<TypedStatement<'ast, T>>,
@@ -975,28 +960,7 @@ impl<'ast, T, E> BlockExpression<'ast, T, E> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
-pub struct IdentifierExpression<'ast, E> {
-    pub span: Option<Span>,
-    pub id: Identifier<'ast>,
-    ty: PhantomData<E>,
-}
-
-impl<'ast, E> IdentifierExpression<'ast, E> {
-    pub fn new(id: Identifier<'ast>) -> Self {
-        IdentifierExpression {
-            span: None,
-            id,
-            ty: PhantomData,
-        }
-    }
-}
-
-impl<'ast, E> fmt::Display for IdentifierExpression<'ast, E> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.id)
-    }
-}
+pub type IdentifierExpression<'ast, E> = expressions::IdentifierExpression<Identifier<'ast>, E>;
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct MemberExpression<'ast, T, E> {
@@ -1178,91 +1142,20 @@ impl<'ast, T: fmt::Display, E> fmt::Display for FunctionCallExpression<'ast, T, 
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
-pub struct BinaryExpression<Op, L, R, Out> {
-    pub span: Option<Span>,
-    pub left: Box<L>,
-    pub right: Box<R>,
-    operator: PhantomData<Op>,
-    output: PhantomData<Out>,
-}
-
-impl<Op, L: Value, R: Value, Out: Value> BinaryExpression<Op, L, R, Out>
-where
-    Op: Operator<L, R, Out>,
-{
-    pub fn new(left: L, right: R) -> Self {
-        Self {
-            span: None,
-            left: box left,
-            right: box right,
-            operator: PhantomData,
-            output: PhantomData,
-        }
-    }
-}
-
-impl<Op: OperatorStr, L: fmt::Display, R: fmt::Display, Out: fmt::Display> fmt::Display
-    for BinaryExpression<Op, L, R, Out>
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "({} {} {} /* {} */)",
-            self.left,
-            Op::STR,
-            self.right,
-            self.span
-                .as_ref()
-                .map(|s| s.to_string())
-                .unwrap_or("".to_string())
-        )
-    }
-}
-
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
-pub struct ValueExpression<V> {
-    pub span: Option<Span>,
-    pub value: V,
-}
-
-impl<V> ValueExpression<V> {
-    pub fn new(value: V) -> Self {
-        Self { span: None, value }
-    }
-}
-
-impl<V: fmt::Display> fmt::Display for ValueExpression<V> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{} /* {} */",
-            self.value,
-            self.span
-                .as_ref()
-                .map(|s| s.to_string())
-                .unwrap_or("".to_string())
-        )
-    }
-}
-
 /// An expression of type `field`
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum FieldElementExpression<'ast, T> {
     Block(BlockExpression<'ast, T, Self>),
-    Number(ValueExpression<T>),
+    Number(FieldValueExpression<T>),
     Identifier(IdentifierExpression<'ast, Self>),
     Add(BinaryExpression<OpAdd, Self, Self, Self>),
     Sub(BinaryExpression<OpSub, Self, Self, Self>),
     Mult(BinaryExpression<OpMul, Self, Self, Self>),
     Div(BinaryExpression<OpDiv, Self, Self, Self>),
-    Pow(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
-    ),
+    Pow(BinaryExpression<OpPow, Self, UExpression<'ast, T>, Self>),
     Conditional(ConditionalExpression<'ast, T, Self>),
-    Neg(Box<FieldElementExpression<'ast, T>>),
-    Pos(Box<FieldElementExpression<'ast, T>>),
+    Neg(UnaryExpression<OpNeg, Self, Self>),
+    Pos(UnaryExpression<OpPos, Self, Self>),
     FunctionCall(FunctionCallExpression<'ast, T, Self>),
     Member(MemberExpression<'ast, T, Self>),
     Select(SelectExpression<'ast, T, Self>),
@@ -1302,7 +1195,15 @@ impl<'ast, T: Field> std::ops::Div for FieldElementExpression<'ast, T> {
 
 impl<'ast, T: Field> FieldElementExpression<'ast, T> {
     pub fn pow(self, other: UExpression<'ast, T>) -> Self {
-        FieldElementExpression::Pow(box self, box other)
+        FieldElementExpression::Pow(BinaryExpression::new(self, other))
+    }
+
+    pub fn pos(self) -> Self {
+        FieldElementExpression::Pos(UnaryExpression::new(self))
+    }
+
+    pub fn neg(self) -> Self {
+        FieldElementExpression::Neg(UnaryExpression::new(self))
     }
 }
 
@@ -1317,42 +1218,59 @@ impl<'ast, T: Clone> From<T> for FieldElementExpression<'ast, T> {
 pub enum BooleanExpression<'ast, T> {
     Block(BlockExpression<'ast, T, Self>),
     Identifier(IdentifierExpression<'ast, Self>),
-    Value(bool),
+    Value(BooleanValueExpression),
     FieldLt(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
+        BinaryExpression<
+            OpLt,
+            FieldElementExpression<'ast, T>,
+            FieldElementExpression<'ast, T>,
+            Self,
+        >,
     ),
     FieldLe(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
+        BinaryExpression<
+            OpLe,
+            FieldElementExpression<'ast, T>,
+            FieldElementExpression<'ast, T>,
+            Self,
+        >,
     ),
     FieldGe(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
+        BinaryExpression<
+            OpGe,
+            FieldElementExpression<'ast, T>,
+            FieldElementExpression<'ast, T>,
+            Self,
+        >,
     ),
     FieldGt(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
+        BinaryExpression<
+            OpGt,
+            FieldElementExpression<'ast, T>,
+            FieldElementExpression<'ast, T>,
+            Self,
+        >,
     ),
-    UintLt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    UintLe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    UintGe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    UintGt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    FieldEq(EqExpression<FieldElementExpression<'ast, T>>),
-    BoolEq(EqExpression<BooleanExpression<'ast, T>>),
-    ArrayEq(EqExpression<ArrayExpression<'ast, T>>),
-    StructEq(EqExpression<StructExpression<'ast, T>>),
-    TupleEq(EqExpression<TupleExpression<'ast, T>>),
-    UintEq(EqExpression<UExpression<'ast, T>>),
-    Or(
-        Box<BooleanExpression<'ast, T>>,
-        Box<BooleanExpression<'ast, T>>,
+    UintLt(BinaryExpression<OpLt, UExpression<'ast, T>, UExpression<'ast, T>, Self>),
+    UintLe(BinaryExpression<OpLe, UExpression<'ast, T>, UExpression<'ast, T>, Self>),
+    UintGe(BinaryExpression<OpGe, UExpression<'ast, T>, UExpression<'ast, T>, Self>),
+    UintGt(BinaryExpression<OpGt, UExpression<'ast, T>, UExpression<'ast, T>, Self>),
+    FieldEq(
+        BinaryExpression<
+            OpEq,
+            FieldElementExpression<'ast, T>,
+            FieldElementExpression<'ast, T>,
+            Self,
+        >,
     ),
-    And(
-        Box<BooleanExpression<'ast, T>>,
-        Box<BooleanExpression<'ast, T>>,
-    ),
-    Not(Box<BooleanExpression<'ast, T>>),
+    BoolEq(BinaryExpression<OpEq, BooleanExpression<'ast, T>, BooleanExpression<'ast, T>, Self>),
+    ArrayEq(BinaryExpression<OpEq, StructExpression<'ast, T>, StructExpression<'ast, T>, Self>),
+    StructEq(BinaryExpression<OpEq, StructExpression<'ast, T>, StructExpression<'ast, T>, Self>),
+    TupleEq(BinaryExpression<OpEq, TupleExpression<'ast, T>, TupleExpression<'ast, T>, Self>),
+    UintEq(BinaryExpression<OpEq, UExpression<'ast, T>, UExpression<'ast, T>, Self>),
+    Or(BinaryExpression<OpOr, BooleanExpression<'ast, T>, BooleanExpression<'ast, T>, Self>),
+    And(BinaryExpression<OpAnd, BooleanExpression<'ast, T>, BooleanExpression<'ast, T>, Self>),
+    Not(UnaryExpression<OpNot, Self, Self>),
     Conditional(ConditionalExpression<'ast, T, Self>),
     Member(MemberExpression<'ast, T, Self>),
     FunctionCall(FunctionCallExpression<'ast, T, Self>),
@@ -1362,7 +1280,13 @@ pub enum BooleanExpression<'ast, T> {
 
 impl<'ast, T> From<bool> for BooleanExpression<'ast, T> {
     fn from(b: bool) -> Self {
-        BooleanExpression::Value(b)
+        BooleanExpression::Value(ValueExpression::new(b))
+    }
+}
+
+impl<'ast, T> BooleanExpression<'ast, T> {
+    pub fn not(self) -> Self {
+        Self::Not(UnaryExpression::new(self))
     }
 }
 
@@ -1377,25 +1301,34 @@ pub struct ArrayExpression<'ast, T> {
     pub inner: ArrayExpressionInner<'ast, T>,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
-pub struct ArrayValue<'ast, T>(pub Vec<TypedExpressionOrSpread<'ast, T>>);
+type ArrayValueExpression<'ast, T> = ValueExpression<Vec<TypedExpressionOrSpread<'ast, T>>>;
 
-impl<'ast, T> From<Vec<TypedExpressionOrSpread<'ast, T>>> for ArrayValue<'ast, T> {
-    fn from(array: Vec<TypedExpressionOrSpread<'ast, T>>) -> Self {
-        Self(array)
-    }
-}
-
-impl<'ast, T> IntoIterator for ArrayValue<'ast, T> {
+impl<'ast, T> IntoIterator for ArrayValueExpression<'ast, T> {
     type Item = TypedExpressionOrSpread<'ast, T>;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        self.value.into_iter()
     }
 }
 
-impl<'ast, T: Field> ArrayValue<'ast, T> {
+impl<'ast, T> Deref for ArrayValueExpression<'ast, T> {
+    type Target = [TypedExpressionOrSpread<'ast, T>];
+
+    fn deref(&self) -> &Self::Target {
+        &self.value[..]
+    }
+}
+
+impl<'ast, T> std::iter::FromIterator<TypedExpressionOrSpread<'ast, T>>
+    for ArrayValueExpression<'ast, T>
+{
+    fn from_iter<I: IntoIterator<Item = TypedExpressionOrSpread<'ast, T>>>(iter: I) -> Self {
+        Self::new(iter.into_iter().collect())
+    }
+}
+
+impl<'ast, T: Field> ArrayValueExpression<'ast, T> {
     fn expression_at_aux<
         U: Select<'ast, T> + From<TypedExpression<'ast, T>> + Into<TypedExpression<'ast, T>>,
     >(
@@ -1411,7 +1344,7 @@ impl<'ast, T: Field> ArrayValue<'ast, T> {
                         ArrayExpressionInner::Value(v) => {
                             v.into_iter().flat_map(Self::expression_at_aux).collect()
                         }
-                        a => (0..size)
+                        a => (0..size.value)
                             .map(|i| {
                                 Some(U::select(
                                     a.clone()
@@ -1433,8 +1366,7 @@ impl<'ast, T: Field> ArrayValue<'ast, T> {
         &self,
         index: usize,
     ) -> Option<U> {
-        self.0
-            .iter()
+        self.iter()
             .flat_map(|v| Self::expression_at_aux(v.clone()))
             .take_while(|e| e.is_some())
             .map(|e| e.unwrap())
@@ -1442,23 +1374,11 @@ impl<'ast, T: Field> ArrayValue<'ast, T> {
     }
 }
 
-impl<'ast, T> ArrayValue<'ast, T> {
-    fn iter(&self) -> std::slice::Iter<TypedExpressionOrSpread<'ast, T>> {
-        self.0.iter()
-    }
-}
-
-impl<'ast, T> std::iter::FromIterator<TypedExpressionOrSpread<'ast, T>> for ArrayValue<'ast, T> {
-    fn from_iter<I: IntoIterator<Item = TypedExpressionOrSpread<'ast, T>>>(iter: I) -> Self {
-        Self(iter.into_iter().collect())
-    }
-}
-
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum ArrayExpressionInner<'ast, T> {
     Block(BlockExpression<'ast, T, ArrayExpression<'ast, T>>),
     Identifier(IdentifierExpression<'ast, ArrayExpression<'ast, T>>),
-    Value(ArrayValue<'ast, T>),
+    Value(ArrayValueExpression<'ast, T>),
     FunctionCall(FunctionCallExpression<'ast, T, ArrayExpression<'ast, T>>),
     Conditional(ConditionalExpression<'ast, T, ArrayExpression<'ast, T>>),
     Member(MemberExpression<'ast, T, ArrayExpression<'ast, T>>),
@@ -1501,6 +1421,31 @@ pub struct StructExpression<'ast, T> {
     inner: StructExpressionInner<'ast, T>,
 }
 
+type StructValueExpression<'ast, T> = ValueExpression<Vec<TypedExpression<'ast, T>>>;
+
+impl<'ast, T> IntoIterator for StructValueExpression<'ast, T> {
+    type Item = TypedExpression<'ast, T>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
+    }
+}
+
+impl<'ast, T> Deref for StructValueExpression<'ast, T> {
+    type Target = [TypedExpression<'ast, T>];
+
+    fn deref(&self) -> &Self::Target {
+        &self.value[..]
+    }
+}
+
+impl<'ast, T> std::iter::FromIterator<TypedExpression<'ast, T>> for StructValueExpression<'ast, T> {
+    fn from_iter<I: IntoIterator<Item = TypedExpression<'ast, T>>>(iter: I) -> Self {
+        Self::new(iter.into_iter().collect())
+    }
+}
+
 impl<'ast, T> StructExpression<'ast, T> {
     pub fn ty(&self) -> &StructType<'ast, T> {
         &self.ty
@@ -1523,7 +1468,7 @@ impl<'ast, T> StructExpression<'ast, T> {
 pub enum StructExpressionInner<'ast, T> {
     Block(BlockExpression<'ast, T, StructExpression<'ast, T>>),
     Identifier(IdentifierExpression<'ast, StructExpression<'ast, T>>),
-    Value(Vec<TypedExpression<'ast, T>>),
+    Value(TupleValueExpression<'ast, T>),
     FunctionCall(FunctionCallExpression<'ast, T, StructExpression<'ast, T>>),
     Conditional(ConditionalExpression<'ast, T, StructExpression<'ast, T>>),
     Member(MemberExpression<'ast, T, StructExpression<'ast, T>>),
@@ -1561,11 +1506,13 @@ impl<'ast, T> TupleExpression<'ast, T> {
     }
 }
 
+type TupleValueExpression<'ast, T> = ValueExpression<Vec<TypedExpression<'ast, T>>>;
+
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TupleExpressionInner<'ast, T> {
     Block(BlockExpression<'ast, T, TupleExpression<'ast, T>>),
     Identifier(IdentifierExpression<'ast, TupleExpression<'ast, T>>),
-    Value(Vec<TypedExpression<'ast, T>>),
+    Value(TupleValueExpression<'ast, T>),
     FunctionCall(FunctionCallExpression<'ast, T, TupleExpression<'ast, T>>),
     Conditional(ConditionalExpression<'ast, T, TupleExpression<'ast, T>>),
     Member(MemberExpression<'ast, T, TupleExpression<'ast, T>>),
@@ -1745,9 +1692,9 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Sub(ref e) => write!(f, "{}", e),
             FieldElementExpression::Mult(ref e) => write!(f, "{}", e),
             FieldElementExpression::Div(ref e) => write!(f, "{}", e),
-            FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
-            FieldElementExpression::Neg(ref e) => write!(f, "(-{})", e),
-            FieldElementExpression::Pos(ref e) => write!(f, "(+{})", e),
+            FieldElementExpression::Pow(ref e) => write!(f, "{}", e),
+            FieldElementExpression::Neg(ref e) => write!(f, "{}", e),
+            FieldElementExpression::Pos(ref e) => write!(f, "{}", e),
             FieldElementExpression::Conditional(ref c) => write!(f, "{}", c),
             FieldElementExpression::FunctionCall(ref function_call) => {
                 write!(f, "{}", function_call)
@@ -1765,22 +1712,22 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Block(ref block) => write!(f, "{}", block,),
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
             UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
-            UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
-            UExpressionInner::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
-            UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
-            UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
-            UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
-            UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
-            UExpressionInner::FloorSub(ref lhs, ref rhs) => {
-                write!(f, "(FLOOR_SUB({}, {}))", lhs, rhs)
+            UExpressionInner::Add(ref e) => write!(f, "{}", e),
+            UExpressionInner::And(ref e) => write!(f, "{}", e),
+            UExpressionInner::Or(ref e) => write!(f, "{}", e),
+            UExpressionInner::Xor(ref e) => write!(f, "{}", e),
+            UExpressionInner::Sub(ref e) => write!(f, "{}", e),
+            UExpressionInner::Mult(ref e) => write!(f, "{}", e),
+            UExpressionInner::FloorSub(ref e) => {
+                write!(f, "{}", e)
             }
-            UExpressionInner::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
-            UExpressionInner::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
-            UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
-            UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
+            UExpressionInner::Div(ref e) => write!(f, "{}", e),
+            UExpressionInner::Rem(ref e) => write!(f, "{}", e),
+            UExpressionInner::RightShift(ref e) => write!(f, "{}", e),
+            UExpressionInner::LeftShift(ref e) => write!(f, "{}", e),
             UExpressionInner::Not(ref e) => write!(f, "!{}", e),
-            UExpressionInner::Neg(ref e) => write!(f, "(-{})", e),
-            UExpressionInner::Pos(ref e) => write!(f, "(+{})", e),
+            UExpressionInner::Neg(ref e) => write!(f, "{}", e),
+            UExpressionInner::Pos(ref e) => write!(f, "{}", e),
             UExpressionInner::Select(ref select) => write!(f, "{}", select),
             UExpressionInner::FunctionCall(ref function_call) => write!(f, "{}", function_call),
             UExpressionInner::Conditional(ref c) => write!(f, "{}", c),
@@ -1792,27 +1739,27 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match &self {
             BooleanExpression::Block(ref block) => write!(f, "{}", block,),
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
-            BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "({} < {})", lhs, rhs),
-            BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "({} <= {})", lhs, rhs),
-            BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "({} >= {})", lhs, rhs),
-            BooleanExpression::FieldGt(ref lhs, ref rhs) => write!(f, "({} > {})", lhs, rhs),
-            BooleanExpression::UintLt(ref lhs, ref rhs) => write!(f, "({} < {})", lhs, rhs),
-            BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "({} <= {})", lhs, rhs),
-            BooleanExpression::UintGe(ref lhs, ref rhs) => write!(f, "({} >= {})", lhs, rhs),
-            BooleanExpression::UintGt(ref lhs, ref rhs) => write!(f, "({} > {})", lhs, rhs),
+            BooleanExpression::FieldLt(ref e) => write!(f, "{}", e),
+            BooleanExpression::FieldLe(ref e) => write!(f, "{}", e),
+            BooleanExpression::FieldGe(ref e) => write!(f, "{}", e),
+            BooleanExpression::FieldGt(ref e) => write!(f, "{}", e),
+            BooleanExpression::UintLt(ref e) => write!(f, "{}", e),
+            BooleanExpression::UintLe(ref e) => write!(f, "{}", e),
+            BooleanExpression::UintGe(ref e) => write!(f, "{}", e),
+            BooleanExpression::UintGt(ref e) => write!(f, "{}", e),
             BooleanExpression::FieldEq(ref e) => write!(f, "{}", e),
             BooleanExpression::BoolEq(ref e) => write!(f, "{}", e),
             BooleanExpression::ArrayEq(ref e) => write!(f, "{}", e),
             BooleanExpression::StructEq(ref e) => write!(f, "{}", e),
             BooleanExpression::TupleEq(ref e) => write!(f, "{}", e),
             BooleanExpression::UintEq(ref e) => write!(f, "{}", e),
-            BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "({} || {})", lhs, rhs),
-            BooleanExpression::And(ref lhs, ref rhs) => write!(f, "({} && {})", lhs, rhs),
-            BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
-            BooleanExpression::Value(b) => write!(f, "{}", b),
+            BooleanExpression::Or(ref e) => write!(f, "{}", e),
+            BooleanExpression::And(ref e) => write!(f, "{}", e),
+            BooleanExpression::Not(ref exp) => write!(f, "{}", exp),
+            BooleanExpression::Value(ref b) => write!(f, "{}", b),
             BooleanExpression::FunctionCall(ref function_call) => write!(f, "{}", function_call),
             BooleanExpression::Conditional(ref c) => write!(f, "{}", c),
             BooleanExpression::Member(ref m) => write!(f, "{}", m),
@@ -1870,13 +1817,6 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
 }
 
 // TODO: MACROS
-pub trait WithSpan: Sized {
-    fn span(self, _: Option<Span>) -> Self;
-
-    fn with_span(self, span: Span) -> Self {
-        self.span(Some(span))
-    }
-}
 
 impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
     fn span(self, span: Option<Span>) -> Self {
@@ -1894,6 +1834,22 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             e => e,
         }
     }
+
+    fn get_span(&self) -> Option<Span> {
+        use FieldElementExpression::*;
+        match self {
+            Select(e) => e.get_span(),
+            Block(e) => e.get_span(),
+            Identifier(e) => e.get_span(),
+            Conditional(e) => e.get_span(),
+            FunctionCall(e) => e.get_span(),
+            Member(e) => e.get_span(),
+            Element(e) => e.get_span(),
+            Add(e) => e.get_span(),
+            Number(e) => e.get_span(),
+            e => unimplemented!(),
+        }
+    }
 }
 
 impl<'ast, T> WithSpan for BooleanExpression<'ast, T> {
@@ -1908,6 +1864,20 @@ impl<'ast, T> WithSpan for BooleanExpression<'ast, T> {
             Member(e) => Member(e.span(span)),
             Element(e) => Element(e.span(span)),
             e => e,
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        use BooleanExpression::*;
+        match self {
+            Select(e) => e.get_span(),
+            Block(e) => e.get_span(),
+            Identifier(e) => e.get_span(),
+            Conditional(e) => e.get_span(),
+            FunctionCall(e) => e.get_span(),
+            Member(e) => e.get_span(),
+            Element(e) => e.get_span(),
+            e => unimplemented!(),
         }
     }
 }
@@ -2023,24 +1993,14 @@ impl<'ast, T> WithSpan for UExpression<'ast, T> {
     }
 }
 
-impl<E> WithSpan for EqExpression<E> {
-    fn span(mut self, span: Option<Span>) -> Self {
-        self.span = span;
-        self
-    }
-}
-
 impl<'ast, T, E> WithSpan for ConditionalExpression<'ast, T, E> {
     fn span(mut self, span: Option<Span>) -> Self {
         self.span = span;
         self
     }
-}
 
-impl<Op, L, R, Out> WithSpan for BinaryExpression<Op, L, R, Out> {
-    fn span(mut self, span: Option<Span>) -> Self {
-        self.span = span;
-        self
+    fn get_span(&self) -> Option<Span> {
+        self.span
     }
 }
 
@@ -2049,12 +2009,20 @@ impl<E> WithSpan for ValueExpression<E> {
         self.span = span;
         self
     }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
 }
 
 impl<'ast, T, E> WithSpan for SelectExpression<'ast, T, E> {
     fn span(mut self, span: Option<Span>) -> Self {
         self.span = span;
         self
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
     }
 }
 
@@ -2063,12 +2031,20 @@ impl<'ast, T, E> WithSpan for ElementExpression<'ast, T, E> {
         self.span = span;
         self
     }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
 }
 
 impl<'ast, T, E> WithSpan for MemberExpression<'ast, T, E> {
     fn span(mut self, span: Option<Span>) -> Self {
         self.span = span;
         self
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
     }
 }
 
@@ -2077,12 +2053,9 @@ impl<'ast, T, E> WithSpan for FunctionCallExpression<'ast, T, E> {
         self.span = span;
         self
     }
-}
 
-impl<'ast, T> WithSpan for IdentifierExpression<'ast, T> {
-    fn span(mut self, span: Option<Span>) -> Self {
-        self.span = span;
-        self
+    fn get_span(&self) -> Option<Span> {
+        self.span
     }
 }
 
@@ -2091,13 +2064,21 @@ impl<'ast, T, E> WithSpan for BlockExpression<'ast, T, E> {
         self.span = span;
         self
     }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
 }
 
 impl<'ast, T: Clone> Value for FieldElementExpression<'ast, T> {
     type Value = T;
 
     fn as_value(&self) -> Option<&Self::Value> {
-        unimplemented!()
+        if let Self::Number(v) = self {
+            Some(&v.value)
+        } else {
+            None
+        }
     }
 }
 
@@ -2109,19 +2090,19 @@ impl<'ast, T> Value for UExpression<'ast, T> {
     type Value = u128;
 }
 
-impl<'ast, T: Field> Value for ArrayExpression<'ast, T> {
+impl<'ast, T: Clone> Value for ArrayExpression<'ast, T> {
+    type Value = Vec<TypedExpressionOrSpread<'ast, T>>;
+}
+
+impl<'ast, T: Clone> Value for StructExpression<'ast, T> {
     type Value = Vec<TypedExpression<'ast, T>>;
 }
 
-impl<'ast, T: Field> Value for StructExpression<'ast, T> {
+impl<'ast, T: Clone> Value for TupleExpression<'ast, T> {
     type Value = Vec<TypedExpression<'ast, T>>;
 }
 
-impl<'ast, T: Field> Value for TupleExpression<'ast, T> {
-    type Value = Vec<TypedExpression<'ast, T>>;
-}
-
-impl<'ast, T: Field> Value for IntExpression<'ast, T> {
+impl<'ast, T> Value for IntExpression<'ast, T> {
     type Value = BigUint;
 }
 
@@ -2145,7 +2126,7 @@ pub trait Expr<'ast, T>: Value + WithSpan + fmt::Display + From<TypedExpression<
     }
 }
 
-impl<'ast, T: Field> Expr<'ast, T> for FieldElementExpression<'ast, T> {
+impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
     type ConcreteTy = ConcreteType;
@@ -2171,7 +2152,7 @@ impl<'ast, T: Field> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Expr<'ast, T> for BooleanExpression<'ast, T> {
+impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for BooleanExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
     type ConcreteTy = ConcreteType;
@@ -2193,7 +2174,7 @@ impl<'ast, T: Field> Expr<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Expr<'ast, T> for UExpression<'ast, T> {
+impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for UExpression<'ast, T> {
     type Inner = UExpressionInner<'ast, T>;
     type Ty = UBitwidth;
     type ConcreteTy = UBitwidth;
@@ -2215,7 +2196,7 @@ impl<'ast, T: Field> Expr<'ast, T> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Expr<'ast, T> for StructExpression<'ast, T> {
+impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for StructExpression<'ast, T> {
     type Inner = StructExpressionInner<'ast, T>;
     type Ty = StructType<'ast, T>;
     type ConcreteTy = ConcreteStructType;
@@ -2237,7 +2218,7 @@ impl<'ast, T: Field> Expr<'ast, T> for StructExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Expr<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
     type Inner = ArrayExpressionInner<'ast, T>;
     type Ty = ArrayType<'ast, T>;
     type ConcreteTy = ConcreteArrayType;
@@ -2259,7 +2240,7 @@ impl<'ast, T: Field> Expr<'ast, T> for ArrayExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Expr<'ast, T> for TupleExpression<'ast, T> {
+impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for TupleExpression<'ast, T> {
     type Inner = TupleExpressionInner<'ast, T>;
     type Ty = TupleType<'ast, T>;
     type ConcreteTy = ConcreteTupleType;
@@ -2281,7 +2262,7 @@ impl<'ast, T: Field> Expr<'ast, T> for TupleExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Expr<'ast, T> for IntExpression<'ast, T> {
+impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for IntExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
     type ConcreteTy = ConcreteType;
@@ -2313,19 +2294,8 @@ pub enum SelectOrExpression<'ast, T, E: Expr<'ast, T>> {
     Select(SelectExpression<'ast, T, E>),
     Expression(E::Inner),
 }
-
-pub enum EqOrBoolean<'ast, T, E> {
-    Eq(EqExpression<E>),
-    Boolean(BooleanExpression<'ast, T>),
-}
-
 pub enum MemberOrExpression<'ast, T, E: Expr<'ast, T>> {
     Member(MemberExpression<'ast, T, E>),
-    Expression(E::Inner),
-}
-
-pub enum IdentifierOrExpression<'ast, T, E: Expr<'ast, T>> {
-    Identifier(IdentifierExpression<'ast, E>),
     Expression(E::Inner),
 }
 
@@ -2339,53 +2309,16 @@ pub enum ConditionalOrExpression<'ast, T, E: Expr<'ast, T>> {
     Expression(E::Inner),
 }
 
-pub enum BinaryOrExpression<'ast, T, L, R, E: Expr<'ast, T>, Op> {
-    Binary(BinaryExpression<Op, L, R, E>),
-    Expression(E::Inner),
+pub trait Basic<'ast, T> {
+    type ZirExpressionType: Value + From<crate::zir::ZirExpression<'ast, T>>;
 }
 
-pub enum ValueOrExpression<'ast, T, V, E: Expr<'ast, T>> {
-    Value(ValueExpression<V>),
-    Expression(E::Inner),
-}
-
-pub trait Basic {
-    type ZirExpressionType;
-}
-
-impl<'ast, T> Basic for FieldElementExpression<'ast, T> {
+impl<'ast, T: Clone> Basic<'ast, T> for FieldElementExpression<'ast, T> {
     type ZirExpressionType = crate::zir::FieldElementExpression<'ast, T>;
 }
 
-impl<'ast, T> Basic for UExpression<'ast, T> {
+impl<'ast, T> Basic<'ast, T> for UExpression<'ast, T> {
     type ZirExpressionType = crate::zir::UExpression<'ast, T>;
-}
-
-pub trait Add<'ast, T>: Expr<'ast, T> + Basic {
-    fn add(left: Self, right: Self) -> Self;
-
-    fn add_values(left: Self::Value, right: Self::Value) -> Self::Value;
-}
-
-impl<'ast, T: Field> Add<'ast, T> for FieldElementExpression<'ast, T> {
-    fn add(left: Self, right: Self) -> Self {
-        FieldElementExpression::Add(BinaryExpression::new(left, right))
-    }
-
-    fn add_values(left: Self::Value, right: Self::Value) -> Self::Value {
-        left + right
-    }
-}
-
-impl<'ast, T: Field> Add<'ast, T> for UExpression<'ast, T> {
-    fn add(left: Self, right: Self) -> Self {
-        let bitwidth = left.bitwidth;
-        UExpressionInner::Add(box left, box right).annotate(bitwidth)
-    }
-
-    fn add_values(left: Self::Value, right: Self::Value) -> Self::Value {
-        left + right
-    }
 }
 
 pub trait Conditional<'ast, T> {
@@ -2918,7 +2851,7 @@ impl<'ast, T: Field> Constant for UExpression<'ast, T> {
 impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
     fn is_constant(&self) -> bool {
         match self.as_inner() {
-            ArrayExpressionInner::Value(v) => v.0.iter().all(|e| match e {
+            ArrayExpressionInner::Value(v) => v.iter().all(|e| match e {
                 TypedExpressionOrSpread::Expression(e) => e.is_constant(),
                 TypedExpressionOrSpread::Spread(s) => s.array.is_constant(),
             }),
@@ -2961,8 +2894,8 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
 
                         v.into_iter()
                             .flat_map(into_canonical_constant_aux)
-                            .skip(from as usize)
-                            .take(to as usize - from as usize)
+                            .skip(from.value as usize)
+                            .take(to.value as usize - from.value as usize)
                             .collect()
                     }
                     ArrayExpressionInner::Repeat(box e, box count) => {
@@ -2971,7 +2904,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                             _ => unreachable!(),
                         };
 
-                        vec![e; count as usize]
+                        vec![e; count.value as usize]
                     }
                     a => unreachable!("{}", a),
                 },
@@ -2981,22 +2914,21 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
         let array_ty = self.ty().clone();
 
         match self.into_inner() {
-            ArrayExpressionInner::Value(v) => ArrayExpressionInner::Value(
+            ArrayExpressionInner::Value(v) => ArrayExpression::from_value(
                 v.into_iter()
                     .flat_map(into_canonical_constant_aux)
                     .map(|e| e.into())
-                    .collect::<Vec<_>>()
-                    .into(),
+                    .collect::<Vec<_>>(),
             )
             .annotate(*array_ty.ty, *array_ty.size),
             ArrayExpressionInner::Slice(box a, box from, box to) => {
                 let from = match from.into_inner() {
-                    UExpressionInner::Value(from) => from as usize,
+                    UExpressionInner::Value(from) => from.value as usize,
                     _ => unreachable!("should be a uint value"),
                 };
 
                 let to = match to.into_inner() {
-                    UExpressionInner::Value(to) => to as usize,
+                    UExpressionInner::Value(to) => to.value as usize,
                     _ => unreachable!("should be a uint value"),
                 };
 
@@ -3005,29 +2937,26 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                     _ => unreachable!("should be an array value"),
                 };
 
-                ArrayExpressionInner::Value(
+                ArrayExpression::from_value(
                     v.into_iter()
                         .flat_map(into_canonical_constant_aux)
                         .map(|e| e.into())
                         .skip(from)
                         .take(to - from)
-                        .collect::<Vec<_>>()
-                        .into(),
+                        .collect::<Vec<_>>(),
                 )
                 .annotate(*array_ty.ty, *array_ty.size)
             }
             ArrayExpressionInner::Repeat(box e, box count) => {
                 let count = match count.into_inner() {
-                    UExpressionInner::Value(from) => from as usize,
+                    UExpressionInner::Value(from) => from.value as usize,
                     _ => unreachable!("should be a uint value"),
                 };
 
                 let e = e.into_canonical_constant();
 
-                ArrayExpressionInner::Value(
-                    vec![TypedExpressionOrSpread::Expression(e); count].into(),
-                )
-                .annotate(*array_ty.ty, *array_ty.size)
+                ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(e); count])
+                    .annotate(*array_ty.ty, *array_ty.size)
             }
             _ => unreachable!(),
         }
@@ -3046,7 +2975,7 @@ impl<'ast, T: Field> Constant for StructExpression<'ast, T> {
         let struct_ty = self.ty().clone();
 
         match self.into_inner() {
-            StructExpressionInner::Value(expressions) => StructExpressionInner::Value(
+            StructExpressionInner::Value(expressions) => StructExpression::from_value(
                 expressions
                     .into_iter()
                     .map(|e| e.into_canonical_constant())
@@ -3070,7 +2999,7 @@ impl<'ast, T: Field> Constant for TupleExpression<'ast, T> {
         let tuple_ty = self.ty().clone();
 
         match self.into_inner() {
-            TupleExpressionInner::Value(expressions) => TupleExpressionInner::Value(
+            TupleExpressionInner::Value(expressions) => TupleExpression::from_value(
                 expressions
                     .into_iter()
                     .map(|e| e.into_canonical_constant())

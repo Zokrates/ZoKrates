@@ -55,7 +55,7 @@ impl Interpreter {
                 Statement::Constraint(quad, lin, error) => match lin.is_assignee(&witness) {
                     true => {
                         let val = evaluate_quad(&witness, &quad).unwrap();
-                        witness.insert(lin.0.get(0).unwrap().0, val);
+                        witness.insert(lin.value.get(0).unwrap().0, val);
                     }
                     false => {
                         let lhs_value = evaluate_quad(&witness, &quad).unwrap();
@@ -282,7 +282,8 @@ pub enum Error {
 }
 
 fn evaluate_lin<T: Field>(w: &Witness<T>, l: &LinComb<T>) -> Result<T, EvaluationError> {
-    l.0.iter()
+    l.value
+        .iter()
         .map(|(var, mult)| {
             w.0.get(var)
                 .map(|v| v.clone() * mult)

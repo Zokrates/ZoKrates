@@ -3,6 +3,7 @@
 
 // `if c then a else b fi` becomes `if c then { a } else { b } fi`, and down the line any statements resulting from trating `a` and `b` can be safely kept inside the respective blocks.
 
+use zokrates_ast::common::Fold;
 use zokrates_ast::typed::folder::*;
 use zokrates_ast::typed::*;
 use zokrates_field::Field;
@@ -18,7 +19,7 @@ impl Isolator {
 
 impl<'ast, T: Field> Folder<'ast, T> for Isolator {
     fn fold_conditional_expression<
-        E: Expr<'ast, T> + Block<'ast, T> + Fold<'ast, T> + Conditional<'ast, T>,
+        E: Expr<'ast, T> + Block<'ast, T> + Fold<Self> + Conditional<'ast, T>,
     >(
         &mut self,
         _: &E::Ty,

@@ -1,5 +1,7 @@
 pub mod embed;
 mod error;
+pub mod expressions;
+mod fold;
 mod format_string;
 pub mod operators;
 mod parameter;
@@ -10,8 +12,9 @@ mod variable;
 
 pub use self::embed::FlatEmbed;
 pub use self::error::RuntimeError;
+pub use self::fold::{Fold, ResultFold};
 pub use self::parameter::Parameter;
-pub use self::position::{Position, Span};
+pub use self::position::{Position, Span, WithSpan};
 pub use self::solvers::Solver;
 pub use self::value::Value;
 pub use self::variable::Variable;

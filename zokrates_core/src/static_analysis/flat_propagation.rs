@@ -5,6 +5,9 @@
 //! @date 2018
 
 use std::collections::HashMap;
+use std::ops::*;
+use zokrates_ast::common::expressions::IdentifierOrExpression;
+use zokrates_ast::common::WithSpan;
 use zokrates_ast::flat::folder::*;
 use zokrates_ast::flat::*;
 use zokrates_field::Field;
@@ -19,7 +22,7 @@ impl<T: Field> Folder<T> for Propagator<T> {
         match s {
             FlatStatement::Definition(var, expr) => match self.fold_expression(expr) {
                 FlatExpression::Number(n) => {
-                    self.constants.insert(var, n);
+                    self.constants.insert(var, n.value);
                     vec![]
                 }
                 e => vec![FlatStatement::Definition(var, e)],
@@ -28,37 +31,50 @@ impl<T: Field> Folder<T> for Propagator<T> {
         }
     }
 
+    fn fold_identifier_expression(
+        &mut self,
+        e: zokrates_ast::common::expressions::IdentifierExpression<Variable, FlatExpression<T>>,
+    ) -> IdentifierOrExpression<Variable, FlatExpression<T>, FlatExpression<T>> {
+        match self.constants.get(&e.id) {
+            Some(c) => IdentifierOrExpression::Expression(FlatExpression::number(c.clone())),
+            None => IdentifierOrExpression::Identifier(e),
+        }
+    }
+
     fn fold_expression(&mut self, e: FlatExpression<T>) -> FlatExpression<T> {
         match e {
             FlatExpression::Number(n) => FlatExpression::Number(n),
-            FlatExpression::Identifier(id) => match self.constants.get(&id) {
-                Some(c) => FlatExpression::Number(c.clone()),
-                None => FlatExpression::Identifier(id),
-            },
-            FlatExpression::Add(box e1, box e2) => {
-                match (self.fold_expression(e1), self.fold_expression(e2)) {
-                    (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                        FlatExpression::Number(n1 + n2)
-                    }
-                    (e1, e2) => FlatExpression::Add(box e1, box e2),
+            FlatExpression::Add(e) => match (
+                self.fold_expression(*e.left),
+                self.fold_expression(*e.right),
+            ) {
+                (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
+                    FlatExpression::number(n1.value + n2.value)
                 }
+                (e1, e2) => FlatExpression::add(e1, e2),
             }
-            FlatExpression::Sub(box e1, box e2) => {
-                match (self.fold_expression(e1), self.fold_expression(e2)) {
-                    (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                        FlatExpression::Number(n1 - n2)
-                    }
-                    (e1, e2) => FlatExpression::Sub(box e1, box e2),
+            .span(e.span),
+            FlatExpression::Sub(e) => match (
+                self.fold_expression(*e.left),
+                self.fold_expression(*e.right),
+            ) {
+                (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
+                    FlatExpression::number(n1.value - n2.value)
                 }
+                (e1, e2) => FlatExpression::sub(e1, e2),
             }
-            FlatExpression::Mult(box e1, box e2) => {
-                match (self.fold_expression(e1), self.fold_expression(e2)) {
-                    (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                        FlatExpression::Number(n1 * n2)
-                    }
-                    (e1, e2) => FlatExpression::Mult(box e1, box e2),
+            .span(e.span),
+            FlatExpression::Mult(e) => match (
+                self.fold_expression(*e.left),
+                self.fold_expression(*e.right),
+            ) {
+                (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
+                    FlatExpression::number(n1.value * n2.value)
                 }
+                (e1, e2) => FlatExpression::mul(e1, e2),
             }
+            .span(e.span),
+            e => fold_expression(self, e),
         }
     }
 }

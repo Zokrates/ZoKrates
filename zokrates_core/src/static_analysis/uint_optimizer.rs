@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::ops::{BitAnd, Shl, Shr};
-use zokrates_ast::common::FlatEmbed;
+use zokrates_ast::common::{FlatEmbed, Fold};
 use zokrates_ast::zir::folder::*;
 use zokrates_ast::zir::*;
 use zokrates_field::Field;
@@ -55,7 +55,7 @@ fn force_no_reduce<T: Field>(e: UExpression<T>) -> UExpression<T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
-    fn fold_select_expression<E: Expr<'ast, T> + Fold<'ast, T> + Select<'ast, T>>(
+    fn fold_select_expression<E: Expr<'ast, T> + Fold<Self> + Select<'ast, T>>(
         &mut self,
         _: &E::Ty,
         e: SelectExpression<'ast, T, E>,

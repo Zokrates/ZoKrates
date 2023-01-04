@@ -72,7 +72,7 @@ pub fn visit_statement<T: Field, F: Visitor<T>>(f: &mut F, s: &Statement<T>) {
 }
 
 pub fn visit_linear_combination<T: Field, F: Visitor<T>>(f: &mut F, e: &LinComb<T>) {
-    for expr in e.0.iter() {
+    for expr in e.value.iter() {
         f.visit_variable(&expr.0);
         f.visit_value(&expr.1);
     }

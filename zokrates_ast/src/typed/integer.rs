@@ -16,7 +16,9 @@ use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Not, Rem, Sub};
 use zokrates_field::Field;
 
-use super::ValueExpression;
+use crate::common::expressions::*;
+
+use super::ArrayValueExpression;
 
 type TypedExpressionPair<'ast, T> = (TypedExpression<'ast, T>, TypedExpression<'ast, T>);
 
@@ -276,7 +278,7 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum IntExpression<'ast, T> {
-    Value(BigUint),
+    Value(IntValueExpression),
     Pos(Box<IntExpression<'ast, T>>),
     Neg(Box<IntExpression<'ast, T>>),
     Add(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
@@ -428,7 +430,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
     pub fn try_from_int(i: IntExpression<'ast, T>) -> Result<Self, IntExpression<'ast, T>> {
         match i {
             IntExpression::Value(i) => Ok(Self::Number(ValueExpression::new(
-                T::try_from(i.clone()).map_err(|_| i)?,
+                T::try_from(i.value.clone()).map_err(|_| IntExpression::Value(i))?,
             ))),
             IntExpression::Add(box e1, box e2) => {
                 Ok(Self::add(Self::try_from_int(e1)?, Self::try_from_int(e2)?))
@@ -439,15 +441,15 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
             IntExpression::Mult(box e1, box e2) => {
                 Ok(Self::mul(Self::try_from_int(e1)?, Self::try_from_int(e2)?))
             }
-            IntExpression::Pow(box e1, box e2) => Ok(Self::Pow(
-                box Self::try_from_int(e1)?,
-                box UExpression::try_from_int(e2, &UBitwidth::B32)?,
+            IntExpression::Pow(box e1, box e2) => Ok(Self::pow(
+                Self::try_from_int(e1)?,
+                UExpression::try_from_int(e2, &UBitwidth::B32)?,
             )),
             IntExpression::Div(box e1, box e2) => {
                 Ok(Self::div(Self::try_from_int(e1)?, Self::try_from_int(e2)?))
             }
-            IntExpression::Pos(box e) => Ok(Self::Pos(box Self::try_from_int(e)?)),
-            IntExpression::Neg(box e) => Ok(Self::Neg(box Self::try_from_int(e)?)),
+            IntExpression::Pos(box e) => Ok(Self::pos(Self::try_from_int(e)?)),
+            IntExpression::Neg(box e) => Ok(Self::neg(Self::try_from_int(e)?)),
             IntExpression::Conditional(c) => Ok(Self::Conditional(ConditionalExpression::new(
                 *c.condition,
                 Self::try_from_int(*c.consequence)?,
@@ -463,6 +465,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                 match array.into_inner() {
                     ArrayExpressionInner::Value(values) => {
                         let values = values
+                            .value
                             .into_iter()
                             .map(|v| {
                                 TypedExpressionOrSpread::align_to_type(
@@ -483,8 +486,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         Ok(FieldElementExpression::select(
-                            ArrayExpressionInner::Value(values.into())
-                                .annotate(Type::FieldElement, size),
+                            ArrayExpression::from_value(values).annotate(Type::FieldElement, size),
                             index,
                         ))
                     }
@@ -521,9 +523,9 @@ impl<'ast, T: Field> UExpression<'ast, T> {
 
         match i {
             Value(i) => {
-                if i <= BigUint::from(2u128.pow(bitwidth.to_usize() as u32) - 1) {
-                    Ok(UExpressionInner::Value(
-                        u128::from_str_radix(&i.to_str_radix(16), 16).unwrap(),
+                if i.value <= BigUint::from(2u128.pow(bitwidth.to_usize() as u32) - 1) {
+                    Ok(UExpression::from_value(
+                        u128::from_str_radix(&i.value.to_str_radix(16), 16).unwrap(),
                     )
                     .annotate(*bitwidth))
                 } else {
@@ -582,6 +584,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                 match array.into_inner() {
                     ArrayExpressionInner::Value(values) => {
                         let values = values
+                            .value
                             .into_iter()
                             .map(|v| {
                                 TypedExpressionOrSpread::align_to_type(
@@ -602,7 +605,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         Ok(UExpression::select(
-                            ArrayExpressionInner::Value(values.into())
+                            ArrayExpression::from_value(values)
                                 .annotate(Type::Uint(*bitwidth), size),
                             index,
                         ))
@@ -641,6 +644,7 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                     _ => {
                         // try to convert all elements to the target type
                         inline_array
+                            .value
                             .into_iter()
                             .map(|v| {
                                 TypedExpressionOrSpread::align_to_type(v, target_array_ty).map_err(
@@ -653,11 +657,11 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                                 )
                             })
                             .collect::<Result<Vec<_>, _>>()
-                            .map(|v| v.into())
+                            .map(|v| ArrayValueExpression::new(v))
                     }
                 }?;
 
-                let inner_ty = res.0[0].get_type().0;
+                let inner_ty = res.value[0].get_type().0;
 
                 Ok(ArrayExpressionInner::Value(res).annotate(inner_ty, *array_ty.size))
             }
@@ -706,7 +710,7 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
                     TypedExpression::align_to_type(value, &*target_member.ty)
                 })
                 .collect::<Result<Vec<_>, _>>()
-                .map(|v| StructExpressionInner::Value(v).annotate(struct_ty.clone()))
+                .map(|v| StructExpression::from_value(v).annotate(struct_ty.clone()))
                 .map_err(|(v, _)| v),
             s => {
                 if struct_ty
@@ -753,7 +757,7 @@ impl<'ast, T: Field> TupleExpression<'ast, T> {
                 .collect::<Result<Vec<_>, _>>()
                 .map(|v| {
                     let ty = TupleType::new(v.iter().map(|e| e.get_type()).collect());
-                    TupleExpressionInner::Value(v).annotate(ty)
+                    TupleExpression::from_value(v).annotate(ty)
                 })
                 .map_err(|(v, _)| v),
             s => {
@@ -782,9 +786,9 @@ impl<'ast, T: Field> TupleExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> From<BigUint> for IntExpression<'ast, T> {
+impl<'ast, T: Field> From<BigUint> for IntExpression<'ast, T> {
     fn from(v: BigUint) -> Self {
-        IntExpression::Value(v)
+        IntExpression::from_value(v)
     }
 }
 

@@ -108,15 +108,20 @@ impl<T: Field> SMTLib2 for LinComb<T> {
         match self.is_zero() {
             true => write!(f, "0"),
             false => {
-                if self.0.len() > 1 {
+                if self.value.len() > 1 {
                     write!(f, "(+")?;
-                    for expr in self.0.iter() {
+                    for expr in self.value.iter() {
                         write!(f, " ")?;
                         format_prefix_op_smtlib2(f, "*", &expr.0, &expr.1.to_biguint())?;
                     }
                     write!(f, ")")
                 } else {
-                    format_prefix_op_smtlib2(f, "*", &self.0[0].0, &self.0[0].1.to_biguint())
+                    format_prefix_op_smtlib2(
+                        f,
+                        "*",
+                        &self.value[0].0,
+                        &self.value[0].1.to_biguint(),
+                    )
                 }
             }
         }

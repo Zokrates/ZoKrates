@@ -1,9 +1,17 @@
 // Generic walk through an IR AST. Not mutating in place
 
 use super::*;
-use crate::common::Variable;
+use crate::common::{
+    expressions::{BinaryOrExpression, IdentifierOrExpression},
+    Fold, Variable, WithSpan,
+};
 use zokrates_field::Field;
 
+impl<T: Field, F: Folder<T>> Fold<F> for FlatExpression<T> {
+    fn fold(self, f: &mut F) -> Self {
+        f.fold_expression(self)
+    }
+}
 pub trait Folder<T: Field>: Sized {
     fn fold_program(&mut self, p: FlatProg<T>) -> FlatProg<T> {
         fold_program(self, p)
@@ -23,6 +31,20 @@ pub trait Folder<T: Field>: Sized {
 
     fn fold_expression(&mut self, e: FlatExpression<T>) -> FlatExpression<T> {
         fold_expression(self, e)
+    }
+
+    fn fold_binary_expression<Op, L: Fold<Self>, R: Fold<Self>, E>(
+        &mut self,
+        e: BinaryExpression<Op, L, R, E>,
+    ) -> BinaryOrExpression<Op, L, R, E, FlatExpression<T>> {
+        fold_binary_expression(self, e)
+    }
+
+    fn fold_identifier_expression(
+        &mut self,
+        e: IdentifierExpression<Variable, FlatExpression<T>>,
+    ) -> IdentifierOrExpression<Variable, FlatExpression<T>, FlatExpression<T>> {
+        fold_identifier_expression(self, e)
     }
 
     fn fold_directive(&mut self, d: FlatDirective<T>) -> FlatDirective<T> {
@@ -76,17 +98,42 @@ pub fn fold_expression<T: Field, F: Folder<T>>(
 ) -> FlatExpression<T> {
     match e {
         FlatExpression::Number(n) => FlatExpression::Number(n),
-        FlatExpression::Identifier(id) => FlatExpression::Identifier(f.fold_variable(id)),
-        FlatExpression::Add(box left, box right) => {
-            FlatExpression::Add(box f.fold_expression(left), box f.fold_expression(right))
-        }
-        FlatExpression::Sub(box left, box right) => {
-            FlatExpression::Sub(box f.fold_expression(left), box f.fold_expression(right))
-        }
-        FlatExpression::Mult(box left, box right) => {
-            FlatExpression::Mult(box f.fold_expression(left), box f.fold_expression(right))
-        }
+        FlatExpression::Identifier(id) => match f.fold_identifier_expression(id) {
+            IdentifierOrExpression::Identifier(e) => FlatExpression::Identifier(e),
+            IdentifierOrExpression::Expression(e) => e,
+        },
+        FlatExpression::Add(e) => match f.fold_binary_expression(e) {
+            BinaryOrExpression::Binary(e) => FlatExpression::Add(e),
+            BinaryOrExpression::Expression(e) => e,
+        },
+        FlatExpression::Sub(e) => match f.fold_binary_expression(e) {
+            BinaryOrExpression::Binary(e) => FlatExpression::Sub(e),
+            BinaryOrExpression::Expression(e) => e,
+        },
+        FlatExpression::Mult(e) => match f.fold_binary_expression(e) {
+            BinaryOrExpression::Binary(e) => FlatExpression::Mult(e),
+            BinaryOrExpression::Expression(e) => e,
+        },
     }
+}
+
+fn fold_identifier_expression<T: Field, F: Folder<T>>(
+    f: &mut F,
+    e: IdentifierExpression<Variable, FlatExpression<T>>,
+) -> IdentifierOrExpression<Variable, FlatExpression<T>, FlatExpression<T>> {
+    let id = f.fold_variable(e.id);
+
+    IdentifierOrExpression::Identifier(IdentifierExpression { id, ..e })
+}
+
+fn fold_binary_expression<T: Field, F: Folder<T>, Op, L: Fold<F>, R: Fold<F>, E>(
+    f: &mut F,
+    e: BinaryExpression<Op, L, R, E>,
+) -> BinaryOrExpression<Op, L, R, E, FlatExpression<T>> {
+    let left = e.left.fold(f);
+    let right = e.right.fold(f);
+
+    BinaryOrExpression::Binary(BinaryExpression::new(left, right).span(e.span))
 }
 
 pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: FlatDirective<T>) -> FlatDirective<T> {

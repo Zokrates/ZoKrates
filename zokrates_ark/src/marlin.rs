@@ -401,10 +401,7 @@ mod tests {
             return_count: 1,
             statements: vec![
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
-                        Variable::new(0).into(),
-                        Variable::new(0).into(),
-                    ),
+                    QuadComb::new(Variable::new(0).into(), Variable::new(0).into()),
                     Variable::new(1),
                 ),
                 Statement::constraint(Variable::new(1), Variable::public(0)),
@@ -434,10 +431,7 @@ mod tests {
             return_count: 1,
             statements: vec![
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
-                        Variable::new(0).into(),
-                        Variable::new(0).into(),
-                    ),
+                    QuadComb::new(Variable::new(0).into(), Variable::new(0).into()),
                     Variable::new(1),
                 ),
                 Statement::constraint(Variable::new(1), Variable::public(0)),

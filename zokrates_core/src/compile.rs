@@ -210,9 +210,15 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     log::debug!("Flatten");
     let program_flattened = from_function_and_config(typed_ast.main, config);
 
+    let program_flattened = program_flattened.collect();
+    log::trace!("{:#?}", program_flattened);
+
     // convert to ir
     log::debug!("Convert to IR");
     let ir_prog = from_flat(program_flattened);
+
+    let ir_prog = ir_prog.collect();
+    log::trace!("{:#?}", ir_prog);
 
     // optimize
     log::debug!("Optimise IR");

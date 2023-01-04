@@ -1,15 +1,29 @@
 use std::fmt;
 
-#[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct Position {
     pub line: usize,
     pub col: usize,
 }
 
-#[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct Span {
     pub from: Position,
     pub to: Position,
+}
+
+pub trait WithSpan: Sized {
+    fn span(self, _: Option<Span>) -> Self;
+
+    fn with_span(self, span: Span) -> Self {
+        self.span(Some(span))
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        unimplemented!()
+    }
 }
 
 impl Span {

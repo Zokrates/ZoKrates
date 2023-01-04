@@ -61,14 +61,14 @@ mod tests {
         let p: Prog<Bn128Field> = Prog {
             statements: vec![
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
+                    QuadComb::new(
                         LinComb::summand(3, Variable::new(3)),
                         LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::one(),
                 ),
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
+                    QuadComb::new(
                         LinComb::summand(3, Variable::new(42)),
                         LinComb::summand(3, Variable::new(3)),
                     ),
@@ -90,7 +90,7 @@ mod tests {
     #[test]
     fn remove_duplicates() {
         let constraint = Statement::constraint(
-            QuadComb::from_linear_combinations(
+            QuadComb::new(
                 LinComb::summand(3, Variable::new(3)),
                 LinComb::summand(3, Variable::new(3)),
             ),
@@ -102,7 +102,7 @@ mod tests {
                 constraint.clone(),
                 constraint.clone(),
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
+                    QuadComb::new(
                         LinComb::summand(3, Variable::new(42)),
                         LinComb::summand(3, Variable::new(3)),
                     ),
@@ -119,7 +119,7 @@ mod tests {
             statements: vec![
                 constraint,
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
+                    QuadComb::new(
                         LinComb::summand(3, Variable::new(42)),
                         LinComb::summand(3, Variable::new(3)),
                     ),

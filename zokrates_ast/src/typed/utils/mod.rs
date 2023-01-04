@@ -1,6 +1,6 @@
 use super::{
-    ArrayExpression, ArrayExpressionInner, ArrayValue, BooleanExpression, Conditional,
-    ConditionalKind, Expr, FieldElementExpression, Id, Identifier, Select, Typed, TypedExpression,
+    ArrayExpression, ArrayExpressionInner, BooleanExpression, Conditional, ConditionalKind, Expr,
+    FieldElementExpression, Id, Identifier, Select, Typed, TypedExpression,
     TypedExpressionOrSpread, UBitwidth, UExpression, UExpressionInner, ValueExpression,
 };
 
@@ -16,24 +16,24 @@ pub fn a_id<'ast, T: Field, I: TryInto<Identifier<'ast>>>(v: I) -> ArrayExpressi
 
 pub fn a<
     'ast,
-    T,
+    T: Field,
     E: Typed<'ast, T> + Expr<'ast, T> + Into<TypedExpression<'ast, T>>,
     const N: usize,
 >(
     values: [E; N],
 ) -> ArrayExpression<'ast, T> {
     let ty = values[0].get_type();
-    ArrayExpressionInner::Value(ArrayValue(
+    ArrayExpression::from_value(
         values
             .into_iter()
             .map(|e| TypedExpressionOrSpread::Expression(e.into()))
             .collect(),
-    ))
+    )
     .annotate(ty, N as u32)
 }
 
-pub fn u_32<'ast, T, U: TryInto<u32>>(v: U) -> UExpression<'ast, T> {
-    UExpressionInner::Value(v.try_into().map_err(|_| ()).unwrap() as u128).annotate(UBitwidth::B32)
+pub fn u_32<'ast, T: Field, U: TryInto<u32>>(v: U) -> UExpression<'ast, T> {
+    UExpression::from_value(v.try_into().map_err(|_| ()).unwrap() as u128).annotate(UBitwidth::B32)
 }
 
 pub fn conditional<'ast, T, E: Conditional<'ast, T>>(

@@ -1,8 +1,10 @@
 use zokrates_ast::typed::{
-    folder::*, Add, ArrayExpressionInner, ArrayValue, BooleanExpression, ConditionalExpression,
-    ConditionalKind, EqExpression, Expr, FieldElementExpression, SelectExpression, Type,
-    TypedExpression, TypedProgram, UExpressionInner,
+    folder::*, ArrayExpression, ArrayExpressionInner, BooleanExpression, ConditionalExpression,
+    ConditionalKind, Expr, FieldElementExpression, SelectExpression, Type, TypedExpression,
+    TypedProgram, UExpressionInner,
 };
+
+use std::ops::*;
 use zokrates_field::Field;
 
 #[derive(Default)]
@@ -24,7 +26,7 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                 Type::Boolean => {
                     let len = e.left.size();
                     let len = match len.as_inner() {
-                        UExpressionInner::Value(v) => *v as usize,
+                        UExpressionInner::Value(v) => v.value as usize,
                         _ => unreachable!("array size should be known"),
                     };
 
@@ -61,11 +63,11 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                                             FieldElementExpression::Conditional(
                                                 ConditionalExpression::new(
                                                     c.clone(),
-                                                    FieldElementExpression::Pow(
-                                                        box FieldElementExpression::from_value(
+                                                    FieldElementExpression::pow(
+                                                        FieldElementExpression::from_value(
                                                             T::from(2),
                                                         ),
-                                                        box (index as u32).into(),
+                                                        (index as u32).into(),
                                                     ),
                                                     T::zero().into(),
                                                     ConditionalKind::Ternary,
@@ -91,10 +93,10 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
 
                     let chunk_count = left.len();
 
-                    BooleanExpression::ArrayEq(EqExpression::new(
-                        ArrayExpressionInner::Value(ArrayValue(left))
+                    BooleanExpression::ArrayEq(BinaryExpression::new(
+                        ArrayExpression::from_value(left)
                             .annotate(Type::FieldElement, chunk_count as u32),
-                        ArrayExpressionInner::Value(ArrayValue(right))
+                        ArrayExpression::from_value(right)
                             .annotate(Type::FieldElement, chunk_count as u32),
                     ))
                 }
@@ -107,7 +109,7 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
 
 #[cfg(test)]
 mod tests {
-    use zokrates_ast::typed::{BooleanExpression, EqExpression, Type};
+    use zokrates_ast::typed::{BooleanExpression, Type};
     use zokrates_field::DummyCurveField;
 
     use zokrates_ast::typed::utils::{a, a_id, conditional, f, select, u_32};
@@ -125,9 +127,9 @@ mod tests {
         let y = a_id("y").annotate(Type::Boolean, 2u32);
 
         let e: BooleanExpression<DummyCurveField> =
-            BooleanExpression::ArrayEq(EqExpression::new(x.clone(), y.clone()));
+            BooleanExpression::ArrayEq(BinaryExpression::new(x.clone(), y.clone()));
 
-        let expected = BooleanExpression::ArrayEq(EqExpression::new(
+        let expected = BooleanExpression::ArrayEq(BinaryExpression::new(
             a([
                 conditional(select(x.clone(), 0u32), f(2).pow(u_32(1)), f(0))
                     + conditional(select(x.clone(), 1u32), f(2).pow(u_32(0)), f(0)),
@@ -153,9 +155,9 @@ mod tests {
         let y = a_id("y").annotate(Type::Boolean, 3u32);
 
         let e: BooleanExpression<DummyCurveField> =
-            BooleanExpression::ArrayEq(EqExpression::new(x.clone(), y.clone()));
+            BooleanExpression::ArrayEq(BinaryExpression::new(x.clone(), y.clone()));
 
-        let expected = BooleanExpression::ArrayEq(EqExpression::new(
+        let expected = BooleanExpression::ArrayEq(BinaryExpression::new(
             a([
                 conditional(select(x.clone(), 0u32), f(2).pow(u_32(1)), f(0))
                     + conditional(select(x.clone(), 1u32), f(2).pow(u_32(0)), f(0)),

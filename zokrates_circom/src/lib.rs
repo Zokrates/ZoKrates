@@ -31,7 +31,7 @@ mod tests {
             return_count: 1,
             statements: vec![
                 Statement::Constraint(
-                    QuadComb::from_linear_combinations(
+                    QuadComb::new(
                         LinComb::from(Variable::new(0)),
                         LinComb::from(Variable::new(0)),
                     ),

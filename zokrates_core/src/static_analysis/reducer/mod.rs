@@ -18,6 +18,7 @@ mod shallow_ssa;
 
 use self::inline::{inline_call, InlineError};
 use std::collections::HashMap;
+use zokrates_ast::common::ResultFold;
 use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::ConcreteGenericsAssignment;
 use zokrates_ast::typed::types::GGenericsAssignment;
@@ -289,7 +290,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         }
     }
 
-    fn fold_block_expression<E: ResultFold<'ast, T>>(
+    fn fold_block_expression<E: ResultFold<Self, Self::Error>>(
         &mut self,
         b: BlockExpression<'ast, T, E>,
     ) -> Result<BlockExpression<'ast, T, E>, Self::Error> {

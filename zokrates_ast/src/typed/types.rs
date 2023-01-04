@@ -1,3 +1,4 @@
+use crate::common::expressions::ValueExpression;
 use crate::typed::{
     CoreIdentifier, Identifier, OwnedTypedModuleId, TypedExpression, UExpression, UExpressionInner,
 };
@@ -184,7 +185,7 @@ impl<'ast, T: PartialEq> PartialEq<UExpression<'ast, T>> for DeclarationConstant
                     inner: UExpressionInner::Value(v),
                     ..
                 },
-            ) => *c == *v as u32,
+            ) => *c == v.value as u32,
             (DeclarationConstant::Expression(TypedExpression::Uint(e0)), e1) => e0 == e1,
             (DeclarationConstant::Expression(..), _) => false, // type error
             _ => true,
@@ -229,7 +230,7 @@ impl<'ast, T: fmt::Display> fmt::Display for DeclarationConstant<'ast, T> {
 
 impl<'ast, T> From<u32> for UExpression<'ast, T> {
     fn from(i: u32) -> Self {
-        UExpressionInner::Value(i as u128).annotate(UBitwidth::B32)
+        UExpressionInner::Value(ValueExpression::new(i as u128)).annotate(UBitwidth::B32)
     }
 }
 
@@ -240,7 +241,7 @@ impl<'ast, T: Field> From<DeclarationConstant<'ast, T>> for UExpression<'ast, T>
                 UExpression::identifier(CoreIdentifier::from(g).into()).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Concrete(v) => {
-                UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
+                UExpression::from_value(v as u128).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Constant(v) => {
                 UExpression::identifier(CoreIdentifier::from(v).into()).annotate(UBitwidth::B32)
@@ -257,7 +258,7 @@ impl<'ast, T> TryInto<u32> for UExpression<'ast, T> {
         assert_eq!(self.bitwidth, UBitwidth::B32);
 
         match self.into_inner() {
-            UExpressionInner::Value(v) => Ok(v as u32),
+            UExpressionInner::Value(v) => Ok(v.value as u32),
             _ => Err(SpecializationError),
         }
     }
@@ -915,7 +916,7 @@ impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
                         match (&l.size.as_inner(), &*r.size) {
                             // compare the sizes for concrete ones
                             (UExpressionInner::Value(v), DeclarationConstant::Concrete(c)) => {
-                                (*v as u32) == *c
+                                (v.value as u32) == *c
                             }
                             _ => true,
                         }
@@ -1095,7 +1096,7 @@ pub fn check_generic<'ast, T, S: Clone + PartialEq + PartialEq<u32>>(
             DeclarationConstant::Constant(..) => true,
             DeclarationConstant::Expression(e) => match e {
                 TypedExpression::Uint(e) => match e.as_inner() {
-                    UExpressionInner::Value(v) => *value == *v as u32,
+                    UExpressionInner::Value(v) => *value == v.value as u32,
                     _ => true,
                 },
                 _ => unreachable!(),
@@ -1226,7 +1227,7 @@ pub use self::signature::{
     try_from_g_signature, ConcreteSignature, DeclarationSignature, GSignature, Signature,
 };
 
-use super::{Id, ShadowedIdentifier};
+use super::{Expr, Id, ShadowedIdentifier};
 
 pub mod signature {
     use super::*;

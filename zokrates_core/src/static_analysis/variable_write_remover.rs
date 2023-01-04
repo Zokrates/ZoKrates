@@ -54,7 +54,7 @@ impl<'ast> VariableWriteRemover {
                                     .map(|i| match inner_ty {
                                         Type::Int => unreachable!(),
                                         Type::Array(..) => ArrayExpression::conditional(
-                                            BooleanExpression::UintEq(EqExpression::new(
+                                            BooleanExpression::UintEq(BinaryExpression::new(
                                                 i.into(),
                                                 head.clone(),
                                             )),
@@ -75,7 +75,7 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Struct(..) => StructExpression::conditional(
-                                            BooleanExpression::UintEq(EqExpression::new(
+                                            BooleanExpression::UintEq(BinaryExpression::new(
                                                 i.into(),
                                                 head.clone(),
                                             )),
@@ -96,7 +96,7 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Tuple(..) => TupleExpression::conditional(
-                                            BooleanExpression::UintEq(EqExpression::new(
+                                            BooleanExpression::UintEq(BinaryExpression::new(
                                                 i.into(),
                                                 head.clone(),
                                             )),
@@ -117,7 +117,7 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::FieldElement => FieldElementExpression::conditional(
-                                            BooleanExpression::UintEq(EqExpression::new(
+                                            BooleanExpression::UintEq(BinaryExpression::new(
                                                 i.into(),
                                                 head.clone(),
                                             )),
@@ -139,7 +139,7 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Boolean => BooleanExpression::conditional(
-                                            BooleanExpression::UintEq(EqExpression::new(
+                                            BooleanExpression::UintEq(BinaryExpression::new(
                                                 i.into(),
                                                 head.clone(),
                                             )),
@@ -160,7 +160,7 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Uint(..) => UExpression::conditional(
-                                            BooleanExpression::UintEq(EqExpression::new(
+                                            BooleanExpression::UintEq(BinaryExpression::new(
                                                 i.into(),
                                                 head.clone(),
                                             )),

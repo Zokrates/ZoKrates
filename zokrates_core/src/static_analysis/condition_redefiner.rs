@@ -1,7 +1,10 @@
-use zokrates_ast::typed::{
-    folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
-    ConditionalOrExpression, CoreIdentifier, Expr, Id, Identifier, Type, TypedExpression,
-    TypedProgram, TypedStatement, Variable,
+use zokrates_ast::{
+    common::Fold,
+    typed::{
+        folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
+        ConditionalOrExpression, CoreIdentifier, Expr, Id, Identifier, Type, TypedExpression,
+        TypedProgram, TypedStatement, Variable,
+    },
 };
 use zokrates_field::Field;
 
@@ -25,7 +28,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
         buffer.into_iter().chain(s).collect()
     }
 
-    fn fold_block_expression<E: Fold<'ast, T>>(
+    fn fold_block_expression<E: Fold<Self>>(
         &mut self,
         b: BlockExpression<'ast, T, E>,
     ) -> BlockExpression<'ast, T, E> {
@@ -54,7 +57,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
         b
     }
 
-    fn fold_conditional_expression<E: Expr<'ast, T> + Conditional<'ast, T> + Fold<'ast, T>>(
+    fn fold_conditional_expression<E: Expr<'ast, T> + Conditional<'ast, T> + Fold<Self>>(
         &mut self,
         _: &E::Ty,
         e: ConditionalExpression<'ast, T, E>,

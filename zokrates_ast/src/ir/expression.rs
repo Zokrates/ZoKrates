@@ -1,5 +1,5 @@
 use super::Witness;
-use crate::common::Variable;
+use crate::common::{Span, Variable, WithSpan};
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
@@ -9,15 +9,23 @@ use zokrates_field::Field;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct QuadComb<T> {
+    pub span: Option<Span>,
     pub left: LinComb<T>,
     pub right: LinComb<T>,
 }
 
-impl<T: Field> QuadComb<T> {
-    pub fn from_linear_combinations(left: LinComb<T>, right: LinComb<T>) -> Self {
-        QuadComb { left, right }
+impl<T> WithSpan for QuadComb<T> {
+    fn span(mut self, span: Option<Span>) -> Self {
+        self.span = span;
+        self
     }
 
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+impl<T: Field> QuadComb<T> {
     pub fn try_linear(self) -> Result<LinComb<T>, Self> {
         // identify `(k * ~ONE) * (lincomb)` and `(lincomb) * (k * ~ONE)` and return (k * lincomb)
         // if not, error out with the input
@@ -30,7 +38,7 @@ impl<T: Field> QuadComb<T> {
             Ok(coefficient) => Ok(self.right * &coefficient),
             Err(left) => match self.right.try_constant() {
                 Ok(coefficient) => Ok(left * &coefficient),
-                Err(right) => Err(QuadComb::from_linear_combinations(left, right)),
+                Err(right) => Err(QuadComb::new(left, right)),
             },
         }
     }
@@ -44,31 +52,87 @@ impl<T: Field> From<T> for LinComb<T> {
 
 impl<T: Field, U: Into<LinComb<T>>> From<U> for QuadComb<T> {
     fn from(x: U) -> QuadComb<T> {
-        QuadComb::from_linear_combinations(LinComb::one(), x.into())
+        QuadComb::new(LinComb::one(), x.into())
     }
 }
 
 impl<T: Field> fmt::Display for QuadComb<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}) * ({})", self.left, self.right,)
+        write!(
+            f,
+            "({}) * ({}) /* {} */",
+            self.left,
+            self.right,
+            self.span.map(|s| s.to_string()).unwrap_or(String::new())
+        )
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
-pub struct LinComb<T>(pub Vec<(Variable, T)>);
+pub struct LinComb<T> {
+    pub span: Option<Span>,
+    pub value: Vec<(Variable, T)>,
+}
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct CanonicalLinComb<T>(pub BTreeMap<Variable, T>);
+pub struct CanonicalLinComb<T> {
+    pub span: Option<Span>,
+    pub value: BTreeMap<Variable, T>,
+}
+
+impl<T> WithSpan for CanonicalLinComb<T> {
+    fn span(mut self, span: Option<Span>) -> Self {
+        self.span = span;
+        self
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct CanonicalQuadComb<T> {
+    span: Option<Span>,
     left: CanonicalLinComb<T>,
     right: CanonicalLinComb<T>,
+}
+
+impl<T> WithSpan for CanonicalQuadComb<T> {
+    fn span(mut self, span: Option<Span>) -> Self {
+        self.span = span;
+        self
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+impl<T> CanonicalQuadComb<T> {
+    pub fn new(left: CanonicalLinComb<T>, right: CanonicalLinComb<T>) -> Self {
+        Self {
+            span: None,
+            left,
+            right,
+        }
+    }
+}
+
+impl<T> QuadComb<T> {
+    pub fn new(left: LinComb<T>, right: LinComb<T>) -> Self {
+        Self {
+            span: None,
+            left,
+            right,
+        }
+    }
 }
 
 impl<T> From<CanonicalQuadComb<T>> for QuadComb<T> {
     fn from(q: CanonicalQuadComb<T>) -> Self {
         QuadComb {
+            span: q.span,
             left: q.left.into(),
             right: q.right.into(),
         }
@@ -77,42 +141,66 @@ impl<T> From<CanonicalQuadComb<T>> for QuadComb<T> {
 
 impl<T> From<CanonicalLinComb<T>> for LinComb<T> {
     fn from(l: CanonicalLinComb<T>) -> Self {
-        LinComb(l.0.into_iter().collect())
+        LinComb {
+            span: l.span,
+            value: l.value.into_iter().collect(),
+        }
+    }
+}
+
+impl<T> CanonicalLinComb<T> {
+    pub fn new(value: BTreeMap<Variable, T>) -> Self {
+        Self { span: None, value }
     }
 }
 
 impl<T> LinComb<T> {
+    pub fn new(value: Vec<(Variable, T)>) -> Self {
+        Self { span: None, value }
+    }
+
     pub fn summand<U: Into<T>>(mult: U, var: Variable) -> LinComb<T> {
         let res = vec![(var, mult.into())];
 
-        LinComb(res)
+        LinComb::new(res)
     }
 
     pub fn zero() -> LinComb<T> {
-        LinComb(Vec::new())
+        LinComb::new(Vec::new())
     }
 
     pub fn is_zero(&self) -> bool {
-        self.0.is_empty()
+        self.value.is_empty()
+    }
+}
+
+impl<T> WithSpan for LinComb<T> {
+    fn span(mut self, span: Option<Span>) -> Self {
+        self.span = span;
+        self
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
     }
 }
 
 impl<T: Field> LinComb<T> {
     pub fn try_constant(self) -> Result<T, Self> {
-        match self.0.len() {
+        match self.value.len() {
             // if the lincomb is empty, it is reduceable to 0
             0 => Ok(T::zero()),
             _ => {
                 // take the first variable in the lincomb
-                let first = &self.0[0].0;
+                let first = &self.value[0].0;
 
                 if first != &Variable::one() {
                     return Err(self);
                 }
 
                 // all terms must contain the same variable
-                if self.0.iter().all(|element| element.0 == *first) {
-                    Ok(self.0.into_iter().fold(T::zero(), |acc, e| acc + e.1))
+                if self.value.iter().all(|element| element.0 == *first) {
+                    Ok(self.value.into_iter().fold(T::zero(), |acc, e| acc + e.1))
                 } else {
                     Err(self)
                 }
@@ -121,26 +209,26 @@ impl<T: Field> LinComb<T> {
     }
 
     pub fn is_assignee(&self, witness: &Witness<T>) -> bool {
-        self.0.len() == 1
-            && self.0.get(0).unwrap().1 == T::from(1)
-            && !witness.0.contains_key(&self.0.get(0).unwrap().0)
+        self.value.len() == 1
+            && self.value.get(0).unwrap().1 == T::from(1)
+            && !witness.0.contains_key(&self.value.get(0).unwrap().0)
     }
 
     pub fn try_summand(self) -> Result<(Variable, T), Self> {
-        match self.0.len() {
+        match self.value.len() {
             // if the lincomb is empty, it is not reduceable to a summand
             0 => Err(self),
             _ => {
                 // take the first variable in the lincomb
-                let first = &self.0[0].0;
+                let first = &self.value[0].0;
 
-                if self.0.iter().all(|element|
+                if self.value.iter().all(|element|
                         // all terms must contain the same variable
                         element.0 == *first)
                 {
                     Ok((
                         *first,
-                        self.0.into_iter().fold(T::zero(), |acc, e| acc + e.1),
+                        self.value.into_iter().fold(T::zero(), |acc, e| acc + e.1),
                     ))
                 } else {
                     Err(self)
@@ -156,32 +244,31 @@ impl<T: Field> LinComb<T> {
 
 impl<T: Field> LinComb<T> {
     pub fn into_canonical(self) -> CanonicalLinComb<T> {
-        CanonicalLinComb(
-            self.0
-                .into_iter()
-                .fold(BTreeMap::new(), |mut acc, (val, coeff)| {
-                    // if we're adding 0 times some variable, we can ignore this term
-                    if coeff != T::zero() {
-                        match acc.entry(val) {
-                            Entry::Occupied(o) => {
-                                // if the new value is non zero, update, else remove the term entirely
-                                if o.get().clone() + coeff.clone() != T::zero() {
-                                    *o.into_mut() = o.get().clone() + coeff;
-                                } else {
-                                    o.remove();
-                                }
-                            }
-                            Entry::Vacant(v) => {
-                                // We checked earlier but let's make sure we're not creating zero-coeff terms
-                                assert!(coeff != T::zero());
-                                v.insert(coeff);
+        CanonicalLinComb::new(self.value.into_iter().fold(
+            BTreeMap::new(),
+            |mut acc, (val, coeff)| {
+                // if we're adding 0 times some variable, we can ignore this term
+                if coeff != T::zero() {
+                    match acc.entry(val) {
+                        Entry::Occupied(o) => {
+                            // if the new value is non zero, update, else remove the term entirely
+                            if o.get().clone() + coeff.clone() != T::zero() {
+                                *o.into_mut() = o.get().clone() + coeff;
+                            } else {
+                                o.remove();
                             }
                         }
+                        Entry::Vacant(v) => {
+                            // We checked earlier but let's make sure we're not creating zero-coeff terms
+                            assert!(coeff != T::zero());
+                            v.insert(coeff);
+                        }
                     }
+                }
 
-                    acc
-                }),
-        )
+                acc
+            },
+        ))
     }
 
     pub fn reduce(self) -> Self {
@@ -191,10 +278,8 @@ impl<T: Field> LinComb<T> {
 
 impl<T: Field> QuadComb<T> {
     pub fn into_canonical(self) -> CanonicalQuadComb<T> {
-        CanonicalQuadComb {
-            left: self.left.into_canonical(),
-            right: self.right.into_canonical(),
-        }
+        CanonicalQuadComb::new(self.left.into_canonical(), self.right.into_canonical())
+            .span(self.span)
     }
 
     pub fn reduce(self) -> Self {
@@ -209,7 +294,7 @@ impl<T: Field> fmt::Display for LinComb<T> {
             false => write!(
                 f,
                 "{}",
-                self.0
+                self.value
                     .iter()
                     .map(|(k, v)| format!("{} * {}", v.to_compact_dec_string(), k))
                     .collect::<Vec<_>>()
@@ -222,7 +307,7 @@ impl<T: Field> fmt::Display for LinComb<T> {
 impl<T: Field> From<Variable> for LinComb<T> {
     fn from(v: Variable) -> LinComb<T> {
         let r = vec![(v, T::one())];
-        LinComb(r)
+        LinComb::new(r)
     }
 }
 
@@ -230,9 +315,9 @@ impl<T: Field> Add<LinComb<T>> for LinComb<T> {
     type Output = LinComb<T>;
 
     fn add(self, other: LinComb<T>) -> LinComb<T> {
-        let mut res = self.0;
-        res.extend(other.0);
-        LinComb(res)
+        let mut res = self.value;
+        res.extend(other.value);
+        LinComb::new(res)
     }
 }
 
@@ -241,9 +326,14 @@ impl<T: Field> Sub<LinComb<T>> for LinComb<T> {
 
     fn sub(self, other: LinComb<T>) -> LinComb<T> {
         // Concatenate with second vector that have negative coeffs
-        let mut res = self.0;
-        res.extend(other.0.into_iter().map(|(var, val)| (var, T::zero() - val)));
-        LinComb(res)
+        let mut res = self.value;
+        res.extend(
+            other
+                .value
+                .into_iter()
+                .map(|(var, val)| (var, T::zero() - val)),
+        );
+        LinComb::new(res)
     }
 }
 
@@ -255,8 +345,8 @@ impl<T: Field> Mul<&T> for LinComb<T> {
             return self;
         }
 
-        LinComb(
-            self.0
+        LinComb::new(
+            self.value
                 .into_iter()
                 .map(|(var, coeff)| (var, coeff * scalar.clone()))
                 .collect(),

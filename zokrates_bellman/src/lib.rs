@@ -49,7 +49,8 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
     symbols: &mut BTreeMap<Variable, BellmanVariable>,
     witness: &mut Witness<T>,
 ) -> LinearCombination<T::BellmanEngine> {
-    l.0.into_iter()
+    l.value
+        .into_iter()
         .map(|(k, v)| {
             (
                 v.into_bellman(),

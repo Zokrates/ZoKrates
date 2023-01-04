@@ -5,7 +5,7 @@ use zokrates_ast::typed::{
     result_folder::{fold_statement, fold_uint_expression_inner},
     Constant, EmbedCall, TypedStatement, UBitwidth, UExpressionInner,
 };
-use zokrates_ast::typed::{DefinitionRhs, TypedProgram};
+use zokrates_ast::typed::{DefinitionRhs, TypedProgram, UExpression};
 use zokrates_field::Field;
 
 pub struct ConstantArgumentChecker;
@@ -78,12 +78,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
         e: UExpressionInner<'ast, T>,
     ) -> Result<UExpressionInner<'ast, T>, Error> {
         match e {
-            UExpressionInner::LeftShift(box e, box by) => {
-                let e = self.fold_uint_expression(e)?;
-                let by = self.fold_uint_expression(by)?;
+            UExpressionInner::LeftShift(e) => {
+                let left = self.fold_uint_expression(*e.left)?;
+                let right = self.fold_uint_expression(*e.right)?;
 
-                match by.as_inner() {
-                    UExpressionInner::Value(_) => Ok(UExpressionInner::LeftShift(box e, box by)),
+                match right.as_inner() {
+                    UExpressionInner::Value(_) => {
+                        Ok(UExpression::left_shift(left, right).into_inner())
+                    }
                     by => Err(Error(format!(
                         "Cannot shift by a variable value, found `{} << {}`",
                         e,
@@ -91,12 +93,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
                     ))),
                 }
             }
-            UExpressionInner::RightShift(box e, box by) => {
-                let e = self.fold_uint_expression(e)?;
-                let by = self.fold_uint_expression(by)?;
+            UExpressionInner::RightShift(e) => {
+                let left = self.fold_uint_expression(*e.left)?;
+                let right = self.fold_uint_expression(*e.right)?;
 
-                match by.as_inner() {
-                    UExpressionInner::Value(_) => Ok(UExpressionInner::RightShift(box e, box by)),
+                match right.as_inner() {
+                    UExpressionInner::Value(_) => {
+                        Ok(UExpression::right_shift(left, right).into_inner())
+                    }
                     by => Err(Error(format!(
                         "Cannot shift by a variable value, found `{} >> {}`",
                         e,

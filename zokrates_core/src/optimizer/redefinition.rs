@@ -77,8 +77,8 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     return vec![Statement::Constraint(quad, lin, message)];
                 }
 
-                let (constraint, to_insert, to_ignore) = match self.ignore.contains(&lin.0[0].0)
-                    || self.substitution.contains_key(&lin.0[0].0)
+                let (constraint, to_insert, to_ignore) = match self.ignore.contains(&lin.value[0].0)
+                    || self.substitution.contains_key(&lin.value[0].0)
                 {
                     true => (Some(Statement::Constraint(quad, lin, message)), None, None),
                     false => match lin.try_summand() {
@@ -175,14 +175,15 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
         match lc
-            .0
+            .value
             .iter()
             .any(|(variable, _)| self.substitution.get(variable).is_some())
         {
             true =>
             // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
             {
-                lc.0.into_iter()
+                lc.value
+                    .into_iter()
                     .map(|(variable, coefficient)| {
                         self.substitution
                             .get(&variable)
@@ -436,10 +437,7 @@ mod tests {
         let p: Prog<Bn128Field> = Prog {
             arguments: vec![x, y],
             statements: vec![
-                Statement::definition(
-                    z,
-                    QuadComb::from_linear_combinations(LinComb::from(x.id), LinComb::from(y.id)),
-                ),
+                Statement::definition(z, QuadComb::new(LinComb::from(x.id), LinComb::from(y.id))),
                 Statement::definition(z, LinComb::from(x.id)),
             ],
             return_count: 0,

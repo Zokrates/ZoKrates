@@ -10,6 +10,7 @@ use crate::untyped::{
     ConstantGenericNode, Expression,
 };
 use std::collections::HashMap;
+use std::ops::*;
 use zokrates_field::Field;
 
 cfg_if::cfg_if! {
@@ -363,7 +364,7 @@ pub fn sha256_round<T: Field>(
     // define a binding of the first variable in the constraint system to one
     let one_binding_statement = FlatStatement::Condition(
         Variable::new(0).into(),
-        FlatExpression::Number(T::from(1)),
+        FlatExpression::number(T::from(1)),
         RuntimeError::BellmanOneBinding,
     );
     let input_binding_statements =
@@ -384,13 +385,13 @@ pub fn sha256_round<T: Field>(
 
         FlatStatement::Condition(
             lhs,
-            FlatExpression::Mult(box rhs_a, box rhs_b),
+            FlatExpression::mul(rhs_a, rhs_b),
             RuntimeError::BellmanConstraint,
         )
     });
 
     // define which subset of the witness is returned
-    let outputs = output_indices.map(|o| FlatExpression::Identifier(Variable::new(o)));
+    let outputs = output_indices.map(|o| FlatExpression::identifier(Variable::new(o)));
     // insert a directive to set the witness based on the bellman gadget and  inputs
     let directive_statement = FlatStatement::Directive(FlatDirective {
         outputs: cs_indices.map(Variable::new).collect(),
@@ -459,8 +460,8 @@ pub fn snark_verify_bls12_377<T: Field>(
         .collect();
 
     let one_binding_statement = FlatStatement::Condition(
-        FlatExpression::Identifier(Variable::new(0)),
-        FlatExpression::Number(T::from(1)),
+        FlatExpression::identifier(Variable::new(0)),
+        FlatExpression::number(T::from(1)),
         RuntimeError::ArkOneBinding,
     );
 
@@ -492,7 +493,7 @@ pub fn snark_verify_bls12_377<T: Field>(
 
             FlatStatement::Condition(
                 lhs,
-                FlatExpression::Mult(box rhs_a, box rhs_b),
+                FlatExpression::mul(rhs_a, rhs_b),
                 RuntimeError::ArkConstraint,
             )
         })
@@ -500,7 +501,7 @@ pub fn snark_verify_bls12_377<T: Field>(
 
     let return_statement = FlatStatement::Definition(
         Variable::public(0),
-        FlatExpression::Identifier(Variable::new(out_index)),
+        FlatExpression::identifier(Variable::new(out_index)),
     );
 
     // insert a directive to set the witness
@@ -560,7 +561,7 @@ pub fn unpack_to_bitwidth<T: Field>(
 
     // o0, ..., o253 = ToBits(i0)
 
-    let directive_inputs = vec![FlatExpression::Identifier(use_variable(
+    let directive_inputs = vec![FlatExpression::identifier(use_variable(
         &mut layout,
         "i0".into(),
         &mut counter,
@@ -576,16 +577,16 @@ pub fn unpack_to_bitwidth<T: Field>(
     let outputs: Vec<_> = directive_outputs
         .iter()
         .enumerate()
-        .map(|(_, o)| FlatExpression::Identifier(*o))
+        .map(|(_, o)| FlatExpression::identifier(*o))
         .collect();
 
     // o253, o252, ... o{253 - (bit_width - 1)} are bits
     let mut statements: Vec<FlatStatement<T>> = (0..bit_width)
         .map(|index| {
-            let bit = FlatExpression::Identifier(Variable::new(bit_width - index));
+            let bit = FlatExpression::identifier(Variable::new(bit_width - index));
             FlatStatement::Condition(
                 bit.clone(),
-                FlatExpression::Mult(box bit.clone(), box bit.clone()),
+                FlatExpression::mul(bit.clone(), bit.clone()),
                 RuntimeError::Bitness,
             )
         })
@@ -594,15 +595,15 @@ pub fn unpack_to_bitwidth<T: Field>(
     // sum check: o253 + o252 * 2 + ... + o{253 - (bit_width - 1)} * 2**(bit_width - 1)
     let lhs_sum = flat_expression_from_bits(
         (0..bit_width)
-            .map(|i| FlatExpression::Identifier(Variable::new(i + 1)))
+            .map(|i| FlatExpression::identifier(Variable::new(i + 1)))
             .collect(),
     );
 
     statements.push(FlatStatement::Condition(
         lhs_sum,
-        FlatExpression::Mult(
-            box FlatExpression::Identifier(Variable::new(0)),
-            box FlatExpression::Number(T::from(1)),
+        FlatExpression::mul(
+            FlatExpression::identifier(Variable::new(0)),
+            FlatExpression::number(T::from(1)),
         ),
         RuntimeError::Sum,
     ));

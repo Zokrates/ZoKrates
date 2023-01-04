@@ -220,10 +220,7 @@ mod tests {
         #[test]
         fn print_constraint() {
             let c: Statement<Bn128Field> = Statement::Constraint(
-                QuadComb::from_linear_combinations(
-                    Variable::new(42).into(),
-                    Variable::new(42).into(),
-                ),
+                QuadComb::new(Variable::new(42).into(), Variable::new(42).into()),
                 Variable::new(42).into(),
                 None,
             );

@@ -12,6 +12,11 @@ use crate::common::FormatString;
 pub use crate::common::Parameter;
 pub use crate::common::RuntimeError;
 pub use crate::common::Variable;
+use crate::common::{
+    expressions::{BinaryExpression, IdentifierExpression, ValueExpression},
+    operators::*,
+};
+use crate::common::{Span, WithSpan};
 
 pub use utils::{
     flat_expression_from_bits, flat_expression_from_expression_summands,
@@ -212,52 +217,88 @@ impl<T: Field> fmt::Display for FlatDirective<T> {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum FlatExpression<T> {
-    Number(T),
-    Identifier(Variable),
-    Add(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
-    Sub(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
-    Mult(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
+    Number(ValueExpression<T>),
+    Identifier(IdentifierExpression<Variable, Self>),
+    Add(BinaryExpression<OpAdd, Self, Self, Self>),
+    Sub(BinaryExpression<OpSub, Self, Self, Self>),
+    Mult(BinaryExpression<OpMul, Self, Self, Self>),
+}
+
+impl<T> std::ops::Add for FlatExpression<T> {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self::Output {
+        FlatExpression::Add(BinaryExpression::new(self, other))
+    }
+}
+
+impl<T> std::ops::Sub for FlatExpression<T> {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self::Output {
+        FlatExpression::Sub(BinaryExpression::new(self, other))
+    }
+}
+
+impl<T> std::ops::Mul for FlatExpression<T> {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self::Output {
+        FlatExpression::Mult(BinaryExpression::new(self, other))
+    }
 }
 
 impl<T> From<T> for FlatExpression<T> {
     fn from(other: T) -> Self {
-        Self::Number(other)
+        Self::number(other)
     }
 }
 
-impl<T: Field> FlatExpression<T> {
-    pub fn apply_substitution(
-        self,
-        substitution: &HashMap<Variable, Variable>,
-    ) -> FlatExpression<T> {
+impl<T, Op> BinaryExpression<Op, FlatExpression<T>, FlatExpression<T>, FlatExpression<T>> {
+    fn apply_substitution(self, substitution: &HashMap<Variable, Variable>) -> Self {
+        let left = self.left.apply_substitution(substitution);
+        let right = self.right.apply_substitution(substitution);
+
+        Self::new(left, right).span(self.span)
+    }
+}
+
+impl<T> IdentifierExpression<Variable, FlatExpression<T>> {
+    fn apply_substitution(self, substitution: &HashMap<Variable, Variable>) -> Self {
+        let id = *self.id.apply_substitution(substitution);
+
+        IdentifierExpression { id, ..self }
+    }
+}
+
+impl<T> FlatExpression<T> {
+    pub fn identifier(v: Variable) -> Self {
+        Self::Identifier(IdentifierExpression::new(v))
+    }
+
+    pub fn number(t: T) -> Self {
+        Self::Number(ValueExpression::new(t))
+    }
+
+    pub fn apply_substitution(self, substitution: &HashMap<Variable, Variable>) -> Self {
         match self {
             e @ FlatExpression::Number(_) => e,
             FlatExpression::Identifier(id) => {
-                FlatExpression::Identifier(*id.apply_substitution(substitution))
+                FlatExpression::Identifier(id.apply_substitution(substitution))
             }
-            FlatExpression::Add(e1, e2) => FlatExpression::Add(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            FlatExpression::Sub(e1, e2) => FlatExpression::Sub(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            FlatExpression::Mult(e1, e2) => FlatExpression::Mult(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
+            FlatExpression::Add(e) => FlatExpression::Add(e.apply_substitution(substitution)),
+            FlatExpression::Sub(e) => FlatExpression::Sub(e.apply_substitution(substitution)),
+            FlatExpression::Mult(e) => FlatExpression::Mult(e.apply_substitution(substitution)),
         }
     }
 
     pub fn is_linear(&self) -> bool {
         match *self {
             FlatExpression::Number(_) | FlatExpression::Identifier(_) => true,
-            FlatExpression::Add(ref x, ref y) | FlatExpression::Sub(ref x, ref y) => {
-                x.is_linear() && y.is_linear()
-            }
-            FlatExpression::Mult(ref x, ref y) => matches!(
-                (x.clone(), y.clone()),
+            FlatExpression::Add(ref e) => e.left.is_linear() && e.right.is_linear(),
+            FlatExpression::Sub(ref e) => e.left.is_linear() && e.right.is_linear(),
+            FlatExpression::Mult(ref e) => matches!(
+                (&e.left, &e.right),
                 (box FlatExpression::Number(_), box FlatExpression::Number(_))
                     | (
                         box FlatExpression::Number(_),
@@ -277,16 +318,16 @@ impl<T: Field> fmt::Display for FlatExpression<T> {
         match *self {
             FlatExpression::Number(ref i) => write!(f, "{}", i),
             FlatExpression::Identifier(ref var) => write!(f, "{}", var),
-            FlatExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
-            FlatExpression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
-            FlatExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            FlatExpression::Add(ref e) => write!(f, "{}", e),
+            FlatExpression::Sub(ref e) => write!(f, "{}", e),
+            FlatExpression::Mult(ref e) => write!(f, "{}", e),
         }
     }
 }
 
 impl<T: Field> From<Variable> for FlatExpression<T> {
     fn from(v: Variable) -> FlatExpression<T> {
-        FlatExpression::Identifier(v)
+        FlatExpression::identifier(v)
     }
 }
 
@@ -298,5 +339,17 @@ pub struct Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.message)
+    }
+}
+
+impl<T> WithSpan for FlatExpression<T> {
+    fn span(self, span: Option<Span>) -> Self {
+        use FlatExpression::*;
+        match self {
+            Add(e) => Add(e.span(span)),
+            Sub(e) => Sub(e.span(span)),
+            Mult(e) => Mult(e.span(span)),
+            e => e,
+        }
     }
 }

@@ -1,5 +1,7 @@
+use crate::common::WithSpan;
 use crate::flat::{FlatDirective, FlatExpression, FlatProgIterator, FlatStatement, Variable};
 use crate::ir::{Directive, LinComb, ProgIterator, QuadComb, Statement};
+use std::ops::*;
 use zokrates_field::Field;
 
 impl<T: Field> QuadComb<T> {
@@ -8,9 +10,7 @@ impl<T: Field> QuadComb<T> {
         match flat_expression.is_linear() {
             true => LinComb::from(flat_expression).into(),
             false => match flat_expression {
-                FlatExpression::Mult(box e1, box e2) => {
-                    QuadComb::from_linear_combinations(e1.into(), e2.into())
-                }
+                FlatExpression::Mult(e) => QuadComb::new((*e.left).into(), (*e.right).into()),
                 e => unimplemented!("{}", e),
             },
         }
@@ -29,26 +29,26 @@ pub fn from_flat<T: Field, I: IntoIterator<Item = FlatStatement<T>>>(
 
 impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
     fn from(flat_expression: FlatExpression<T>) -> LinComb<T> {
+        let span = flat_expression.get_span();
+
         match flat_expression {
-            FlatExpression::Number(ref n) if *n == T::from(0) => LinComb::zero(),
-            FlatExpression::Number(n) => LinComb::summand(n, Variable::one()),
-            FlatExpression::Identifier(id) => LinComb::from(id),
-            FlatExpression::Add(box e1, box e2) => LinComb::from(e1) + LinComb::from(e2),
-            FlatExpression::Sub(box e1, box e2) => LinComb::from(e1) - LinComb::from(e2),
-            FlatExpression::Mult(
-                box FlatExpression::Number(n1),
-                box FlatExpression::Identifier(v1),
-            )
-            | FlatExpression::Mult(
-                box FlatExpression::Identifier(v1),
-                box FlatExpression::Number(n1),
-            ) => LinComb::summand(n1, v1),
-            FlatExpression::Mult(
-                box FlatExpression::Number(n1),
-                box FlatExpression::Number(n2),
-            ) => LinComb::summand(n1 * n2, Variable::one()),
-            e => unreachable!("{}", e),
+            FlatExpression::Number(ref n) if n.value == T::from(0) => LinComb::zero(),
+            FlatExpression::Number(n) => LinComb::summand(n.value, Variable::one()),
+            FlatExpression::Identifier(id) => LinComb::from(id.id),
+            FlatExpression::Add(e) => LinComb::from(*e.left) + LinComb::from(*e.right),
+            FlatExpression::Sub(e) => LinComb::from(*e.left) - LinComb::from(*e.right),
+            FlatExpression::Mult(e) => match (*e.left, *e.right) {
+                (FlatExpression::Number(n1), FlatExpression::Identifier(v1))
+                | (FlatExpression::Identifier(v1), FlatExpression::Number(n1)) => {
+                    LinComb::summand(n1.value, v1.id)
+                }
+                (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
+                    LinComb::summand(n1.value * n2.value, Variable::one())
+                }
+                (left, right) => unreachable!("{}", FlatExpression::mul(left, right).span(e.span)),
+            },
         }
+        .span(span)
     }
 }
 
@@ -56,16 +56,16 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
     fn from(flat_statement: FlatStatement<T>) -> Statement<T> {
         match flat_statement {
             FlatStatement::Condition(linear, quadratic, message) => match quadratic {
-                FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
-                    QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
-                    linear.into(),
+                FlatExpression::Mult(e) => Statement::Constraint(
+                    QuadComb::new((*e.left).into(), (*e.right).into()).span(dbg!(e.span)),
+                    LinComb::from(linear),
                     Some(message),
                 ),
                 e => Statement::Constraint(LinComb::from(e).into(), linear.into(), Some(message)),
             },
             FlatStatement::Definition(var, quadratic) => match quadratic {
-                FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
-                    QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
+                FlatExpression::Mult(e) => Statement::Constraint(
+                    QuadComb::new((*e.left).into(), (*e.right).into()).span(dbg!(e.span)),
                     var.into(),
                     None,
                 ),

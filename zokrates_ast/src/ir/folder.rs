@@ -1,7 +1,7 @@
 // Generic walk through an IR AST. Not mutating in place
 
 use super::*;
-use crate::common::Variable;
+use crate::common::{Variable, WithSpan};
 use zokrates_field::Field;
 
 pub trait Folder<T: Field>: Sized {
@@ -75,21 +75,24 @@ pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec
 }
 
 pub fn fold_linear_combination<T: Field, F: Folder<T>>(f: &mut F, e: LinComb<T>) -> LinComb<T> {
-    LinComb(
-        e.0.into_iter()
+    LinComb::new(
+        e.value
+            .into_iter()
             .map(|(variable, coefficient)| (f.fold_variable(variable), coefficient))
             .collect(),
     )
+    .span(e.span)
 }
 
 pub fn fold_quadratic_combination<T: Field, F: Folder<T>>(
     f: &mut F,
     e: QuadComb<T>,
 ) -> QuadComb<T> {
-    QuadComb {
-        left: f.fold_linear_combination(e.left),
-        right: f.fold_linear_combination(e.right),
-    }
+    QuadComb::new(
+        f.fold_linear_combination(e.left),
+        f.fold_linear_combination(e.right),
+    )
+    .span(e.span)
 }
 
 pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: Directive<T>) -> Directive<T> {

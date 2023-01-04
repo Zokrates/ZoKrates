@@ -44,7 +44,8 @@ fn ark_combination<T: Field + ArkFieldExtensions>(
     symbols: &mut BTreeMap<Variable, ArkVariable>,
     witness: &mut Witness<T>,
 ) -> LinearCombination<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr> {
-    l.0.into_iter()
+    l.value
+        .into_iter()
         .map(|(k, v)| {
             (
                 v.into_ark(),

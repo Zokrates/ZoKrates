@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::ops::*;
+use zokrates_ast::common::{ResultFold, WithSpan};
 use zokrates_ast::zir::types::UBitwidth;
 use zokrates_ast::zir::{
     result_folder::*, Conditional, ConditionalExpression, ConditionalOrExpression, Expr, Id,
@@ -126,7 +128,9 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         }
     }
 
-    fn fold_identifier_expression<E: Expr<'ast, T> + Id<'ast, T> + ResultFold<'ast, T>>(
+    fn fold_identifier_expression<
+        E: Expr<'ast, T> + Id<'ast, T> + ResultFold<Self, Self::Error>,
+    >(
         &mut self,
         _: &E::Ty,
         id: IdentifierExpression<'ast, E>,
@@ -143,87 +147,95 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
     ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
         match e {
             FieldElementExpression::Number(n) => Ok(FieldElementExpression::Number(n)),
-            FieldElementExpression::Add(box e1, box e2) => {
-                match (
-                    self.fold_field_expression(e1)?,
-                    self.fold_field_expression(e2)?,
-                ) {
+            FieldElementExpression::Add(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                Ok(match (left, right) {
                     (FieldElementExpression::Number(n), e)
                     | (e, FieldElementExpression::Number(n))
-                        if n == T::from(0) =>
+                        if n.value == T::from(0) =>
                     {
-                        Ok(e)
+                        e
                     }
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(FieldElementExpression::Number(n1 + n2))
+                        FieldElementExpression::number(n1.value + n2.value)
                     }
-                    (e1, e2) => Ok(FieldElementExpression::Add(box e1, box e2)),
+                    (e1, e2) => FieldElementExpression::add(e1, e2),
                 }
+                .span(e.span))
             }
-            FieldElementExpression::Sub(box e1, box e2) => {
-                match (
-                    self.fold_field_expression(e1)?,
-                    self.fold_field_expression(e2)?,
-                ) {
-                    (e, FieldElementExpression::Number(n)) if n == T::from(0) => Ok(e),
+            FieldElementExpression::Sub(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                Ok(match (left, right) {
+                    (FieldElementExpression::Number(n), e)
+                    | (e, FieldElementExpression::Number(n))
+                        if n.value == T::from(0) =>
+                    {
+                        e
+                    }
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(FieldElementExpression::Number(n1 - n2))
+                        FieldElementExpression::number(n1.value - n2.value)
                     }
-                    (e1, e2) => Ok(FieldElementExpression::Sub(box e1, box e2)),
+                    (e1, e2) => FieldElementExpression::sub(e1, e2),
                 }
+                .span(e.span))
             }
-            FieldElementExpression::Mult(box e1, box e2) => {
-                match (
-                    self.fold_field_expression(e1)?,
-                    self.fold_field_expression(e2)?,
-                ) {
+            FieldElementExpression::Mult(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                Ok(match (left, right) {
                     (FieldElementExpression::Number(n), _)
                     | (_, FieldElementExpression::Number(n))
-                        if n == T::from(0) =>
+                        if n.value == T::from(0) =>
                     {
-                        Ok(FieldElementExpression::Number(T::from(0)))
+                        FieldElementExpression::number(T::from(0))
                     }
                     (FieldElementExpression::Number(n), e)
                     | (e, FieldElementExpression::Number(n))
-                        if n == T::from(1) =>
+                        if n.value == T::from(1) =>
                     {
-                        Ok(e)
+                        e
                     }
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(FieldElementExpression::Number(n1 * n2))
+                        FieldElementExpression::number(n1.value * n2.value)
                     }
-                    (e1, e2) => Ok(FieldElementExpression::Mult(box e1, box e2)),
+                    (e1, e2) => FieldElementExpression::mul(e1, e2),
                 }
+                .span(e.span))
             }
-            FieldElementExpression::Div(box e1, box e2) => {
-                match (
-                    self.fold_field_expression(e1)?,
-                    self.fold_field_expression(e2)?,
-                ) {
-                    (_, FieldElementExpression::Number(n)) if n == T::from(0) => {
+            FieldElementExpression::Div(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                match (left, right) {
+                    (_, FieldElementExpression::Number(n)) if n.value == T::from(0) => {
                         Err(Error::DivisionByZero)
                     }
-                    (e, FieldElementExpression::Number(n)) if n == T::from(1) => Ok(e),
+                    (e, FieldElementExpression::Number(n)) if n.value == T::from(1) => Ok(e),
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(FieldElementExpression::Number(n1 / n2))
+                        Ok(FieldElementExpression::number(n1.value / n2.value).span(e.span))
                     }
-                    (e1, e2) => Ok(FieldElementExpression::Div(box e1, box e2)),
+                    (e1, e2) => Ok(FieldElementExpression::div(e1, e2).span(e.span)),
                 }
             }
             FieldElementExpression::Pow(box e, box exponent) => {
                 let exponent = self.fold_uint_expression(exponent)?;
                 match (self.fold_field_expression(e)?, exponent.into_inner()) {
                     (_, UExpressionInner::Value(n2)) if n2 == 0 => {
-                        Ok(FieldElementExpression::Number(T::from(1)))
+                        Ok(FieldElementExpression::number(T::from(1)))
                     }
                     (e, UExpressionInner::Value(n2)) if n2 == 1 => Ok(e),
                     (FieldElementExpression::Number(n), UExpressionInner::Value(e)) => {
-                        Ok(FieldElementExpression::Number(n.pow(e as usize)))
+                        Ok(FieldElementExpression::number(n.value.pow(e as usize)))
                     }
-                    (e, exp) => Ok(FieldElementExpression::Pow(
-                        box e,
-                        box exp.annotate(UBitwidth::B32),
-                    )),
+                    (e, exp) => {
+                        Ok(FieldElementExpression::pow(e, exp.annotate(UBitwidth::B32))
+                            .into_inner())
+                    }
                 }
             }
             e => fold_field_expression(self, e),
@@ -244,10 +256,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         Ok(BooleanExpression::Value(n1 < n2))
                     }
-                    (_, FieldElementExpression::Number(c)) if c == T::zero() => {
+                    (_, FieldElementExpression::Number(c)) if c.value == T::zero() => {
                         Ok(BooleanExpression::Value(false))
                     }
-                    (FieldElementExpression::Number(c), _) if c == T::max_value() => {
+                    (FieldElementExpression::Number(c), _) if c.value == T::max_value() => {
                         Ok(BooleanExpression::Value(false))
                     }
                     (e1, e2) => Ok(BooleanExpression::FieldLt(box e1, box e2)),
@@ -377,7 +389,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
     }
 
     fn fold_select_expression<
-        E: Clone + Expr<'ast, T> + ResultFold<'ast, T> + zokrates_ast::zir::Select<'ast, T>,
+        E: Clone + Expr<'ast, T> + ResultFold<Self, Self::Error> + zokrates_ast::zir::Select<'ast, T>,
     >(
         &mut self,
         _: &E::Ty,
@@ -409,24 +421,25 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
     ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
         match e {
             UExpressionInner::Value(v) => Ok(UExpressionInner::Value(v)),
-            UExpressionInner::Add(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            UExpressionInner::Add(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
                     (UExpressionInner::Value(0), e) | (e, UExpressionInner::Value(0)) => Ok(e),
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => Ok(
                         UExpressionInner::Value((n1 + n2) % 2_u128.pow(bitwidth.to_usize() as u32)),
                     ),
-                    (e1, e2) => Ok(UExpressionInner::Add(
-                        box e1.annotate(bitwidth),
-                        box e2.annotate(bitwidth),
-                    )),
+                    (e1, e2) => Ok(UExpressionInner::add(
+                        e1.annotate(bitwidth),
+                        e2.annotate(bitwidth),
+                    )
+                    .into_inner()),
                 }
             }
-            UExpressionInner::Sub(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            UExpressionInner::Sub(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
                     (e, UExpressionInner::Value(0)) => Ok(e),
@@ -435,15 +448,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                             n1.wrapping_sub(n2) % 2_u128.pow(bitwidth.to_usize() as u32),
                         ))
                     }
-                    (e1, e2) => Ok(UExpressionInner::Sub(
-                        box e1.annotate(bitwidth),
-                        box e2.annotate(bitwidth),
-                    )),
+                    (e1, e2) => Ok(
+                        UExpression::sub(e1.annotate(bitwidth), e2.annotate(bitwidth)).into_inner(),
+                    ),
                 }
             }
-            UExpressionInner::Mult(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            UExpressionInner::Mult(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
                     (_, UExpressionInner::Value(0)) | (UExpressionInner::Value(0), _) => {
@@ -453,15 +465,15 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => Ok(
                         UExpressionInner::Value((n1 * n2) % 2_u128.pow(bitwidth.to_usize() as u32)),
                     ),
-                    (e1, e2) => Ok(UExpressionInner::Mult(
-                        box e1.annotate(bitwidth),
-                        box e2.annotate(bitwidth),
-                    )),
+                    (e1, e2) => Ok(
+                        UExpression::mult(e1.annotate(bitwidth), e2.annotate(bitwidth))
+                            .into_inner(),
+                    ),
                 }
             }
-            UExpressionInner::Div(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            UExpressionInner::Div(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
                     (_, UExpressionInner::Value(n)) if n == 0 => Err(Error::DivisionByZero),
@@ -469,44 +481,43 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => Ok(
                         UExpressionInner::Value((n1 / n2) % 2_u128.pow(bitwidth.to_usize() as u32)),
                     ),
-                    (e1, e2) => Ok(UExpressionInner::Div(
-                        box e1.annotate(bitwidth),
-                        box e2.annotate(bitwidth),
-                    )),
+                    (e1, e2) => Ok(
+                        UExpression::div(e1.annotate(bitwidth), e2.annotate(bitwidth)).into_inner(),
+                    ),
                 }
             }
-            UExpressionInner::Rem(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            UExpressionInner::Rem(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => Ok(
                         UExpressionInner::Value((n1 % n2) % 2_u128.pow(bitwidth.to_usize() as u32)),
                     ),
-                    (e1, e2) => Ok(UExpressionInner::Rem(
-                        box e1.annotate(bitwidth),
-                        box e2.annotate(bitwidth),
-                    )),
+                    (e1, e2) => Ok(
+                        UExpression::rem(e1.annotate(bitwidth), e2.annotate(bitwidth)).into_inner(),
+                    ),
                 }
             }
-            UExpressionInner::Xor(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            UExpressionInner::Xor(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
                         Ok(UExpressionInner::Value(n1 ^ n2))
                     }
                     (e1, e2) if e1.eq(&e2) => Ok(UExpressionInner::Value(0)),
-                    (e1, e2) => Ok(UExpressionInner::Xor(
-                        box e1.annotate(bitwidth),
-                        box e2.annotate(bitwidth),
-                    )),
+                    (e1, e2) => Ok(UExpressionInner::xor(
+                        e1.annotate(bitwidth),
+                        e2.annotate(bitwidth),
+                    )
+                    .into_inner()),
                 }
             }
-            UExpressionInner::And(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            UExpressionInner::And(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
                     (e, UExpressionInner::Value(n)) | (UExpressionInner::Value(n), e)
@@ -520,15 +531,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
                         Ok(UExpressionInner::Value(n1 & n2))
                     }
-                    (e1, e2) => Ok(UExpressionInner::And(
-                        box e1.annotate(bitwidth),
-                        box e2.annotate(bitwidth),
-                    )),
+                    (e1, e2) => Ok(
+                        UExpression::and(e1.annotate(bitwidth), e2.annotate(bitwidth)).into_inner(),
+                    ),
                 }
             }
-            UExpressionInner::Or(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            UExpressionInner::Or(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
                     (e, UExpressionInner::Value(0)) | (UExpressionInner::Value(0), e) => Ok(e),
@@ -540,30 +550,45 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
                         Ok(UExpressionInner::Value(n1 | n2))
                     }
-                    (e1, e2) => Ok(UExpressionInner::Or(
-                        box e1.annotate(bitwidth),
-                        box e2.annotate(bitwidth),
-                    )),
+                    (e1, e2) => Ok(
+                        UExpression::or(e1.annotate(bitwidth), e2.annotate(bitwidth)).into_inner(),
+                    ),
                 }
             }
-            UExpressionInner::LeftShift(box e, by) => {
-                let e = self.fold_uint_expression(e)?;
-                match (e.into_inner(), by) {
-                    (e, 0) => Ok(e),
-                    (_, by) if by >= bitwidth as u32 => Ok(UExpressionInner::Value(0)),
-                    (UExpressionInner::Value(n), by) => Ok(UExpressionInner::Value(
-                        (n << by) & (2_u128.pow(bitwidth as u32) - 1),
-                    )),
-                    (e, by) => Ok(UExpressionInner::LeftShift(box e.annotate(bitwidth), by)),
+            UExpressionInner::LeftShift(e) => {
+                let left = self.fold_uint_expression(*e.left)?;
+                let right = self.fold_uint_expression(*e.right)?;
+                match (left.into_inner(), right.into_inner()) {
+                    (e, UExpressionInner::Value(by)) if by.value == 0 => Ok(e),
+                    (_, UExpressionInner::Value(by)) if by.value >= bitwidth as u32 => {
+                        Ok(UExpressionInner::Value(0))
+                    }
+                    (UExpressionInner::Value(n), UExpressionInner::Value(by)) => {
+                        Ok(UExpressionInner::Value(
+                            (n << by.value) & (2_u128.pow(bitwidth as u32) - 1),
+                        ))
+                    }
+                    (e, by) => Ok(UExpression::left_shift(
+                        e.annotate(bitwidth),
+                        by.annotate(UBitwidth::B32),
+                    )
+                    .into_inner()),
                 }
             }
-            UExpressionInner::RightShift(box e, by) => {
-                let e = self.fold_uint_expression(e)?;
-                match (e.into_inner(), by) {
-                    (e, 0) => Ok(e),
-                    (_, by) if by >= bitwidth as u32 => Ok(UExpressionInner::Value(0)),
-                    (UExpressionInner::Value(n), by) => Ok(UExpressionInner::Value(n >> by)),
-                    (e, by) => Ok(UExpressionInner::RightShift(box e.annotate(bitwidth), by)),
+            UExpressionInner::RightShift(e) => {
+                let left = self.fold_uint_expression(*e.left)?;
+                let right = self.fold_uint_expression(*e.right)?;
+                match (left.into_inner(), right.into_inner()) {
+                    (e, UExpressionInner::Value(by)) if by.value == 0 => Ok(e),
+                    (_, UExpressionInner::Value(by)) if by.value >= bitwidth as u32 => {
+                        Ok(UExpressionInner::Value(0))
+                    }
+                    (UExpressionInner::Value(n), by) => Ok(UExpressionInner::Value(n >> by.value)),
+                    (e, by) => Ok(UExpression::right_shift(
+                        e.annotate(bitwidth),
+                        by.annotate(UBitwidth::B32),
+                    )
+                    .into_inner()),
                 }
             }
             UExpressionInner::Not(box e) => {
@@ -580,7 +605,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
     }
 
     fn fold_conditional_expression<
-        E: Expr<'ast, T> + ResultFold<'ast, T> + Conditional<'ast, T>,
+        E: Expr<'ast, T> + ResultFold<Self, Self::Error> + Conditional<'ast, T>,
     >(
         &mut self,
         _: &E::Ty,

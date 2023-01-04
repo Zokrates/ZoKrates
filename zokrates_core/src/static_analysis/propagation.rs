@@ -10,8 +10,8 @@
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use zokrates_ast::common::operators::Operator;
-use zokrates_ast::common::FlatEmbed;
+use zokrates_ast::common::expressions::{BinaryExpression, BinaryOrExpression, ValueExpression};
+use zokrates_ast::common::{FlatEmbed, ResultFold, WithSpan};
 use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::Type;
 use zokrates_ast::typed::*;
@@ -87,7 +87,7 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                         UExpressionInner::Value(n) => match constant {
                             TypedExpression::Array(a) => match a.as_inner_mut() {
                                 ArrayExpressionInner::Value(value) => {
-                                    match value.0.get_mut(*n as usize) {
+                                    match value.value.get_mut(*n as usize) {
                                         Some(TypedExpressionOrSpread::Expression(ref mut e)) => {
                                             Ok((variable, e))
                                         }
@@ -188,7 +188,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
     }
 
     fn fold_conditional_expression<
-        E: Expr<'ast, T> + Conditional<'ast, T> + PartialEq + ResultFold<'ast, T>,
+        E: Expr<'ast, T> + Conditional<'ast, T> + PartialEq + ResultFold<Self, Self::Error>,
     >(
         &mut self,
         _: &E::Ty,
@@ -200,10 +200,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 e.consequence.fold(self)?,
                 e.alternative.fold(self)?,
             ) {
-                (BooleanExpression::Value(true), consequence, _) => {
+                (BooleanExpression::Value(v), consequence, _) if v.value => {
                     ConditionalOrExpression::Expression(consequence.into_inner())
                 }
-                (BooleanExpression::Value(false), _, alternative) => {
+                (BooleanExpression::Value(v), _, alternative) if !v.value => {
                     ConditionalOrExpression::Expression(alternative.into_inner())
                 }
                 (_, consequence, alternative) if consequence == alternative => {
@@ -316,7 +316,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             })
                             .enumerate()
                             .fold(0, |acc, (i, v)| {
-                                if v {
+                                if v.value {
                                     acc + 2u128.pow(
                                         (bitwidth.to_usize() - i - 1)
                                             .try_into()
@@ -344,7 +344,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         .into_inner()
                     {
                         UExpressionInner::Value(v) => {
-                            let mut num = v;
+                            let mut num = v.value;
                             let mut res = vec![];
 
                             for i in (0..bitwidth as u32).rev() {
@@ -359,7 +359,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                             ArrayExpressionInner::Value(
                                 res.into_iter()
-                                    .map(|v| BooleanExpression::Value(v).into())
+                                    .map(|v| BooleanExpression::from_value(v).into())
                                     .collect::<Vec<_>>()
                                     .into(),
                             )
@@ -526,10 +526,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 let e_str = e.to_string();
                 let expr = self.fold_boolean_expression(e)?;
                 match expr {
-                    BooleanExpression::Value(false) => {
+                    BooleanExpression::Value(v) if v.value => {
                         Err(Error::AssertionFailed(format!("{}: ({})", ty, e_str)))
                     }
-                    BooleanExpression::Value(true) => Ok(vec![]),
+                    BooleanExpression::Value(v) if !v.value => Ok(vec![]),
                     _ => Ok(vec![TypedStatement::Assertion(expr, ty)]),
                 }
             }
@@ -545,72 +545,76 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         e: UExpressionInner<'ast, T>,
     ) -> Result<UExpressionInner<'ast, T>, Error> {
         match e {
-            UExpressionInner::Add(box e1, box e2) => match (
-                self.fold_uint_expression(e1)?.into_inner(),
-                self.fold_uint_expression(e2)?.into_inner(),
+            UExpressionInner::Add(e) => match (
+                self.fold_uint_expression(*e.left)?.into_inner(),
+                self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     Ok(UExpressionInner::Value(
-                        (v1 + v2) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
+                        (v1.value + v2.value) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     ))
                 }
-                (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => match v {
-                    0 => Ok(e),
-                    _ => Ok(UExpressionInner::Add(
-                        box e.annotate(bitwidth),
-                        box UExpressionInner::Value(v).annotate(bitwidth),
-                    )),
-                },
-                (e1, e2) => Ok(UExpressionInner::Add(
-                    box e1.annotate(bitwidth),
-                    box e2.annotate(bitwidth),
+                (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => {
+                    match v.value {
+                        0 => Ok(e),
+                        _ => Ok(UExpression::add(
+                            e.annotate(bitwidth),
+                            UExpression::from_value(v).annotate(bitwidth),
+                        )),
+                    }
+                }
+                (e1, e2) => Ok(UExpression::add(
+                    e1.annotate(bitwidth),
+                    e2.annotate(bitwidth),
                 )),
             },
-            UExpressionInner::Sub(box e1, box e2) => match (
-                self.fold_uint_expression(e1)?.into_inner(),
-                self.fold_uint_expression(e2)?.into_inner(),
+            UExpressionInner::Sub(e) => match (
+                self.fold_uint_expression(*e.left)?.into_inner(),
+                self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     Ok(UExpressionInner::Value(
-                        (v1.wrapping_sub(v2)) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
+                        (v1.value.wrapping_sub(v2.value))
+                            % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
+                    ))
+                }
+                (e, UExpressionInner::Value(v)) => match v.value {
+                    0 => Ok(e),
+                    _ => Ok(UExpression::sub(
+                        e.annotate(bitwidth),
+                        UExpressionInner::Value(v).annotate(bitwidth),
+                    )),
+                },
+                (e1, e2) => Ok(UExpression::sub(
+                    e1.annotate(bitwidth),
+                    e2.annotate(bitwidth),
+                )),
+            },
+            UExpressionInner::FloorSub(e) => match (
+                self.fold_uint_expression(*e.left)?.into_inner(),
+                self.fold_uint_expression(*e.right)?.into_inner(),
+            ) {
+                (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
+                    Ok(UExpressionInner::Value(
+                        v1.value.saturating_sub(v2.value)
+                            % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     ))
                 }
                 (e, UExpressionInner::Value(v)) => match v {
                     0 => Ok(e),
-                    _ => Ok(UExpressionInner::Sub(
-                        box e.annotate(bitwidth),
-                        box UExpressionInner::Value(v).annotate(bitwidth),
+                    _ => Ok(UExpression::floor_sub(
+                        e.annotate(bitwidth),
+                        UExpressionInner::Value(v).annotate(bitwidth),
                     )),
                 },
-                (e1, e2) => Ok(UExpressionInner::Sub(
-                    box e1.annotate(bitwidth),
-                    box e2.annotate(bitwidth),
+                (e1, e2) => Ok(UExpression::sub(
+                    e1.annotate(bitwidth),
+                    e2.annotate(bitwidth),
                 )),
             },
-            UExpressionInner::FloorSub(box e1, box e2) => match (
-                self.fold_uint_expression(e1)?.into_inner(),
-                self.fold_uint_expression(e2)?.into_inner(),
-            ) {
-                (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    Ok(UExpressionInner::Value(
-                        v1.saturating_sub(v2) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
-                    ))
-                }
-                (e, UExpressionInner::Value(v)) => match v {
-                    0 => Ok(e),
-                    _ => Ok(UExpressionInner::FloorSub(
-                        box e.annotate(bitwidth),
-                        box UExpressionInner::Value(v).annotate(bitwidth),
-                    )),
-                },
-                (e1, e2) => Ok(UExpressionInner::Sub(
-                    box e1.annotate(bitwidth),
-                    box e2.annotate(bitwidth),
-                )),
-            },
-            UExpressionInner::Mult(box e1, box e2) => match (
-                self.fold_uint_expression(e1)?.into_inner(),
-                self.fold_uint_expression(e2)?.into_inner(),
+            UExpressionInner::Mult(e) => match (
+                self.fold_uint_expression(*e.left)?.into_inner(),
+                self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     Ok(UExpressionInner::Value(
@@ -630,13 +634,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     box e2.annotate(bitwidth),
                 )),
             },
-            UExpressionInner::Div(box e1, box e2) => match (
-                self.fold_uint_expression(e1)?.into_inner(),
-                self.fold_uint_expression(e2)?.into_inner(),
+            UExpressionInner::Div(e) => match (
+                self.fold_uint_expression(*e.left)?.into_inner(),
+                self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     Ok(UExpressionInner::Value(
-                        (v1 / v2) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
+                        (v1.value / v2.value) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     ))
                 }
                 (e, UExpressionInner::Value(v)) => match v {
@@ -651,9 +655,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     box e2.annotate(bitwidth),
                 )),
             },
-            UExpressionInner::Rem(box e1, box e2) => match (
-                self.fold_uint_expression(e1)?.into_inner(),
-                self.fold_uint_expression(e2)?.into_inner(),
+            UExpressionInner::Rem(e) => match (
+                self.fold_uint_expression(*e.left)?.into_inner(),
+                self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     Ok(UExpressionInner::Value(
@@ -672,65 +676,70 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     box e2.annotate(bitwidth),
                 )),
             },
-            UExpressionInner::RightShift(box e, box by) => {
-                let e = self.fold_uint_expression(e)?;
-                let by = self.fold_uint_expression(by)?;
-                match (e.into_inner(), by.into_inner()) {
+            UExpressionInner::RightShift(e) => {
+                let left = self.fold_uint_expression(*e.left)?;
+                let right = self.fold_uint_expression(*e.right)?;
+                match (left.into_inner(), right.into_inner()) {
                     (UExpressionInner::Value(v), UExpressionInner::Value(by)) => {
-                        Ok(UExpressionInner::Value(v >> by))
+                        Ok(UExpressionInner::from_value(v >> by))
                     }
-                    (e, by) => Ok(UExpressionInner::RightShift(
-                        box e.annotate(bitwidth),
-                        box by.annotate(UBitwidth::B32),
+                    (e, by) => Ok(UExpression::right_shift(
+                        e.annotate(bitwidth),
+                        by.annotate(UBitwidth::B32),
                     )),
                 }
             }
-            UExpressionInner::LeftShift(box e, box by) => {
-                let e = self.fold_uint_expression(e)?;
-                let by = self.fold_uint_expression(by)?;
+            UExpressionInner::LeftShift(e) => {
+                let left = self.fold_uint_expression(*e.left)?;
+                let right = self.fold_uint_expression(*e.right)?;
                 match (e.into_inner(), by.into_inner()) {
                     (UExpressionInner::Value(v), UExpressionInner::Value(by)) => Ok(
                         UExpressionInner::Value((v << by) & (2_u128.pow(bitwidth as u32) - 1)),
                     ),
-                    (e, by) => Ok(UExpressionInner::LeftShift(
-                        box e.annotate(bitwidth),
-                        box by.annotate(UBitwidth::B32),
+                    (e, by) => Ok(UExpression::left_shift(
+                        e.annotate(bitwidth),
+                        by.annotate(UBitwidth::B32),
                     )),
                 }
             }
-            UExpressionInner::Xor(box e1, box e2) => match (
-                self.fold_uint_expression(e1)?.into_inner(),
-                self.fold_uint_expression(e2)?.into_inner(),
+            UExpressionInner::Xor(e) => match (
+                self.fold_uint_expression(*e.left)?.into_inner(),
+                self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    Ok(UExpressionInner::Value(v1 ^ v2))
+                    Ok(UExpressionInner::Value(v1.value ^ v2.value))
                 }
-                (UExpressionInner::Value(0), e2) => Ok(e2),
-                (e1, UExpressionInner::Value(0)) => Ok(e1),
+                (UExpressionInner::Value(v), e2) | (e2, UExpressionInner::Value(v))
+                    if v.value == 0 =>
+                {
+                    Ok(e2)
+                }
                 (e1, e2) => {
                     if e1 == e2 {
-                        Ok(UExpressionInner::Value(0))
+                        Ok(UExpression::from_value(0))
                     } else {
-                        Ok(UExpressionInner::Xor(
-                            box e1.annotate(bitwidth),
-                            box e2.annotate(bitwidth),
+                        Ok(UExpression::xor(
+                            e1.annotate(bitwidth),
+                            e2.annotate(bitwidth),
                         ))
                     }
                 }
             },
-            UExpressionInner::And(box e1, box e2) => match (
-                self.fold_uint_expression(e1)?.into_inner(),
-                self.fold_uint_expression(e2)?.into_inner(),
+            UExpressionInner::And(e) => match (
+                self.fold_uint_expression(*e.left)?.into_inner(),
+                self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    Ok(UExpressionInner::Value(v1 & v2))
+                    Ok(UExpression::from_value(v1.value & v2.value))
                 }
-                (UExpressionInner::Value(0), _) | (_, UExpressionInner::Value(0)) => {
-                    Ok(UExpressionInner::Value(0))
+                (UExpressionInner::Value(v), _) | (_, UExpressionInner::Value(v))
+                    if v.value == 0 =>
+                {
+                    Ok(UExpression::from_value(0))
                 }
-                (e1, e2) => Ok(UExpressionInner::And(
-                    box e1.annotate(bitwidth),
-                    box e2.annotate(bitwidth),
+                (e1, e2) => Ok(UExpression::and(
+                    e1.annotate(bitwidth),
+                    e2.annotate(bitwidth),
                 )),
             },
             UExpressionInner::Not(box e) => {
@@ -745,8 +754,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
             UExpressionInner::Neg(box e) => {
                 let e = self.fold_uint_expression(e)?.into_inner();
                 match e {
-                    UExpressionInner::Value(v) => Ok(UExpressionInner::Value(
-                        (0u128.wrapping_sub(v))
+                    UExpressionInner::Value(v) => Ok(UExpression::from_value(
+                        (0u128.wrapping_sub(v.value))
                             % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     )),
                     e => Ok(UExpressionInner::Neg(box e.annotate(bitwidth))),
@@ -763,32 +772,59 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         }
     }
 
-    fn fold_binary_expression<
-        L: Expr<'ast, T> + PartialEq + ResultFold<'ast, T>,
-        R: Expr<'ast, T> + PartialEq + ResultFold<'ast, T>,
-        E: Expr<'ast, T> + PartialEq + ResultFold<'ast, T>,
-        Op: Operator<L, R, E>,
-    >(
-        &mut self,
-        _: &E::Ty,
-        e: BinaryExpression<Op, L, R, E>,
-    ) -> Result<BinaryOrExpression<'ast, T, L, R, E, Op>, Self::Error> {
-        let left = e.left.fold(self)?;
-        let right = e.right.fold(self)?;
-
-        Ok(match (left.as_value(), right.as_value()) {
-            (Some(left), Some(right)) => BinaryOrExpression::Expression(
-                E::from_value(Op::apply(left.clone(), right.clone())).span(e.span),
-            ),
-            _ => BinaryOrExpression::Binary(BinaryExpression::new(left, right).span(e.span)),
-        })
-    }
-
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> Result<FieldElementExpression<'ast, T>, Error> {
         match e {
+            FieldElementExpression::Add(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                Ok(match (left, right) {
+                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
+                        FieldElementExpression::Number(ValueExpression::new(n1.value + n2.value))
+                    }
+                    (e1, e2) => e1 + e2,
+                }
+                .span(e.span))
+            }
+            FieldElementExpression::Sub(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                Ok(match (left, right) {
+                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
+                        FieldElementExpression::Number(ValueExpression::new(n1.value - n2.value))
+                    }
+                    (e1, e2) => e1 - e2,
+                }
+                .span(e.span))
+            }
+            FieldElementExpression::Mult(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                Ok(match (left, right) {
+                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
+                        FieldElementExpression::Number(ValueExpression::new(n1.value * n2.value))
+                    }
+                    (e1, e2) => e1 * e2,
+                }
+                .span(e.span))
+            }
+            FieldElementExpression::Div(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                Ok(match (left, right) {
+                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
+                        FieldElementExpression::Number(ValueExpression::new(n1.value / n2.value))
+                    }
+                    (e1, e2) => e1 / e2,
+                }
+                .span(e.span))
+            }
             FieldElementExpression::Neg(box e) => match self.fold_field_expression(e)? {
                 FieldElementExpression::Number(n) => {
                     Ok(FieldElementExpression::from_value(T::zero() - n.value))
@@ -799,19 +835,19 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 FieldElementExpression::Number(n) => Ok(FieldElementExpression::Number(n)),
                 e => Ok(FieldElementExpression::Pos(box e)),
             },
-            FieldElementExpression::Pow(box e1, box e2) => {
-                let e1 = self.fold_field_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            FieldElementExpression::Pow(e) => {
+                let e1 = self.fold_field_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
                 match (e1, e2.into_inner()) {
-                    (_, UExpressionInner::Value(ref n2)) if *n2 == 0 => {
+                    (_, UExpressionInner::Value(ref n2)) if n2.value == 0 => {
                         Ok(FieldElementExpression::from_value(T::from(1)))
                     }
                     (FieldElementExpression::Number(n1), UExpressionInner::Value(n2)) => Ok(
-                        FieldElementExpression::from_value(n1.value.pow(n2 as usize)),
+                        FieldElementExpression::from_value(n1.value.pow(n2.value as usize)),
                     ),
-                    (e1, UExpressionInner::Value(n2)) => Ok(FieldElementExpression::Pow(
-                        box e1,
-                        box UExpressionInner::Value(n2).annotate(UBitwidth::B32),
+                    (e1, UExpressionInner::Value(n2)) => Ok(FieldElementExpression::pow(
+                        e1,
+                        UExpression::from_value(n2).annotate(UBitwidth::B32),
                     )),
                     (_, e2) => Err(Error::NonConstantExponent(
                         e2.annotate(UBitwidth::B32).to_string(),
@@ -1015,7 +1051,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         }
     }
 
-    fn fold_identifier_expression<E: Expr<'ast, T> + Id<'ast, T> + ResultFold<'ast, T>>(
+    fn fold_identifier_expression<
+        E: Expr<'ast, T> + Id<'ast, T> + ResultFold<Self, Self::Error>,
+    >(
         &mut self,
         _: &E::Ty,
         id: IdentifierExpression<'ast, E>,
@@ -1053,10 +1091,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
     }
 
     fn fold_eq_expression<
-        E: Expr<'ast, T> + PartialEq + Constant + Typed<'ast, T> + ResultFold<'ast, T>,
+        E: Expr<'ast, T> + PartialEq + Constant + Typed<'ast, T> + ResultFold<Self, Self::Error>,
     >(
         &mut self,
-        e: EqExpression<E>,
+        e: BinaryExpression<E>,
     ) -> Result<EqOrBoolean<'ast, T, E>, Self::Error> {
         let left = e.left.fold(self)?;
         let right = e.right.fold(self)?;
@@ -1087,7 +1125,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 left == right,
             )))
         } else {
-            Ok(EqOrBoolean::Eq(EqExpression::new(left, right)))
+            Ok(EqOrBoolean::Eq(BinaryExpression::new(left, right)))
         }
     }
 
@@ -1101,139 +1139,147 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         // These kind of reduction rules are easier to apply later in the process, when we have canonical representations
         // of expressions, ie `a + a` would always be written `2 * a`
         match e {
-            BooleanExpression::FieldLt(box e1, box e2) => {
-                let e1 = self.fold_field_expression(e1)?;
-                let e2 = self.fold_field_expression(e2)?;
+            BooleanExpression::FieldLt(e) => {
+                let e1 = self.fold_field_expression(*e.left)?;
+                let e2 = self.fold_field_expression(*e.right)?;
 
                 match (e1, e2) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(BooleanExpression::Value(n1 < n2))
+                        Ok(BooleanExpression::Value(n1.value < n2.value))
                     }
-                    (e1, e2) => Ok(BooleanExpression::FieldLt(box e1, box e2)),
+                    (e1, e2) => Ok(BooleanExpression::field_lt(e1, e2)),
                 }
             }
-            BooleanExpression::FieldLe(box e1, box e2) => {
-                let e1 = self.fold_field_expression(e1)?;
-                let e2 = self.fold_field_expression(e2)?;
+            BooleanExpression::FieldLe(e) => {
+                let e1 = self.fold_field_expression(*e.left)?;
+                let e2 = self.fold_field_expression(*e.right)?;
 
                 match (e1, e2) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(BooleanExpression::Value(n1 <= n2))
+                        Ok(BooleanExpression::Value(n1.value <= n2.value))
                     }
-                    (e1, e2) => Ok(BooleanExpression::FieldLe(box e1, box e2)),
+                    (e1, e2) => Ok(BooleanExpression::field_le(e1, e2)),
                 }
             }
-            BooleanExpression::FieldGt(box e1, box e2) => {
-                let e1 = self.fold_field_expression(e1)?;
-                let e2 = self.fold_field_expression(e2)?;
+            BooleanExpression::FieldGt(e) => {
+                let e1 = self.fold_field_expression(*e.left)?;
+                let e2 = self.fold_field_expression(*e.right)?;
 
                 match (e1, e2) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(BooleanExpression::Value(n1 > n2))
+                        Ok(BooleanExpression::Value(n1.value > n2.value))
                     }
-                    (e1, e2) => Ok(BooleanExpression::FieldGt(box e1, box e2)),
+                    (e1, e2) => Ok(BooleanExpression::field_gt(e1, e2)),
                 }
             }
-            BooleanExpression::FieldGe(box e1, box e2) => {
-                let e1 = self.fold_field_expression(e1)?;
-                let e2 = self.fold_field_expression(e2)?;
+            BooleanExpression::FieldGe(e) => {
+                let e1 = self.fold_field_expression(*e.left)?;
+                let e2 = self.fold_field_expression(*e.right)?;
 
                 match (e1, e2) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(BooleanExpression::Value(n1 >= n2))
+                        Ok(BooleanExpression::Value(n1.value >= n2.value))
                     }
-                    (e1, e2) => Ok(BooleanExpression::FieldGe(box e1, box e2)),
+                    (e1, e2) => Ok(BooleanExpression::field_ge(e1, e2)),
                 }
             }
-            BooleanExpression::UintLt(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            BooleanExpression::UintLt(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.as_inner(), e2.as_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        Ok(BooleanExpression::Value(n1 < n2))
+                        Ok(BooleanExpression::Value(n1.value < n2.value))
                     }
-                    _ => Ok(BooleanExpression::UintLt(box e1, box e2)),
+                    _ => Ok(BooleanExpression::uint_lt(e1, e2)),
                 }
             }
-            BooleanExpression::UintLe(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            BooleanExpression::UintLe(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.as_inner(), e2.as_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        Ok(BooleanExpression::Value(n1 <= n2))
+                        Ok(BooleanExpression::Value(n1.value <= n2.value))
                     }
-                    _ => Ok(BooleanExpression::UintLe(box e1, box e2)),
+                    _ => Ok(BooleanExpression::uint_le(e1, e2)),
                 }
             }
-            BooleanExpression::UintGt(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            BooleanExpression::UintGt(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.as_inner(), e2.as_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        Ok(BooleanExpression::Value(n1 > n2))
+                        Ok(BooleanExpression::Value(n1.value > n2.value))
                     }
-                    _ => Ok(BooleanExpression::UintGt(box e1, box e2)),
+                    _ => Ok(BooleanExpression::uint_gt(e1, e2)),
                 }
             }
-            BooleanExpression::UintGe(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
+            BooleanExpression::UintGe(e) => {
+                let e1 = self.fold_uint_expression(*e.left)?;
+                let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.as_inner(), e2.as_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        Ok(BooleanExpression::Value(n1 >= n2))
+                        Ok(BooleanExpression::Value(n1.value >= n2.value))
                     }
-                    _ => Ok(BooleanExpression::UintGe(box e1, box e2)),
+                    _ => Ok(BooleanExpression::uint_ge(e1, e2)),
                 }
             }
-            BooleanExpression::Or(box e1, box e2) => {
-                let e1 = self.fold_boolean_expression(e1)?;
-                let e2 = self.fold_boolean_expression(e2)?;
+            BooleanExpression::Or(e) => {
+                let e1 = self.fold_boolean_expression(*e.left)?;
+                let e2 = self.fold_boolean_expression(*e.right)?;
 
                 match (e1, e2) {
                     // reduction of constants
                     (BooleanExpression::Value(v1), BooleanExpression::Value(v2)) => {
-                        Ok(BooleanExpression::Value(v1 || v2))
+                        Ok(BooleanExpression::Value(v1.value || v2.value))
                     }
                     // x || true == true
-                    (_, BooleanExpression::Value(true)) | (BooleanExpression::Value(true), _) => {
-                        Ok(BooleanExpression::Value(true))
+                    (_, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), _)
+                        if v.value =>
+                    {
+                        Ok(BooleanExpression::from_value(true))
                     }
                     // x || false == x
-                    (e, BooleanExpression::Value(false)) | (BooleanExpression::Value(false), e) => {
+                    (e, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), e)
+                        if !v.value =>
+                    {
                         Ok(e)
                     }
-                    (e1, e2) => Ok(BooleanExpression::Or(box e1, box e2)),
+                    (e1, e2) => Ok(BooleanExpression::or(e1, e2)),
                 }
             }
-            BooleanExpression::And(box e1, box e2) => {
-                let e1 = self.fold_boolean_expression(e1)?;
-                let e2 = self.fold_boolean_expression(e2)?;
+            BooleanExpression::And(e) => {
+                let e1 = self.fold_boolean_expression(*e.left)?;
+                let e2 = self.fold_boolean_expression(*e.right)?;
 
                 match (e1, e2) {
                     // reduction of constants
                     (BooleanExpression::Value(v1), BooleanExpression::Value(v2)) => {
-                        Ok(BooleanExpression::Value(v1 && v2))
+                        Ok(BooleanExpression::Value(v1.value && v2.value))
                     }
                     // x && true == x
-                    (e, BooleanExpression::Value(true)) | (BooleanExpression::Value(true), e) => {
+                    (e, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), e)
+                        if v.value =>
+                    {
                         Ok(e)
                     }
                     // x && false == false
-                    (_, BooleanExpression::Value(false)) | (BooleanExpression::Value(false), _) => {
-                        Ok(BooleanExpression::Value(false))
+                    (_, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), _)
+                        if !v.value =>
+                    {
+                        Ok(BooleanExpression::from_value(false))
                     }
-                    (e1, e2) => Ok(BooleanExpression::And(box e1, box e2)),
+                    (e1, e2) => Ok(BooleanExpression::and(e1, e2)),
                 }
             }
             BooleanExpression::Not(box e) => {
                 let e = self.fold_boolean_expression(e)?;
                 match e {
-                    BooleanExpression::Value(v) => Ok(BooleanExpression::Value(!v)),
-                    e => Ok(BooleanExpression::Not(box e)),
+                    BooleanExpression::Value(v) => Ok(BooleanExpression::from_value(!v.value)),
+                    e => Ok(BooleanExpression::not(e)),
                 }
             }
             e => fold_boolean_expression(self, e),
@@ -1406,24 +1452,24 @@ mod tests {
 
             #[test]
             fn field_eq() {
-                let e_constant_true = BooleanExpression::FieldEq(EqExpression::new(
+                let e_constant_true = BooleanExpression::FieldEq(BinaryExpression::new(
                     FieldElementExpression::Number(Bn128Field::from(2)),
                     FieldElementExpression::Number(Bn128Field::from(2)),
                 ));
 
-                let e_constant_false = BooleanExpression::FieldEq(EqExpression::new(
+                let e_constant_false = BooleanExpression::FieldEq(BinaryExpression::new(
                     FieldElementExpression::Number(Bn128Field::from(4)),
                     FieldElementExpression::Number(Bn128Field::from(2)),
                 ));
 
                 let e_identifier_true: BooleanExpression<Bn128Field> =
-                    BooleanExpression::FieldEq(EqExpression::new(
+                    BooleanExpression::FieldEq(BinaryExpression::new(
                         FieldElementExpression::identifier("a".into()),
                         FieldElementExpression::identifier("a".into()),
                     ));
 
                 let e_identifier_unchanged: BooleanExpression<Bn128Field> =
-                    BooleanExpression::FieldEq(EqExpression::new(
+                    BooleanExpression::FieldEq(BinaryExpression::new(
                         FieldElementExpression::identifier("a".into()),
                         FieldElementExpression::identifier("b".into()),
                     ));
@@ -1454,7 +1500,7 @@ mod tests {
             fn bool_eq() {
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
-                        .fold_boolean_expression(BooleanExpression::BoolEq(EqExpression::new(
+                        .fold_boolean_expression(BooleanExpression::BoolEq(BinaryExpression::new(
                             BooleanExpression::Value(false),
                             BooleanExpression::Value(false)
                         ))),
@@ -1463,7 +1509,7 @@ mod tests {
 
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
-                        .fold_boolean_expression(BooleanExpression::BoolEq(EqExpression::new(
+                        .fold_boolean_expression(BooleanExpression::BoolEq(BinaryExpression::new(
                             BooleanExpression::Value(true),
                             BooleanExpression::Value(true)
                         ))),
@@ -1472,7 +1518,7 @@ mod tests {
 
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
-                        .fold_boolean_expression(BooleanExpression::BoolEq(EqExpression::new(
+                        .fold_boolean_expression(BooleanExpression::BoolEq(BinaryExpression::new(
                             BooleanExpression::Value(true),
                             BooleanExpression::Value(false)
                         ))),
@@ -1481,7 +1527,7 @@ mod tests {
 
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
-                        .fold_boolean_expression(BooleanExpression::BoolEq(EqExpression::new(
+                        .fold_boolean_expression(BooleanExpression::BoolEq(BinaryExpression::new(
                             BooleanExpression::Value(false),
                             BooleanExpression::Value(true)
                         ))),
@@ -1491,7 +1537,7 @@ mod tests {
 
             #[test]
             fn array_eq() {
-                let e_constant_true = BooleanExpression::ArrayEq(EqExpression::new(
+                let e_constant_true = BooleanExpression::ArrayEq(BinaryExpression::new(
                     ArrayExpressionInner::Value(
                         vec![TypedExpressionOrSpread::Expression(
                             FieldElementExpression::Number(Bn128Field::from(2usize)).into(),
@@ -1508,7 +1554,7 @@ mod tests {
                     .annotate(Type::FieldElement, 1u32),
                 ));
 
-                let e_constant_false = BooleanExpression::ArrayEq(EqExpression::new(
+                let e_constant_false = BooleanExpression::ArrayEq(BinaryExpression::new(
                     ArrayExpressionInner::Value(
                         vec![TypedExpressionOrSpread::Expression(
                             FieldElementExpression::Number(Bn128Field::from(2usize)).into(),
@@ -1526,18 +1572,18 @@ mod tests {
                 ));
 
                 let e_identifier_true: BooleanExpression<Bn128Field> =
-                    BooleanExpression::ArrayEq(EqExpression::new(
+                    BooleanExpression::ArrayEq(BinaryExpression::new(
                         ArrayExpression::identifier("a".into()).annotate(Type::FieldElement, 1u32),
                         ArrayExpression::identifier("a".into()).annotate(Type::FieldElement, 1u32),
                     ));
 
                 let e_identifier_unchanged: BooleanExpression<Bn128Field> =
-                    BooleanExpression::ArrayEq(EqExpression::new(
+                    BooleanExpression::ArrayEq(BinaryExpression::new(
                         ArrayExpression::identifier("a".into()).annotate(Type::FieldElement, 1u32),
                         ArrayExpression::identifier("b".into()).annotate(Type::FieldElement, 1u32),
                     ));
 
-                let e_non_canonical_true = BooleanExpression::ArrayEq(EqExpression::new(
+                let e_non_canonical_true = BooleanExpression::ArrayEq(BinaryExpression::new(
                     ArrayExpressionInner::Value(
                         vec![TypedExpressionOrSpread::Spread(
                             ArrayExpressionInner::Value(
@@ -1561,7 +1607,7 @@ mod tests {
                     .annotate(Type::FieldElement, 1u32),
                 ));
 
-                let e_non_canonical_false = BooleanExpression::ArrayEq(EqExpression::new(
+                let e_non_canonical_false = BooleanExpression::ArrayEq(BinaryExpression::new(
                     ArrayExpressionInner::Value(
                         vec![TypedExpressionOrSpread::Spread(
                             ArrayExpressionInner::Value(
