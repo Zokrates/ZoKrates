@@ -22,7 +22,7 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         match e {
-            BooleanExpression::ArrayEq(e) => match e.left.inner_type() {
+            BooleanExpression::ArrayEq(e) => match *e.left.inner_type() {
                 Type::Boolean => {
                     let len = e.left.size();
                     let len = match len.as_inner() {
@@ -93,12 +93,12 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
 
                     let chunk_count = left.len();
 
-                    BooleanExpression::ArrayEq(BinaryExpression::new(
+                    BooleanExpression::array_eq(
                         ArrayExpression::from_value(left)
                             .annotate(Type::FieldElement, chunk_count as u32),
                         ArrayExpression::from_value(right)
                             .annotate(Type::FieldElement, chunk_count as u32),
-                    ))
+                    )
                 }
                 _ => fold_boolean_expression(self, BooleanExpression::ArrayEq(e)),
             },

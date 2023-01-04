@@ -88,7 +88,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
                     }
                     by => Err(Error(format!(
                         "Cannot shift by a variable value, found `{} << {}`",
-                        e,
+                        left,
                         by.clone().annotate(UBitwidth::B32)
                     ))),
                 }
@@ -103,7 +103,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
                     }
                     by => Err(Error(format!(
                         "Cannot shift by a variable value, found `{} >> {}`",
-                        e,
+                        left,
                         by.clone().annotate(UBitwidth::B32)
                     ))),
                 }

@@ -347,11 +347,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                         let mut transformer = ShallowTransformer::with_versions(self.versions);
 
-                        if to - from > MAX_FOR_LOOP_SIZE {
-                            return Err(Error::LoopTooLarge(to.saturating_sub(*from)));
+                        if to.value - from.value > MAX_FOR_LOOP_SIZE {
+                            return Err(Error::LoopTooLarge(to.value.saturating_sub(from.value)));
                         }
 
-                        for index in *from..*to {
+                        for index in from.value..to.value {
                             let statements: Vec<TypedStatement<_>> =
                                 std::iter::once(TypedStatement::definition(
                                     v.clone().into(),

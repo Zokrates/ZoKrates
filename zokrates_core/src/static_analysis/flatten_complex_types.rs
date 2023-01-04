@@ -5,7 +5,7 @@ use zokrates_ast::common::operators::OpEq;
 use zokrates_ast::common::WithSpan;
 use zokrates_ast::typed::types::{ConcreteArrayType, IntoType, UBitwidth};
 use zokrates_ast::typed::{self, Basic, Expr, Typed};
-use zokrates_ast::zir::{self, Id, Select};
+use zokrates_ast::zir::{self, Expr as ZirExpr, Id, Select};
 use zokrates_field::Field;
 
 use std::convert::{TryFrom, TryInto};
@@ -575,11 +575,11 @@ fn fold_array_expression_inner<'ast, T: Field>(
 
             match (from.into_inner(), to.into_inner()) {
                 (zir::UExpressionInner::Value(from), zir::UExpressionInner::Value(to)) => {
-                    assert_eq!(size, to.saturating_sub(from) as u32);
+                    assert_eq!(size, to.value.saturating_sub(from.value) as u32);
 
                     let element_size = ty.get_primitive_count();
-                    let start = from as usize * element_size;
-                    let end = to as usize * element_size;
+                    let start = from.value as usize * element_size;
+                    let end = to.value as usize * element_size;
                     array[start..end].to_vec()
                 }
                 _ => unreachable!(),
@@ -590,9 +590,10 @@ fn fold_array_expression_inner<'ast, T: Field>(
             let count = f.fold_uint_expression(statements_buffer, count);
 
             match count.into_inner() {
-                zir::UExpressionInner::Value(count) => {
-                    vec![e; count as usize].into_iter().flatten().collect()
-                }
+                zir::UExpressionInner::Value(count) => vec![e; count.value as usize]
+                    .into_iter()
+                    .flatten()
+                    .collect(),
                 _ => unreachable!(),
             }
         }
@@ -757,7 +758,7 @@ fn fold_select_expression<'ast, T: Field, E>(
 
     match index.as_inner() {
         zir::UExpressionInner::Value(v) => {
-            let v = *v as usize;
+            let v = v.value as usize;
 
             array[v * size..(v + 1) * size].to_vec()
         }
@@ -913,15 +914,17 @@ fn fold_field_expression<'ast, T: Field>(
         typed::FieldElementExpression::Pow(e) => {
             zir::FieldElementExpression::Pow(f.fold_binary_expression(statements_buffer, e))
         }
-        typed::FieldElementExpression::Neg(box e) => {
-            let e = f.fold_field_expression(statements_buffer, e);
+        typed::FieldElementExpression::Neg(e) => {
+            let e = f.fold_field_expression(statements_buffer, *e.inner);
 
             zir::FieldElementExpression::sub(
                 zir::FieldElementExpression::Number(ValueExpression::new(T::zero())),
                 e,
             )
         }
-        typed::FieldElementExpression::Pos(box e) => f.fold_field_expression(statements_buffer, e),
+        typed::FieldElementExpression::Pos(e) => {
+            f.fold_field_expression(statements_buffer, *e.inner)
+        }
         typed::FieldElementExpression::Conditional(c) => f
             .fold_conditional_expression(statements_buffer, c)
             .pop()
@@ -967,7 +970,7 @@ fn conjunction_tree<'ast, T: Field>(
     assert_eq!(v.len(), w.len());
 
     match v.len() {
-        0 => zir::BooleanExpression::Value(true),
+        0 => zir::BooleanExpression::from_value(true),
         1 => match (v[0].clone(), w[0].clone()) {
             (zir::ZirExpression::Boolean(v), zir::ZirExpression::Boolean(w)) => {
                 zir::BooleanExpression::bool_eq(v, w)
@@ -1035,23 +1038,11 @@ fn fold_boolean_expression<'ast, T: Field>(
         typed::BooleanExpression::FieldLe(e) => {
             zir::BooleanExpression::FieldLe(f.fold_binary_expression(statements_buffer, e))
         }
-        typed::BooleanExpression::FieldGt(e) => {
-            zir::BooleanExpression::FieldGt(f.fold_binary_expression(statements_buffer, e))
-        }
-        typed::BooleanExpression::FieldGe(e) => {
-            zir::BooleanExpression::FieldGe(f.fold_binary_expression(statements_buffer, e))
-        }
         typed::BooleanExpression::UintLt(e) => {
             zir::BooleanExpression::UintLt(f.fold_binary_expression(statements_buffer, e))
         }
         typed::BooleanExpression::UintLe(e) => {
             zir::BooleanExpression::UintLe(f.fold_binary_expression(statements_buffer, e))
-        }
-        typed::BooleanExpression::UintGt(e) => {
-            zir::BooleanExpression::UintGt(f.fold_binary_expression(statements_buffer, e))
-        }
-        typed::BooleanExpression::UintGe(e) => {
-            zir::BooleanExpression::UintGe(f.fold_binary_expression(statements_buffer, e))
         }
         typed::BooleanExpression::Or(e) => {
             zir::BooleanExpression::Or(f.fold_binary_expression(statements_buffer, e))
@@ -1059,7 +1050,9 @@ fn fold_boolean_expression<'ast, T: Field>(
         typed::BooleanExpression::And(e) => {
             zir::BooleanExpression::And(f.fold_binary_expression(statements_buffer, e))
         }
-        typed::BooleanExpression::Not(e) => zir::BooleanExpression::Not(f.fold_unary_expression(e)),
+        typed::BooleanExpression::Not(e) => {
+            zir::BooleanExpression::not(f.fold_boolean_expression(statements_buffer, *e.inner))
+        }
         typed::BooleanExpression::Conditional(c) => f
             .fold_conditional_expression(statements_buffer, c)
             .pop()
@@ -1179,26 +1172,22 @@ fn fold_uint_expression_inner<'ast, T: Field>(
 
             zir::UExpression::right_shift(left, right).into_inner()
         }
-        typed::UExpressionInner::Not(box e) => {
-            let e = f.fold_uint_expression(statements_buffer, e);
-
-            zir::UExpressionInner::Not(box e)
+        typed::UExpressionInner::Not(e) => {
+            zir::UExpression::not(f.fold_uint_expression(statements_buffer, *e.inner)).into_inner()
         }
-        typed::UExpressionInner::Neg(box e) => {
-            let bitwidth = e.bitwidth();
+        typed::UExpressionInner::Neg(e) => {
+            let bitwidth = e.inner.bitwidth();
 
             f.fold_uint_expression(
                 statements_buffer,
-                typed::UExpression::from_value(0).annotate(bitwidth) - e,
+                typed::UExpression::from_value(0).annotate(bitwidth) - *e.inner,
             )
             .into_inner()
         }
 
-        typed::UExpressionInner::Pos(box e) => {
-            let e = f.fold_uint_expression(statements_buffer, e);
-
-            e.into_inner()
-        }
+        typed::UExpressionInner::Pos(e) => f
+            .fold_uint_expression(statements_buffer, *e.inner)
+            .into_inner(),
         typed::UExpressionInner::FunctionCall(..) => {
             unreachable!("function calls should have been removed")
         }

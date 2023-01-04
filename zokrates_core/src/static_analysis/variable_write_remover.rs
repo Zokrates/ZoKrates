@@ -5,6 +5,7 @@
 //! @date 2018
 
 use std::collections::HashSet;
+use zokrates_ast::common::expressions::BinaryExpression;
 use zokrates_ast::typed::folder::*;
 use zokrates_ast::typed::types::{MemberId, Type};
 use zokrates_ast::typed::*;
@@ -45,19 +46,16 @@ impl<'ast> VariableWriteRemover {
                     match head {
                         Access::Select(box head) => {
                             statements.insert(TypedStatement::Assertion(
-                                BooleanExpression::UintLt(box head.clone(), box size.into()),
+                                BooleanExpression::uint_lt(head.clone(), size.into()),
                                 RuntimeError::SelectRangeCheck,
                             ));
 
-                            ArrayExpressionInner::Value(
+                            ArrayExpression::from_value(
                                 (0..size)
                                     .map(|i| match inner_ty {
                                         Type::Int => unreachable!(),
                                         Type::Array(..) => ArrayExpression::conditional(
-                                            BooleanExpression::UintEq(BinaryExpression::new(
-                                                i.into(),
-                                                head.clone(),
-                                            )),
+                                            BooleanExpression::uint_eq(i.into(), head.clone()),
                                             match Self::choose_many(
                                                 ArrayExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -75,10 +73,7 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Struct(..) => StructExpression::conditional(
-                                            BooleanExpression::UintEq(BinaryExpression::new(
-                                                i.into(),
-                                                head.clone(),
-                                            )),
+                                            BooleanExpression::uint_eq(i.into(), head.clone()),
                                             match Self::choose_many(
                                                 StructExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -96,10 +91,7 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Tuple(..) => TupleExpression::conditional(
-                                            BooleanExpression::UintEq(BinaryExpression::new(
-                                                i.into(),
-                                                head.clone(),
-                                            )),
+                                            BooleanExpression::uint_eq(i.into(), head.clone()),
                                             match Self::choose_many(
                                                 TupleExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -117,10 +109,7 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::FieldElement => FieldElementExpression::conditional(
-                                            BooleanExpression::UintEq(BinaryExpression::new(
-                                                i.into(),
-                                                head.clone(),
-                                            )),
+                                            BooleanExpression::uint_eq(i.into(), head.clone()),
                                             match Self::choose_many(
                                                 FieldElementExpression::select(base.clone(), i)
                                                     .into(),
@@ -139,10 +128,7 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Boolean => BooleanExpression::conditional(
-                                            BooleanExpression::UintEq(BinaryExpression::new(
-                                                i.into(),
-                                                head.clone(),
-                                            )),
+                                            BooleanExpression::uint_eq(i.into(), head.clone()),
                                             match Self::choose_many(
                                                 BooleanExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -160,10 +146,7 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Uint(..) => UExpression::conditional(
-                                            BooleanExpression::UintEq(BinaryExpression::new(
-                                                i.into(),
-                                                head.clone(),
-                                            )),
+                                            BooleanExpression::uint_eq(i.into(), head.clone()),
                                             match Self::choose_many(
                                                 UExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -181,8 +164,7 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                     })
-                                    .collect::<Vec<_>>()
-                                    .into(),
+                                    .collect::<Vec<_>>(),
                             )
                             .annotate(inner_ty.clone(), size)
                             .into()

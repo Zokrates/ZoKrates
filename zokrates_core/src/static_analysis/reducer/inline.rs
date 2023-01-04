@@ -97,7 +97,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         .map(|g| {
             g.as_ref()
                 .map(|g| match g.as_inner() {
-                    UExpressionInner::Value(v) => Ok(*v as u32),
+                    UExpressionInner::Value(v) => Ok(v.value as u32),
                     _ => Err(()),
                 })
                 .transpose()

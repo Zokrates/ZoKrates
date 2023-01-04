@@ -1,10 +1,10 @@
 use std::ops::*;
 use zokrates_ast::{
-    common::Fold,
+    common::{expressions::BinaryExpression, Fold},
     zir::{
         folder::*, BooleanExpression, Conditional, ConditionalExpression, ConditionalOrExpression,
-        FieldElementExpression, RuntimeError, UBitwidth, UExpression, UExpressionInner, ZirProgram,
-        ZirStatement,
+        Expr, FieldElementExpression, RuntimeError, UBitwidth, UExpression, UExpressionInner,
+        ZirProgram, ZirStatement,
     },
 };
 use zokrates_field::Field;
@@ -136,13 +136,17 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
     ) -> BooleanExpression<'ast, T> {
         match e {
             // constant range checks are complete, so no panic needs to be extracted
-            e @ BooleanExpression::FieldLt(box FieldElementExpression::Number(_), _)
-            | e @ BooleanExpression::FieldLt(_, box FieldElementExpression::Number(_)) => {
-                fold_boolean_expression(self, e)
-            }
-            BooleanExpression::FieldLt(box left, box right) => {
-                let left = self.fold_field_expression(left);
-                let right = self.fold_field_expression(right);
+            e @ BooleanExpression::FieldLt(BinaryExpression {
+                left: box FieldElementExpression::Number(_),
+                ..
+            })
+            | e @ BooleanExpression::FieldLt(BinaryExpression {
+                right: box FieldElementExpression::Number(_),
+                ..
+            }) => fold_boolean_expression(self, e),
+            BooleanExpression::FieldLt(e) => {
+                let left = self.fold_field_expression(*e.left);
+                let right = self.fold_field_expression(*e.right);
 
                 let bit_width = T::get_required_bits();
 
@@ -159,10 +163,9 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 // we split this check in two:
                 // `2**(safe_width) + left - right < 2**(safe_width + 1)`
                 self.panic_buffer.push(ZirStatement::Assertion(
-                    BooleanExpression::FieldLt(
-                        box (offset.clone()
-                            + FieldElementExpression::sub(left.clone(), right.clone())),
-                        box max,
+                    BooleanExpression::field_lt(
+                        offset.clone() + FieldElementExpression::sub(left.clone(), right.clone()),
+                        max,
                     ),
                     RuntimeError::IncompleteDynamicRange,
                 ));
@@ -170,9 +173,9 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 // and
                 // `2**(safe_width) + left - right != 0`
                 self.panic_buffer.push(ZirStatement::Assertion(
-                    BooleanExpression::Not(box BooleanExpression::FieldEq(
-                        box FieldElementExpression::sub(right.clone(), left.clone()),
-                        box offset,
+                    BooleanExpression::not(BooleanExpression::field_eq(
+                        FieldElementExpression::sub(right.clone(), left.clone()),
+                        offset,
                     )),
                     RuntimeError::IncompleteDynamicRange,
                 ));
@@ -185,7 +188,7 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 // if we use `x - 1` here, we end up having to calculate the bits of both `x` and `x - 1`, which is expensive
                 // by splitting, we can reuse the bits of `x` needed for this completeness check when computing the result
 
-                BooleanExpression::FieldLt(box left, box right)
+                BooleanExpression::field_eq(left, right)
             }
             e => fold_boolean_expression(self, e),
         }

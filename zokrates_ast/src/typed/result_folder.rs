@@ -1,6 +1,8 @@
 // Generic walk through a typed AST. Not mutating in place
 
-use crate::common::expressions::{self, BinaryOrExpression, UnaryOrExpression, ValueOrExpression};
+use crate::common::expressions::{
+    self, BinaryOrExpression, EqExpression, UnaryOrExpression, ValueOrExpression,
+};
 use crate::common::ResultFold;
 use crate::typed::types::*;
 use crate::typed::*;
@@ -225,6 +227,18 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         e: BinaryExpression<Op, L, R, E>,
     ) -> Result<BinaryOrExpression<Op, L, R, E, E::Inner>, Self::Error> {
         fold_binary_expression(self, ty, e)
+    }
+
+    fn fold_eq_expression<
+        E: Expr<'ast, T> + Constant + Typed<'ast, T> + PartialEq + ResultFold<Self, Self::Error>,
+    >(
+        &mut self,
+        e: EqExpression<E, BooleanExpression<'ast, T>>,
+    ) -> Result<
+        BinaryOrExpression<OpEq, E, E, BooleanExpression<'ast, T>, BooleanExpression<'ast, T>>,
+        Self::Error,
+    > {
+        fold_binary_expression(self, &Type::Boolean, e)
     }
 
     fn fold_unary_expression<
@@ -705,55 +719,52 @@ pub fn fold_assignee<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
 pub fn fold_struct_value_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
-    ty: &StructType<'ast, T>,
+    _: &StructType<'ast, T>,
     a: StructValueExpression<'ast, T>,
 ) -> Result<
     ValueOrExpression<StructValueExpression<'ast, T>, StructExpressionInner<'ast, T>>,
     F::Error,
 > {
-    // Ok(ValueOrExpression::Value(StructValueExpression {
-    //     value: a
-    //         .value
-    //         .into_iter()
-    //         .map(|v| f.fold_expression(v))
-    //         .collect()?,
-    //     ..a
-    // }))
-    unimplemented!()
+    Ok(ValueOrExpression::Value(StructValueExpression {
+        value: a
+            .value
+            .into_iter()
+            .map(|v| f.fold_expression(v))
+            .collect::<Result<Vec<_>, _>>()?,
+        ..a
+    }))
 }
 
 pub fn fold_array_value_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
-    ty: &ArrayType<'ast, T>,
+    _: &ArrayType<'ast, T>,
     a: ArrayValueExpression<'ast, T>,
 ) -> Result<ValueOrExpression<ArrayValueExpression<'ast, T>, ArrayExpressionInner<'ast, T>>, F::Error>
 {
-    // Ok(ValueOrExpression::Value(ArrayValueExpression {
-    //     value: a
-    //         .value
-    //         .into_iter()
-    //         .map(|v| f.fold_expression(v))
-    //         .collect()?,
-    //     ..a
-    // }))
-    unimplemented!()
+    Ok(ValueOrExpression::Value(ArrayValueExpression {
+        value: a
+            .value
+            .into_iter()
+            .map(|v| f.fold_expression_or_spread(v))
+            .collect::<Result<Vec<_>, _>>()?,
+        ..a
+    }))
 }
 
 pub fn fold_tuple_value_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
-    ty: &TupleType<'ast, T>,
+    _: &TupleType<'ast, T>,
     a: TupleValueExpression<'ast, T>,
 ) -> Result<ValueOrExpression<TupleValueExpression<'ast, T>, TupleExpressionInner<'ast, T>>, F::Error>
 {
-    // Ok(ValueOrExpression::Value(TupleValueExpression {
-    //     value: a
-    //         .value
-    //         .into_iter()
-    //         .map(|v| f.fold_expression(v))
-    //         .collect()?,
-    //     ..a
-    // }))
-    unimplemented!()
+    Ok(ValueOrExpression::Value(TupleValueExpression {
+        value: a
+            .value
+            .into_iter()
+            .map(|v| f.fold_expression(v))
+            .collect::<Result<Vec<_>, _>>()?,
+        ..a
+    }))
 }
 
 pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
@@ -1105,23 +1116,23 @@ pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
             BinaryOrExpression::Binary(e) => FieldEq(e),
             BinaryOrExpression::Expression(u) => u,
         },
-        BoolEq(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
+        BoolEq(e) => match f.fold_eq_expression(e)? {
             BinaryOrExpression::Binary(e) => BoolEq(e),
             BinaryOrExpression::Expression(u) => u,
         },
-        ArrayEq(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
+        ArrayEq(e) => match f.fold_eq_expression(e)? {
             BinaryOrExpression::Binary(e) => ArrayEq(e),
             BinaryOrExpression::Expression(u) => u,
         },
-        StructEq(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
+        StructEq(e) => match f.fold_eq_expression(e)? {
             BinaryOrExpression::Binary(e) => StructEq(e),
             BinaryOrExpression::Expression(u) => u,
         },
-        TupleEq(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
+        TupleEq(e) => match f.fold_eq_expression(e)? {
             BinaryOrExpression::Binary(e) => TupleEq(e),
             BinaryOrExpression::Expression(u) => u,
         },
-        UintEq(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
+        UintEq(e) => match f.fold_eq_expression(e)? {
             BinaryOrExpression::Binary(e) => UintEq(e),
             BinaryOrExpression::Expression(u) => u,
         },
@@ -1133,28 +1144,12 @@ pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
             BinaryOrExpression::Binary(e) => FieldLe(e),
             BinaryOrExpression::Expression(u) => u,
         },
-        FieldGt(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
-            BinaryOrExpression::Binary(e) => FieldGt(e),
-            BinaryOrExpression::Expression(u) => u,
-        },
-        FieldGe(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
-            BinaryOrExpression::Binary(e) => FieldGe(e),
-            BinaryOrExpression::Expression(u) => u,
-        },
         UintLt(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
             BinaryOrExpression::Binary(e) => UintLt(e),
             BinaryOrExpression::Expression(u) => u,
         },
         UintLe(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
             BinaryOrExpression::Binary(e) => UintLe(e),
-            BinaryOrExpression::Expression(u) => u,
-        },
-        UintGt(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
-            BinaryOrExpression::Binary(e) => UintGt(e),
-            BinaryOrExpression::Expression(u) => u,
-        },
-        UintGe(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
-            BinaryOrExpression::Binary(e) => UintGe(e),
             BinaryOrExpression::Expression(u) => u,
         },
         Or(e) => match f.fold_binary_expression(&Type::Boolean, e)? {

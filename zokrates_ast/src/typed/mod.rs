@@ -1235,26 +1235,8 @@ pub enum BooleanExpression<'ast, T> {
             Self,
         >,
     ),
-    FieldGe(
-        BinaryExpression<
-            OpGe,
-            FieldElementExpression<'ast, T>,
-            FieldElementExpression<'ast, T>,
-            Self,
-        >,
-    ),
-    FieldGt(
-        BinaryExpression<
-            OpGt,
-            FieldElementExpression<'ast, T>,
-            FieldElementExpression<'ast, T>,
-            Self,
-        >,
-    ),
     UintLt(BinaryExpression<OpLt, UExpression<'ast, T>, UExpression<'ast, T>, Self>),
     UintLe(BinaryExpression<OpLe, UExpression<'ast, T>, UExpression<'ast, T>, Self>),
-    UintGe(BinaryExpression<OpGe, UExpression<'ast, T>, UExpression<'ast, T>, Self>),
-    UintGt(BinaryExpression<OpGt, UExpression<'ast, T>, UExpression<'ast, T>, Self>),
     FieldEq(
         BinaryExpression<
             OpEq,
@@ -1264,7 +1246,7 @@ pub enum BooleanExpression<'ast, T> {
         >,
     ),
     BoolEq(BinaryExpression<OpEq, BooleanExpression<'ast, T>, BooleanExpression<'ast, T>, Self>),
-    ArrayEq(BinaryExpression<OpEq, StructExpression<'ast, T>, StructExpression<'ast, T>, Self>),
+    ArrayEq(BinaryExpression<OpEq, ArrayExpression<'ast, T>, ArrayExpression<'ast, T>, Self>),
     StructEq(BinaryExpression<OpEq, StructExpression<'ast, T>, StructExpression<'ast, T>, Self>),
     TupleEq(BinaryExpression<OpEq, TupleExpression<'ast, T>, TupleExpression<'ast, T>, Self>),
     UintEq(BinaryExpression<OpEq, UExpression<'ast, T>, UExpression<'ast, T>, Self>),
@@ -1287,6 +1269,85 @@ impl<'ast, T> From<bool> for BooleanExpression<'ast, T> {
 impl<'ast, T> BooleanExpression<'ast, T> {
     pub fn not(self) -> Self {
         Self::Not(UnaryExpression::new(self))
+    }
+
+    pub fn and(self, other: Self) -> Self {
+        Self::And(BinaryExpression::new(self, other))
+    }
+
+    pub fn or(self, other: Self) -> Self {
+        Self::Or(BinaryExpression::new(self, other))
+    }
+
+    pub fn uint_eq(left: UExpression<'ast, T>, right: UExpression<'ast, T>) -> Self {
+        Self::UintEq(BinaryExpression::new(left, right))
+    }
+
+    pub fn bool_eq(left: BooleanExpression<'ast, T>, right: BooleanExpression<'ast, T>) -> Self {
+        Self::BoolEq(BinaryExpression::new(left, right))
+    }
+
+    pub fn field_eq(
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+    ) -> Self {
+        Self::FieldEq(BinaryExpression::new(left, right))
+    }
+
+    pub fn struct_eq(left: StructExpression<'ast, T>, right: StructExpression<'ast, T>) -> Self {
+        Self::StructEq(BinaryExpression::new(left, right))
+    }
+
+    pub fn array_eq(left: ArrayExpression<'ast, T>, right: ArrayExpression<'ast, T>) -> Self {
+        Self::ArrayEq(BinaryExpression::new(left, right))
+    }
+
+    pub fn tuple_eq(left: TupleExpression<'ast, T>, right: TupleExpression<'ast, T>) -> Self {
+        Self::TupleEq(BinaryExpression::new(left, right))
+    }
+
+    pub fn uint_lt(left: UExpression<'ast, T>, right: UExpression<'ast, T>) -> Self {
+        Self::UintLt(BinaryExpression::new(left, right))
+    }
+
+    pub fn uint_le(left: UExpression<'ast, T>, right: UExpression<'ast, T>) -> Self {
+        Self::UintLe(BinaryExpression::new(left, right))
+    }
+
+    pub fn uint_gt(left: UExpression<'ast, T>, right: UExpression<'ast, T>) -> Self {
+        Self::UintLt(BinaryExpression::new(right, left))
+    }
+
+    pub fn uint_ge(left: UExpression<'ast, T>, right: UExpression<'ast, T>) -> Self {
+        Self::UintLe(BinaryExpression::new(right, left))
+    }
+
+    pub fn field_lt(
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+    ) -> Self {
+        Self::FieldLt(BinaryExpression::new(left, right))
+    }
+
+    pub fn field_le(
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+    ) -> Self {
+        Self::FieldLe(BinaryExpression::new(left, right))
+    }
+
+    pub fn field_gt(
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+    ) -> Self {
+        Self::FieldLt(BinaryExpression::new(right, left))
+    }
+
+    pub fn field_ge(
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+    ) -> Self {
+        Self::FieldLe(BinaryExpression::new(right, left))
     }
 }
 
@@ -1744,12 +1805,8 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
             BooleanExpression::FieldLt(ref e) => write!(f, "{}", e),
             BooleanExpression::FieldLe(ref e) => write!(f, "{}", e),
-            BooleanExpression::FieldGe(ref e) => write!(f, "{}", e),
-            BooleanExpression::FieldGt(ref e) => write!(f, "{}", e),
             BooleanExpression::UintLt(ref e) => write!(f, "{}", e),
             BooleanExpression::UintLe(ref e) => write!(f, "{}", e),
-            BooleanExpression::UintGe(ref e) => write!(f, "{}", e),
-            BooleanExpression::UintGt(ref e) => write!(f, "{}", e),
             BooleanExpression::FieldEq(ref e) => write!(f, "{}", e),
             BooleanExpression::BoolEq(ref e) => write!(f, "{}", e),
             BooleanExpression::ArrayEq(ref e) => write!(f, "{}", e),
@@ -1817,6 +1874,34 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
 }
 
 // TODO: MACROS
+
+impl<'ast, T> WithSpan for TypedExpression<'ast, T> {
+    fn span(self, span: Option<Span>) -> Self {
+        use TypedExpression::*;
+        match self {
+            Boolean(e) => Boolean(e.span(span)),
+            FieldElement(e) => FieldElement(e.span(span)),
+            Uint(e) => Uint(e.span(span)),
+            Array(e) => Array(e.span(span)),
+            Struct(e) => Struct(e.span(span)),
+            Tuple(e) => Tuple(e.span(span)),
+            Int(e) => Int(e.span(span)),
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        use TypedExpression::*;
+        match self {
+            Boolean(e) => e.get_span(),
+            FieldElement(e) => e.get_span(),
+            Uint(e) => e.get_span(),
+            Array(e) => e.get_span(),
+            Struct(e) => e.get_span(),
+            Tuple(e) => e.get_span(),
+            Int(e) => e.get_span(),
+        }
+    }
+}
 
 impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
     fn span(self, span: Option<Span>) -> Self {
@@ -2315,6 +2400,10 @@ pub trait Basic<'ast, T> {
 
 impl<'ast, T: Clone> Basic<'ast, T> for FieldElementExpression<'ast, T> {
     type ZirExpressionType = crate::zir::FieldElementExpression<'ast, T>;
+}
+
+impl<'ast, T> Basic<'ast, T> for BooleanExpression<'ast, T> {
+    type ZirExpressionType = crate::zir::BooleanExpression<'ast, T>;
 }
 
 impl<'ast, T> Basic<'ast, T> for UExpression<'ast, T> {

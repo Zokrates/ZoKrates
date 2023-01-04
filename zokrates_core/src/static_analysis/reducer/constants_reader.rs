@@ -43,7 +43,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
 
                 match self.constants.get(&c).cloned() {
                     Some(e) => match UExpression::try_from(e).unwrap().into_inner() {
-                        UExpressionInner::Value(v) => DeclarationConstant::Concrete(v as u32),
+                        UExpressionInner::Value(v) => DeclarationConstant::Concrete(v.value as u32),
                         _ => unreachable!(),
                     },
                     None => DeclarationConstant::Constant(c),

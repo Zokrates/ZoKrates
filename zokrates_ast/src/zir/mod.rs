@@ -402,6 +402,10 @@ impl<'ast, T> FieldElementExpression<'ast, T> {
     pub fn number(n: T) -> Self {
         Self::Number(ValueExpression::new(n))
     }
+
+    pub fn pow(self, right: UExpression<'ast, T>) -> Self {
+        Self::Pow(BinaryExpression::new(self, right))
+    }
 }
 
 /// An expression of type `bool`
@@ -564,6 +568,57 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> BooleanExpression<'ast, T> {
+    pub fn not(self) -> Self {
+        Self::Not(UnaryExpression::new(self))
+    }
+
+    pub fn and(self, other: Self) -> Self {
+        Self::And(BinaryExpression::new(self, other))
+    }
+
+    pub fn or(self, other: Self) -> Self {
+        Self::Or(BinaryExpression::new(self, other))
+    }
+
+    pub fn uint_eq(left: UExpression<'ast, T>, right: UExpression<'ast, T>) -> Self {
+        Self::UintEq(BinaryExpression::new(left, right))
+    }
+
+    pub fn bool_eq(left: BooleanExpression<'ast, T>, right: BooleanExpression<'ast, T>) -> Self {
+        Self::BoolEq(BinaryExpression::new(left, right))
+    }
+
+    pub fn field_eq(
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+    ) -> Self {
+        Self::FieldEq(BinaryExpression::new(left, right))
+    }
+
+    pub fn uint_lt(left: UExpression<'ast, T>, right: UExpression<'ast, T>) -> Self {
+        Self::UintLt(BinaryExpression::new(left, right))
+    }
+
+    pub fn uint_le(left: UExpression<'ast, T>, right: UExpression<'ast, T>) -> Self {
+        Self::UintLe(BinaryExpression::new(left, right))
+    }
+
+    pub fn field_lt(
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+    ) -> Self {
+        Self::FieldLt(BinaryExpression::new(left, right))
+    }
+
+    pub fn field_le(
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+    ) -> Self {
+        Self::FieldLe(BinaryExpression::new(left, right))
+    }
+}
+
 impl<'ast, T: fmt::Display> fmt::Display for ZirExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -669,6 +724,8 @@ pub trait Expr<'ast, T>: Value + fmt::Display + PartialEq + From<ZirExpression<'
     fn as_inner(&self) -> &Self::Inner;
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner;
+
+    fn from_value(_: Self::Value) -> Self::Inner;
 }
 
 impl<'ast, T: Field> Expr<'ast, T> for FieldElementExpression<'ast, T> {
@@ -689,6 +746,10 @@ impl<'ast, T: Field> Expr<'ast, T> for FieldElementExpression<'ast, T> {
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
         self
+    }
+
+    fn from_value(v: Self::Value) -> Self::Inner {
+        Self::Number(ValueExpression::new(v))
     }
 }
 
@@ -711,6 +772,10 @@ impl<'ast, T: Field> Expr<'ast, T> for BooleanExpression<'ast, T> {
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
         self
     }
+
+    fn from_value(v: <crate::zir::BooleanExpression<'ast, T> as Value>::Value) -> Self::Inner {
+        Self::Value(ValueExpression::new(v))
+    }
 }
 
 impl<'ast, T: Field> Expr<'ast, T> for UExpression<'ast, T> {
@@ -731,6 +796,10 @@ impl<'ast, T: Field> Expr<'ast, T> for UExpression<'ast, T> {
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
         &mut self.inner
+    }
+
+    fn from_value(v: Self::Value) -> Self::Inner {
+        UExpressionInner::Value(ValueExpression::new(v))
     }
 }
 
@@ -866,7 +935,10 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Conditional(e) => Conditional(e.span(span)),
             Add(e) => Add(e.span(span)),
             Number(e) => Number(e.span(span)),
-            e => e,
+            Sub(e) => Sub(e.span(span)),
+            Mult(e) => Mult(e.span(span)),
+            Div(e) => Div(e.span(span)),
+            Pow(e) => Pow(e.span(span)),
         }
     }
 
@@ -878,7 +950,10 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Conditional(e) => e.get_span(),
             Add(e) => e.get_span(),
             Number(e) => e.get_span(),
-            e => unimplemented!(),
+            Sub(e) => e.get_span(),
+            Mult(e) => e.get_span(),
+            Div(e) => e.get_span(),
+            Pow(e) => e.get_span(),
         }
     }
 }
@@ -890,7 +965,17 @@ impl<'ast, T> WithSpan for BooleanExpression<'ast, T> {
             Select(e) => Select(e.span(span)),
             Identifier(e) => Identifier(e.span(span)),
             Conditional(e) => Conditional(e.span(span)),
-            e => e,
+            Value(e) => Value(e.span(span)),
+            FieldLt(e) => FieldLt(e.span(span)),
+            FieldLe(e) => FieldLe(e.span(span)),
+            FieldEq(e) => FieldEq(e.span(span)),
+            UintLt(e) => UintLt(e.span(span)),
+            UintLe(e) => UintLe(e.span(span)),
+            UintEq(e) => UintEq(e.span(span)),
+            BoolEq(e) => BoolEq(e.span(span)),
+            Or(e) => Or(e.span(span)),
+            And(e) => And(e.span(span)),
+            Not(e) => Not(e.span(span)),
         }
     }
 
@@ -900,7 +985,17 @@ impl<'ast, T> WithSpan for BooleanExpression<'ast, T> {
             Select(e) => e.get_span(),
             Identifier(e) => e.get_span(),
             Conditional(e) => e.get_span(),
-            e => unimplemented!(),
+            Value(e) => e.get_span(),
+            FieldLt(e) => e.get_span(),
+            FieldLe(e) => e.get_span(),
+            FieldEq(e) => e.get_span(),
+            UintLt(e) => e.get_span(),
+            UintLe(e) => e.get_span(),
+            UintEq(e) => e.get_span(),
+            BoolEq(e) => e.get_span(),
+            Or(e) => e.get_span(),
+            And(e) => e.get_span(),
+            Not(e) => e.get_span(),
         }
     }
 }
@@ -912,7 +1007,18 @@ impl<'ast, T> WithSpan for UExpressionInner<'ast, T> {
             Select(e) => Select(e.span(span)),
             Identifier(e) => Identifier(e.span(span)),
             Conditional(e) => Conditional(e.span(span)),
-            e => e,
+            Value(e) => Value(e.span(span)),
+            Add(e) => Add(e.span(span)),
+            Sub(e) => Sub(e.span(span)),
+            Mult(e) => Mult(e.span(span)),
+            Div(e) => Div(e.span(span)),
+            Rem(e) => Rem(e.span(span)),
+            Xor(e) => Xor(e.span(span)),
+            And(e) => And(e.span(span)),
+            Or(e) => Or(e.span(span)),
+            LeftShift(e) => LeftShift(e.span(span)),
+            RightShift(e) => RightShift(e.span(span)),
+            Not(e) => Not(e.span(span)),
         }
     }
 
@@ -922,7 +1028,18 @@ impl<'ast, T> WithSpan for UExpressionInner<'ast, T> {
             Select(e) => e.get_span(),
             Identifier(e) => e.get_span(),
             Conditional(e) => e.get_span(),
-            e => unimplemented!(),
+            Value(e) => e.get_span(),
+            Add(e) => e.get_span(),
+            Sub(e) => e.get_span(),
+            Mult(e) => e.get_span(),
+            Div(e) => e.get_span(),
+            Rem(e) => e.get_span(),
+            Xor(e) => e.get_span(),
+            And(e) => e.get_span(),
+            Or(e) => e.get_span(),
+            LeftShift(e) => e.get_span(),
+            RightShift(e) => e.get_span(),
+            Not(e) => e.get_span(),
         }
     }
 }

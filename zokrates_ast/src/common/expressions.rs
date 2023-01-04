@@ -1,5 +1,6 @@
 use num_bigint::BigUint;
 
+use super::operators::OpEq;
 use super::{operators::OperatorStr, Span, Value, WithSpan};
 use std::fmt;
 use std::marker::PhantomData;
@@ -58,6 +59,8 @@ pub enum BinaryOrExpression<Op, L, R, E, I> {
     Binary(BinaryExpression<Op, L, R, E>),
     Expression(I),
 }
+
+pub type EqExpression<E, B> = BinaryExpression<OpEq, E, E, B>;
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct UnaryExpression<Op, In, Out> {

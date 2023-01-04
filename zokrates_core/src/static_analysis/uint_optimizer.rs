@@ -71,32 +71,32 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         match e {
-            BooleanExpression::UintEq(box left, box right) => {
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+            BooleanExpression::UintEq(e) => {
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 let left = force_reduce(left);
                 let right = force_reduce(right);
 
-                BooleanExpression::UintEq(box left, box right)
+                BooleanExpression::uint_eq(left, right)
             }
-            BooleanExpression::UintLt(box left, box right) => {
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+            BooleanExpression::UintLt(e) => {
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 let left = force_reduce(left);
                 let right = force_reduce(right);
 
-                BooleanExpression::UintLt(box left, box right)
+                BooleanExpression::uint_lt(left, right)
             }
-            BooleanExpression::UintLe(box left, box right) => {
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+            BooleanExpression::UintLe(e) => {
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 let left = force_reduce(left);
                 let right = force_reduce(right);
 
-                BooleanExpression::UintLe(box left, box right)
+                BooleanExpression::uint_le(left, right)
             }
             e => fold_boolean_expression(self, e),
         }
@@ -120,7 +120,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         use self::UExpressionInner::*;
 
         let res = match inner {
-            Value(v) => Value(v).annotate(range).with_max(v),
+            Value(v) => Value(v.clone()).annotate(range).with_max(v.value),
             Identifier(id) => Identifier(id.clone()).annotate(range).metadata(
                 self.ids
                     .get(&Variable::uint(id.id.clone(), range))
@@ -151,10 +151,10 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::select(values, index).with_max(max_value)
             }
-            Add(box left, box right) => {
+            Add(e) => {
                 // reduce the two terms
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 let left_max = left.metadata.clone().unwrap().max;
                 let right_max = right.metadata.clone().unwrap().max;
@@ -187,7 +187,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::add(left, right).with_max(max)
             }
-            Sub(box left, box right) => {
+            Sub(e) => {
                 // let `target` the target bitwidth of `left` and `right`
                 // `0 <= left <= max_left`
                 // `0 <= right <= max_right`
@@ -205,8 +205,8 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 // smaller or equal to N for target in {8, 16, 32}
 
                 // reduce the two terms
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 let left_max = left.metadata.clone().unwrap().max;
                 let right_bitwidth = right.metadata.clone().unwrap().bitwidth();
@@ -254,31 +254,31 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::sub(left, right).with_max(max)
             }
-            Xor(box left, box right) => {
+            Xor(e) => {
                 // reduce the two terms
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 UExpression::xor(force_reduce(left), force_reduce(right)).with_max(range_max)
             }
-            And(box left, box right) => {
+            And(e) => {
                 // reduce the two terms
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 UExpression::and(force_reduce(left), force_reduce(right)).with_max(range_max)
             }
-            Or(box left, box right) => {
+            Or(e) => {
                 // reduce the two terms
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 UExpression::or(force_reduce(left), force_reduce(right)).with_max(range_max)
             }
-            Mult(box left, box right) => {
+            Mult(e) => {
                 // reduce the two terms
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 let left_max = left.metadata.clone().unwrap().max;
                 let right_max = right.metadata.clone().unwrap().max;
@@ -311,52 +311,72 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::mult(left, right).with_max(max)
             }
-            Div(box left, box right) => {
+            Div(e) => {
                 // reduce the two terms
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 UExpression::div(force_reduce(left), force_reduce(right)).with_max(range_max)
             }
-            Rem(box left, box right) => {
+            Rem(e) => {
                 // reduce the two terms
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 UExpression::rem(force_reduce(left), force_reduce(right)).with_max(range_max)
             }
-            Not(box e) => {
-                let e = self.fold_uint_expression(e);
+            Not(e) => {
+                let inner = self.fold_uint_expression(*e.inner);
 
-                UExpressionInner::Not(box force_reduce(e))
-                    .annotate(range)
-                    .with_max(range_max)
+                UExpression::not(force_reduce(inner)).with_max(range_max)
             }
-            LeftShift(box e, by) => {
+            LeftShift(e) => {
                 // reduce both terms
-                let e = self.fold_uint_expression(e);
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
-                let e_max: num_bigint::BigUint = e.metadata.as_ref().unwrap().max.to_biguint();
-                let max = e_max
-                    .shl(by as usize)
-                    .bitand(&(2_u128.pow(range as u32) - 1).into());
+                match right.into_inner() {
+                    UExpressionInner::Value(by) => {
+                        let e_max: num_bigint::BigUint =
+                            left.metadata.as_ref().unwrap().max.to_biguint();
+                        let max = e_max
+                            .shl(by.value as usize)
+                            .bitand(&(2_u128.pow(range as u32) - 1).into());
 
-                let max = T::try_from(max).unwrap();
+                        let max = T::try_from(max).unwrap();
 
-                UExpression::left_shift(force_reduce(e), by).with_max(max)
+                        UExpression::left_shift(
+                            force_reduce(left),
+                            UExpression::from_value(by.value).annotate(UBitwidth::B32),
+                        )
+                        .with_max(max)
+                    }
+                    _ => unreachable!(),
+                }
             }
-            RightShift(box e, by) => {
+            RightShift(e) => {
                 // reduce both terms
-                let e = self.fold_uint_expression(e);
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
-                let e_max: num_bigint::BigUint = e.metadata.as_ref().unwrap().max.to_biguint();
-                let max = e_max
-                    .bitand(&(2_u128.pow(range as u32) - 1).into())
-                    .shr(by as usize);
+                match right.into_inner() {
+                    UExpressionInner::Value(by) => {
+                        let e_max: num_bigint::BigUint =
+                            left.metadata.as_ref().unwrap().max.to_biguint();
+                        let max = e_max
+                            .bitand(&(2_u128.pow(range as u32) - 1).into())
+                            .shr(by.value as usize);
 
-                let max = T::try_from(max).unwrap();
+                        let max = T::try_from(max).unwrap();
 
-                UExpression::right_shift(force_reduce(e), by).with_max(max)
+                        UExpression::right_shift(
+                            force_reduce(left),
+                            UExpression::from_value(by.value).annotate(UBitwidth::B32),
+                        )
+                        .with_max(max)
+                    }
+                    _ => unreachable!(),
+                }
             }
             Conditional(e) => {
                 let condition = self.fold_boolean_expression(*e.condition);
@@ -500,16 +520,16 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     }
                 }
             }
-            ZirStatement::Assertion(BooleanExpression::UintEq(box left, box right), metadata) => {
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
+            ZirStatement::Assertion(BooleanExpression::UintEq(e), metadata) => {
+                let left = self.fold_uint_expression(*e.left);
+                let right = self.fold_uint_expression(*e.right);
 
                 // we can only compare two unsigned integers if they are in range
                 let left = force_reduce(left);
                 let right = force_reduce(right);
 
                 vec![ZirStatement::Assertion(
-                    BooleanExpression::UintEq(box left, box right),
+                    BooleanExpression::uint_eq(left, right),
                     metadata,
                 )]
             }

@@ -2405,11 +2405,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 })?;
 
                 match (e1_checked, e2_checked) {
-                    (Int(e1), Int(e2)) => Ok(IntExpression::Add(box e1, box e2).into()),
+                    (Int(e1), Int(e2)) => Ok(IntExpression::add(e1, e2).into()),
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        dbg!(Ok(FieldElementExpression::add(e1, e2)
-                            .with_span(span)
-                            .into()))
+                        Ok(FieldElementExpression::add(e1, e2)
+                            .into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
@@ -2442,8 +2441,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 })?;
 
                 match (e1_checked, e2_checked) {
-                    (Int(e1), Int(e2)) => Ok(IntExpression::Sub(box e1, box e2).into()),
-                    (FieldElement(e1), FieldElement(e2)) => Ok((e1 - e2).with_span(span).into()),
+                    (Int(e1), Int(e2)) => Ok(IntExpression::sub(e1, e2).into()),
+                    (FieldElement(e1), FieldElement(e2)) => Ok((e1 - e2).into()),
                     (Uint(e1), Uint(e2)) if e1.get_type() == e2.get_type() => Ok((e1 - e2).into()),
                     (t1, t2) => Err(ErrorInner {
                         span: Some(span),
@@ -2471,9 +2470,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 })?;
 
                 match (e1_checked, e2_checked) {
-                    (Int(e1), Int(e2)) => Ok(IntExpression::Mult(box e1, box e2).into()),
+                    (Int(e1), Int(e2)) => Ok(IntExpression::mul(e1, e2).into()),
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok((e1 * e2).with_span(span).into())
+                        Ok((e1 * e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
@@ -2506,8 +2505,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 })?;
 
                 match (e1_checked, e2_checked) {
-                    (Int(e1), Int(e2)) => Ok(IntExpression::Div(box e1, box e2).into()),
-                    (FieldElement(e1), FieldElement(e2)) => Ok((e1 / e2).with_span(span).into()),
+                    (Int(e1), Int(e2)) => Ok(IntExpression::div(e1, e2).into()),
+                    (FieldElement(e1), FieldElement(e2)) => Ok((e1 / e2).into()),
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
                     {
@@ -2587,7 +2586,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match e {
                     TypedExpression::Int(e) => Ok(IntExpression::Neg(box e).into()),
                     TypedExpression::FieldElement(e) => {
-                        Ok(FieldElementExpression::Neg(box e).into())
+                        Ok(FieldElementExpression::neg(e).into())
                     }
                     TypedExpression::Uint(e) => Ok((-e).into()),
                     e => Err(ErrorInner {
@@ -2606,7 +2605,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match e {
                     TypedExpression::Int(e) => Ok(IntExpression::Pos(box e).into()),
                     TypedExpression::FieldElement(e) => {
-                        Ok(FieldElementExpression::Pos(box e).into())
+                        Ok(FieldElementExpression::pos(e).into())
                     }
                     TypedExpression::Uint(e) => Ok(UExpression::pos(e).into()),
                     e => Err(ErrorInner {
@@ -2698,7 +2697,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::FieldConstant(n) => Ok(FieldElementExpression::Number(
                 T::try_from(n)
                     .map(ValueExpression::new)
-                    .map(|v| v.with_span(span))
+                    .map(|v| v)
                     .map_err(|_| ErrorInner {
                         span: Some(span),
                         message: format!(
@@ -2742,11 +2741,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldLt(box e1, box e2).into())
+                        Ok(BooleanExpression::field_lt(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintLt(box e1, box e2).into())
+                            Ok(BooleanExpression::uint_lt(e1, e2).into())
                         } else {
                             Err(ErrorInner {
                                 span: Some(span),
@@ -2792,11 +2791,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldLe(box e1, box e2).into())
+                        Ok(BooleanExpression::field_le(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintLe(box e1, box e2).into())
+                            Ok(BooleanExpression::uint_le(e1, e2).into())
                         } else {
                             Err(ErrorInner {
                                 span: Some(span),
@@ -2842,24 +2841,24 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldEq(BinaryExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::field_eq(e1, e2).into())
                     }
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::BoolEq(BinaryExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::bool_eq(e1, e2).into())
                     }
                     (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
-                        Ok(BooleanExpression::ArrayEq(BinaryExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::array_eq(e1, e2).into())
                     }
                     (TypedExpression::Struct(e1), TypedExpression::Struct(e2)) => {
-                        Ok(BooleanExpression::StructEq(BinaryExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::struct_eq(e1, e2).into())
                     }
                     (TypedExpression::Tuple(e1), TypedExpression::Tuple(e2)) => {
-                        Ok(BooleanExpression::TupleEq(BinaryExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::tuple_eq(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
                     {
-                        Ok(BooleanExpression::UintEq(BinaryExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::uint_eq(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         span: Some(span),
@@ -2893,11 +2892,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldGe(box e1, box e2).into())
+                        Ok(BooleanExpression::field_ge(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintGe(box e1, box e2).into())
+                            Ok(BooleanExpression::uint_ge(e1, e2).into())
                         } else {
                             Err(ErrorInner {
                                 span: Some(span),
@@ -2943,11 +2942,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldGt(box e1, box e2).into())
+                        Ok(BooleanExpression::field_gt(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintGt(box e1, box e2).into())
+                            Ok(BooleanExpression::uint_gt(e1, e2).into())
                         } else {
                             Err(ErrorInner {
                                 span: Some(span),
@@ -3051,13 +3050,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             TypedExpression::Array(a) => {
                                 match a.inner_type().clone() {
                                     Type::FieldElement => {
-                                        Ok(FieldElementExpression::select(a, index).with_span(span).into())
+                                        Ok(FieldElementExpression::select(a, index).into())
                                     }
-                                    Type::Uint(..) => Ok(UExpression::select(a, index).with_span(span).into()),
-                                    Type::Boolean => Ok(BooleanExpression::select(a, index).with_span(span).into()),
-                                    Type::Array(..) => Ok(ArrayExpression::select(a, index).with_span(span).into()),
-                                    Type::Struct(..) => Ok(StructExpression::select(a, index).with_span(span).into()),
-                                    Type::Tuple(..) => Ok(TupleExpression::select(a, index).with_span(span).into()),
+                                    Type::Uint(..) => Ok(UExpression::select(a, index).into()),
+                                    Type::Boolean => Ok(BooleanExpression::select(a, index).into()),
+                                    Type::Array(..) => Ok(ArrayExpression::select(a, index).into()),
+                                    Type::Struct(..) => Ok(StructExpression::select(a, index).into()),
+                                    Type::Tuple(..) => Ok(TupleExpression::select(a, index).into()),
                                     Type::Int => unreachable!(),
                                 }
                             }
@@ -3418,10 +3417,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
-                        Ok(IntExpression::And(box e1, box e2).into())
+                        Ok(IntExpression::and(e1, e2).into())
                     }
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::And(box e1, box e2).into())
+                        Ok(BooleanExpression::and(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         span: Some(span),
@@ -3439,7 +3438,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e2_checked = self.check_expression(e2, module_id, types)?;
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::Or(box e1, box e2).into())
+                        Ok(BooleanExpression::or(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         span: Some(span),
@@ -3465,7 +3464,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     })?;
 
                 match e1 {
-                    TypedExpression::Int(e1) => Ok(IntExpression::LeftShift(box e1, box e2).into()),
+                    TypedExpression::Int(e1) => Ok(IntExpression::left_shift(e1, e2).into()),
                     TypedExpression::Uint(e1) => Ok(UExpression::left_shift(e1, e2).into()),
                     e1 => Err(ErrorInner {
                         span: Some(span),
@@ -3493,7 +3492,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match e1 {
                     TypedExpression::Int(e1) => {
-                        Ok(IntExpression::RightShift(box e1, box e2).into())
+                        Ok(IntExpression::right_shift(e1, e2).into())
                     }
                     TypedExpression::Uint(e1) => Ok(UExpression::right_shift(e1, e2).into()),
                     e1 => Err(ErrorInner {
@@ -3521,7 +3520,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
-                        Ok(IntExpression::Or(box e1, box e2).into())
+                        Ok(IntExpression::or(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
@@ -3553,7 +3552,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
-                        Ok(IntExpression::And(box e1, box e2).into())
+                        Ok(IntExpression::and(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
@@ -3585,7 +3584,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
-                        Ok(IntExpression::Xor(box e1, box e2).into())
+                        Ok(IntExpression::xor(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
@@ -3606,8 +3605,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::Not(box e) => {
                 let e_checked = self.check_expression(e, module_id, types)?;
                 match e_checked {
-                    TypedExpression::Int(e) => Ok(IntExpression::Not(box e).into()),
-                    TypedExpression::Boolean(e) => Ok(BooleanExpression::Not(box e).into()),
+                    TypedExpression::Int(e) => Ok(IntExpression::not(e).into()),
+                    TypedExpression::Boolean(e) => Ok(BooleanExpression::not(e).into()),
                     TypedExpression::Uint(e) => Ok((!e).into()),
                     e => Err(ErrorInner {
                         span: Some(span),
@@ -3615,7 +3614,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }
             }
-        }
+        }.map(|e| e.with_span(span))
     }
 
     fn insert_into_scope(
