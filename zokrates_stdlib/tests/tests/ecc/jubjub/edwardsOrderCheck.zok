@@ -1,0 +1,23 @@
+from "ecc/edwards" import orderCheck;
+from "ecc/jubjub/params" import EDWARDS_A, EDWARDS_D;
+
+def testOrderCheckTrue() -> bool {
+    field u = 11076627216317271660298050606127911965867021807910416450833192264015104452986;
+    field v = 44412834903739585386157632289020980010620626017712148233229312325549216099227;
+
+    assert(orderCheck([u, v], EDWARDS_A, EDWARDS_D));
+    return true;
+}
+
+def testOrderCheckFalse() -> bool {
+    field u = 0;
+    field v = 52435875175126190479447740508185965837690552500527637822603658699938581184512;
+
+    assert(!orderCheck([u, v], EDWARDS_A, EDWARDS_D));
+    return true;
+}
+
+def main() {
+    assert(testOrderCheckFalse());
+    assert(testOrderCheckTrue());
+}

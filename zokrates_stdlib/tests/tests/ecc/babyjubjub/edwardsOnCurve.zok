@@ -1,0 +1,11 @@
+from "ecc/edwards" import onCurve;
+from "ecc/babyjubjub/params" import EDWARDS_A, EDWARDS_D;
+
+// Code to create test cases:
+// https://github.com/Zokrates/pycrypto
+def main() {
+    field u = 17324563846726889236817837922625232543153115346355010501047597319863650987830;
+    field v = 20022170825455209233733649024450576091402881793145646502279487074566492066831;
+
+    assert(onCurve([u, v], EDWARDS_A, EDWARDS_D)); // onCurve throws for false
+}
