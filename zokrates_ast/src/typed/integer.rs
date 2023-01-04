@@ -8,8 +8,11 @@ use crate::typed::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, Conditional, ConditionalExpression,
     Expr, FieldElementExpression, Select, SelectExpression, StructExpression,
     StructExpressionInner, TupleExpression, TupleExpressionInner, Typed, TypedExpression,
-    TypedExpressionOrSpread, TypedSpread, UExpression, UExpressionInner,
+    TypedExpressionOrSpread, TypedSpread, UExpression,
 };
+
+use crate::common::operators::*;
+
 use num_bigint::BigUint;
 use std::convert::TryFrom;
 use std::fmt;
@@ -279,29 +282,106 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum IntExpression<'ast, T> {
     Value(IntValueExpression),
-    Pos(Box<IntExpression<'ast, T>>),
-    Neg(Box<IntExpression<'ast, T>>),
-    Add(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Sub(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Mult(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Div(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Rem(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Pow(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
+    Pos(UnaryExpression<OpPos, IntExpression<'ast, T>, IntExpression<'ast, T>>),
+    Neg(UnaryExpression<OpNeg, IntExpression<'ast, T>, IntExpression<'ast, T>>),
+    Not(UnaryExpression<OpNot, IntExpression<'ast, T>, IntExpression<'ast, T>>),
+    Add(
+        BinaryExpression<
+            OpAdd,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
+    Sub(
+        BinaryExpression<
+            OpSub,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
+    Mult(
+        BinaryExpression<
+            OpMul,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
+    Div(
+        BinaryExpression<
+            OpDiv,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
+    Rem(
+        BinaryExpression<
+            OpRem,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
+    Pow(
+        BinaryExpression<
+            OpPow,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
+    Xor(
+        BinaryExpression<
+            OpXor,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
+    And(
+        BinaryExpression<
+            OpAnd,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
+    Or(
+        BinaryExpression<
+            OpOr,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
+    LeftShift(
+        BinaryExpression<
+            OpLsh,
+            IntExpression<'ast, T>,
+            UExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
+    RightShift(
+        BinaryExpression<
+            OpRsh,
+            IntExpression<'ast, T>,
+            UExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
     Conditional(ConditionalExpression<'ast, T, IntExpression<'ast, T>>),
     Select(SelectExpression<'ast, T, IntExpression<'ast, T>>),
-    Xor(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    And(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Or(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    Not(Box<IntExpression<'ast, T>>),
-    LeftShift(Box<IntExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    RightShift(Box<IntExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
 
 impl<'ast, T> Add for IntExpression<'ast, T> {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        IntExpression::Add(box self, box other)
+        IntExpression::Add(BinaryExpression::new(self, other))
     }
 }
 
@@ -309,7 +389,7 @@ impl<'ast, T> Sub for IntExpression<'ast, T> {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        IntExpression::Sub(box self, box other)
+        IntExpression::Sub(BinaryExpression::new(self, other))
     }
 }
 
@@ -317,7 +397,7 @@ impl<'ast, T> Mul for IntExpression<'ast, T> {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
-        IntExpression::Mult(box self, box other)
+        IntExpression::Mult(BinaryExpression::new(self, other))
     }
 }
 
@@ -325,7 +405,7 @@ impl<'ast, T> Div for IntExpression<'ast, T> {
     type Output = Self;
 
     fn div(self, other: Self) -> Self {
-        IntExpression::Div(box self, box other)
+        IntExpression::Div(BinaryExpression::new(self, other))
     }
 }
 
@@ -333,7 +413,7 @@ impl<'ast, T> Rem for IntExpression<'ast, T> {
     type Output = Self;
 
     fn rem(self, other: Self) -> Self {
-        IntExpression::Rem(box self, box other)
+        IntExpression::Rem(BinaryExpression::new(self, other))
     }
 }
 
@@ -341,7 +421,7 @@ impl<'ast, T> Not for IntExpression<'ast, T> {
     type Output = Self;
 
     fn not(self) -> Self {
-        IntExpression::Not(box self)
+        IntExpression::Not(UnaryExpression::new(self))
     }
 }
 
@@ -349,37 +429,37 @@ impl<'ast, T> Neg for IntExpression<'ast, T> {
     type Output = Self;
 
     fn neg(self) -> Self {
-        IntExpression::Neg(box self)
+        IntExpression::Neg(UnaryExpression::new(self))
     }
 }
 
 impl<'ast, T> IntExpression<'ast, T> {
     pub fn pow(self, other: Self) -> Self {
-        IntExpression::Pow(box self, box other)
+        IntExpression::Pow(BinaryExpression::new(self, other))
     }
 
     pub fn and(self, other: Self) -> Self {
-        IntExpression::And(box self, box other)
+        IntExpression::And(BinaryExpression::new(self, other))
     }
 
     pub fn xor(self, other: Self) -> Self {
-        IntExpression::Xor(box self, box other)
+        IntExpression::Xor(BinaryExpression::new(self, other))
     }
 
     pub fn or(self, other: Self) -> Self {
-        IntExpression::Or(box self, box other)
+        IntExpression::Or(BinaryExpression::new(self, other))
     }
 
     pub fn left_shift(self, by: UExpression<'ast, T>) -> Self {
-        IntExpression::LeftShift(box self, box by)
+        IntExpression::LeftShift(BinaryExpression::new(self, by))
     }
 
     pub fn right_shift(self, by: UExpression<'ast, T>) -> Self {
-        IntExpression::RightShift(box self, box by)
+        IntExpression::RightShift(BinaryExpression::new(self, by))
     }
 
     pub fn pos(self) -> Self {
-        IntExpression::Pos(box self)
+        IntExpression::Pos(UnaryExpression::new(self))
     }
 }
 
@@ -387,21 +467,21 @@ impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             IntExpression::Value(ref v) => write!(f, "{}", v),
-            IntExpression::Pos(ref e) => write!(f, "(+{})", e),
-            IntExpression::Neg(ref e) => write!(f, "(-{})", e),
-            IntExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
-            IntExpression::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
-            IntExpression::Pow(ref lhs, ref rhs) => write!(f, "({} ** {})", lhs, rhs),
+            IntExpression::Pos(ref e) => write!(f, "{}", e),
+            IntExpression::Neg(ref e) => write!(f, "{}", e),
+            IntExpression::Div(ref e) => write!(f, "{}", e),
+            IntExpression::Rem(ref e) => write!(f, "{}", e),
+            IntExpression::Pow(ref e) => write!(f, "{}", e),
             IntExpression::Select(ref select) => write!(f, "{}", select),
-            IntExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
-            IntExpression::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
-            IntExpression::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
-            IntExpression::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
-            IntExpression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
-            IntExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
-            IntExpression::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
-            IntExpression::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
-            IntExpression::Not(ref e) => write!(f, "!{}", e),
+            IntExpression::Add(ref e) => write!(f, "{}", e),
+            IntExpression::And(ref e) => write!(f, "{}", e),
+            IntExpression::Or(ref e) => write!(f, "{}", e),
+            IntExpression::Xor(ref e) => write!(f, "{}", e),
+            IntExpression::Sub(ref e) => write!(f, "{}", e),
+            IntExpression::Mult(ref e) => write!(f, "{}", e),
+            IntExpression::RightShift(ref e) => write!(f, "{}", e),
+            IntExpression::LeftShift(ref e) => write!(f, "{}", e),
+            IntExpression::Not(ref e) => write!(f, "{}", e),
             IntExpression::Conditional(ref c) => write!(f, "{}", c),
         }
     }
@@ -432,24 +512,28 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
             IntExpression::Value(i) => Ok(Self::Number(ValueExpression::new(
                 T::try_from(i.value.clone()).map_err(|_| IntExpression::Value(i))?,
             ))),
-            IntExpression::Add(box e1, box e2) => {
-                Ok(Self::add(Self::try_from_int(e1)?, Self::try_from_int(e2)?))
-            }
-            IntExpression::Sub(box e1, box e2) => {
-                Ok(Self::sub(Self::try_from_int(e1)?, Self::try_from_int(e2)?))
-            }
-            IntExpression::Mult(box e1, box e2) => {
-                Ok(Self::mul(Self::try_from_int(e1)?, Self::try_from_int(e2)?))
-            }
-            IntExpression::Pow(box e1, box e2) => Ok(Self::pow(
-                Self::try_from_int(e1)?,
-                UExpression::try_from_int(e2, &UBitwidth::B32)?,
+            IntExpression::Add(e) => Ok(Self::add(
+                Self::try_from_int(*e.left)?,
+                Self::try_from_int(*e.right)?,
             )),
-            IntExpression::Div(box e1, box e2) => {
-                Ok(Self::div(Self::try_from_int(e1)?, Self::try_from_int(e2)?))
-            }
-            IntExpression::Pos(box e) => Ok(Self::pos(Self::try_from_int(e)?)),
-            IntExpression::Neg(box e) => Ok(Self::neg(Self::try_from_int(e)?)),
+            IntExpression::Sub(e) => Ok(Self::sub(
+                Self::try_from_int(*e.left)?,
+                Self::try_from_int(*e.right)?,
+            )),
+            IntExpression::Mult(e) => Ok(Self::mul(
+                Self::try_from_int(*e.left)?,
+                Self::try_from_int(*e.right)?,
+            )),
+            IntExpression::Pow(e) => Ok(Self::pow(
+                Self::try_from_int(*e.left)?,
+                UExpression::try_from_int(*e.right, &UBitwidth::B32)?,
+            )),
+            IntExpression::Div(e) => Ok(Self::div(
+                Self::try_from_int(*e.left)?,
+                Self::try_from_int(*e.right)?,
+            )),
+            IntExpression::Pos(e) => Ok(Self::pos(Self::try_from_int(*e.inner)?)),
+            IntExpression::Neg(e) => Ok(Self::neg(Self::try_from_int(*e.inner)?)),
             IntExpression::Conditional(c) => Ok(Self::Conditional(ConditionalExpression::new(
                 *c.condition,
                 Self::try_from_int(*c.consequence)?,
@@ -532,43 +616,43 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                     Err(Value(i))
                 }
             }
-            Add(box e1, box e2) => {
-                Ok(Self::try_from_int(e1, bitwidth)? + Self::try_from_int(e2, bitwidth)?)
-            }
-            Pos(box e) => Ok(Self::pos(Self::try_from_int(e, bitwidth)?)),
-            Neg(box e) => Ok(Self::neg(Self::try_from_int(e, bitwidth)?)),
-            Sub(box e1, box e2) => {
-                Ok(Self::try_from_int(e1, bitwidth)? - Self::try_from_int(e2, bitwidth)?)
-            }
-            Mult(box e1, box e2) => {
-                Ok(Self::try_from_int(e1, bitwidth)? * Self::try_from_int(e2, bitwidth)?)
-            }
-            Div(box e1, box e2) => {
-                Ok(Self::try_from_int(e1, bitwidth)? / Self::try_from_int(e2, bitwidth)?)
-            }
-            Rem(box e1, box e2) => {
-                Ok(Self::try_from_int(e1, bitwidth)? % Self::try_from_int(e2, bitwidth)?)
-            }
-            And(box e1, box e2) => Ok(UExpression::and(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
+            Add(e) => Ok(
+                Self::try_from_int(*e.left, bitwidth)? + Self::try_from_int(*e.right, bitwidth)?
+            ),
+            Pos(e) => Ok(Self::pos(Self::try_from_int(*e.inner, bitwidth)?)),
+            Neg(e) => Ok(Self::neg(Self::try_from_int(*e.inner, bitwidth)?)),
+            Sub(e) => Ok(
+                Self::try_from_int(*e.left, bitwidth)? - Self::try_from_int(*e.right, bitwidth)?
+            ),
+            Mult(e) => Ok(
+                Self::try_from_int(*e.left, bitwidth)? * Self::try_from_int(*e.right, bitwidth)?
+            ),
+            Div(e) => Ok(
+                Self::try_from_int(*e.left, bitwidth)? / Self::try_from_int(*e.right, bitwidth)?
+            ),
+            Rem(e) => Ok(
+                Self::try_from_int(*e.left, bitwidth)? % Self::try_from_int(*e.right, bitwidth)?
+            ),
+            And(e) => Ok(UExpression::and(
+                Self::try_from_int(*e.left, bitwidth)?,
+                Self::try_from_int(*e.right, bitwidth)?,
             )),
-            Or(box e1, box e2) => Ok(UExpression::or(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
+            Or(e) => Ok(UExpression::or(
+                Self::try_from_int(*e.left, bitwidth)?,
+                Self::try_from_int(*e.right, bitwidth)?,
             )),
-            Not(box e) => Ok(!Self::try_from_int(e, bitwidth)?),
-            Xor(box e1, box e2) => Ok(UExpression::xor(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
+            Not(e) => Ok(!Self::try_from_int(*e.inner, bitwidth)?),
+            Xor(e) => Ok(UExpression::xor(
+                Self::try_from_int(*e.left, bitwidth)?,
+                Self::try_from_int(*e.right, bitwidth)?,
             )),
-            RightShift(box e1, box e2) => Ok(UExpression::right_shift(
-                Self::try_from_int(e1, bitwidth)?,
-                e2,
+            RightShift(e) => Ok(UExpression::right_shift(
+                Self::try_from_int(*e.left, bitwidth)?,
+                *e.right,
             )),
-            LeftShift(box e1, box e2) => Ok(UExpression::left_shift(
-                Self::try_from_int(e1, bitwidth)?,
-                e2,
+            LeftShift(e) => Ok(UExpression::left_shift(
+                Self::try_from_int(*e.left, bitwidth)?,
+                *e.right,
             )),
             Conditional(c) => Ok(UExpression::conditional(
                 *c.condition,

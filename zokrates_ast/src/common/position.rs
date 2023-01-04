@@ -21,9 +21,7 @@ pub trait WithSpan: Sized {
         self.span(Some(span))
     }
 
-    fn get_span(&self) -> Option<Span> {
-        unimplemented!()
-    }
+    fn get_span(&self) -> Option<Span>;
 }
 
 impl Span {

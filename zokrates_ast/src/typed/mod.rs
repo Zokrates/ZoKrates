@@ -1978,7 +1978,49 @@ impl<'ast, T> WithSpan for UExpressionInner<'ast, T> {
             FunctionCall(e) => FunctionCall(e.span(span)),
             Member(e) => Member(e.span(span)),
             Element(e) => Element(e.span(span)),
-            e => e,
+            Value(e) => Value(e.span(span)),
+            Add(e) => Add(e.span(span)),
+            Sub(e) => Sub(e.span(span)),
+            FloorSub(e) => FloorSub(e.span(span)),
+            Mult(e) => Mult(e.span(span)),
+            Div(e) => Div(e.span(span)),
+            Rem(e) => Rem(e.span(span)),
+            Xor(e) => Xor(e.span(span)),
+            And(e) => And(e.span(span)),
+            Or(e) => Or(e.span(span)),
+            Not(e) => Not(e.span(span)),
+            Neg(e) => Neg(e.span(span)),
+            Pos(e) => Pos(e.span(span)),
+            LeftShift(e) => LeftShift(e.span(span)),
+            RightShift(e) => RightShift(e.span(span)),
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        use UExpressionInner::*;
+        match self {
+            Select(e) => e.get_span(),
+            Block(e) => e.get_span(),
+            Identifier(e) => e.get_span(),
+            Conditional(e) => e.get_span(),
+            FunctionCall(e) => e.get_span(),
+            Member(e) => e.get_span(),
+            Element(e) => e.get_span(),
+            Value(e) => e.get_span(),
+            Add(e) => e.get_span(),
+            Sub(e) => e.get_span(),
+            FloorSub(e) => e.get_span(),
+            Mult(e) => e.get_span(),
+            Div(e) => e.get_span(),
+            Rem(e) => e.get_span(),
+            Xor(e) => e.get_span(),
+            And(e) => e.get_span(),
+            Or(e) => e.get_span(),
+            Not(e) => e.get_span(),
+            Neg(e) => e.get_span(),
+            Pos(e) => e.get_span(),
+            LeftShift(e) => e.get_span(),
+            RightShift(e) => e.get_span(),
         }
     }
 }
@@ -1994,7 +2036,23 @@ impl<'ast, T> WithSpan for ArrayExpressionInner<'ast, T> {
             FunctionCall(e) => FunctionCall(e.span(span)),
             Member(e) => Member(e.span(span)),
             Element(e) => Element(e.span(span)),
-            e => e,
+            Value(e) => Value(e.span(span)),
+            e => unimplemented!(),
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        use ArrayExpressionInner::*;
+        match self {
+            Select(e) => e.get_span(),
+            Block(e) => e.get_span(),
+            Identifier(e) => e.get_span(),
+            Conditional(e) => e.get_span(),
+            FunctionCall(e) => e.get_span(),
+            Member(e) => e.get_span(),
+            Element(e) => e.get_span(),
+            Value(e) => e.get_span(),
+            e => unimplemented!(),
         }
     }
 }
@@ -2010,7 +2068,21 @@ impl<'ast, T> WithSpan for StructExpressionInner<'ast, T> {
             FunctionCall(e) => FunctionCall(e.span(span)),
             Member(e) => Member(e.span(span)),
             Element(e) => Element(e.span(span)),
-            e => e,
+            Value(e) => Value(e.span(span)),
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        use StructExpressionInner::*;
+        match self {
+            Select(e) => e.get_span(),
+            Block(e) => e.get_span(),
+            Identifier(e) => e.get_span(),
+            Conditional(e) => e.get_span(),
+            FunctionCall(e) => e.get_span(),
+            Member(e) => e.get_span(),
+            Element(e) => e.get_span(),
+            Value(e) => e.get_span(),
         }
     }
 }
@@ -2026,7 +2098,21 @@ impl<'ast, T> WithSpan for TupleExpressionInner<'ast, T> {
             FunctionCall(e) => FunctionCall(e.span(span)),
             Member(e) => Member(e.span(span)),
             Element(e) => Element(e.span(span)),
-            e => e,
+            Value(e) => Value(e.span(span)),
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        use TupleExpressionInner::*;
+        match self {
+            Select(e) => e.get_span(),
+            Block(e) => e.get_span(),
+            Identifier(e) => e.get_span(),
+            Conditional(e) => e.get_span(),
+            FunctionCall(e) => e.get_span(),
+            Member(e) => e.get_span(),
+            Element(e) => e.get_span(),
+            Value(e) => e.get_span(),
         }
     }
 }
@@ -2040,6 +2126,15 @@ impl<'ast, T> WithSpan for IntExpression<'ast, T> {
             e => e,
         }
     }
+
+    fn get_span(&self) -> Option<Span> {
+        use IntExpression::*;
+        match self {
+            Conditional(e) => e.get_span(),
+            Select(e) => e.get_span(),
+            e => unimplemented!(),
+        }
+    }
 }
 
 impl<'ast, T> WithSpan for TupleExpression<'ast, T> {
@@ -2048,6 +2143,10 @@ impl<'ast, T> WithSpan for TupleExpression<'ast, T> {
             inner: self.inner.span(span),
             ..self
         }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.inner.get_span()
     }
 }
 
@@ -2058,6 +2157,10 @@ impl<'ast, T> WithSpan for StructExpression<'ast, T> {
             ..self
         }
     }
+
+    fn get_span(&self) -> Option<Span> {
+        self.inner.get_span()
+    }
 }
 
 impl<'ast, T> WithSpan for ArrayExpression<'ast, T> {
@@ -2067,6 +2170,10 @@ impl<'ast, T> WithSpan for ArrayExpression<'ast, T> {
             ..self
         }
     }
+
+    fn get_span(&self) -> Option<Span> {
+        self.inner.get_span()
+    }
 }
 
 impl<'ast, T> WithSpan for UExpression<'ast, T> {
@@ -2075,6 +2182,10 @@ impl<'ast, T> WithSpan for UExpression<'ast, T> {
             inner: self.inner.span(span),
             ..self
         }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.inner.get_span()
     }
 }
 
@@ -2206,9 +2317,7 @@ pub trait Expr<'ast, T>: Value + WithSpan + fmt::Display + From<TypedExpression<
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner;
 
-    fn from_value(_: Self::Value) -> Self::Inner {
-        unimplemented!();
-    }
+    fn from_value(_: Self::Value) -> Self::Inner;
 }
 
 impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
@@ -2232,7 +2341,7 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for FieldElementExpression<'as
         self
     }
 
-    fn from_value(v: Self::Value) -> Self {
+    fn from_value(v: Self::Value) -> Self::Inner {
         Self::Number(ValueExpression::new(v))
     }
 }
@@ -2257,6 +2366,10 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for BooleanExpression<'ast, T>
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
         self
     }
+
+    fn from_value(v: <crate::typed::BooleanExpression<'ast, T> as Value>::Value) -> Self::Inner {
+        Self::Value(ValueExpression::new(v))
+    }
 }
 
 impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for UExpression<'ast, T> {
@@ -2278,6 +2391,10 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for UExpression<'ast, T> {
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
         &mut self.inner
+    }
+
+    fn from_value(v: Self::Value) -> Self::Inner {
+        UExpressionInner::Value(ValueExpression::new(v))
     }
 }
 
@@ -2301,6 +2418,10 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for StructExpression<'ast, T> 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
         &mut self.inner
     }
+
+    fn from_value(v: Self::Value) -> Self::Inner {
+        StructExpressionInner::Value(ValueExpression::new(v))
+    }
 }
 
 impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
@@ -2322,6 +2443,10 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
         &mut self.inner
+    }
+
+    fn from_value(v: Self::Value) -> Self::Inner {
+        ArrayExpressionInner::Value(ValueExpression::new(v))
     }
 }
 
@@ -2345,6 +2470,10 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for TupleExpression<'ast, T> {
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
         &mut self.inner
     }
+
+    fn from_value(v: Self::Value) -> Self::Inner {
+        TupleExpressionInner::Value(ValueExpression::new(v))
+    }
 }
 
 impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for IntExpression<'ast, T> {
@@ -2366,6 +2495,10 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for IntExpression<'ast, T> {
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
         self
+    }
+
+    fn from_value(v: <integer::IntExpression<'ast, T> as Value>::Value) -> Self {
+        IntExpression::Value(ValueExpression::new(v))
     }
 }
 

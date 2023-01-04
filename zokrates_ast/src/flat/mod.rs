@@ -349,7 +349,19 @@ impl<T> WithSpan for FlatExpression<T> {
             Add(e) => Add(e.span(span)),
             Sub(e) => Sub(e.span(span)),
             Mult(e) => Mult(e.span(span)),
-            e => e,
+            Number(e) => Number(e.span(span)),
+            Identifier(e) => Identifier(e.span(span)),
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        use FlatExpression::*;
+        match self {
+            Add(e) => e.get_span(),
+            Sub(e) => e.get_span(),
+            Mult(e) => e.get_span(),
+            Number(e) => e.get_span(),
+            Identifier(e) => e.get_span(),
         }
     }
 }

@@ -57,7 +57,7 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
         match flat_statement {
             FlatStatement::Condition(linear, quadratic, message) => match quadratic {
                 FlatExpression::Mult(e) => Statement::Constraint(
-                    QuadComb::new((*e.left).into(), (*e.right).into()).span(dbg!(e.span)),
+                    QuadComb::new((*e.left).into(), (*e.right).into()).span(e.span),
                     LinComb::from(linear),
                     Some(message),
                 ),
@@ -65,7 +65,7 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
             },
             FlatStatement::Definition(var, quadratic) => match quadratic {
                 FlatExpression::Mult(e) => Statement::Constraint(
-                    QuadComb::new((*e.left).into(), (*e.right).into()).span(dbg!(e.span)),
+                    QuadComb::new((*e.left).into(), (*e.right).into()).span(e.span),
                     var.into(),
                     None,
                 ),
