@@ -1,5 +1,10 @@
 from "EMBED" import u64_to_bits, u32_to_bits, u16_to_bits, u8_to_bits, u8_from_bits, u16_from_bits, u32_from_bits, u64_from_bits;
 
+// Cast a boolean to a field element
+def cast(bool input) -> field {
+    return input ? 1 : 0;
+}
+
 // Cast a boolean array of size 8 to an 8-bit unsigned integer (u8)
 def cast(bool[8] input) -> u8 {
     return u8_from_bits(input);
@@ -67,6 +72,16 @@ def cast<N, P>(bool[N] input) -> u64[P] {
 // Cast an 8-bit unsigned integer (u8) to a boolean array of size 8 (bool[8])
 def cast(u8 input) -> bool[8] {
     return u8_to_bits(input);
+}
+
+// Cast an 8-bit unsigned integer (u8) to a field element array of size 8 (field[8])
+def cast(u8 input) -> field[8] {
+    bool[8] bits = u8_to_bits(input);
+    field[8] mut res = [0; 8];
+    for u32 i in 0..8 {
+        res[i] = bits[i] ? 1 : 0;
+    }
+    return res;
 }
 
 // Cast an array of 8-bit unsigned integers (u8) of size N to a boolean array of size P
@@ -194,6 +209,16 @@ def cast(u16 input) -> bool[16] {
     return u16_to_bits(input);
 }
 
+// Cast an 16-bit unsigned integer (u16) to a field element array of size 16 (field[16])
+def cast(u16 input) -> field[16] {
+    bool[16] bits = u16_to_bits(input);
+    field[16] mut res = [0; 16];
+    for u32 i in 0..16 {
+        res[i] = bits[i] ? 1 : 0;
+    }
+    return res;
+}
+
 // Cast an array of 16-bit unsigned integers (u16) of size N to a boolean array of size P
 // The following condition must be true `P == 16 * N`, otherwise the cast will fail
 def cast<N, P>(u16[N] input) -> bool[P] {
@@ -309,6 +334,16 @@ def cast(u32 input) -> bool[32] {
     return u32_to_bits(input);
 }
 
+// Cast an 32-bit unsigned integer (u32) to a field element array of size 32 (field[32])
+def cast(u32 input) -> field[32] {
+    bool[32] bits = u32_to_bits(input);
+    field[32] mut res = [0; 32];
+    for u32 i in 0..32 {
+        res[i] = bits[i] ? 1 : 0;
+    }
+    return res;
+}
+
 // Cast an array of 32-bit unsigned integers (u32) of size N to a boolean array of size P
 // The following condition must be true `P == 32 * N`, otherwise the cast will fail
 def cast<N, P>(u32[N] input) -> bool[P] {
@@ -419,6 +454,16 @@ def cast<N, P>(u32[N] input) -> u64[P] {
 // Cast a 64-bit unsigned integer (u64) to a boolean array of size 64 (bool[64])
 def cast(u64 input) -> bool[64] {
     return u64_to_bits(input);
+}
+
+// Cast an 64-bit unsigned integer (u64) to a field element array of size 64 (field[64])
+def cast(u64 input) -> field[64] {
+    bool[64] bits = u64_to_bits(input);
+    field[64] mut res = [0; 64];
+    for u32 i in 0..64 {
+        res[i] = bits[i] ? 1 : 0;
+    }
+    return res;
 }
 
 // Cast an array of 64-bit unsigned integers (u64) of size N to a boolean array of size P

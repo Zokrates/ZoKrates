@@ -1,3 +1,6 @@
+from "utils/casts" import cast;
+from "EMBED" import field_to_bool_unsafe;
+
 // FIPS 180-3, section 4.2.2
 // https://csrc.nist.gov/csrc/media/publications/fips/180/3/archive/2008-10-31/documents/fips180-3_final.pdf
 const u32[64] K = [
@@ -15,18 +18,74 @@ def rotr32<N>(u32 x) -> u32 {
     return (x >> N) | (x << (32 - N));
 }
 
+// (a & b) ^ ((!a) & c) => a * (b - c) + c
+def ch_t(u32 a, u32 b, u32 c) -> u32 {
+    field[32] a = cast(a);
+    field[32] b = cast(b);
+    field[32] c = cast(c);
+
+    bool[32] mut res_bits = [false; 32];
+    for u32 i in 0..32 {
+        field mut res = 0;
+        asm {
+            res <== a[i] * (b[i] - c[i]) + c[i];
+        }
+        res_bits[i] = field_to_bool_unsafe(res);
+    }
+
+    return cast(res_bits);
+}
+
+// a ^ b ^ c => a*(1 - 2*b - 2*c + 4*bc) + b + c - 2*bc (bc = b*c)
+def xor3(u32 a, u32 b, u32 c) -> u32 {
+    field[32] a = cast(a);
+    field[32] b = cast(b);
+    field[32] c = cast(c);
+
+    bool[32] mut res_bits = [false; 32];
+    for u32 i in 0..32 {
+        field bc = b[i] * c[i];
+        field mut res = 0;
+        asm {
+            res <== a[i] * (1 - 2*b[i] - 2*c[i] + 4*bc) + b[i] + c[i] - 2*bc;
+        }
+        res_bits[i] = field_to_bool_unsafe(res);
+    }
+
+    return cast(res_bits);
+}
+
+// (a & b) ^ (a & c) ^ (b & c) => a*(b + c - 2*bc) + bc (bc = b*c)
+def maj(u32 a, u32 b, u32 c) -> u32 {
+    field[32] a = cast(a);
+    field[32] b = cast(b);
+    field[32] c = cast(c);
+
+    bool[32] mut res_bits = [false; 32];
+    for u32 i in 0..32 {
+        field bc = b[i] * c[i];
+        field mut res = 0;
+        asm {
+            res <== a[i] * (b[i] + c[i] - 2*bc) + bc;
+        }
+        res_bits[i] = field_to_bool_unsafe(res);
+    }
+
+    return cast(res_bits);
+}
+
 def extend(u32[64] w, u32 i) -> u32 {
-    u32 s0 = rotr32::<7>(w[i-15]) ^ rotr32::<18>(w[i-15]) ^ (w[i-15] >> 3);
-    u32 s1 = rotr32::<17>(w[i-2]) ^ rotr32::<19>(w[i-2]) ^ (w[i-2] >> 10);
+    u32 s0 = xor3(rotr32::<7>(w[i-15]), rotr32::<18>(w[i-15]), (w[i-15] >> 3));
+    u32 s1 = xor3(rotr32::<17>(w[i-2]), rotr32::<19>(w[i-2]), (w[i-2] >> 10));
     return w[i-16] + s0 + w[i-7] + s1;
 }
 
 def temp1(u32 e, u32 f, u32 g, u32 h, u32 k, u32 w) -> u32 {
     // ch := (e and f) xor ((not e) and g)
-    u32 ch = (e & f) ^ ((!e) & g);
+    u32 ch = ch_t(e, f, g);
 
     // S1 := (e rightrotate 6) xor (e rightrotate 11) xor (e rightrotate 25)
-    u32 S1 = rotr32::<6>(e) ^ rotr32::<11>(e) ^ rotr32::<25>(e);
+    u32 S1 = xor3(rotr32::<6>(e), rotr32::<11>(e), rotr32::<25>(e));
     
     // temp1 := h + S1 + ch + k + w
     return h + S1 + ch + k + w;
@@ -34,10 +93,10 @@ def temp1(u32 e, u32 f, u32 g, u32 h, u32 k, u32 w) -> u32 {
 
 def temp2(u32 a, u32 b, u32 c) -> u32 {
     // maj := (a and b) xor (a and c) xor (b and c)
-    u32 maj = (a & b) ^ (a & c) ^ (b & c);
+    u32 maj = maj(a, b, c);
 
     // S0 := (a rightrotate 2) xor (a rightrotate 13) xor (a rightrotate 22)
-    u32 S0 = rotr32::<2>(a) ^ rotr32::<13>(a) ^ rotr32::<22>(a);
+    u32 S0 = xor3(rotr32::<2>(a), rotr32::<13>(a), rotr32::<22>(a));
 
     // temp2 := S0 + maj
     return S0 + maj;
@@ -95,4 +154,3 @@ def main(u32[16] input, u32[8] current) -> u32[8] {
 
     return [h0, h1, h2, h3, h4, h5, h6, h7];
 }
-    
