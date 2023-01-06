@@ -1,14 +1,17 @@
 use super::Witness;
 use crate::common::{Span, Variable, WithSpan};
+use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
-use std::hash::Hash;
 use std::ops::{Add, Div, Mul, Sub};
 use zokrates_field::Field;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq)]
 pub struct QuadComb<T> {
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub left: LinComb<T>,
     pub right: LinComb<T>,
@@ -63,19 +66,25 @@ impl<T: Field> fmt::Display for QuadComb<T> {
             "({}) * ({}) /* {} */",
             self.left,
             self.right,
-            self.span.map(|s| s.to_string()).unwrap_or(String::new())
+            self.span.map(|s| s.to_string()).unwrap_or_default()
         )
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq)]
 pub struct LinComb<T> {
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub value: Vec<(Variable, T)>,
 }
 
-#[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq)]
 pub struct CanonicalLinComb<T> {
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub value: BTreeMap<Variable, T>,
 }
@@ -91,8 +100,11 @@ impl<T> WithSpan for CanonicalLinComb<T> {
     }
 }
 
-#[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq)]
 pub struct CanonicalQuadComb<T> {
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     span: Option<Span>,
     left: CanonicalLinComb<T>,
     right: CanonicalLinComb<T>,
@@ -244,8 +256,10 @@ impl<T: Field> LinComb<T> {
 
 impl<T: Field> LinComb<T> {
     pub fn into_canonical(self) -> CanonicalLinComb<T> {
+        let span = self.get_span();
+
         CanonicalLinComb::new(self.value.into_iter().fold(
-            BTreeMap::new(),
+            BTreeMap::<Variable, T>::new(),
             |mut acc, (val, coeff)| {
                 // if we're adding 0 times some variable, we can ignore this term
                 if coeff != T::zero() {
@@ -269,6 +283,7 @@ impl<T: Field> LinComb<T> {
                 acc
             },
         ))
+        .span(span)
     }
 
     pub fn reduce(self) -> Self {

@@ -741,7 +741,7 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                                 )
                             })
                             .collect::<Result<Vec<_>, _>>()
-                            .map(|v| ArrayValueExpression::new(v))
+                            .map(ArrayValueExpression::new)
                     }
                 }?;
 

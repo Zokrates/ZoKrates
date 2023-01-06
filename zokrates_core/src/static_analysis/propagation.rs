@@ -548,6 +548,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> Result<UExpressionInner<'ast, T>, Error> {
+
+        let span = e.get_span();
+
         match e {
             UExpressionInner::Add(e) => match (
                 self.fold_uint_expression(*e.left)?.into_inner(),
@@ -778,13 +781,16 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 }
             }
             e => fold_uint_expression_inner(self, bitwidth, e),
-        }
+        }.map(|r| r.span(span))
     }
 
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> Result<FieldElementExpression<'ast, T>, Error> {
+
+        let span = e.get_span();
+
         match e {
             FieldElementExpression::Add(e) => {
                 let left = self.fold_field_expression(*e.left)?;
@@ -796,7 +802,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     }
                     (e1, e2) => e1 + e2,
                 }
-                .span(e.span))
+                )
             }
             FieldElementExpression::Sub(e) => {
                 let left = self.fold_field_expression(*e.left)?;
@@ -807,8 +813,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         FieldElementExpression::Number(ValueExpression::new(n1.value - n2.value))
                     }
                     (e1, e2) => e1 - e2,
-                }
-                .span(e.span))
+                })
             }
             FieldElementExpression::Mult(e) => {
                 let left = self.fold_field_expression(*e.left)?;
@@ -819,8 +824,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         FieldElementExpression::Number(ValueExpression::new(n1.value * n2.value))
                     }
                     (e1, e2) => e1 * e2,
-                }
-                .span(e.span))
+                })
             }
             FieldElementExpression::Div(e) => {
                 let left = self.fold_field_expression(*e.left)?;
@@ -831,8 +835,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         FieldElementExpression::Number(ValueExpression::new(n1.value / n2.value))
                     }
                     (e1, e2) => e1 / e2,
-                }
-                .span(e.span))
+                })
             }
             FieldElementExpression::Neg(e) => match self.fold_field_expression(*e.inner)? {
                 FieldElementExpression::Number(n) => {
@@ -864,7 +867,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 }
             }
             e => fold_field_expression(self, e),
-        }
+        }.map(|r| r.span(span))
     }
 
     fn fold_member_expression<

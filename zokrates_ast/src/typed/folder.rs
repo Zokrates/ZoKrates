@@ -1197,17 +1197,20 @@ pub fn fold_function_call_expression<
     _: &E::Ty,
     e: FunctionCallExpression<'ast, T, E>,
 ) -> FunctionCallOrExpression<'ast, T, E> {
-    FunctionCallOrExpression::FunctionCall(FunctionCallExpression::new(
-        f.fold_declaration_function_key(e.function_key),
-        e.generics
-            .into_iter()
-            .map(|g| g.map(|g| f.fold_uint_expression(g)))
-            .collect(),
-        e.arguments
-            .into_iter()
-            .map(|e| f.fold_expression(e))
-            .collect(),
-    ))
+    FunctionCallOrExpression::FunctionCall(
+        FunctionCallExpression::new(
+            f.fold_declaration_function_key(e.function_key),
+            e.generics
+                .into_iter()
+                .map(|g| g.map(|g| f.fold_uint_expression(g)))
+                .collect(),
+            e.arguments
+                .into_iter()
+                .map(|e| f.fold_expression(e))
+                .collect(),
+        )
+        .span(e.span),
+    )
 }
 
 pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
@@ -1292,21 +1295,21 @@ pub fn fold_tuple_expression<'ast, T: Field, F: Folder<'ast, T>>(
 }
 
 pub fn fold_integer_value_expression<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
+    _f: &mut F,
     a: IntValueExpression,
 ) -> ValueOrExpression<IntValueExpression, IntExpression<'ast, T>> {
     ValueOrExpression::Value(a)
 }
 
 pub fn fold_boolean_value_expression<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
+    _f: &mut F,
     a: BooleanValueExpression,
 ) -> ValueOrExpression<BooleanValueExpression, BooleanExpression<'ast, T>> {
     ValueOrExpression::Value(a)
 }
 
 pub fn fold_field_value_expression<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
+    _f: &mut F,
     a: FieldValueExpression<T>,
 ) -> ValueOrExpression<FieldValueExpression<T>, FieldElementExpression<'ast, T>> {
     ValueOrExpression::Value(a)
@@ -1314,7 +1317,7 @@ pub fn fold_field_value_expression<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_struct_value_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    ty: &StructType<'ast, T>,
+    _ty: &StructType<'ast, T>,
     a: StructValueExpression<'ast, T>,
 ) -> ValueOrExpression<StructValueExpression<'ast, T>, StructExpressionInner<'ast, T>> {
     ValueOrExpression::Value(StructValueExpression {
@@ -1325,7 +1328,7 @@ pub fn fold_struct_value_expression<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_array_value_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    ty: &ArrayType<'ast, T>,
+    _ty: &ArrayType<'ast, T>,
     a: ArrayValueExpression<'ast, T>,
 ) -> ValueOrExpression<ArrayValueExpression<'ast, T>, ArrayExpressionInner<'ast, T>> {
     ValueOrExpression::Value(ArrayValueExpression {
@@ -1340,7 +1343,7 @@ pub fn fold_array_value_expression<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_tuple_value_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    ty: &TupleType<'ast, T>,
+    _ty: &TupleType<'ast, T>,
     a: TupleValueExpression<'ast, T>,
 ) -> ValueOrExpression<TupleValueExpression<'ast, T>, TupleExpressionInner<'ast, T>> {
     ValueOrExpression::Value(TupleValueExpression {

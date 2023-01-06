@@ -1,7 +1,7 @@
 use super::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, Conditional, ConditionalKind, Expr,
     FieldElementExpression, Id, Identifier, Select, Typed, TypedExpression,
-    TypedExpressionOrSpread, UBitwidth, UExpression, UExpressionInner, ValueExpression,
+    TypedExpressionOrSpread, UBitwidth, UExpression, ValueExpression,
 };
 
 use zokrates_field::Field;

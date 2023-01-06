@@ -21,7 +21,8 @@ pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadat
 
 use crate::zir::types::Signature;
 use std::fmt;
-use std::marker::PhantomData;
+
+use derivative::Derivative;
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
@@ -216,8 +217,11 @@ pub trait Typed {
     fn get_type(&self) -> Type;
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug, Eq)]
 pub struct ConditionalExpression<'ast, T, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub condition: Box<BooleanExpression<'ast, T>>,
     pub consequence: Box<E>,
@@ -256,8 +260,11 @@ impl<'ast, T, E> WithSpan for ConditionalExpression<'ast, T, E> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug, Eq)]
 pub struct SelectExpression<'ast, T, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub array: Vec<E>,
     pub index: Box<UExpression<'ast, T>>,

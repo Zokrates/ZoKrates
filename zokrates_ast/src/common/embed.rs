@@ -586,7 +586,7 @@ pub fn unpack_to_bitwidth<T: Field>(
             let bit = FlatExpression::identifier(Variable::new(bit_width - index));
             FlatStatement::Condition(
                 bit.clone(),
-                FlatExpression::mul(bit.clone(), bit.clone()),
+                FlatExpression::mul(bit.clone(), bit),
                 RuntimeError::Bitness,
             )
         })

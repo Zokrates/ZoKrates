@@ -1,7 +1,7 @@
 // Generic walk through a typed AST. Not mutating in place
 
 use crate::common::expressions::{
-    self, BinaryOrExpression, EqExpression, UnaryOrExpression, ValueOrExpression,
+    BinaryOrExpression, EqExpression, UnaryOrExpression, ValueOrExpression,
 };
 use crate::common::ResultFold;
 use crate::typed::types::*;

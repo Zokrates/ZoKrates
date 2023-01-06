@@ -37,6 +37,7 @@
 //     - otherwise return `c_0`
 
 use std::collections::{HashMap, HashSet};
+use zokrates_ast::common::WithSpan;
 use zokrates_ast::flat::Variable;
 use zokrates_ast::ir::folder::{fold_statement, Folder};
 use zokrates_ast::ir::LinComb;
@@ -174,6 +175,9 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     }
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
+
+        let span = lc.get_span();
+
         match lc
             .value
             .iter()
@@ -193,7 +197,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     .fold(LinComb::zero(), |acc, x| acc + x)
             }
             false => lc,
-        }
+        }.span(span)
     }
 }
 

@@ -1,3 +1,4 @@
+use derivative::Derivative;
 use num_bigint::BigUint;
 
 use super::operators::OpEq;
@@ -5,8 +6,11 @@ use super::{operators::OperatorStr, Span, Value, WithSpan};
 use std::fmt;
 use std::marker::PhantomData;
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
 pub struct BinaryExpression<Op, L, R, Out> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub left: Box<L>,
     pub right: Box<R>,
@@ -62,8 +66,11 @@ pub enum BinaryOrExpression<Op, L, R, E, I> {
 
 pub type EqExpression<E, B> = BinaryExpression<OpEq, E, E, B>;
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
 pub struct UnaryExpression<Op, In, Out> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub inner: Box<In>,
     operator: PhantomData<Op>,
@@ -105,8 +112,11 @@ pub enum UnaryOrExpression<Op, In, E, I> {
     Expression(I),
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
 pub struct ValueExpression<V> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub value: V,
 }
@@ -144,8 +154,11 @@ pub enum ValueOrExpression<V, I> {
     Expression(I),
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
 pub struct IdentifierExpression<I, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub id: I,
     pub ty: PhantomData<E>,

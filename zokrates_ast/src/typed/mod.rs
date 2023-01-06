@@ -51,6 +51,7 @@ use std::fmt;
 
 pub use crate::typed::types::{ArrayType, FunctionKey, MemberId};
 
+use derivative::Derivative;
 use num_bigint::BigUint;
 use zokrates_field::Field;
 
@@ -943,8 +944,11 @@ impl<'ast, T: Clone> Typed<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
 pub struct BlockExpression<'ast, T, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub statements: Vec<TypedStatement<'ast, T>>,
     pub value: Box<E>,
@@ -962,8 +966,11 @@ impl<'ast, T, E> BlockExpression<'ast, T, E> {
 
 pub type IdentifierExpression<'ast, E> = expressions::IdentifierExpression<Identifier<'ast>, E>;
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
 pub struct MemberExpression<'ast, T, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub struc: Box<StructExpression<'ast, T>>,
     pub id: MemberId,
@@ -987,8 +994,11 @@ impl<'ast, T: fmt::Display, E> fmt::Display for MemberExpression<'ast, T, E> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
 pub struct SelectExpression<'ast, T, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub array: Box<ArrayExpression<'ast, T>>,
     pub index: Box<UExpression<'ast, T>>,
@@ -1012,8 +1022,11 @@ impl<'ast, T: fmt::Display, E> fmt::Display for SelectExpression<'ast, T, E> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
 pub struct ElementExpression<'ast, T, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub tuple: Box<TupleExpression<'ast, T>>,
     pub index: u32,
@@ -1043,8 +1056,11 @@ pub enum ConditionalKind {
     Ternary,
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
 pub struct ConditionalExpression<'ast, T, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub condition: Box<BooleanExpression<'ast, T>>,
     pub consequence: Box<E>,
@@ -1088,8 +1104,11 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for ConditionalExpress
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
 pub struct FunctionCallExpression<'ast, T, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub function_key: DeclarationFunctionKey<'ast, T>,
     pub generics: Vec<Option<UExpression<'ast, T>>>,
@@ -1932,7 +1951,7 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Element(e) => e.get_span(),
             Add(e) => e.get_span(),
             Number(e) => e.get_span(),
-            e => unimplemented!(),
+            _e => unimplemented!(),
         }
     }
 }
@@ -1962,7 +1981,7 @@ impl<'ast, T> WithSpan for BooleanExpression<'ast, T> {
             FunctionCall(e) => e.get_span(),
             Member(e) => e.get_span(),
             Element(e) => e.get_span(),
-            e => unimplemented!(),
+            _e => unimplemented!(),
         }
     }
 }
@@ -2037,7 +2056,7 @@ impl<'ast, T> WithSpan for ArrayExpressionInner<'ast, T> {
             Member(e) => Member(e.span(span)),
             Element(e) => Element(e.span(span)),
             Value(e) => Value(e.span(span)),
-            e => unimplemented!(),
+            _e => unimplemented!(),
         }
     }
 
@@ -2052,7 +2071,7 @@ impl<'ast, T> WithSpan for ArrayExpressionInner<'ast, T> {
             Member(e) => e.get_span(),
             Element(e) => e.get_span(),
             Value(e) => e.get_span(),
-            e => unimplemented!(),
+            _e => unimplemented!(),
         }
     }
 }
@@ -2132,7 +2151,7 @@ impl<'ast, T> WithSpan for IntExpression<'ast, T> {
         match self {
             Conditional(e) => e.get_span(),
             Select(e) => e.get_span(),
-            e => unimplemented!(),
+            _e => unimplemented!(),
         }
     }
 }
