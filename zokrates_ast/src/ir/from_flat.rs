@@ -55,21 +55,32 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
 impl<T: Field> From<FlatStatement<T>> for Statement<T> {
     fn from(flat_statement: FlatStatement<T>) -> Statement<T> {
         match flat_statement {
-            FlatStatement::Condition(linear, quadratic, message) => match quadratic {
-                FlatExpression::Mult(e) => Statement::Constraint(
-                    QuadComb::new((*e.left).into(), (*e.right).into()).span(e.span),
-                    LinComb::from(linear),
-                    Some(message),
-                ),
-                e => Statement::Constraint(LinComb::from(e).into(), linear.into(), Some(message)),
+            FlatStatement::Condition(s) => match s.expression {
+                FlatExpression::Sub(e) => {
+                    let quadratic = *e.right;
+                    let linear = *e.left;
+                    match quadratic {
+                        FlatExpression::Mult(e) => Statement::Constraint(
+                            QuadComb::new((*e.left).into(), (*e.right).into()).span(e.span),
+                            LinComb::from(linear),
+                            Some(s.error),
+                        ),
+                        e => Statement::Constraint(
+                            LinComb::from(e).into(),
+                            linear.into(),
+                            Some(s.error),
+                        ),
+                    }
+                }
+                _ => unreachable!(),
             },
-            FlatStatement::Definition(var, quadratic) => match quadratic {
+            FlatStatement::Definition(s) => match s.rhs {
                 FlatExpression::Mult(e) => Statement::Constraint(
                     QuadComb::new((*e.left).into(), (*e.right).into()).span(e.span),
-                    var.into(),
+                    s.assignee.into(),
                     None,
                 ),
-                e => Statement::Constraint(LinComb::from(e).into(), var.into(), None),
+                e => Statement::Constraint(LinComb::from(e).into(), s.assignee.into(), None),
             },
             FlatStatement::Directive(ds) => Statement::Directive(ds.into()),
             FlatStatement::Log(l, expressions) => Statement::Log(

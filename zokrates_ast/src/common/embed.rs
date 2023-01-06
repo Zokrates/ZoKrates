@@ -362,7 +362,7 @@ pub fn sha256_round<T: Field>(
         })
         .collect();
     // define a binding of the first variable in the constraint system to one
-    let one_binding_statement = FlatStatement::Condition(
+    let one_binding_statement = FlatStatement::condition(
         Variable::new(0).into(),
         FlatExpression::number(T::from(1)),
         RuntimeError::BellmanOneBinding,
@@ -370,7 +370,7 @@ pub fn sha256_round<T: Field>(
     let input_binding_statements =
     // bind input and current_hash to inputs
     input_indices.chain(current_hash_indices).zip(input_argument_indices.clone().into_iter().chain(current_hash_argument_indices.clone())).map(|(cs_index, argument_index)| {
-        FlatStatement::Condition(
+        FlatStatement::condition(
             Variable::new(cs_index).into(),
             Variable::new(argument_index).into(),
             RuntimeError::BellmanInputBinding
@@ -383,7 +383,7 @@ pub fn sha256_round<T: Field>(
         let rhs_b = flat_expression_from_variable_summands::<T>(c.b.as_slice());
         let lhs = flat_expression_from_variable_summands::<T>(c.c.as_slice());
 
-        FlatStatement::Condition(
+        FlatStatement::condition(
             lhs,
             FlatExpression::mul(rhs_a, rhs_b),
             RuntimeError::BellmanConstraint,
@@ -406,7 +406,7 @@ pub fn sha256_round<T: Field>(
     let return_statements = outputs
         .into_iter()
         .enumerate()
-        .map(|(index, e)| FlatStatement::Definition(Variable::public(index), e));
+        .map(|(index, e)| FlatStatement::definition(Variable::public(index), e));
     let statements = std::iter::once(directive_statement)
         .chain(std::iter::once(one_binding_statement))
         .chain(input_binding_statements)
@@ -459,7 +459,7 @@ pub fn snark_verify_bls12_377<T: Field>(
         .chain(vk_arguments)
         .collect();
 
-    let one_binding_statement = FlatStatement::Condition(
+    let one_binding_statement = FlatStatement::condition(
         FlatExpression::identifier(Variable::new(0)),
         FlatExpression::number(T::from(1)),
         RuntimeError::ArkOneBinding,
@@ -475,7 +475,7 @@ pub fn snark_verify_bls12_377<T: Field>(
                 .chain(vk_argument_indices.clone()),
         )
         .map(|(cs_index, argument_index)| {
-            FlatStatement::Condition(
+            FlatStatement::condition(
                 Variable::new(cs_index).into(),
                 Variable::new(argument_index).into(),
                 RuntimeError::ArkInputBinding,
@@ -491,7 +491,7 @@ pub fn snark_verify_bls12_377<T: Field>(
             let rhs_b = flat_expression_from_variable_summands::<T>(c.b.as_slice());
             let lhs = flat_expression_from_variable_summands::<T>(c.c.as_slice());
 
-            FlatStatement::Condition(
+            FlatStatement::condition(
                 lhs,
                 FlatExpression::mul(rhs_a, rhs_b),
                 RuntimeError::ArkConstraint,
@@ -499,7 +499,7 @@ pub fn snark_verify_bls12_377<T: Field>(
         })
         .collect();
 
-    let return_statement = FlatStatement::Definition(
+    let return_statement = FlatStatement::definition(
         Variable::public(0),
         FlatExpression::identifier(Variable::new(out_index)),
     );
@@ -584,7 +584,7 @@ pub fn unpack_to_bitwidth<T: Field>(
     let mut statements: Vec<FlatStatement<T>> = (0..bit_width)
         .map(|index| {
             let bit = FlatExpression::identifier(Variable::new(bit_width - index));
-            FlatStatement::Condition(
+            FlatStatement::condition(
                 bit.clone(),
                 FlatExpression::mul(bit.clone(), bit),
                 RuntimeError::Bitness,
@@ -599,7 +599,7 @@ pub fn unpack_to_bitwidth<T: Field>(
             .collect(),
     );
 
-    statements.push(FlatStatement::Condition(
+    statements.push(FlatStatement::condition(
         lhs_sum,
         FlatExpression::mul(
             FlatExpression::identifier(Variable::new(0)),
@@ -621,7 +621,7 @@ pub fn unpack_to_bitwidth<T: Field>(
         outputs
             .into_iter()
             .enumerate()
-            .map(|(index, e)| FlatStatement::Definition(Variable::public(index), e)),
+            .map(|(index, e)| FlatStatement::definition(Variable::public(index), e)),
     );
 
     FlatFunctionIterator {
@@ -701,7 +701,7 @@ mod tests {
             // bellman variable #0: index 0 should equal 1
             assert_eq!(
                 compiled.statements[1],
-                FlatStatement::Condition(
+                FlatStatement::condition(
                     Variable::new(0).into(),
                     FlatExpression::Number(Bn128Field::from(1)),
                     RuntimeError::BellmanOneBinding
@@ -711,7 +711,7 @@ mod tests {
             // bellman input #0: index 1 should equal zokrates input #0: index v_count
             assert_eq!(
                 compiled.statements[2],
-                FlatStatement::Condition(
+                FlatStatement::condition(
                     Variable::new(1).into(),
                     Variable::new(26936).into(),
                     RuntimeError::BellmanInputBinding

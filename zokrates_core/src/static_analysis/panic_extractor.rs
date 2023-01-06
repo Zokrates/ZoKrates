@@ -64,7 +64,7 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
             FieldElementExpression::Div(e) => {
                 let n = self.fold_field_expression(*e.left);
                 let d = self.fold_field_expression(*e.right);
-                self.panic_buffer.push(ZirStatement::Assertion(
+                self.panic_buffer.push(ZirStatement::assertion(
                     BooleanExpression::not(BooleanExpression::field_eq(
                         d.clone(),
                         FieldElementExpression::from_value(T::zero()),
@@ -117,7 +117,7 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
             UExpressionInner::Div(e) => {
                 let n = self.fold_uint_expression(*e.left);
                 let d = self.fold_uint_expression(*e.right);
-                self.panic_buffer.push(ZirStatement::Assertion(
+                self.panic_buffer.push(ZirStatement::assertion(
                     BooleanExpression::not(BooleanExpression::uint_eq(
                         d.clone(),
                         UExpression::from_value(0).annotate(b),
@@ -162,7 +162,7 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
 
                 // we split this check in two:
                 // `2**(safe_width) + left - right < 2**(safe_width + 1)`
-                self.panic_buffer.push(ZirStatement::Assertion(
+                self.panic_buffer.push(ZirStatement::assertion(
                     BooleanExpression::field_lt(
                         offset.clone() + FieldElementExpression::sub(left.clone(), right.clone()),
                         max,
@@ -172,7 +172,7 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
 
                 // and
                 // `2**(safe_width) + left - right != 0`
-                self.panic_buffer.push(ZirStatement::Assertion(
+                self.panic_buffer.push(ZirStatement::assertion(
                     BooleanExpression::not(BooleanExpression::field_eq(
                         FieldElementExpression::sub(right.clone(), left.clone()),
                         offset,

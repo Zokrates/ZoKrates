@@ -175,7 +175,6 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     }
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
-
         let span = lc.get_span();
 
         match lc
@@ -197,7 +196,8 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     .fold(LinComb::zero(), |acc, x| acc + x)
             }
             false => lc,
-        }.span(span)
+        }
+        .span(span)
     }
 }
 

@@ -57,13 +57,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         s: ZirStatement<'ast, T>,
     ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
         match s {
-            ZirStatement::Assertion(e, error) => match self.fold_boolean_expression(e)? {
+            ZirStatement::Assertion(s) => match self.fold_boolean_expression(s.expression)? {
                 BooleanExpression::Value(v) if v.value => Ok(vec![]),
-                BooleanExpression::Value(v) if !v.value => Err(Error::AssertionFailed(error)),
-                e => Ok(vec![ZirStatement::Assertion(e, error)]),
+                BooleanExpression::Value(v) if !v.value => Err(Error::AssertionFailed(s.error)),
+                e => Ok(vec![ZirStatement::assertion(e, s.error)]),
             },
-            ZirStatement::Definition(a, e) => {
-                let e = self.fold_expression(e)?;
+            ZirStatement::Definition(s) => {
+                let e = self.fold_expression(s.rhs)?;
                 match e {
                     ZirExpression::FieldElement(FieldElementExpression::Number(..))
                     | ZirExpression::Boolean(BooleanExpression::Value(..))
@@ -71,12 +71,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                         inner: UExpressionInner::Value(..),
                         ..
                     }) => {
-                        self.constants.insert(a.id, e);
+                        self.constants.insert(s.assignee.id, e);
                         Ok(vec![])
                     }
                     _ => {
-                        self.constants.remove(&a.id);
-                        Ok(vec![ZirStatement::Definition(a, e)])
+                        self.constants.remove(&s.assignee.id);
+                        Ok(vec![ZirStatement::definition(s.assignee, e)])
                     }
                 }
             }

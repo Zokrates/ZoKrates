@@ -226,9 +226,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
     ) -> Result<Vec<TypedStatement<'ast, T>>, Error> {
         match s {
             // propagation to the defined variable if rhs is a constant
-            TypedStatement::Definition(assignee, DefinitionRhs::Expression(expr)) => {
-                let assignee = self.fold_assignee(assignee)?;
-                let expr = self.fold_expression(expr)?;
+            TypedStatement::Definition(DefinitionStatement {
+                assignee: a,
+                rhs: DefinitionRhs::Expression(e),
+                ..
+            }) => {
+                let assignee = self.fold_assignee(a)?;
+                let expr = self.fold_expression(e)?;
 
                 if let (Ok(a), Ok(e)) = (
                     ConcreteType::try_from(assignee.get_type()),
@@ -260,10 +264,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                 // invalidate the cache for this identifier, and define the latest
                                 // version of the constant in the program, if any
                                 Some(c) => Ok(vec![
-                                    TypedStatement::Definition(v.clone().into(), c.into()),
-                                    TypedStatement::Definition(assignee, expr.into()),
+                                    TypedStatement::definition(v.clone().into(), c.into()),
+                                    TypedStatement::definition(assignee, expr.into()),
                                 ]),
-                                None => Ok(vec![TypedStatement::Definition(assignee, expr.into())]),
+                                None => Ok(vec![TypedStatement::definition(assignee, expr)]),
                             },
                         },
                     }
@@ -276,23 +280,27 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                     match self.constants.remove(&v.id) {
                         Some(c) => Ok(vec![
-                            TypedStatement::Definition(v.clone().into(), c.into()),
-                            TypedStatement::Definition(assignee, expr.into()),
+                            TypedStatement::definition(v.clone().into(), c),
+                            TypedStatement::definition(assignee, expr),
                         ]),
-                        None => Ok(vec![TypedStatement::Definition(assignee, expr.into())]),
+                        None => Ok(vec![TypedStatement::definition(assignee, expr)]),
                     }
                 }
             }
             // we do not visit the for-loop statements
-            TypedStatement::For(v, from, to, statements) => {
-                let from = self.fold_uint_expression(from)?;
-                let to = self.fold_uint_expression(to)?;
+            TypedStatement::For(s) => {
+                let from = self.fold_uint_expression(s.from)?;
+                let to = self.fold_uint_expression(s.to)?;
 
-                Ok(vec![TypedStatement::For(v, from, to, statements)])
+                Ok(vec![TypedStatement::for_(s.var, from, to, s.statements)])
             }
-            TypedStatement::Definition(assignee, DefinitionRhs::EmbedCall(embed_call)) => {
-                let assignee = self.fold_assignee(assignee)?;
-                let embed_call = self.fold_embed_call(embed_call)?;
+            TypedStatement::Definition(DefinitionStatement {
+                assignee: a,
+                rhs: DefinitionRhs::EmbedCall(e),
+                ..
+            }) => {
+                let assignee = self.fold_assignee(a)?;
+                let embed_call = self.fold_embed_call(e)?;
 
                 fn process_u_from_bits<'ast, T: Field>(
                     arguments: &[TypedExpression<'ast, T>],
@@ -476,11 +484,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                     }
                                     Err(v) => match self.constants.remove(&v.id) {
                                         Some(c) => vec![
-                                            TypedStatement::Definition(v.clone().into(), c.into()),
-                                            TypedStatement::Definition(assignee, expr.into()),
+                                            TypedStatement::definition(v.clone().into(), c),
+                                            TypedStatement::definition(assignee, expr),
                                         ],
                                         None => {
-                                            vec![TypedStatement::Definition(assignee, expr.into())]
+                                            vec![TypedStatement::definition(assignee, expr)]
                                         }
                                     },
                                 },
@@ -496,12 +504,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                                 match self.constants.remove(&v.id) {
                                     Some(c) => vec![
-                                        TypedStatement::Definition(v.clone().into(), c.into()),
-                                        TypedStatement::Definition(assignee, embed_call.into()),
+                                        TypedStatement::definition(v.clone().into(), c),
+                                        TypedStatement::embed_call_definition(assignee, embed_call),
                                     ],
-                                    None => vec![TypedStatement::Definition(
-                                        assignee,
-                                        embed_call.into(),
+                                    None => vec![TypedStatement::embed_call_definition(
+                                        assignee, embed_call,
                                     )],
                                 }
                             }
@@ -510,7 +517,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     false => {
                         // if the function arguments are not constant, invalidate the cache
                         // for the return assignees
-                        let def = TypedStatement::Definition(assignee.clone(), embed_call.into());
+                        let def =
+                            TypedStatement::embed_call_definition(assignee.clone(), embed_call);
 
                         let v = self
                             .try_get_constant_mut(&assignee)
@@ -519,22 +527,22 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                         Ok(match self.constants.remove(&v.id) {
                             Some(c) => {
-                                vec![TypedStatement::Definition(v.clone().into(), c.into()), def]
+                                vec![TypedStatement::definition(v.clone().into(), c), def]
                             }
                             None => vec![def],
                         })
                     }
                 }
             }
-            TypedStatement::Assertion(e, ty) => {
-                let e_str = e.to_string();
-                let expr = self.fold_boolean_expression(e)?;
+            TypedStatement::Assertion(s) => {
+                let e_str = s.expression.to_string();
+                let expr = self.fold_boolean_expression(s.expression)?;
                 match expr {
                     BooleanExpression::Value(v) if v.value => {
-                        Err(Error::AssertionFailed(format!("{}: ({})", ty, e_str)))
+                        Err(Error::AssertionFailed(format!("{}: ({})", s.error, e_str)))
                     }
                     BooleanExpression::Value(v) if !v.value => Ok(vec![]),
-                    _ => Ok(vec![TypedStatement::Assertion(expr, ty)]),
+                    _ => Ok(vec![TypedStatement::assertion(expr, s.error)]),
                 }
             }
             s @ TypedStatement::PushCallLog(..) => Ok(vec![s]),
@@ -548,7 +556,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> Result<UExpressionInner<'ast, T>, Error> {
-
         let span = e.get_span();
 
         match e {
@@ -781,14 +788,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 }
             }
             e => fold_uint_expression_inner(self, bitwidth, e),
-        }.map(|r| r.span(span))
+        }
+        .map(|r| r.span(span))
     }
 
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> Result<FieldElementExpression<'ast, T>, Error> {
-
         let span = e.get_span();
 
         match e {
@@ -801,8 +808,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         FieldElementExpression::Number(ValueExpression::new(n1.value + n2.value))
                     }
                     (e1, e2) => e1 + e2,
-                }
-                )
+                })
             }
             FieldElementExpression::Sub(e) => {
                 let left = self.fold_field_expression(*e.left)?;
@@ -867,7 +873,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 }
             }
             e => fold_field_expression(self, e),
-        }.map(|r| r.span(span))
+        }
+        .map(|r| r.span(span))
     }
 
     fn fold_member_expression<

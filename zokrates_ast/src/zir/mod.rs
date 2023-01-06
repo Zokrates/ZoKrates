@@ -11,11 +11,11 @@ pub use self::parameter::Parameter;
 pub use self::types::{Type, UBitwidth};
 pub use self::variable::Variable;
 use crate::common::expressions::{BooleanValueExpression, UnaryExpression};
+use crate::common::{self, FlatEmbed, FormatString, Span, Value, WithSpan};
 use crate::common::{
     expressions::{self, BinaryExpression, ValueExpression},
     operators::*,
 };
-use crate::common::{FlatEmbed, FormatString, Span, Value, WithSpan};
 use crate::typed::ConcreteType;
 pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 
@@ -122,22 +122,71 @@ impl RuntimeError {
     }
 }
 
+pub type DefinitionStatement<'ast, T> =
+    common::expressions::DefinitionStatement<ZirAssignee<'ast>, ZirExpression<'ast, T>>;
+pub type AssertionStatement<'ast, T> =
+    common::expressions::AssertionStatement<BooleanExpression<'ast, T>, RuntimeError>;
+pub type ReturnStatement<'ast, T> =
+    common::expressions::ReturnStatement<Vec<ZirExpression<'ast, T>>>;
+
 /// A statement in a `ZirFunction`
 #[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum ZirStatement<'ast, T> {
-    Return(Vec<ZirExpression<'ast, T>>),
-    Definition(ZirAssignee<'ast>, ZirExpression<'ast, T>),
+    Return(ReturnStatement<'ast, T>),
+    Definition(DefinitionStatement<'ast, T>),
     IfElse(
         BooleanExpression<'ast, T>,
         Vec<ZirStatement<'ast, T>>,
         Vec<ZirStatement<'ast, T>>,
     ),
-    Assertion(BooleanExpression<'ast, T>, RuntimeError),
+    Assertion(AssertionStatement<'ast, T>),
     MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
     Log(
         FormatString,
         Vec<(ConcreteType, Vec<ZirExpression<'ast, T>>)>,
     ),
+}
+
+impl<'ast, T> ZirStatement<'ast, T> {
+    pub fn definition(a: ZirAssignee<'ast>, e: ZirExpression<'ast, T>) -> Self {
+        Self::Definition(DefinitionStatement::new(a, e))
+    }
+
+    pub fn assertion(e: BooleanExpression<'ast, T>, error: RuntimeError) -> Self {
+        Self::Assertion(AssertionStatement::new(e, error))
+    }
+
+    pub fn ret(e: Vec<ZirExpression<'ast, T>>) -> Self {
+        Self::Return(ReturnStatement::new(e))
+    }
+}
+
+impl<'ast, T> WithSpan for ZirStatement<'ast, T> {
+    fn span(self, span: Option<Span>) -> Self {
+        use ZirStatement::*;
+
+        match self {
+            Return(e) => Return(e.span(span)),
+            Definition(e) => Definition(e.span(span)),
+            Assertion(e) => Assertion(e.span(span)),
+            IfElse(_, _, _) => todo!(),
+            MultipleDefinition(_, _) => todo!(),
+            Log(_, _) => todo!(),
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        use ZirStatement::*;
+
+        match self {
+            Return(e) => e.get_span(),
+            Definition(e) => e.get_span(),
+            Assertion(e) => e.get_span(),
+            IfElse(_, _, _) => todo!(),
+            MultipleDefinition(_, _) => todo!(),
+            Log(_, _) => todo!(),
+        }
+    }
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
@@ -150,19 +199,19 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
     fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
         write!(f, "{}", "\t".repeat(depth))?;
         match self {
-            ZirStatement::Return(ref exprs) => {
+            ZirStatement::Return(ref s) => {
                 write!(
                     f,
                     "return {};",
-                    exprs
+                    s.inner
                         .iter()
                         .map(|e| e.to_string())
                         .collect::<Vec<_>>()
                         .join(", ")
                 )
             }
-            ZirStatement::Definition(ref lhs, ref rhs) => {
-                write!(f, "{} = {};", lhs, rhs)
+            ZirStatement::Definition(ref s) => {
+                write!(f, "{}", s)
             }
             ZirStatement::IfElse(ref condition, ref consequence, ref alternative) => {
                 writeln!(f, "if {} {{", condition)?;
@@ -177,9 +226,9 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                 }
                 write!(f, "{}}};", "\t".repeat(depth))
             }
-            ZirStatement::Assertion(ref e, ref error) => {
-                write!(f, "assert({}", e)?;
-                match error {
+            ZirStatement::Assertion(ref s) => {
+                write!(f, "assert({}", s.expression)?;
+                match &s.error {
                     RuntimeError::SourceAssertion(message) => write!(f, ", \"{}\");", message),
                     error => write!(f, "); // {}", error),
                 }

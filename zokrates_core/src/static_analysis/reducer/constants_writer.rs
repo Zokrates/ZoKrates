@@ -114,7 +114,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
                 // wrap this expression in a function
                 let wrapper = TypedFunction {
                     arguments: vec![],
-                    statements: vec![TypedStatement::Return(c.expression)],
+                    statements: vec![TypedStatement::ret(c.expression)],
                     signature: DeclarationSignature::new().output(c.ty.clone()),
                 };
 
@@ -124,9 +124,9 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
                     &self.program,
                 )?;
 
-                if let TypedStatement::Return(expression) =
-                    inlined_wrapper.statements.pop().unwrap()
-                {
+                if let TypedStatement::Return(ret) = inlined_wrapper.statements.pop().unwrap() {
+                    let expression = ret.inner;
+
                     if !expression.is_constant() {
                         return Err(Error::ConstantReduction(id.id.to_string(), id.module));
                     };

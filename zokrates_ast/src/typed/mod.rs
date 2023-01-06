@@ -32,7 +32,7 @@ use crate::common::expressions::{
     self, BinaryExpression, BooleanValueExpression, FieldValueExpression, UnaryExpression,
     ValueExpression,
 };
-use crate::common::{Span, Value, WithSpan};
+use crate::common::{self, Span, Value, WithSpan};
 use crate::typed::types::{ConcreteGenericsAssignment, IntoType};
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
@@ -686,19 +686,58 @@ impl<'ast, T: fmt::Display> fmt::Display for DefinitionRhs<'ast, T> {
     }
 }
 
+pub type DefinitionStatement<'ast, T> =
+    common::expressions::DefinitionStatement<TypedAssignee<'ast, T>, DefinitionRhs<'ast, T>>;
+pub type AssertionStatement<'ast, T> =
+    common::expressions::AssertionStatement<BooleanExpression<'ast, T>, RuntimeError>;
+pub type ReturnStatement<'ast, T> = common::expressions::ReturnStatement<TypedExpression<'ast, T>>;
+
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
+pub struct ForStatement<'ast, T> {
+    pub span: Option<Span>,
+    pub var: Variable<'ast, T>,
+    pub from: UExpression<'ast, T>,
+    pub to: UExpression<'ast, T>,
+    pub statements: Vec<TypedStatement<'ast, T>>,
+}
+
+impl<'ast, T> ForStatement<'ast, T> {
+    fn new(
+        var: Variable<'ast, T>,
+        from: UExpression<'ast, T>,
+        to: UExpression<'ast, T>,
+        statements: Vec<TypedStatement<'ast, T>>,
+    ) -> Self {
+        Self {
+            span: None,
+            var,
+            from,
+            to,
+            statements,
+        }
+    }
+}
+
+impl<'ast, T> WithSpan for ForStatement<'ast, T> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self { span, ..self }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
 /// A statement in a `TypedFunction`
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedStatement<'ast, T> {
-    Return(TypedExpression<'ast, T>),
-    Definition(TypedAssignee<'ast, T>, DefinitionRhs<'ast, T>),
-    Assertion(BooleanExpression<'ast, T>, RuntimeError),
-    For(
-        Variable<'ast, T>,
-        UExpression<'ast, T>,
-        UExpression<'ast, T>,
-        Vec<TypedStatement<'ast, T>>,
-    ),
+    Return(ReturnStatement<'ast, T>),
+    Definition(DefinitionStatement<'ast, T>),
+    Assertion(AssertionStatement<'ast, T>),
+    For(ForStatement<'ast, T>),
     Log(FormatString, Vec<TypedExpression<'ast, T>>),
     // Aux
     PushCallLog(
@@ -708,23 +747,70 @@ pub enum TypedStatement<'ast, T> {
     PopCallLog,
 }
 
+impl<'ast, T> WithSpan for TypedStatement<'ast, T> {
+    fn span(self, span: Option<Span>) -> Self {
+        use TypedStatement::*;
+
+        match self {
+            Return(e) => Return(e.span(span)),
+            Definition(e) => Definition(e.span(span)),
+            Assertion(e) => Assertion(e.span(span)),
+            For(e) => For(e.span(span)),
+            Log(_, _) => todo!(),
+            PushCallLog(_, _) => todo!(),
+            PopCallLog => todo!(),
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        use TypedStatement::*;
+
+        match self {
+            Return(e) => e.get_span(),
+            Definition(e) => e.get_span(),
+            Assertion(e) => e.get_span(),
+            For(e) => e.get_span(),
+            Log(_, _) => todo!(),
+            PushCallLog(_, _) => todo!(),
+            PopCallLog => todo!(),
+        }
+    }
+}
+
 impl<'ast, T> TypedStatement<'ast, T> {
     pub fn definition(a: TypedAssignee<'ast, T>, e: TypedExpression<'ast, T>) -> Self {
-        Self::Definition(a, e.into())
+        Self::Definition(DefinitionStatement::new(a, e.into()))
+    }
+
+    pub fn for_(
+        var: Variable<'ast, T>,
+        from: UExpression<'ast, T>,
+        to: UExpression<'ast, T>,
+        statements: Vec<TypedStatement<'ast, T>>,
+    ) -> Self {
+        Self::For(ForStatement::new(var, from, to, statements))
+    }
+
+    pub fn assertion(e: BooleanExpression<'ast, T>, error: RuntimeError) -> Self {
+        Self::Assertion(AssertionStatement::new(e, error))
+    }
+
+    pub fn ret(e: TypedExpression<'ast, T>) -> Self {
+        Self::Return(ReturnStatement::new(e))
     }
 
     pub fn embed_call_definition(a: TypedAssignee<'ast, T>, c: EmbedCall<'ast, T>) -> Self {
-        Self::Definition(a, c.into())
+        Self::Definition(DefinitionStatement::new(a, c.into()))
     }
 }
 
 impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
     fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
         match self {
-            TypedStatement::For(variable, from, to, statements) => {
+            TypedStatement::For(s) => {
                 write!(f, "{}", "\t".repeat(depth))?;
-                writeln!(f, "for {} in {}..{} {{", variable, from, to)?;
-                for s in statements {
+                writeln!(f, "for {} in {}..{} {{", s.var, s.from, s.to)?;
+                for s in &s.statements {
                     s.fmt_indented(f, depth + 1)?;
                     writeln!(f)?;
                 }
@@ -738,23 +824,23 @@ impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedStatement::Return(ref e) => {
-                write!(f, "return {};", e)
+            TypedStatement::Return(ref s) => {
+                write!(f, "{}", s)
             }
-            TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
-            TypedStatement::Assertion(ref e, ref error) => {
-                write!(f, "assert({}", e)?;
-                match error {
-                    RuntimeError::SourceAssertion(metadata) => match &metadata.message {
+            TypedStatement::Definition(ref s) => write!(f, "{}", s),
+            TypedStatement::Assertion(ref s) => {
+                write!(f, "assert({}", s.expression)?;
+                match s.error {
+                    RuntimeError::SourceAssertion(ref metadata) => match &metadata.message {
                         Some(m) => write!(f, ", \"{}\");", m),
                         None => write!(f, ");"),
                     },
-                    error => write!(f, "); // {}", error),
+                    ref error => write!(f, "); // {}", error),
                 }
             }
-            TypedStatement::For(ref var, ref start, ref stop, ref list) => {
-                writeln!(f, "for {} in {}..{} {{", var, start, stop)?;
-                for l in list {
+            TypedStatement::For(ref s) => {
+                writeln!(f, "for {} in {}..{} {{", s.var, s.from, s.to)?;
+                for l in &s.statements {
                     writeln!(f, "\t\t{}", l)?;
                 }
                 write!(f, "\t}}")
@@ -1935,7 +2021,12 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Element(e) => Element(e.span(span)),
             Add(e) => Add(e.span(span)),
             Number(e) => Number(e.span(span)),
-            e => e,
+            Mult(e) => Mult(e.span(span)),
+            Sub(e) => Sub(e.span(span)),
+            Pow(e) => Pow(e.span(span)),
+            Div(e) => Div(e.span(span)),
+            Pos(e) => Pos(e.span(span)),
+            Neg(e) => Neg(e.span(span)),
         }
     }
 
@@ -1951,7 +2042,12 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Element(e) => e.get_span(),
             Add(e) => e.get_span(),
             Number(e) => e.get_span(),
-            _e => unimplemented!(),
+            Sub(e) => e.get_span(),
+            Mult(e) => e.get_span(),
+            Div(e) => e.get_span(),
+            Pow(e) => e.get_span(),
+            Neg(e) => e.get_span(),
+            Pos(e) => e.get_span(),
         }
     }
 }

@@ -186,7 +186,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     assert_eq!(returns.len(), 1);
 
     let return_expression = match returns.pop().unwrap() {
-        TypedStatement::Return(e) => e,
+        TypedStatement::Return(ret) => ret.inner,
         _ => unreachable!(),
     };
 

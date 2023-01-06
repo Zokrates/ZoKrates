@@ -19,6 +19,7 @@ mod shallow_ssa;
 use self::inline::{inline_call, InlineError};
 use std::collections::HashMap;
 use zokrates_ast::common::ResultFold;
+use zokrates_ast::common::WithSpan;
 use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::ConcreteGenericsAssignment;
 use zokrates_ast::typed::types::GGenericsAssignment;
@@ -324,11 +325,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         &mut self,
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        let span = s.get_span();
+
         let res = match s {
-            TypedStatement::For(v, from, to, statements) => {
+            TypedStatement::For(s) => {
                 let versions_before = self.for_loop_versions.pop().unwrap();
 
-                match (from.as_inner(), to.as_inner()) {
+                match (s.from.as_inner(), s.to.as_inner()) {
                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
                         let mut out_statements = vec![];
 
@@ -354,11 +357,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         for index in from.value..to.value {
                             let statements: Vec<TypedStatement<_>> =
                                 std::iter::once(TypedStatement::definition(
-                                    v.clone().into(),
+                                    s.var.clone().into(),
                                     UExpression::from(index as u32).into(),
                                 ))
-                                .chain(statements.clone().into_iter())
+                                .chain(s.statements.clone().into_iter())
                                 .flat_map(|s| transformer.fold_statement(s))
+                                .map(|s| s.span(span))
                                 .collect();
 
                             out_statements.extend(statements);
@@ -382,11 +386,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         Ok(out_statements)
                     }
                     _ => {
-                        let from = self.fold_uint_expression(from)?;
-                        let to = self.fold_uint_expression(to)?;
+                        let from = self.fold_uint_expression(s.from)?;
+                        let to = self.fold_uint_expression(s.to)?;
                         self.complete = false;
                         self.for_loop_versions_after.push(versions_before);
-                        Ok(vec![TypedStatement::For(v, from, to, statements)])
+                        Ok(vec![TypedStatement::for_(s.var, from, to, s.statements)])
                     }
                 }
             }

@@ -1,7 +1,7 @@
 // Generic walk through a typed AST. Not mutating in place
 
 use crate::common::expressions::{
-    BinaryOrExpression, EqExpression, UnaryOrExpression, ValueOrExpression,
+    self, BinaryOrExpression, EqExpression, UnaryOrExpression, ValueOrExpression,
 };
 use crate::common::ResultFold;
 use crate::typed::types::*;
@@ -594,24 +594,30 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     s: TypedStatement<'ast, T>,
 ) -> Result<Vec<TypedStatement<'ast, T>>, F::Error> {
     let res = match s {
-        TypedStatement::Return(e) => TypedStatement::Return(f.fold_expression(e)?),
-        TypedStatement::Definition(a, e) => {
-            TypedStatement::Definition(f.fold_assignee(a)?, f.fold_definition_rhs(e)?)
+        TypedStatement::Return(s) => {
+            TypedStatement::Return(ReturnStatement::new(f.fold_expression(s.inner)?).span(s.span))
         }
-        TypedStatement::Assertion(e, error) => {
-            TypedStatement::Assertion(f.fold_boolean_expression(e)?, error)
-        }
-        TypedStatement::For(v, from, to, statements) => TypedStatement::For(
-            f.fold_variable(v)?,
-            f.fold_uint_expression(from)?,
-            f.fold_uint_expression(to)?,
-            statements
-                .into_iter()
-                .map(|s| f.fold_statement(s))
-                .collect::<Result<Vec<_>, _>>()?
-                .into_iter()
-                .flatten()
-                .collect(),
+        TypedStatement::Definition(s) => TypedStatement::Definition(
+            DefinitionStatement::new(f.fold_assignee(s.assignee)?, f.fold_definition_rhs(s.rhs)?)
+                .span(s.span),
+        ),
+        TypedStatement::Assertion(s) => TypedStatement::Assertion(
+            AssertionStatement::new(f.fold_boolean_expression(s.expression)?, s.error).span(s.span),
+        ),
+        TypedStatement::For(s) => TypedStatement::For(
+            ForStatement::new(
+                f.fold_variable(s.var)?,
+                f.fold_uint_expression(s.from)?,
+                f.fold_uint_expression(s.to)?,
+                s.statements
+                    .into_iter()
+                    .map(|s| f.fold_statement(s))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .flatten()
+                    .collect(),
+            )
+            .span(s.span),
         ),
         TypedStatement::Log(s, e) => TypedStatement::Log(
             s,

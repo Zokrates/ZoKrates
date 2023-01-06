@@ -1220,8 +1220,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 if !found_return {
                     match (&*s.output).is_empty_tuple() {
-                        true => statements_checked
-                            .push(TypedStatement::Return(TypedExpression::empty_tuple())),
+                        true => statements_checked.push(
+                            TypedStatement::ret(TypedExpression::empty_tuple()).with_span(span),
+                        ),
                         false => {
                             errors.push(ErrorInner {
                                 span: Some(span),
@@ -1758,7 +1759,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             .map(|s| self.check_statement(s, module_id, types))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(TypedStatement::For(var, from, to, checked_statements))
+        Ok(TypedStatement::for_(var, from, to, checked_statements).with_span(span))
     }
 
     // the assignee is already checked to be defined and mutable
@@ -1890,11 +1891,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 ),
                             }),
                         }
-                        TypedStatement::Return(e)
+                        TypedStatement::ret(e.with_span(span))
                     }
                     Err(err) => {
                         errors.extend(err);
-                        TypedStatement::Return(e_checked)
+                        TypedStatement::ret(e_checked).with_span(span)
                     }
                 };
 
@@ -1956,7 +1957,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         var_ty
                     ),
                 })
-                .map(|e| TypedStatement::Definition(var.into(), e.into()))
+                .map(|e| TypedStatement::definition(var.into(), e.into()).with_span(span))
                 .map_err(|e| vec![e])
             }
             Statement::Assignment(assignee, expr) => {
@@ -2003,7 +2004,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         assignee_ty
                     ),
                 })
-                .map(|e| TypedStatement::Definition(assignee, e.into()))
+                .map(|e| TypedStatement::definition(assignee, e.into()).with_span(span))
                 .map_err(|e| vec![e])
             }
             Statement::Assertion(e, message) => {
@@ -2012,14 +2013,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .map_err(|e| vec![e])?;
 
                 match e {
-                    TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(
+                    TypedExpression::Boolean(e) => Ok(TypedStatement::assertion(
                         e,
                         RuntimeError::SourceAssertion(AssertionMetadata {
                             file: module_id.display().to_string(),
                             span,
                             message,
                         }),
-                    )),
+                    )
+                    .with_span(span)),
                     e => Err(ErrorInner {
                         span: Some(span),
                         message: format!(

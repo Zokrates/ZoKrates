@@ -195,3 +195,109 @@ pub enum IdentifierOrExpression<V, E, I> {
     Identifier(IdentifierExpression<V, E>),
     Expression(I),
 }
+
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
+pub struct DefinitionStatement<A, E> {
+    pub span: Option<Span>,
+    pub assignee: A,
+    pub rhs: E,
+}
+
+impl<A, E> DefinitionStatement<A, E> {
+    pub fn new(assignee: A, rhs: E) -> Self {
+        DefinitionStatement {
+            span: None,
+            assignee,
+            rhs,
+        }
+    }
+}
+
+impl<A, E> WithSpan for DefinitionStatement<A, E> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self { span, ..self }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+impl<A: fmt::Display, E: fmt::Display> fmt::Display for DefinitionStatement<A, E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} = {}; // {}",
+            self.assignee,
+            self.rhs,
+            self.span
+                .as_ref()
+                .map(|s| s.to_string())
+                .unwrap_or("".to_string())
+        )
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
+pub struct AssertionStatement<B, E> {
+    pub span: Option<Span>,
+    pub expression: B,
+    pub error: E,
+}
+
+impl<B, E> AssertionStatement<B, E> {
+    pub fn new(expression: B, error: E) -> Self {
+        AssertionStatement {
+            span: None,
+            expression,
+            error,
+        }
+    }
+}
+
+impl<B, E> WithSpan for AssertionStatement<B, E> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self { span, ..self }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
+pub struct ReturnStatement<E> {
+    pub span: Option<Span>,
+    pub inner: E,
+}
+
+impl<E> ReturnStatement<E> {
+    pub fn new(e: E) -> Self {
+        ReturnStatement {
+            span: None,
+            inner: e,
+        }
+    }
+}
+
+impl<E> WithSpan for ReturnStatement<E> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self { span, ..self }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+impl<E: fmt::Display> fmt::Display for ReturnStatement<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "return {};", self.inner)
+    }
+}

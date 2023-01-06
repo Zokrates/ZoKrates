@@ -45,7 +45,7 @@ impl<'ast> VariableWriteRemover {
 
                     match head {
                         Access::Select(box head) => {
-                            statements.insert(TypedStatement::Assertion(
+                            statements.insert(TypedStatement::assertion(
                                 BooleanExpression::uint_lt(head.clone(), size.into()),
                                 RuntimeError::SelectRangeCheck,
                             ));
@@ -437,16 +437,20 @@ fn is_constant<T>(assignee: &TypedAssignee<T>) -> bool {
 impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         match s {
-            TypedStatement::Definition(assignee, DefinitionRhs::Expression(expr)) => {
+            TypedStatement::Definition(DefinitionStatement {
+                assignee: a,
+                rhs: DefinitionRhs::Expression(expr),
+                ..
+            }) => {
                 let expr = self.fold_expression(expr);
 
-                if is_constant(&assignee) {
-                    vec![TypedStatement::definition(assignee, expr)]
+                if is_constant(&a) {
+                    vec![TypedStatement::definition(a, expr)]
                 } else {
                     // Note: here we redefine the whole object, ideally we would only redefine some of it
                     // Example: `a[0][i] = 42` we redefine `a` but we could redefine just `a[0]`
 
-                    let (variable, indices) = linear(assignee);
+                    let (variable, indices) = linear(a);
 
                     let base = match variable.get_type() {
                         Type::Int => unreachable!(),

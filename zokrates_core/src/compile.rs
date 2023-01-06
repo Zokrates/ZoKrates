@@ -226,7 +226,6 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     let optimized_ir_prog = optimized_ir_prog.collect();
     log::trace!("{:#?}", optimized_ir_prog);
 
-
     Ok(CompilationArtifacts {
         prog: optimized_ir_prog,
         abi,

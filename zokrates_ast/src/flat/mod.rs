@@ -8,6 +8,7 @@
 pub mod folder;
 pub mod utils;
 
+use crate::common;
 use crate::common::FormatString;
 pub use crate::common::Parameter;
 pub use crate::common::RuntimeError;
@@ -75,30 +76,67 @@ impl<T: Field> fmt::Display for FlatFunction<T> {
     }
 }
 
-/// Calculates a flattened function based on a R1CS (A, B, C) and returns that flattened function:
-/// * The Rank 1 Constraint System (R1CS) is defined as:
-/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
-/// * Since the matrices in R1CS are usually sparse, the following encoding is used:
-/// * For each constraint (i.e., row in the R1CS), only non-zero values are supplied and encoded as a tuple (index, value).
-///
-/// # Arguments
-///
-/// * r1cs - R1CS in standard JSON data format
+pub type DefinitionStatement<T> =
+    common::expressions::DefinitionStatement<Variable, FlatExpression<T>>;
+pub type AssertionStatement<T> =
+    common::expressions::AssertionStatement<FlatExpression<T>, RuntimeError>;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum FlatStatement<T> {
-    Condition(FlatExpression<T>, FlatExpression<T>, RuntimeError),
-    Definition(Variable, FlatExpression<T>),
+    Condition(AssertionStatement<T>),
+    Definition(DefinitionStatement<T>),
     Directive(FlatDirective<T>),
     Log(FormatString, Vec<(ConcreteType, Vec<FlatExpression<T>>)>),
+}
+
+impl<T> FlatStatement<T> {
+    pub fn definition(assignee: Variable, rhs: FlatExpression<T>) -> Self {
+        Self::Definition(DefinitionStatement::new(assignee, rhs))
+    }
+
+    pub fn assertion(expression: FlatExpression<T>, error: RuntimeError) -> Self {
+        Self::Condition(AssertionStatement::new(expression, error))
+    }
+
+    pub fn condition(
+        left: FlatExpression<T>,
+        right: FlatExpression<T>,
+        error: RuntimeError,
+    ) -> Self {
+        Self::assertion(left - right, error)
+    }
+}
+
+impl<T> WithSpan for FlatStatement<T> {
+    fn span(self, span: Option<Span>) -> Self {
+        use FlatStatement::*;
+
+        match self {
+            Condition(e) => Condition(e.span(span)),
+            Definition(e) => Definition(e.span(span)),
+            Directive(_) => todo!(),
+            Log(_, _) => todo!(),
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        use FlatStatement::*;
+
+        match self {
+            Condition(e) => e.get_span(),
+            Definition(e) => e.get_span(),
+            Directive(_) => todo!(),
+            Log(_, _) => todo!(),
+        }
+    }
 }
 
 impl<T: Field> fmt::Display for FlatStatement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            FlatStatement::Condition(ref lhs, ref rhs, ref message) => {
-                write!(f, "{} == {} // {}", lhs, rhs, message)
+            FlatStatement::Definition(ref e) => write!(f, "{}", e),
+            FlatStatement::Condition(ref s) => {
+                write!(f, "{} == 0 // {}", s.expression, s.error)
             }
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
             FlatStatement::Log(ref l, ref expressions) => write!(
@@ -127,15 +165,13 @@ impl<T: Field> FlatStatement<T> {
         substitution: &HashMap<Variable, Variable>,
     ) -> FlatStatement<T> {
         match self {
-            FlatStatement::Definition(id, x) => FlatStatement::Definition(
-                *id.apply_substitution(substitution),
-                x.apply_substitution(substitution),
+            FlatStatement::Definition(s) => FlatStatement::definition(
+                *s.assignee.apply_substitution(substitution),
+                s.rhs.apply_substitution(substitution),
             ),
-            FlatStatement::Condition(x, y, message) => FlatStatement::Condition(
-                x.apply_substitution(substitution),
-                y.apply_substitution(substitution),
-                message,
-            ),
+            FlatStatement::Condition(s) => {
+                FlatStatement::assertion(s.expression.apply_substitution(substitution), s.error)
+            }
             FlatStatement::Directive(d) => {
                 let outputs = d
                     .outputs

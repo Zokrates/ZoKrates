@@ -20,12 +20,12 @@ struct Propagator<T> {
 impl<T: Field> Folder<T> for Propagator<T> {
     fn fold_statement(&mut self, s: FlatStatement<T>) -> Vec<FlatStatement<T>> {
         match s {
-            FlatStatement::Definition(var, expr) => match self.fold_expression(expr) {
+            FlatStatement::Definition(s) => match self.fold_expression(s.rhs) {
                 FlatExpression::Number(n) => {
-                    self.constants.insert(var, n.value);
+                    self.constants.insert(s.assignee, n.value);
                     vec![]
                 }
-                e => vec![FlatStatement::Definition(var, e)],
+                e => vec![FlatStatement::definition(s.assignee, e)],
             },
             s => fold_statement(self, s),
         }

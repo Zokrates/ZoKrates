@@ -473,35 +473,40 @@ fn fold_statement<'ast, T: Field>(
     s: typed::TypedStatement<'ast, T>,
 ) {
     let res = match s {
-        typed::TypedStatement::Return(expression) => vec![zir::ZirStatement::Return(
-            f.fold_expression(statements_buffer, expression),
+        typed::TypedStatement::Return(s) => vec![zir::ZirStatement::ret(
+            f.fold_expression(statements_buffer, s.inner),
         )],
-        typed::TypedStatement::Definition(a, typed::DefinitionRhs::Expression(e)) => {
+        typed::TypedStatement::Definition(typed::DefinitionStatement {
+            assignee: a,
+            rhs: typed::DefinitionRhs::Expression(e),
+            ..
+        }) => {
             let a = f.fold_assignee(a);
             let e = f.fold_expression(statements_buffer, e);
             assert_eq!(a.len(), e.len());
             a.into_iter()
                 .zip(e.into_iter())
-                .map(|(a, e)| zir::ZirStatement::Definition(a, e))
+                .map(|(a, e)| zir::ZirStatement::definition(a, e))
                 .collect()
         }
-        typed::TypedStatement::Assertion(e, error) => {
-            let e = f.fold_boolean_expression(statements_buffer, e);
-            let error = match error {
+        typed::TypedStatement::Assertion(s) => {
+            let e = f.fold_boolean_expression(statements_buffer, s.expression);
+            let error = match s.error {
                 typed::RuntimeError::SourceAssertion(metadata) => {
                     zir::RuntimeError::SourceAssertion(metadata.to_string())
                 }
                 typed::RuntimeError::SelectRangeCheck => zir::RuntimeError::SelectRangeCheck,
                 typed::RuntimeError::DivisionByZero => zir::RuntimeError::DivisionByZero,
             };
-            vec![zir::ZirStatement::Assertion(e, error)]
+            vec![zir::ZirStatement::assertion(e, error)]
         }
-        typed::TypedStatement::Definition(
-            assignee,
-            typed::DefinitionRhs::EmbedCall(embed_call),
-        ) => {
+        typed::TypedStatement::Definition(typed::DefinitionStatement {
+            assignee: a,
+            rhs: typed::DefinitionRhs::EmbedCall(embed_call),
+            ..
+        }) => {
             vec![zir::ZirStatement::MultipleDefinition(
-                f.fold_assignee(assignee),
+                f.fold_assignee(a),
                 zir::ZirExpressionList::EmbedCall(
                     embed_call.embed,
                     embed_call.generics,

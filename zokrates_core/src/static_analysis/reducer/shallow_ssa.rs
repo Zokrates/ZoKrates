@@ -26,6 +26,7 @@
 // 	   return b_3; // we leave versions b_1 and b_2 to make b accessible and modifiable inside the for-loop
 // }
 
+use zokrates_ast::common::WithSpan;
 use zokrates_ast::typed::folder::*;
 use zokrates_ast::typed::types::ConcreteGenericsAssignment;
 use zokrates_ast::typed::types::Type;
@@ -126,7 +127,11 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
 impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         match s {
-            TypedStatement::Definition(a, DefinitionRhs::Expression(e)) => {
+            TypedStatement::Definition(DefinitionStatement {
+                assignee: a,
+                rhs: DefinitionRhs::Expression(e),
+                span,
+            }) => {
                 let e = self.fold_expression(e);
 
                 let a = match a {
@@ -137,10 +142,14 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
                     a => fold_assignee(self, a),
                 };
 
-                vec![TypedStatement::definition(a, e)]
+                vec![TypedStatement::definition(a, e).span(span)]
             }
-            TypedStatement::Definition(assignee, DefinitionRhs::EmbedCall(embed_call)) => {
-                let assignee = match assignee {
+            TypedStatement::Definition(DefinitionStatement {
+                assignee: a,
+                rhs: DefinitionRhs::EmbedCall(embed_call),
+                span,
+            }) => {
+                let assignee = match a {
                     TypedAssignee::Identifier(v) => {
                         let v = self.issue_next_ssa_variable(v);
                         TypedAssignee::Identifier(self.fold_variable(v))
@@ -148,15 +157,15 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
                     a => fold_assignee(self, a),
                 };
                 let embed_call = self.fold_embed_call(embed_call);
-                vec![TypedStatement::embed_call_definition(assignee, embed_call)]
+                vec![TypedStatement::embed_call_definition(assignee, embed_call).span(span)]
             }
-            TypedStatement::For(v, from, to, stats) => {
-                let from = self.fold_uint_expression(from);
-                let to = self.fold_uint_expression(to);
+            TypedStatement::For(s) => {
+                let from = self.fold_uint_expression(s.from);
+                let to = self.fold_uint_expression(s.to);
                 self.blocked = true;
                 let versions_before_loop = self.create_version_gap();
                 self.for_loop_backups.push(versions_before_loop);
-                vec![TypedStatement::For(v, from, to, stats)]
+                vec![TypedStatement::for_(s.var, from, to, s.statements).span(s.span)]
             }
             s => fold_statement(self, s),
         }

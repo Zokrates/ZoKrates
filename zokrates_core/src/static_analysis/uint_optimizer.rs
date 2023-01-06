@@ -404,22 +404,22 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
     fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
         match s {
-            ZirStatement::Definition(a, e) => {
-                let e = self.fold_expression(e);
+            ZirStatement::Definition(s) => {
+                let e = self.fold_expression(s.rhs);
 
                 let e = match e {
                     ZirExpression::Uint(i) => {
                         let i = force_no_reduce(i);
-                        self.register(a.clone(), i.metadata.clone().unwrap());
+                        self.register(s.assignee.clone(), i.metadata.clone().unwrap());
                         ZirExpression::Uint(i)
                     }
                     e => e,
                 };
-                vec![ZirStatement::Definition(a, e)]
+                vec![ZirStatement::definition(s.assignee, e)]
             }
             // we need to put back in range to return
-            ZirStatement::Return(expressions) => vec![ZirStatement::Return(
-                expressions
+            ZirStatement::Return(s) => vec![ZirStatement::ret(
+                s.inner
                     .into_iter()
                     .map(|e| match e {
                         ZirExpression::Uint(e) => {
@@ -520,7 +520,11 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     }
                 }
             }
-            ZirStatement::Assertion(BooleanExpression::UintEq(e), metadata) => {
+            ZirStatement::Assertion(AssertionStatement {
+                error,
+                expression: BooleanExpression::UintEq(e),
+                ..
+            }) => {
                 let left = self.fold_uint_expression(*e.left);
                 let right = self.fold_uint_expression(*e.right);
 
@@ -528,9 +532,9 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let left = force_reduce(left);
                 let right = force_reduce(right);
 
-                vec![ZirStatement::Assertion(
+                vec![ZirStatement::assertion(
                     BooleanExpression::uint_eq(left, right),
-                    metadata,
+                    error,
                 )]
             }
             ZirStatement::Log(l, e) => vec![ZirStatement::Log(

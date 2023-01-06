@@ -73,14 +73,13 @@ pub fn fold_statement<T: Field, F: Folder<T>>(
     s: FlatStatement<T>,
 ) -> Vec<FlatStatement<T>> {
     match s {
-        FlatStatement::Condition(left, right, error) => vec![FlatStatement::Condition(
-            f.fold_expression(left),
-            f.fold_expression(right),
-            error,
+        FlatStatement::Condition(s) => vec![FlatStatement::assertion(
+            f.fold_expression(s.expression),
+            s.error,
         )],
-        FlatStatement::Definition(v, e) => vec![FlatStatement::Definition(
-            f.fold_variable(v),
-            f.fold_expression(e),
+        FlatStatement::Definition(s) => vec![FlatStatement::definition(
+            f.fold_variable(s.assignee),
+            f.fold_expression(s.rhs),
         )],
         FlatStatement::Directive(d) => vec![FlatStatement::Directive(f.fold_directive(d))],
         FlatStatement::Log(s, e) => vec![FlatStatement::Log(

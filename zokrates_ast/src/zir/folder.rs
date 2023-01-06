@@ -159,15 +159,14 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     s: ZirStatement<'ast, T>,
 ) -> Vec<ZirStatement<'ast, T>> {
     let res = match s {
-        ZirStatement::Return(expressions) => ZirStatement::Return(
-            expressions
-                .into_iter()
-                .map(|e| f.fold_expression(e))
-                .collect(),
+        ZirStatement::Return(s) => ZirStatement::Return(
+            ReturnStatement::new(s.inner.into_iter().map(|e| f.fold_expression(e)).collect())
+                .span(s.span),
         ),
-        ZirStatement::Definition(a, e) => {
-            ZirStatement::Definition(f.fold_assignee(a), f.fold_expression(e))
-        }
+        ZirStatement::Definition(s) => ZirStatement::Definition(
+            DefinitionStatement::new(f.fold_assignee(s.assignee), f.fold_expression(s.rhs))
+                .span(s.span),
+        ),
         ZirStatement::IfElse(condition, consequence, alternative) => ZirStatement::IfElse(
             f.fold_boolean_expression(condition),
             consequence
@@ -179,9 +178,9 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
                 .flat_map(|e| f.fold_statement(e))
                 .collect(),
         ),
-        ZirStatement::Assertion(e, error) => {
-            ZirStatement::Assertion(f.fold_boolean_expression(e), error)
-        }
+        ZirStatement::Assertion(s) => ZirStatement::Assertion(
+            AssertionStatement::new(f.fold_boolean_expression(s.expression), s.error).span(s.span),
+        ),
         ZirStatement::MultipleDefinition(variables, elist) => ZirStatement::MultipleDefinition(
             variables.into_iter().map(|v| f.fold_variable(v)).collect(),
             f.fold_expression_list(elist),
