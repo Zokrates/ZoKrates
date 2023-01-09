@@ -7,7 +7,7 @@ use zokrates_ast::zir::types::UBitwidth;
 use zokrates_ast::zir::{
     result_folder::*, Conditional, ConditionalExpression, ConditionalOrExpression, Constant, Expr,
     Id, IdentifierExpression, IdentifierOrExpression, SelectExpression, SelectOrExpression,
-    ZirAssemblyStatement,
+    ZirAssemblyStatement, ZirFunction,
 };
 use zokrates_ast::zir::{
     BooleanExpression, FieldElementExpression, Identifier, RuntimeError, UExpression,
@@ -56,6 +56,28 @@ impl<'ast, T: Field> ZirPropagator<'ast, T> {
 
 impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
     type Error = Error;
+
+    fn fold_function(
+        &mut self,
+        f: ZirFunction<'ast, T>,
+    ) -> Result<ZirFunction<'ast, T>, Self::Error> {
+        Ok(ZirFunction {
+            arguments: f
+                .arguments
+                .into_iter()
+                .filter(|p| !self.constants.contains_key(&p.id.id))
+                .collect(),
+            statements: f
+                .statements
+                .into_iter()
+                .map(|s| self.fold_statement(s))
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .flatten()
+                .collect(),
+            ..f
+        })
+    }
 
     fn fold_assembly_statement(
         &mut self,
