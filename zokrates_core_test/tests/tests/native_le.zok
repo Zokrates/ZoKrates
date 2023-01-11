@@ -27,7 +27,7 @@ def le<N>(field a, field c) -> bool {
     return le(a_bits, c_bits);
 }
 
-// this instanciates comparison starting from u32
+// this instantiates comparison starting from u32
 def le(u32 a, u32 c) -> bool {
     bool[32] a_bits = u32_to_bits(a);
     bool[32] c_bits = u32_to_bits(c);

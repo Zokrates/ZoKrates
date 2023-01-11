@@ -1,6 +1,6 @@
 # ZoKrates ABI
 
-In order to interact programatically with compiled ZoKrates programs, ZoKrates supports passing arguments using an ABI.
+In order to interact programmatically with compiled ZoKrates programs, ZoKrates supports passing arguments using an ABI.
 
 To illustrate this, we'll use the following example program:
 

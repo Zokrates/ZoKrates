@@ -1,5 +1,5 @@
 // After all generics are inlined, a program should be completely "concrete", which means that all types must only contain
-// litterals for array sizes. This is especially important to generate the ABI of the program.
+// literals for array sizes. This is especially important to generate the ABI of the program.
 // It is direct to ensure that with most types, however the way structs are implemented requires a slightly different process:
 // Where for an array, `field[N]` ends up being propagated to `field[42]` which is direct to turn into a concrete type,
 // for structs, `Foo<N> { field[N] a }` is propagated to `Foo<42> { field[N] a }`. The missing step is replacing `N` by `42`
