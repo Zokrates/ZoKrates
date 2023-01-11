@@ -988,7 +988,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             _ => unreachable!(),
         };
 
-        // return if any errors occured
+        // return if any errors occurred
         if !errors.is_empty() {
             return Err(errors);
         }
@@ -1035,7 +1035,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         // insert into typed_modules if we checked anything
         if let Some(typed_module) = to_insert {
-            // there should be no checked module at that key just yet, if there is we have a colision or we checked something twice
+            // there should be no checked module at that key just yet, if there is we have a collision or we checked something twice
             assert!(state
                 .typed_modules
                 .insert(module_id.to_path_buf(), typed_module)

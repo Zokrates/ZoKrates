@@ -259,7 +259,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///    As long as `sizeUnknown` is `true` we don't yet know if a is <= than b.
     /// 2. Loop over `b`:
     ///     * b[0] = 1
-    ///       when `b` is 1 we check wether `a` is 0 in that particular run and update
+    ///       when `b` is 1 we check whether `a` is 0 in that particular run and update
     ///       `sizeUnknown` accordingly:
     ///       `sizeUnknown = sizeUnknown && a[0]`
     ///     * b[1] = 1

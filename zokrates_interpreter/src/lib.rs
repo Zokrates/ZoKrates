@@ -13,7 +13,7 @@ pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 #[derive(Default)]
 pub struct Interpreter {
     /// Whether we should try to give out-of-range bit decompositions when the input is not a single summand.
-    /// Used to do targetted testing of `<` flattening, making sure the bit decomposition we base the result on is unique.
+    /// Used to do targeted testing of `<` flattening, making sure the bit decomposition we base the result on is unique.
     should_try_out_of_range: bool,
 }
 
