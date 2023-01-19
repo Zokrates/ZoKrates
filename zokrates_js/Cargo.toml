@@ -15,8 +15,8 @@ wasm-bindgen = { version = "0.2.46", features = ["serde-serialize"] }
 typed-arena = "1.4.1"
 lazy_static = "1.4.0"
 zokrates_core = { path = "../zokrates_core", default-features = false, features = ["ark", "bellman"] }
-zokrates_ark = { path = "../zokrates_ark", default-features = false}
-zokrates_bellman = { path = "../zokrates_bellman", default-features = false}
+zokrates_ark = { path = "../zokrates_ark", default-features = false }
+zokrates_bellman = { path = "../zokrates_bellman", default-features = false, features = ["wasm"] }
 zokrates_common = { path = "../zokrates_common", default-features = false, features = ["ark", "bellman"] }
 zokrates_proof_systems = { path = "../zokrates_proof_systems", default-features = false }
 zokrates_ast = { path = "../zokrates_ast", default-features = false, features = ["ark", "bellman"] }
