@@ -71,5 +71,5 @@ export default init;`;
     body,
   });
 
-  await fs.writeFile("wasm.js",  source + init);
+  await fs.writeFile("wasm.js", source + init);
 })();

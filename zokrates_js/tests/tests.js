@@ -4,7 +4,7 @@ import fs from "fs";
 import os from "os";
 import * as snarkjs from "snarkjs";
 import dree from "dree";
-import { initialize, metadata } from "../index.js";
+import { initialize, metadata } from "../index-node.js";
 
 let zokratesProvider;
 let tmpFolder;
