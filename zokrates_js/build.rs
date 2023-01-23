@@ -40,9 +40,5 @@ fn export_metadata() {
         .insert("version", config["package"]["version"].as_str().unwrap())
         .unwrap();
 
-    fs::write(
-        "metadata.js",
-        format!("export default {}", metadata.dump()),
-    )
-    .unwrap();
+    fs::write("metadata.js", format!("export default {}", metadata.dump())).unwrap();
 }
