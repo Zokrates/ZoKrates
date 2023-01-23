@@ -3345,6 +3345,7 @@ dependencies = [
 name = "zokrates_test"
 version = "0.2.0"
 dependencies = [
+ "getrandom",
  "serde",
  "serde_derive",
  "serde_json",

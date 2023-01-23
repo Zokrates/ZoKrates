@@ -21,6 +21,6 @@ typed-arena = "1.4.1"
 wasm-bindgen-test = "^0.3.0"
 zokrates_ark = { version = "0.1", path = "../zokrates_ark" }
 zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems" }
-
+getrandom = { version = "0.2.8", features = ["js"] }
 
 [lib]
