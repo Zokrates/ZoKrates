@@ -18,17 +18,17 @@ import pako from "pako";
 
   let bytes;
 
-  if (typeof atob === 'function') {
+  if (typeof Buffer === "function") {
+    bytes = Buffer.from(encoded, "base64");
+  } else if (typeof atob === "function") {
     const binary = atob(encoded);
     bytes = new Uint8Array(binary.length);
-    
+
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
-    }  
-  } else if (typeof Buffer === 'function') {
-    bytes = Buffer.from(encoded, 'base64');
+    }
   } else {
-    throw new Error('Unsupported platform');
+    throw new Error("Unsupported platform");
   }
 
   const imports = getImports();
