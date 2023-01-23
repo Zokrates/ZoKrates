@@ -42,7 +42,7 @@ fn export_metadata() {
 
     fs::write(
         "metadata.js",
-        format!("module.exports = {}", metadata.dump()),
+        format!("export default {}", metadata.dump()),
     )
     .unwrap();
 }
