@@ -8,17 +8,14 @@ npm install zokrates-js
 
 ## Importing
 
-##### Bundlers
-**Note:** As this library uses a model where the wasm module itself is natively an ES module, you will need a bundler of some form. 
-Currently the only known bundler known to be fully compatible with `zokrates-js` is [Webpack](https://webpack.js.org/) (`experiments.syncWebAssembly` must be enabled). 
-The choice of this default was done to reflect the trends of the JS ecosystem.
+##### ES modules
 ```js
 import { initialize } from 'zokrates-js';
 ```
 
-##### Node
+##### CommonJS
 ```js
-const { initialize } = require('zokrates-js')
+let { initialize } = await import('zokrates-js');
 ```
 
 ## Example
@@ -201,3 +198,11 @@ Parameters:
 * `verificationKey` - Verification key from the setup keypair
 
 Returns: `string`
+
+##### utils.formatProof(proof)
+Formats the proof into an array of field elements that are compatible as input to the generated solidity contract
+
+Parameters:
+* `proof` - Generated proof
+
+Returns: `array`
