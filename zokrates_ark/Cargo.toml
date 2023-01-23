@@ -4,8 +4,17 @@ version = "0.1.1"
 edition = "2021"
 
 [features]
-default = ["multicore"]
-multicore = ["ark-groth16/parallel", "ark-gm17/parallel", "ark-marlin/parallel"]
+default = []
+multicore = [
+    "ark-ff/parallel",
+    "ark-ec/parallel",
+    "ark-groth16/parallel",
+    "ark-gm17/parallel",
+    "ark-marlin/parallel",
+    "ark-poly/parallel",
+    "ark-poly-commit/parallel",
+    "ark-crypto-primitives/parallel",
+]
 
 [dependencies]
 zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }

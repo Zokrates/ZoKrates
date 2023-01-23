@@ -7,6 +7,7 @@ edition = "2018"
 [features]
 default = ["bellman"]
 bellman = ["bellman_ce"]
+multicore = ["ark-ff/parallel", "ark-ec/parallel"]
 
 [dependencies]
 serde = "1.0"
