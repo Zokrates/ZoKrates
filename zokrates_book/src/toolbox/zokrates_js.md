@@ -8,22 +8,22 @@ npm install zokrates-js
 
 ## Importing
 
-##### ES modules
+#### ES modules
 
 ```js
 import { initialize } from "zokrates-js";
 ```
 
-##### CommonJS
+#### CommonJS
 
 ```js
 let { initialize } = await import("zokrates-js");
 ```
 
-##### CDN
+#### CDN
 
 ```html
-<script src="https://unpkg.com/zokrates-js@latest/umd.min.js" async></script>
+<script src="https://unpkg.com/zokrates-js@latest/umd.min.js"></script>
 <script>
   zokrates.initialize().then((zokratesProvider) => {
     /* ... */
