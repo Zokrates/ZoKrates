@@ -31,11 +31,12 @@
   "scripts": {
     "wasm-pack": "wasm-pack build --out-name index --target web",
     "prebuild": "npm install",
-    "build": "npm run wasm-pack -- --release && node patch.js && npm run bundle",
-    "build:dev": "npm run wasm-pack -- --dev && node patch.js && npm run bundle",
+    "build": "npm run wasm-pack -- --release && npm run patch && npm run bundle",
+    "build:dev": "npm run wasm-pack -- --dev && npm run patch && npm run bundle",
     "pretest": "npm run build:dev",
     "test": "npm run run-tests",
     "run-tests": "mocha --timeout 100000 --recursive tests",
+    "patch": "node patch.js",
     "bundle": "browserify ./index.js --standalone zokrates -t [ babelify --presets [ @babel/preset-env ] ] | uglifyjs --compress --mangle > umd.min.js"
   },
   "devDependencies": {
