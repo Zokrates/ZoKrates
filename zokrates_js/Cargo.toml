@@ -3,7 +3,6 @@ name = "zokrates_js"
 version = "1.1.4"
 authors = ["Darko Macesic"]
 edition = "2018"
-resolver = "2"
 
 [lib]
 crate-type = ["cdylib"]
@@ -18,8 +17,8 @@ lazy_static = "1.4.0"
 zokrates_field = { path = "../zokrates_field" }
 zokrates_core = { path = "../zokrates_core", default-features = false, features = ["ark", "bellman"] }
 zokrates_ark = { path = "../zokrates_ark", default-features = false }
-zokrates_embed = { path = "../zokrates_embed", default-features = false, features = ["wasm"] }
-zokrates_bellman = { path = "../zokrates_bellman", default-features = false, features = ["wasm"] }
+zokrates_embed = { path = "../zokrates_embed", default-features = false }
+zokrates_bellman = { path = "../zokrates_bellman", default-features = false }
 zokrates_common = { path = "../zokrates_common", default-features = false, features = ["ark", "bellman"] }
 zokrates_proof_systems = { path = "../zokrates_proof_systems", default-features = false }
 zokrates_ast = { path = "../zokrates_ast", default-features = false, features = ["ark", "bellman"] }
@@ -28,6 +27,10 @@ zokrates_abi = { path = "../zokrates_abi", default-features = false, features = 
 zokrates_circom = { path = "../zokrates_circom" }
 console_error_panic_hook = "0.1.6"
 indexmap = "~1.6.2" # see https://github.com/rustwasm/wasm-bindgen/issues/2770#issuecomment-1041102532
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+zokrates_embed = { path = "../zokrates_embed", features = ["wasm"] }
+zokrates_bellman = { path = "../zokrates_bellman", features = ["wasm"] }
 
 [build-dependencies]
 json = "0.12.4"
