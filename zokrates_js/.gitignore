@@ -5,3 +5,4 @@ pkg
 wasm-pack.log
 metadata.js
 wasm.js
+umd.min.js

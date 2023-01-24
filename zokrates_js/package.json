@@ -19,7 +19,8 @@
     "index-node.js",
     "index.d.ts",
     "wasm.js",
-    "metadata.js"
+    "metadata.js",
+    "umd.min.js"
   ],
   "types": "index.d.ts",
   "type": "module",
@@ -30,19 +31,26 @@
   "scripts": {
     "wasm-pack": "wasm-pack build --out-name index --target web",
     "prebuild": "npm install",
-    "build": "npm run wasm-pack -- --release && node patch.js",
-    "build:dev": "npm run wasm-pack -- --dev && node patch.js",
+    "build": "npm run wasm-pack -- --release && node patch.js && npm run bundle",
+    "build:dev": "npm run wasm-pack -- --dev && node patch.js && npm run bundle",
     "pretest": "npm run build:dev",
     "test": "npm run run-tests",
-    "run-tests": "mocha --timeout 100000 --recursive tests"
+    "run-tests": "mocha --timeout 100000 --recursive tests",
+    "bundle": "browserify ./index.js --standalone zokrates -t [ babelify --presets [ @babel/preset-env ] ] | uglifyjs --compress --mangle > umd.min.js"
   },
   "devDependencies": {
+    "@babel/core": "^7.20.12",
+    "@babel/preset-env": "^7.20.2",
     "acorn": "^8.8.1",
     "astring": "^1.8.4",
+    "babelify": "^10.0.0",
+    "browserify": "^17.0.0",
     "dree": "^3.4.3",
     "mocha": "^9.2.0",
+    "puppeteer": "^19.6.0",
     "rimraf": "^3.0.2",
     "snarkjs": "^0.4.25",
+    "uglify-js": "^3.17.4",
     "wasm-pack": "^0.10.2"
   },
   "dependencies": {
