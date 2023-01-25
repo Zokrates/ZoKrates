@@ -16,16 +16,12 @@ use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_proof_systems::groth16::{ProofPoints, VerificationKey, G16};
 use zokrates_proof_systems::Scheme;
 
-const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
-
 impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
     fn generate_proof<'a, I: IntoIterator<Item = Statement<'a, T>>>(
         program: ProgIterator<'a, T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
     ) -> Proof<T, G16> {
-        println!("{}", G16_WARNING);
-
         let computation = Computation::with_witness(program, witness);
 
         let inputs = computation
@@ -89,8 +85,6 @@ impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, G16> for Ark {
     fn setup<'a, I: IntoIterator<Item = Statement<'a, T>>>(
         program: ProgIterator<'a, T, I>,
     ) -> SetupKeypair<T, G16> {
-        println!("{}", G16_WARNING);
-
         let computation = Computation::without_witness(program);
 
         let rng = &mut StdRng::from_entropy();
