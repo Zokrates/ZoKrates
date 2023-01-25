@@ -24,7 +24,7 @@ use zokrates_ast::common::embed::*;
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::common::{RuntimeError, Variable};
 use zokrates_ast::flat::*;
-use zokrates_ast::ir::Solver;
+use zokrates_ast::ir::{Solver, ZirSolver};
 use zokrates_ast::zir::types::{Type, UBitwidth};
 use zokrates_ast::zir::{
     BooleanExpression, Conditional, FieldElementExpression, Identifier, Parameter as ZirParameter,
@@ -2241,7 +2241,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .into_iter()
                     .map(|assignee| self.use_variable(&assignee))
                     .collect();
-                let directive = FlatDirective::new(outputs, Solver::Zir(function), inputs);
+
+                let solver = Solver::Zir(ZirSolver::Function(function));
+                let directive = FlatDirective::new(outputs, solver, inputs);
+
                 statements_flattened.push_back(FlatStatement::Directive(directive));
             }
             ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {

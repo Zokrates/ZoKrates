@@ -10,6 +10,6 @@ pub use self::embed::FlatEmbed;
 pub use self::error::RuntimeError;
 pub use self::metadata::SourceMetadata;
 pub use self::parameter::Parameter;
-pub use self::solvers::Solver;
+pub use self::solvers::{Solver, ZirSolver};
 pub use self::variable::Variable;
 pub use format_string::FormatString;

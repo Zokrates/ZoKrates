@@ -3,6 +3,22 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
+pub enum ZirSolver<'ast, T> {
+    #[serde(borrow)]
+    Function(ZirFunction<'ast, T>),
+    Indexed(usize, usize),
+}
+
+impl<'ast, T> fmt::Display for ZirSolver<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ZirSolver::Function(_) => write!(f, "Zir(..)"),
+            ZirSolver::Indexed(index, n) => write!(f, "Zir@{}({})", index, n),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum Solver<'ast, T> {
     ConditionEq,
     Bits(usize),
@@ -13,11 +29,20 @@ pub enum Solver<'ast, T> {
     ShaCh,
     EuclideanDiv,
     #[serde(borrow)]
-    Zir(ZirFunction<'ast, T>),
+    Zir(ZirSolver<'ast, T>),
     #[cfg(feature = "bellman")]
     Sha256Round,
     #[cfg(feature = "ark")]
     SnarkVerifyBls12377(usize),
+}
+
+impl<'ast, T> Solver<'ast, T> {
+    pub fn zir_function(function: ZirFunction<'ast, T>) -> Self {
+        Solver::Zir(ZirSolver::Function(function))
+    }
+    pub fn zir_indexed(index: usize, argument_count: usize) -> Self {
+        Solver::Zir(ZirSolver::Indexed(index, argument_count))
+    }
 }
 
 impl<'ast, T> fmt::Display for Solver<'ast, T> {
@@ -31,7 +56,7 @@ impl<'ast, T> fmt::Display for Solver<'ast, T> {
             Solver::ShaAndXorAndXorAnd => write!(f, "ShaAndXorAndXorAnd"),
             Solver::ShaCh => write!(f, "ShaCh"),
             Solver::EuclideanDiv => write!(f, "EuclideanDiv"),
-            Solver::Zir(_) => write!(f, "Zir(..)"),
+            Solver::Zir(s) => write!(f, "{}", s),
             #[cfg(feature = "bellman")]
             Solver::Sha256Round => write!(f, "Sha256Round"),
             #[cfg(feature = "ark")]
@@ -51,7 +76,10 @@ impl<'ast, T> Solver<'ast, T> {
             Solver::ShaAndXorAndXorAnd => (3, 1),
             Solver::ShaCh => (3, 1),
             Solver::EuclideanDiv => (2, 2),
-            Solver::Zir(f) => (f.arguments.len(), 1),
+            Solver::Zir(s) => match s {
+                ZirSolver::Function(f) => (f.arguments.len(), 1),
+                ZirSolver::Indexed(_, n) => (*n, 1),
+            },
             #[cfg(feature = "bellman")]
             Solver::Sha256Round => (768, 26935),
             #[cfg(feature = "ark")]
