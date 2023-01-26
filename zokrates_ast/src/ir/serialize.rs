@@ -154,7 +154,7 @@ impl<'de, R: Read + Seek>
 
                 let mut buffer = [0u8; std::mem::size_of::<u64>()];
                 r.read_exact(&mut buffer)
-                    .map_err(|_| String::from("Cannot read solver list pointer"))?;
+                    .map_err(|_| String::from("Cannot read solver list offset"))?;
 
                 let solver_list_offset = u64::from_le_bytes(buffer);
 
@@ -179,7 +179,7 @@ impl<'de, R: Read + Seek>
                         let solvers: Vec<Solver<'de, Bls12_381Field>> = {
                             let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
                             Vec::deserialize(&mut p)
-                                .map_err(|_| String::from("Cannot read solver map"))?
+                                .map_err(|_| String::from("Cannot read solver list"))?
                         };
 
                         r.seek(std::io::SeekFrom::Start(statement_offset)).unwrap();
@@ -197,7 +197,7 @@ impl<'de, R: Read + Seek>
                         let solvers: Vec<Solver<'de, Bn128Field>> = {
                             let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
                             Vec::deserialize(&mut p)
-                                .map_err(|_| String::from("Cannot read solver map"))?
+                                .map_err(|_| String::from("Cannot read solver list"))?
                         };
 
                         r.seek(std::io::SeekFrom::Start(statement_offset)).unwrap();
@@ -216,7 +216,7 @@ impl<'de, R: Read + Seek>
                         let solvers: Vec<Solver<'de, Bls12_377Field>> = {
                             let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
                             Vec::deserialize(&mut p)
-                                .map_err(|_| String::from("Cannot read solver map"))?
+                                .map_err(|_| String::from("Cannot read solver list"))?
                         };
 
                         r.seek(std::io::SeekFrom::Start(statement_offset)).unwrap();
@@ -235,7 +235,7 @@ impl<'de, R: Read + Seek>
                         let solvers: Vec<Solver<'de, Bw6_761Field>> = {
                             let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
                             Vec::deserialize(&mut p)
-                                .map_err(|_| String::from("Cannot read solver map"))?
+                                .map_err(|_| String::from("Cannot read solver list"))?
                         };
 
                         r.seek(std::io::SeekFrom::Start(statement_offset)).unwrap();
