@@ -18,16 +18,12 @@ use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_proof_systems::groth16::{ProofPoints, VerificationKey, G16};
 use zokrates_proof_systems::Scheme;
 
-const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
-
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
     fn generate_proof<'a, I: IntoIterator<Item = Statement<'a, T>>>(
         program: ProgIterator<'a, T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
     ) -> Proof<T, G16> {
-        println!("{}", G16_WARNING);
-
         let computation = Computation::with_witness(program, witness);
         let params = Parameters::read(proving_key.as_slice(), true).unwrap();
 
@@ -87,8 +83,6 @@ impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman 
     fn setup<'a, I: IntoIterator<Item = Statement<'a, T>>>(
         program: ProgIterator<'a, T, I>,
     ) -> SetupKeypair<T, G16> {
-        println!("{}", G16_WARNING);
-
         let parameters = Computation::without_witness(program).setup();
         let mut pk: Vec<u8> = Vec::new();
         parameters.write(&mut pk).unwrap();
