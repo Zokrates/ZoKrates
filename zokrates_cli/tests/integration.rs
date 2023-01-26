@@ -61,7 +61,7 @@ mod integration {
 
         let solidity_test_path = global_base.join("zokrates_verifier");
         std::fs::create_dir(&solidity_test_path).unwrap();
-        Command::new("forge")
+        Command::new("~/.foundry/bin/forge")
             .current_dir(&solidity_test_path)
             .arg("init")
             .arg(".")
@@ -100,7 +100,7 @@ mod integration {
             }
         }
 
-        let output = Command::new("forge")
+        let output = Command::new("~/.foundry/bin/forge")
             .current_dir(&solidity_test_path)
             .arg("test")
             .output()
