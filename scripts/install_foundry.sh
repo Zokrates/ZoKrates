@@ -1,4 +1,6 @@
 #!/bin/bash
 
 curl -L https://foundry.paradigm.xyz | bash
-~/.foundry/bin/foundryup
+cat /root/.bashrc
+source /root/.bashrc
+foundryup
