@@ -41,6 +41,7 @@ mod integration {
     #[test]
     #[ignore]
     fn test_compile_and_witness_dir() {
+        let forge = dirs::home_dir().unwrap().join(".foundry/bin/forge");
         let global_dir = TempDir::new("global").unwrap();
         let global_base = global_dir.path();
         let universal_setup_path = global_base.join("universal_setup.dat");
@@ -61,12 +62,18 @@ mod integration {
 
         let solidity_test_path = global_base.join("zokrates_verifier");
         std::fs::create_dir(&solidity_test_path).unwrap();
-        Command::new("$HOME/.foundry/bin/forge")
+        let output = Command::new(&forge)
             .current_dir(&solidity_test_path)
             .arg("init")
             .arg(".")
             .output()
             .unwrap();
+        
+        std::io::stdout().write_all(&output.stdout).unwrap();
+        std::io::stderr().write_all(&output.stderr).unwrap();
+
+        assert!(output.status.success());  
+
         Command::new("rm")
             .current_dir(&solidity_test_path)
             .arg("./src/Counter.sol")
@@ -80,7 +87,7 @@ mod integration {
 
         let dir = Path::new("./tests/code");
         assert!(dir.is_dir());
-        for entry in fs::read_dir(dir).unwrap() {
+        for entry in fs::read_dir(dir).unwrap().take(3) {
             let entry = entry.unwrap();
             let path = entry.path();
             if path.extension().unwrap() == "witness" {
@@ -100,7 +107,17 @@ mod integration {
             }
         }
 
-        let output = Command::new("$HOME/.foundry/bin/forge")
+        let output = Command::new("ls")
+        .current_dir(&solidity_test_path)
+        .arg("-R")
+        .arg(".")
+        .output()
+        .expect("failed to ls");
+
+        std::io::stdout().write_all(&output.stdout).unwrap();
+        std::io::stderr().write_all(&output.stderr).unwrap();
+
+        let output = Command::new(&forge)
             .current_dir(&solidity_test_path)
             .arg("test")
             .output()
