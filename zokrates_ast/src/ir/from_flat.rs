@@ -2,8 +2,6 @@ use crate::flat::{FlatDirective, FlatExpression, FlatProgIterator, FlatStatement
 use crate::ir::{Directive, LinComb, ProgIterator, QuadComb, Statement};
 use zokrates_field::Field;
 
-use super::SolverMap;
-
 impl<T: Field> QuadComb<T> {
     fn from_flat_expression<U: Into<FlatExpression<T>>>(flat_expression: U) -> QuadComb<T> {
         let flat_expression = flat_expression.into();
@@ -26,7 +24,7 @@ pub fn from_flat<'ast, T: Field, I: IntoIterator<Item = FlatStatement<'ast, T>>>
         statements: flat_prog_iterator.statements.into_iter().map(Into::into),
         arguments: flat_prog_iterator.arguments,
         return_count: flat_prog_iterator.return_count,
-        solvers: SolverMap::default(),
+        solvers: vec![],
     }
 }
 

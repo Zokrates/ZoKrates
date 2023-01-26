@@ -83,7 +83,7 @@ impl Interpreter {
                                 inputs.pop().unwrap(),
                             ))
                         }
-                        _ => Self::execute_solver(&d.solver, &inputs),
+                        _ => Self::execute_solver(&d.solver, &inputs, &program.solvers),
                     }
                     .map_err(Error::Solver)?;
 
@@ -164,7 +164,15 @@ impl Interpreter {
     pub fn execute_solver<'ast, T: Field>(
         solver: &Solver<'ast, T>,
         inputs: &[T],
+        solvers: &[Solver<'ast, T>],
     ) -> Result<Vec<T>, String> {
+        let solver = match solver {
+            Solver::IndexedCall(index, _) => solvers
+                .get(*index)
+                .ok_or_else(|| format!("Could not resolve solver at index {}", index))?,
+            s => s,
+        };
+
         let (expected_input_count, expected_output_count) = solver.get_signature();
         assert_eq!(inputs.len(), expected_input_count);
 
@@ -334,6 +342,7 @@ impl Interpreter {
                     &inputs[*n + 8usize..],
                 )
             }
+            _ => unreachable!("unexpected solver"),
         };
 
         assert_eq!(res.len(), expected_output_count);

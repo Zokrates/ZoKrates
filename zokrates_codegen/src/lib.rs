@@ -11,8 +11,8 @@ mod utils;
 
 use self::utils::flat_expression_from_bits;
 use zokrates_ast::zir::{
-    ConditionalExpression, SelectExpression, ShouldReduce, UMetadata, ZirAssemblyStatement,
-    ZirExpressionList,
+    substitution::ZirSubstitutor, ConditionalExpression, Folder, SelectExpression, ShouldReduce,
+    UMetadata, ZirAssemblyStatement, ZirExpressionList,
 };
 use zokrates_interpreter::Interpreter;
 
@@ -24,7 +24,7 @@ use zokrates_ast::common::embed::*;
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::common::{RuntimeError, Variable};
 use zokrates_ast::flat::*;
-use zokrates_ast::ir::{Solver, ZirSolver};
+use zokrates_ast::ir::Solver;
 use zokrates_ast::zir::types::{Type, UBitwidth};
 use zokrates_ast::zir::{
     BooleanExpression, Conditional, FieldElementExpression, Identifier, Parameter as ZirParameter,
@@ -1885,7 +1885,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         // constants do not require directives
         if let Some(FlatExpression::Number(ref x)) = e.field {
-            let bits: Vec<_> = Interpreter::execute_solver(&Solver::bits(to), &[x.clone()])
+            let bits: Vec<_> = Interpreter::execute_solver(&Solver::bits(to), &[x.clone()], &[])
                 .unwrap()
                 .into_iter()
                 .map(FlatExpression::Number)
@@ -2237,12 +2237,34 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .cloned()
                     .map(|p| self.layout.get(&p.id.id).cloned().unwrap().into())
                     .collect();
+
                 let outputs: Vec<Variable> = assignees
                     .into_iter()
                     .map(|assignee| self.use_variable(&assignee))
                     .collect();
 
-                let solver = Solver::Zir(ZirSolver::Function(function));
+                let mut substitution_map = HashMap::default();
+                for (index, p) in function.arguments.iter().enumerate() {
+                    let new_id = format!("i{}", index).into();
+                    substitution_map.insert(p.id.id.clone(), new_id);
+                }
+
+                let mut substitutor = ZirSubstitutor::new(&substitution_map);
+                let function = ZirFunction {
+                    arguments: function
+                        .arguments
+                        .into_iter()
+                        .map(|p| substitutor.fold_parameter(p))
+                        .collect(),
+                    statements: function
+                        .statements
+                        .into_iter()
+                        .flat_map(|s| substitutor.fold_statement(s))
+                        .collect(),
+                    signature: function.signature,
+                };
+
+                let solver = Solver::Zir(function);
                 let directive = FlatDirective::new(outputs, solver, inputs);
 
                 statements_flattened.push_back(FlatStatement::Directive(directive));

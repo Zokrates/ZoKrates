@@ -1,14 +1,18 @@
-use crate::ir::check::UnconstrainedVariableDetector;
+use crate::{
+    ir::{check::UnconstrainedVariableDetector, solver_indexer::SolverIndexer},
+    Solver,
+};
 
 use super::{ProgIterator, Statement};
+use serde::Deserialize;
 use serde_cbor::{self, StreamDeserializer};
-use std::io::{Read, Write};
+use std::io::{Read, Seek, Write};
 use zokrates_field::*;
 
 type DynamicError = Box<dyn std::error::Error>;
 
 const ZOKRATES_MAGIC: &[u8; 4] = &[0x5a, 0x4f, 0x4b, 0];
-const ZOKRATES_VERSION_2: &[u8; 4] = &[0, 0, 0, 2];
+const ZOKRATES_VERSION_3: &[u8; 4] = &[0, 0, 0, 3];
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum ProgEnum<
@@ -61,17 +65,21 @@ impl<
 impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, I> {
     /// serialize a program iterator, returning the number of constraints serialized
     /// Note that we only return constraints, not other statements such as directives
-    pub fn serialize<W: Write>(self, mut w: W) -> Result<usize, DynamicError> {
+    pub fn serialize<W: Write + Seek>(self, mut w: W) -> Result<usize, DynamicError> {
         use super::folder::Folder;
 
         w.write_all(ZOKRATES_MAGIC)?;
-        w.write_all(ZOKRATES_VERSION_2)?;
+        w.write_all(ZOKRATES_VERSION_3)?;
         w.write_all(&T::id())?;
+
+        let solver_list_ptr_offset = w.stream_position()?;
+        w.write_all(&[0u8; std::mem::size_of::<u64>()])?; // reserve 8 bytes
 
         serde_cbor::to_writer(&mut w, &self.arguments)?;
         serde_cbor::to_writer(&mut w, &self.return_count)?;
 
         let mut unconstrained_variable_detector = UnconstrainedVariableDetector::new(&self);
+        let mut solver_indexer: SolverIndexer<'ast, T> = SolverIndexer::default();
 
         let statements = self.statements.into_iter();
 
@@ -80,11 +88,21 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
             if matches!(s, Statement::Constraint(..)) {
                 count += 1;
             }
-            let s = unconstrained_variable_detector.fold_statement(s);
+            let s: Vec<Statement<T>> = solver_indexer
+                .fold_statement(s)
+                .into_iter()
+                .flat_map(|s| unconstrained_variable_detector.fold_statement(s))
+                .collect();
             for s in s {
                 serde_cbor::to_writer(&mut w, &s)?;
             }
         }
+
+        let solver_list_offset = w.stream_position()?;
+        serde_cbor::to_writer(&mut w, &solver_indexer.solvers)?;
+
+        w.seek(std::io::SeekFrom::Start(solver_list_ptr_offset))?;
+        w.write_all(&solver_list_offset.to_le_bytes())?;
 
         unconstrained_variable_detector
             .finalize()
@@ -103,11 +121,11 @@ impl<'de, R: serde_cbor::de::Read<'de>, T: serde::Deserialize<'de>> Iterator
     type Item = T;
 
     fn next(&mut self) -> Option<T> {
-        self.s.next().transpose().unwrap()
+        self.s.next().and_then(|v| v.ok())
     }
 }
 
-impl<'de, R: Read>
+impl<'de, R: Read + Seek>
     ProgEnum<
         'de,
         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bls12_381Field>>,
@@ -128,104 +146,108 @@ impl<'de, R: Read>
             r.read_exact(&mut version)
                 .map_err(|_| String::from("Cannot read version"))?;
 
-            if &version == ZOKRATES_VERSION_2 {
+            if &version == ZOKRATES_VERSION_3 {
                 // Check the curve identifier, deserializing accordingly
                 let mut curve = [0; 4];
                 r.read_exact(&mut curve)
                     .map_err(|_| String::from("Cannot read curve identifier"))?;
 
-                use serde::de::Deserializer;
-                let mut p = serde_cbor::Deserializer::from_reader(r);
+                let mut buffer = [0u8; std::mem::size_of::<u64>()];
+                r.read_exact(&mut buffer)
+                    .map_err(|_| String::from("Cannot read solver list pointer"))?;
 
-                struct ArgumentsVisitor;
+                let solver_list_offset = u64::from_le_bytes(buffer);
 
-                impl<'de> serde::de::Visitor<'de> for ArgumentsVisitor {
-                    type Value = Vec<super::Parameter>;
-                    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                        formatter.write_str("seq of flat param")
-                    }
+                let (arguments, return_count) = {
+                    let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
 
-                    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-                    where
-                        A: serde::de::SeqAccess<'de>,
-                    {
-                        let mut res = vec![];
-                        while let Some(e) = seq.next_element().unwrap() {
-                            res.push(e);
-                        }
-                        Ok(res)
-                    }
-                }
+                    let arguments: Vec<super::Parameter> = Vec::deserialize(&mut p)
+                        .map_err(|_| String::from("Cannot read parameters"))?;
 
-                let arguments = p.deserialize_seq(ArgumentsVisitor).unwrap();
+                    let return_count = usize::deserialize(&mut p)
+                        .map_err(|_| String::from("Cannot read return count"))?;
 
-                struct ReturnCountVisitor;
+                    (arguments, return_count)
+                };
 
-                impl<'de> serde::de::Visitor<'de> for ReturnCountVisitor {
-                    type Value = usize;
-                    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                        formatter.write_str("usize")
-                    }
-
-                    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
-                    where
-                        E: serde::de::Error,
-                    {
-                        Ok(v as usize)
-                    }
-
-                    fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
-                    where
-                        E: serde::de::Error,
-                    {
-                        Ok(v as usize)
-                    }
-
-                    fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
-                    where
-                        E: serde::de::Error,
-                    {
-                        Ok(v as usize)
-                    }
-                }
-
-                let return_count = p.deserialize_u32(ReturnCountVisitor).unwrap();
+                let statement_offset = r.stream_position().unwrap();
+                r.seek(std::io::SeekFrom::Start(solver_list_offset))
+                    .unwrap();
 
                 match curve {
                     m if m == Bls12_381Field::id() => {
-                        let s = p.into_iter::<Statement<Bls12_381Field>>();
+                        let solvers: Vec<Solver<'de, Bls12_381Field>> = {
+                            let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
+                            Vec::deserialize(&mut p)
+                                .map_err(|_| String::from("Cannot read solver map"))?
+                        };
 
+                        r.seek(std::io::SeekFrom::Start(statement_offset)).unwrap();
+
+                        let p = serde_cbor::Deserializer::from_reader(r);
+                        let s = p.into_iter::<Statement<Bls12_381Field>>();
                         Ok(ProgEnum::Bls12_381Program(ProgIterator::new(
                             arguments,
                             UnwrappedStreamDeserializer { s },
                             return_count,
+                            solvers,
                         )))
                     }
                     m if m == Bn128Field::id() => {
+                        let solvers: Vec<Solver<'de, Bn128Field>> = {
+                            let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
+                            Vec::deserialize(&mut p)
+                                .map_err(|_| String::from("Cannot read solver map"))?
+                        };
+
+                        r.seek(std::io::SeekFrom::Start(statement_offset)).unwrap();
+
+                        let p = serde_cbor::Deserializer::from_reader(r);
                         let s = p.into_iter::<Statement<Bn128Field>>();
 
                         Ok(ProgEnum::Bn128Program(ProgIterator::new(
                             arguments,
                             UnwrappedStreamDeserializer { s },
                             return_count,
+                            solvers,
                         )))
                     }
                     m if m == Bls12_377Field::id() => {
+                        let solvers: Vec<Solver<'de, Bls12_377Field>> = {
+                            let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
+                            Vec::deserialize(&mut p)
+                                .map_err(|_| String::from("Cannot read solver map"))?
+                        };
+
+                        r.seek(std::io::SeekFrom::Start(statement_offset)).unwrap();
+
+                        let p = serde_cbor::Deserializer::from_reader(r);
                         let s = p.into_iter::<Statement<Bls12_377Field>>();
 
                         Ok(ProgEnum::Bls12_377Program(ProgIterator::new(
                             arguments,
                             UnwrappedStreamDeserializer { s },
                             return_count,
+                            solvers,
                         )))
                     }
                     m if m == Bw6_761Field::id() => {
+                        let solvers: Vec<Solver<'de, Bw6_761Field>> = {
+                            let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
+                            Vec::deserialize(&mut p)
+                                .map_err(|_| String::from("Cannot read solver map"))?
+                        };
+
+                        r.seek(std::io::SeekFrom::Start(statement_offset)).unwrap();
+
+                        let p = serde_cbor::Deserializer::from_reader(r);
                         let s = p.into_iter::<Statement<Bw6_761Field>>();
 
                         Ok(ProgEnum::Bw6_761Program(ProgIterator::new(
                             arguments,
                             UnwrappedStreamDeserializer { s },
                             return_count,
+                            solvers,
                         )))
                     }
                     _ => Err(String::from("Unknown curve identifier")),

@@ -146,7 +146,7 @@ impl<T: Field> RedefinitionOptimizer<T> {
                         // unwrap inputs to their constant value
                         let inputs: Vec<_> = inputs.into_iter().map(|i| i.unwrap()).collect();
                         // run the solver
-                        let outputs = Interpreter::execute_solver(&d.solver, &inputs).unwrap();
+                        let outputs = Interpreter::execute_solver(&d.solver, &inputs, &[]).unwrap();
                         assert_eq!(outputs.len(), d.outputs.len());
 
                         // insert the results in the substitution

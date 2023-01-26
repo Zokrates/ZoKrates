@@ -54,6 +54,7 @@ pub fn optimize<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>>(
             .flat_map(move |s| directive_optimizer.fold_statement(s))
             .flat_map(move |s| duplicate_optimizer.fold_statement(s)),
         return_count: p.return_count,
+        solvers: p.solvers,
     };
 
     log::debug!("Done");

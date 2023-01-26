@@ -39,14 +39,18 @@ impl<'ast, T: Field> Folder<'ast, T> for DuplicateOptimizer {
     }
 
     fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
-        let hashed = hash(&s);
-        let result = match self.seen.get(&hashed) {
-            Some(_) => vec![],
-            None => vec![s],
-        };
-
-        self.seen.insert(hashed);
-        result
+        match s {
+            Statement::Block(s) => s.into_iter().flat_map(|s| self.fold_statement(s)).collect(),
+            s => {
+                let hashed = hash(&s);
+                let result = match self.seen.get(&hashed) {
+                    Some(_) => vec![],
+                    None => vec![s],
+                };
+                self.seen.insert(hashed);
+                result
+            }
+        }
     }
 }
 

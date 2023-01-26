@@ -4,6 +4,7 @@ mod identifier;
 pub mod lqc;
 mod parameter;
 pub mod result_folder;
+pub mod substitution;
 pub mod types;
 mod uint;
 mod variable;

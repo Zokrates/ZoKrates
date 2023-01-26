@@ -4,13 +4,14 @@ use std::fmt;
 
 use crate::typed::Identifier as CoreIdentifier;
 
-#[derive(Debug, PartialEq, Clone, Hash, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Identifier<'ast> {
     #[serde(borrow)]
     Source(SourceIdentifier<'ast>),
+    Internal(String),
 }
 
-#[derive(Debug, PartialEq, Clone, Hash, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SourceIdentifier<'ast> {
     #[serde(borrow)]
     Basic(CoreIdentifier<'ast>),
@@ -34,7 +35,14 @@ impl<'ast> fmt::Display for Identifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Identifier::Source(s) => write!(f, "{}", s),
+            Identifier::Internal(s) => write!(f, "{}", s),
         }
+    }
+}
+
+impl<'ast> From<String> for Identifier<'ast> {
+    fn from(id: String) -> Identifier<'ast> {
+        Identifier::Internal(id)
     }
 }
 
