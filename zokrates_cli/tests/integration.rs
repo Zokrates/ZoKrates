@@ -65,6 +65,8 @@ mod integration {
         let output = Command::new(&forge)
             .current_dir(&solidity_test_path)
             .arg("init")
+            .arg("--no-git")
+            .arg("--no-commit")
             .arg(".")
             .output()
             .unwrap();
