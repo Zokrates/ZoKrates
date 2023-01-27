@@ -68,11 +68,11 @@ mod integration {
             .arg(".")
             .output()
             .unwrap();
-        
+
         std::io::stdout().write_all(&output.stdout).unwrap();
         std::io::stderr().write_all(&output.stderr).unwrap();
 
-        assert!(output.status.success());  
+        assert!(output.status.success());
 
         Command::new("rm")
             .current_dir(&solidity_test_path)
@@ -108,11 +108,11 @@ mod integration {
         }
 
         let output = Command::new("ls")
-        .current_dir(&solidity_test_path)
-        .arg("-R")
-        .arg(".")
-        .output()
-        .expect("failed to ls");
+            .current_dir(&solidity_test_path)
+            .arg("-R")
+            .arg(".")
+            .output()
+            .expect("failed to ls");
 
         std::io::stdout().write_all(&output.stdout).unwrap();
         std::io::stderr().write_all(&output.stderr).unwrap();
