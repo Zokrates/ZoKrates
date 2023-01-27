@@ -89,7 +89,7 @@ mod integration {
 
         let dir = Path::new("./tests/code");
         assert!(dir.is_dir());
-        for entry in fs::read_dir(dir).unwrap().take(3) {
+        for entry in fs::read_dir(dir).unwrap() {
             let entry = entry.unwrap();
             let path = entry.path();
             if path.extension().unwrap() == "witness" {
@@ -108,16 +108,6 @@ mod integration {
                 );
             }
         }
-
-        let output = Command::new("ls")
-            .current_dir(&solidity_test_path)
-            .arg("-R")
-            .arg(".")
-            .output()
-            .expect("failed to ls");
-
-        std::io::stdout().write_all(&output.stdout).unwrap();
-        std::io::stderr().write_all(&output.stderr).unwrap();
 
         let output = Command::new(&forge)
             .current_dir(&solidity_test_path)
