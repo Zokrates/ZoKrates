@@ -83,12 +83,12 @@ mod integration {
 
         Command::new("rm")
             .current_dir(&solidity_test_path)
-            .arg("./src/Counter.sol")
+            .arg("./src/*.sol")
             .output()
             .unwrap();
         Command::new("rm")
             .current_dir(&solidity_test_path)
-            .arg("./test/Counter.t.sol")
+            .arg("./test/*.t.sol")
             .output()
             .unwrap();
 
