@@ -38,25 +38,21 @@ describe("tests", () => {
 
   describe("compilation", () => {
     it("should compile", () => {
-      assert.doesNotThrow(() => {
-        const artifacts = zokratesProvider.compile(
-          "def main() -> field { return 42; }"
-        );
-        assert.ok(artifacts);
-        assert.ok(artifacts.snarkjs === undefined);
-        assert.equal(artifacts.constraintCount, 1);
-      });
+      const artifacts = zokratesProvider.compile(
+        "def main() -> field { return 42; }"
+      );
+      assert.ok(artifacts);
+      assert.ok(artifacts.snarkjs === undefined);
+      assert.equal(artifacts.constraintCount, 1);
     });
 
     it("should compile with snarkjs output", () => {
-      assert.doesNotThrow(() => {
-        const artifacts = zokratesProvider.compile(
-          "def main() -> field { return 42; }",
-          { snarkjs: true }
-        );
-        assert.ok(artifacts);
-        assert.ok(artifacts.snarkjs.program !== undefined);
-      });
+      const artifacts = zokratesProvider.compile(
+        "def main() -> field { return 42; }",
+        { snarkjs: true }
+      );
+      assert.ok(artifacts);
+      assert.ok(artifacts.snarkjs.program !== undefined);
     });
 
     it("should throw on invalid code", () => {
@@ -64,26 +60,22 @@ describe("tests", () => {
     });
 
     it("should resolve stdlib module", () => {
-      assert.doesNotThrow(() => {
-        const code = `import "utils/pack/bool/unpack" as unpack;\ndef main() {}`;
-        zokratesProvider.compile(code);
-      });
+      const code = `import "utils/pack/bool/unpack_unchecked";\ndef main() {}`;
+      zokratesProvider.compile(code);
     });
 
     it("should resolve user module", () => {
-      assert.doesNotThrow(() => {
-        const code =
-          'import "./test" as test;\ndef main() -> field { return test(); }';
-        const options = {
-          resolveCallback: (_, path) => {
-            return {
-              source: "def main() -> field { return 1; }",
-              location: path,
-            };
-          },
-        };
-        zokratesProvider.compile(code, options);
-      });
+      const code =
+        'import "./test" as test;\ndef main() -> field { return test(); }';
+      const options = {
+        resolveCallback: (_, path) => {
+          return {
+            source: "def main() -> field { return 1; }",
+            location: path,
+          };
+        },
+      };
+      zokratesProvider.compile(code, options);
     });
 
     it("should throw on unresolved module", () => {
@@ -97,29 +89,25 @@ describe("tests", () => {
 
   describe("computation", () => {
     it("should compute with valid inputs", () => {
-      assert.doesNotThrow(() => {
-        const code = "def main(private field a) -> field { return a * a; }";
-        const artifacts = zokratesProvider.compile(code);
-        const result = zokratesProvider.computeWitness(artifacts, ["2"]);
-        const output = JSON.parse(result.output);
-        assert.deepEqual(output, "4");
-        assert.ok(result.snarkjs === undefined);
-      });
+      const code = "def main(private field a) -> field { return a * a; }";
+      const artifacts = zokratesProvider.compile(code);
+      const result = zokratesProvider.computeWitness(artifacts, ["2"]);
+      const output = JSON.parse(result.output);
+      assert.deepEqual(output, "4");
+      assert.ok(result.snarkjs === undefined);
     });
 
     it("should compute with valid inputs with snarkjs output", () => {
-      assert.doesNotThrow(() => {
-        const code = "def main(private field a) -> field { return a * a; }";
-        const artifacts = zokratesProvider.compile(code);
+      const code = "def main(private field a) -> field { return a * a; }";
+      const artifacts = zokratesProvider.compile(code);
 
-        const result = zokratesProvider.computeWitness(artifacts, ["2"], {
-          snarkjs: true,
-        });
-
-        const output = JSON.parse(result.output);
-        assert.deepEqual(output, "4");
-        assert.ok(result.snarkjs.witness !== undefined);
+      const result = zokratesProvider.computeWitness(artifacts, ["2"], {
+        snarkjs: true,
       });
+
+      const output = JSON.parse(result.output);
+      assert.deepEqual(output, "4");
+      assert.ok(result.snarkjs.witness !== undefined);
     });
 
     it("should throw on invalid input count", () => {
@@ -139,19 +127,17 @@ describe("tests", () => {
     });
 
     it("should log in debug", () => {
-      assert.doesNotThrow(() => {
-        const code = 'def main() { log("{}", 1f); log("{}", 2f); return; }';
-        const artifacts = zokratesProvider.compile(code, {
-          config: { debug: true },
-        });
-        let logs = [];
-        zokratesProvider.computeWitness(artifacts, [], {
-          logCallback: (l) => {
-            logs.push(l);
-          },
-        });
-        assert.deepEqual(logs, ['"1"', '"2"']);
+      const code = 'def main() { log("{}", 1f); log("{}", 2f); return; }';
+      const artifacts = zokratesProvider.compile(code, {
+        config: { debug: true },
       });
+      let logs = [];
+      zokratesProvider.computeWitness(artifacts, [], {
+        logCallback: (l) => {
+          logs.push(l);
+        },
+      });
+      assert.deepEqual(logs, ['"1"', '"2"']);
     });
   });
 
@@ -167,61 +153,53 @@ describe("tests", () => {
     });
 
     it("compile", () => {
-      assert.doesNotThrow(() => {
-        const code = `def main(private field a, field b) -> bool {
-            bool check = if (a == 0) { true } else { a * a == b };
-            assert(check);
-            return true;
-        }`;
-        artifacts = provider.compile(code, { snarkjs: true });
-      });
+      const code = `def main(private field a, field b) -> bool {
+          bool check = if (a == 0) { true } else { a * a == b };
+          assert(check);
+          return true;
+      }`;
+      artifacts = provider.compile(code, { snarkjs: true });
     });
 
     it("compute witness", () => {
-      assert.doesNotThrow(() => {
-        computationResult = provider.computeWitness(
-          artifacts,
-          ["337", "113569"],
-          {
-            snarkjs: true,
-          }
-        );
-      });
+      computationResult = provider.computeWitness(
+        artifacts,
+        ["337", "113569"],
+        {
+          snarkjs: true,
+        }
+      );
     });
 
     it("setup", () => {
-      assert.doesNotThrow(() => {
-        if (options.scheme === "marlin") {
-          const srs = provider.universalSetup(4);
-          const srs2 = provider.universalSetup(4);
-          // second call should return a new srs
-          assert.notDeepEqual(srs, srs2);
-          keypair = provider.setupWithSrs(srs, artifacts.program);
-        } else {
-          keypair = provider.setup(artifacts.program);
-          const keypair2 = provider.setup(artifacts.program);
-          // second call should return a new keypair
-          assert.notDeepEqual(keypair, keypair2);
-        }
-      });
+      if (options.scheme === "marlin") {
+        const srs = provider.universalSetup(4);
+        const srs2 = provider.universalSetup(4);
+        // second call should return a new srs
+        assert.notDeepEqual(srs, srs2);
+        keypair = provider.setupWithSrs(srs, artifacts.program);
+      } else {
+        keypair = provider.setup(artifacts.program);
+        const keypair2 = provider.setup(artifacts.program);
+        // second call should return a new keypair
+        assert.notDeepEqual(keypair, keypair2);
+      }
     });
 
     it("setup with user-provided entropy", () => {
-      assert.doesNotThrow(() => {
-        let entropy = "f5c51ca46c331965";
-        if (options.scheme === "marlin") {
-          const srs = provider.universalSetup(4, entropy);
-          const srs2 = provider.universalSetup(4, entropy);
-          // second call with the same entropy should return the same srs
-          assert.deepEqual(srs, srs2);
-          keypair = provider.setupWithSrs(srs, artifacts.program);
-        } else {
-          keypair = provider.setup(artifacts.program, entropy);
-          const keypair2 = provider.setup(artifacts.program, entropy);
-          // second call with the same entropy should return the same keypair
-          assert.deepEqual(keypair, keypair2);
-        }
-      });
+      let entropy = "f5c51ca46c331965";
+      if (options.scheme === "marlin") {
+        const srs = provider.universalSetup(4, entropy);
+        const srs2 = provider.universalSetup(4, entropy);
+        // second call with the same entropy should return the same srs
+        assert.deepEqual(srs, srs2);
+        keypair = provider.setupWithSrs(srs, artifacts.program);
+      } else {
+        keypair = provider.setup(artifacts.program, entropy);
+        const keypair2 = provider.setup(artifacts.program, entropy);
+        // second call with the same entropy should return the same keypair
+        assert.deepEqual(keypair, keypair2);
+      }
     });
 
     if (options.scheme === "g16" && options.curve == "bn128") {
@@ -244,54 +222,48 @@ describe("tests", () => {
 
     if (options.curve === "bn128" && ["g16", "gm17"].includes(options.scheme)) {
       it("export verifier", () => {
-        assert.doesNotThrow(() => {
-          let verifier = provider.exportSolidityVerifier(keypair.vk);
-          assert.ok(verifier.includes("contract"));
-        });
+        let verifier = provider.exportSolidityVerifier(keypair.vk);
+        assert.ok(verifier.includes("contract"));
       });
     }
 
     it("generate proof", () => {
-      assert.doesNotThrow(() => {
-        proof = provider.generateProof(
-          artifacts.program,
-          computationResult.witness,
-          keypair.pk
-        );
-        assert.ok(proof !== undefined);
-        assert.equal(proof.inputs.length, 2);
+      proof = provider.generateProof(
+        artifacts.program,
+        computationResult.witness,
+        keypair.pk
+      );
+      assert.ok(proof !== undefined);
+      assert.equal(proof.inputs.length, 2);
 
-        // second call should return a new proof
-        let proof2 = provider.generateProof(
-          artifacts.program,
-          computationResult.witness,
-          keypair.pk
-        );
-        assert.notDeepEqual(proof, proof2);
-      });
+      // second call should return a new proof
+      let proof2 = provider.generateProof(
+        artifacts.program,
+        computationResult.witness,
+        keypair.pk
+      );
+      assert.notDeepEqual(proof, proof2);
     });
 
     it("generate proof with user-provided entropy", () => {
-      assert.doesNotThrow(() => {
-        let entropy = "326e2c864f414ffb";
-        proof = provider.generateProof(
-          artifacts.program,
-          computationResult.witness,
-          keypair.pk,
-          entropy
-        );
-        assert.ok(proof !== undefined);
-        assert.equal(proof.inputs.length, 2);
+      let entropy = "326e2c864f414ffb";
+      proof = provider.generateProof(
+        artifacts.program,
+        computationResult.witness,
+        keypair.pk,
+        entropy
+      );
+      assert.ok(proof !== undefined);
+      assert.equal(proof.inputs.length, 2);
 
-        // second call with the same entropy should return the same proof
-        let proof2 = provider.generateProof(
-          artifacts.program,
-          computationResult.witness,
-          keypair.pk,
-          entropy
-        );
-        assert.deepEqual(proof, proof2);
-      });
+      // second call with the same entropy should return the same proof
+      let proof2 = provider.generateProof(
+        artifacts.program,
+        computationResult.witness,
+        keypair.pk,
+        entropy
+      );
+      assert.deepEqual(proof, proof2);
     });
 
     if (options.scheme === "g16" && options.curve == "bn128") {
@@ -319,9 +291,7 @@ describe("tests", () => {
     }
 
     it("verify", () => {
-      assert.doesNotThrow(() => {
-        assert(provider.verify(keypair.vk, proof) === true);
-      });
+      assert(provider.verify(keypair.vk, proof) === true);
     });
   };
 
