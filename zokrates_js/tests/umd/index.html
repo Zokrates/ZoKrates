@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Document</title>
+  </head>
+  <body>
+    <script src="../../umd.min.js"></script>
+    <script>
+      zokrates.initialize().then((zokratesProvider) => {
+        const source = "def main(private field a) -> field { return a * a; }";
+
+        const artifacts = zokratesProvider.compile(source);
+        const { witness, output } = zokratesProvider.computeWitness(artifacts, [
+          "2",
+        ]);
+
+        const keypair = zokratesProvider.setup(artifacts.program);
+
+        const proof = zokratesProvider.generateProof(
+          artifacts.program,
+          witness,
+          keypair.pk
+        );
+
+        const isVerified = zokratesProvider.verify(keypair.vk, proof);
+
+        var result = document.createElement("div");
+        result.id = "result";
+        result.innerText = isVerified;
+
+        document.body.appendChild(result);
+      });
+    </script>
+  </body>
+</html>
