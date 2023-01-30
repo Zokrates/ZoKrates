@@ -3075,6 +3075,7 @@ dependencies = [
  "pairing_ce",
  "phase2",
  "rand 0.4.6",
+ "rand 0.8.5",
  "zokrates_ast",
  "zokrates_field",
  "zokrates_interpreter",
@@ -3263,6 +3264,7 @@ dependencies = [
  "js-sys",
  "json",
  "lazy_static",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "toml",
@@ -3306,12 +3308,13 @@ dependencies = [
 name = "zokrates_proof_systems"
 version = "0.1.0"
 dependencies = [
+ "blake2 0.8.1",
+ "byteorder",
  "cfg-if 0.1.10",
  "ethabi",
- "getrandom",
  "hex 0.4.3",
  "primitive-types",
- "rand 0.4.6",
+ "rand 0.8.5",
  "regex 0.2.11",
  "serde",
  "zokrates_ast",
@@ -3346,6 +3349,7 @@ name = "zokrates_test"
 version = "0.2.0"
 dependencies = [
  "getrandom",
+ "rand 0.8.5",
  "serde",
  "serde_derive",
  "serde_json",

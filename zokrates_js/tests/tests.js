@@ -65,7 +65,7 @@ describe("tests", () => {
 
     it("should resolve stdlib module", () => {
       assert.doesNotThrow(() => {
-        const code = `import "utils/pack/bool/unpack" as unpack;\ndef main() { return; }`;
+        const code = `import "utils/pack/bool/unpack" as unpack;\ndef main() {}`;
         zokratesProvider.compile(code);
       });
     });
@@ -169,7 +169,7 @@ describe("tests", () => {
     it("compile", () => {
       assert.doesNotThrow(() => {
         const code = `def main(private field a, field b) -> bool {
-            bool check = if (a == 0){ true} else {a * a == b};
+            bool check = if (a == 0) { true } else { a * a == b };
             assert(check);
             return true;
         }`;
@@ -193,9 +193,33 @@ describe("tests", () => {
       assert.doesNotThrow(() => {
         if (options.scheme === "marlin") {
           const srs = provider.universalSetup(4);
+          const srs2 = provider.universalSetup(4);
+          // second call should return a new srs
+          assert.notDeepEqual(srs, srs2);
           keypair = provider.setupWithSrs(srs, artifacts.program);
         } else {
           keypair = provider.setup(artifacts.program);
+          const keypair2 = provider.setup(artifacts.program);
+          // second call should return a new keypair
+          assert.notDeepEqual(keypair, keypair2);
+        }
+      });
+    });
+
+    it("setup with user-provided entropy", () => {
+      assert.doesNotThrow(() => {
+        let entropy = "f5c51ca46c331965";
+        if (options.scheme === "marlin") {
+          const srs = provider.universalSetup(4, entropy);
+          const srs2 = provider.universalSetup(4, entropy);
+          // second call with the same entropy should return the same srs
+          assert.deepEqual(srs, srs2);
+          keypair = provider.setupWithSrs(srs, artifacts.program);
+        } else {
+          keypair = provider.setup(artifacts.program, entropy);
+          const keypair2 = provider.setup(artifacts.program, entropy);
+          // second call with the same entropy should return the same keypair
+          assert.deepEqual(keypair, keypair2);
         }
       });
     });
@@ -236,6 +260,37 @@ describe("tests", () => {
         );
         assert.ok(proof !== undefined);
         assert.equal(proof.inputs.length, 2);
+
+        // second call should return a new proof
+        let proof2 = provider.generateProof(
+          artifacts.program,
+          computationResult.witness,
+          keypair.pk
+        );
+        assert.notDeepEqual(proof, proof2);
+      });
+    });
+
+    it("generate proof with user-provided entropy", () => {
+      assert.doesNotThrow(() => {
+        let entropy = "326e2c864f414ffb";
+        proof = provider.generateProof(
+          artifacts.program,
+          computationResult.witness,
+          keypair.pk,
+          entropy
+        );
+        assert.ok(proof !== undefined);
+        assert.equal(proof.inputs.length, 2);
+
+        // second call with the same entropy should return the same proof
+        let proof2 = provider.generateProof(
+          artifacts.program,
+          computationResult.witness,
+          keypair.pk,
+          entropy
+        );
+        assert.deepEqual(proof, proof2);
       });
     });
 

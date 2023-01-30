@@ -11,16 +11,17 @@ use zokrates_proof_systems::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 use crate::Computation;
 use crate::{parse_fr, serialization, Ark};
 use crate::{parse_g1, parse_g2};
-use rand_0_8::{rngs::StdRng, SeedableRng};
+use rand_0_8::{CryptoRng, RngCore};
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_proof_systems::groth16::{ProofPoints, VerificationKey, G16};
 use zokrates_proof_systems::Scheme;
 
 impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
-    fn generate_proof<'a, I: IntoIterator<Item = Statement<'a, T>>>(
+    fn generate_proof<'a, I: IntoIterator<Item = Statement<'a, T>>, R: RngCore + CryptoRng>(
         program: ProgIterator<'a, T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
+        rng: &mut R,
     ) -> Proof<T, G16> {
         let computation = Computation::with_witness(program, witness);
 
@@ -35,9 +36,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
         )
         .unwrap();
 
-        let rng = &mut StdRng::from_entropy();
         let proof = Groth16::<T::ArkEngine>::prove(&pk, computation, rng).unwrap();
-
         let proof_points = ProofPoints {
             a: parse_g1::<T>(&proof.a),
             b: parse_g2::<T>(&proof.b),
@@ -82,12 +81,11 @@ impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
 }
 
 impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, G16> for Ark {
-    fn setup<'a, I: IntoIterator<Item = Statement<'a, T>>>(
+    fn setup<'a, I: IntoIterator<Item = Statement<'a, T>>, R: RngCore + CryptoRng>(
         program: ProgIterator<'a, T, I>,
+        rng: &mut R,
     ) -> SetupKeypair<T, G16> {
         let computation = Computation::without_witness(program);
-
-        let rng = &mut StdRng::from_entropy();
         let (pk, vk) = Groth16::<T::ArkEngine>::circuit_specific_setup(computation, rng).unwrap();
 
         let mut pk_vec: Vec<u8> = Vec::new();
@@ -107,6 +105,8 @@ impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, G16> for Ark {
 
 #[cfg(test)]
 mod tests {
+    use rand_0_8::rngs::StdRng;
+    use rand_0_8::SeedableRng;
     use zokrates_ast::flat::{Parameter, Variable};
     use zokrates_ast::ir::{Prog, Statement};
     use zokrates_interpreter::Interpreter;
@@ -122,15 +122,18 @@ mod tests {
             statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
         };
 
-        let keypair = <Ark as NonUniversalBackend<Bls12_377Field, G16>>::setup(program.clone());
+        let rng = &mut StdRng::from_entropy();
+        let keypair =
+            <Ark as NonUniversalBackend<Bls12_377Field, G16>>::setup(program.clone(), rng);
         let interpreter = Interpreter::default();
 
         let witness = interpreter
             .execute(program.clone(), &[Bls12_377Field::from(42)])
             .unwrap();
 
-        let proof =
-            <Ark as Backend<Bls12_377Field, G16>>::generate_proof(program, witness, keypair.pk);
+        let proof = <Ark as Backend<Bls12_377Field, G16>>::generate_proof(
+            program, witness, keypair.pk, rng,
+        );
         let ans = <Ark as Backend<Bls12_377Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);
@@ -144,7 +147,8 @@ mod tests {
             statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
         };
 
-        let keypair = <Ark as NonUniversalBackend<Bw6_761Field, G16>>::setup(program.clone());
+        let rng = &mut StdRng::from_entropy();
+        let keypair = <Ark as NonUniversalBackend<Bw6_761Field, G16>>::setup(program.clone(), rng);
         let interpreter = Interpreter::default();
 
         let witness = interpreter
@@ -152,7 +156,7 @@ mod tests {
             .unwrap();
 
         let proof =
-            <Ark as Backend<Bw6_761Field, G16>>::generate_proof(program, witness, keypair.pk);
+            <Ark as Backend<Bw6_761Field, G16>>::generate_proof(program, witness, keypair.pk, rng);
         let ans = <Ark as Backend<Bw6_761Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);

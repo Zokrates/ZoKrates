@@ -137,11 +137,11 @@ const artifacts = zokratesProvider.compile(source, options);
 **Note:** The `resolveCallback` function is used to resolve dependencies.
 This callback receives the current module location and the import location of the module which is being imported.
 The callback must synchronously return either an error, `null` or a valid `ResolverResult` object like shown in the example above.
-A simple file system resolver for a node environment can be implemented as follows:
+A simple file system resolver in a node environment can be implemented as follows:
 
 ```js
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
 
 const fileSystemResolver = (from, to) => {
   const location = path.resolve(path.dirname(path.resolve(from)), to);
@@ -174,23 +174,25 @@ console.log(witness); // Resulting witness which can be used to generate a proof
 console.log(output); // Computation output: "4"
 ```
 
-##### setup(program)
+##### setup(program[, entropy])
 
 Generates a trusted setup for the compiled program.
 
 Parameters:
 
 - `program` - Compiled program
+- `entropy` - User provided randomness (optional)
 
 Returns: `SetupKeypair`
 
-##### universalSetup(size)
+##### universalSetup(size[, entropy])
 
 Performs the universal phase of a trusted setup. Only available for the `marlin` scheme.
 
 Parameters:
 
 - `size` - Size of the trusted setup passed as an exponent. For example, `8` for `2**8`.
+- `entropy` - User provided randomness (optional)
 
 Returns: `Uint8Array`
 
@@ -205,7 +207,7 @@ Parameters:
 
 Returns: `SetupKeypair`
 
-##### generateProof(program, witness, provingKey)
+##### generateProof(program, witness, provingKey[, entropy])
 
 Generates a proof for a computation of the compiled program.
 
@@ -214,6 +216,7 @@ Parameters:
 - `program` - Compiled program
 - `witness` - Witness (valid assignment of the variables) from the computation result
 - `provingKey` - Proving key from the setup keypair
+- `entropy` - User provided randomness (optional)
 
 Returns: `Proof`
 

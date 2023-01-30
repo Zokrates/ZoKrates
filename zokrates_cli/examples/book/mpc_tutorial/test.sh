@@ -7,8 +7,8 @@ function zokrates() {
   ZOKRATES_STDLIB=$stdlib $bin "$@"
 }
 
-# compile the circuit
-zokrates compile -i circuit.zok -o circuit
+# compile the program
+zokrates compile -i program.zok -o circuit
 
 # initialize the ceremony
 # this step requires phase1 files eg. phase1radix2m2 for circuits of 2^2 constraints

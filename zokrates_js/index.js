@@ -67,17 +67,23 @@ const initialize = async () => {
       ptr.free();
       return result;
     },
-    setup: (program, options) => {
-      return wasmExports.setup(program, options);
+    setup: (program, entropy, options) => {
+      return wasmExports.setup(program, entropy, options);
     },
-    universalSetup: (curve, size) => {
-      return wasmExports.universal_setup(curve, size);
+    universalSetup: (curve, size, entropy) => {
+      return wasmExports.universal_setup(curve, size, entropy);
     },
     setupWithSrs: (srs, program, options) => {
       return wasmExports.setup_with_srs(srs, program, options);
     },
-    generateProof: (program, witness, provingKey, options) => {
-      return wasmExports.generate_proof(program, witness, provingKey, options);
+    generateProof: (program, witness, provingKey, entropy, options) => {
+      return wasmExports.generate_proof(
+        program,
+        witness,
+        provingKey,
+        entropy,
+        options
+      );
     },
     verify: (vk, proof, options) => {
       return wasmExports.verify(vk, proof, options);
@@ -102,13 +108,20 @@ const initialize = async () => {
         }),
       computeWitness: (artifacts, args, computeOptions = {}) =>
         defaultProvider.computeWitness(artifacts, args, computeOptions),
-      setup: (program) => defaultProvider.setup(program, options),
-      universalSetup: (size) =>
-        defaultProvider.universalSetup(options.curve, size),
+      setup: (program, entropy) =>
+        defaultProvider.setup(program, entropy, options),
+      universalSetup: (size, entropy) =>
+        defaultProvider.universalSetup(options.curve, size, entropy),
       setupWithSrs: (srs, program) =>
         defaultProvider.setupWithSrs(srs, program, options),
-      generateProof: (program, witness, provingKey) =>
-        defaultProvider.generateProof(program, witness, provingKey, options),
+      generateProof: (program, witness, provingKey, entropy) =>
+        defaultProvider.generateProof(
+          program,
+          witness,
+          provingKey,
+          entropy,
+          options
+        ),
       verify: (vk, proof) => defaultProvider.verify(vk, proof, options),
       exportSolidityVerifier: (vk) =>
         defaultProvider.exportSolidityVerifier(vk),

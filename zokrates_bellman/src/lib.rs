@@ -16,6 +16,7 @@ use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
 use rand_0_4::ChaChaRng;
+use rand_0_8::{CryptoRng, RngCore};
 
 pub use self::parse::*;
 
@@ -148,24 +149,28 @@ impl<'a, T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<'a,
     }
 }
 
+pub fn get_random_seed<R: RngCore + CryptoRng>(rng: &mut R) -> [u32; 8] {
+    let mut seed = [0u8; 32];
+    rng.fill_bytes(&mut seed);
+
+    use std::mem::transmute;
+    // This is safe because we are just reinterpreting the bytes (u8[32] -> u32[8]),
+    // byte order or the actual content does not matter here as this is used
+    // as a random seed for the rng (rand 0.4)
+    let seed: [u32; 8] = unsafe { transmute(seed) };
+    seed
+}
+
 impl<'a, T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<'a, T>>>
     Computation<'a, T, I>
 {
-    fn get_random_seed(&self) -> Result<[u32; 8], getrandom::Error> {
-        let mut seed = [0u8; 32];
-        getrandom::getrandom(&mut seed)?;
-
-        use std::mem::transmute;
-        // This is safe because we are just reinterpreting the bytes (u8[32] -> u32[8]),
-        // byte order or the actual content does not matter here as this is used
-        // as a random seed for the rng.
-        let seed: [u32; 8] = unsafe { transmute(seed) };
-        Ok(seed)
-    }
-
-    pub fn prove(self, params: &Parameters<T::BellmanEngine>) -> Proof<T::BellmanEngine> {
+    pub fn prove<R: RngCore + CryptoRng>(
+        self,
+        params: &Parameters<T::BellmanEngine>,
+        rng: &mut R,
+    ) -> Proof<T::BellmanEngine> {
         use rand_0_4::SeedableRng;
-        let seed = self.get_random_seed().unwrap();
+        let seed = get_random_seed(rng);
         let rng = &mut ChaChaRng::from_seed(seed.as_ref());
 
         // extract public inputs
@@ -188,9 +193,9 @@ impl<'a, T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<'a,
             .collect()
     }
 
-    pub fn setup(self) -> Parameters<T::BellmanEngine> {
+    pub fn setup<R: RngCore + CryptoRng>(self, rng: &mut R) -> Parameters<T::BellmanEngine> {
         use rand_0_4::SeedableRng;
-        let seed = self.get_random_seed().unwrap();
+        let seed = get_random_seed(rng);
         let rng = &mut ChaChaRng::from_seed(seed.as_ref());
         // run setup phase
         generate_random_parameters(self, rng).unwrap()
@@ -246,6 +251,8 @@ mod tests {
 
     mod prove {
         use super::*;
+        use rand_0_8::rngs::StdRng;
+        use rand_0_8::SeedableRng;
         use zokrates_ast::flat::Parameter;
         use zokrates_ast::ir::Prog;
 
@@ -258,8 +265,9 @@ mod tests {
             let witness = interpreter.execute(program.clone(), &[]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -278,8 +286,9 @@ mod tests {
 
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -298,8 +307,9 @@ mod tests {
 
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -315,8 +325,9 @@ mod tests {
             let witness = interpreter.execute(program.clone(), &[]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -348,8 +359,9 @@ mod tests {
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -371,8 +383,9 @@ mod tests {
 
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -396,8 +409,9 @@ mod tests {
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
     }
 }
