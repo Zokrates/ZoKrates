@@ -181,7 +181,7 @@ Generates a trusted setup for the compiled program.
 Parameters:
 
 - `program` - Compiled program
-- `entropy` - User-provided entropy (optional)
+- `entropy` - User provided randomness (optional)
 
 Returns: `SetupKeypair`
 
@@ -192,7 +192,7 @@ Performs the universal phase of a trusted setup. Only available for the `marlin`
 Parameters:
 
 - `size` - Size of the trusted setup passed as an exponent. For example, `8` for `2**8`.
-- `entropy` - User-provided entropy (optional)
+- `entropy` - User provided randomness (optional)
 
 Returns: `Uint8Array`
 
@@ -216,7 +216,7 @@ Parameters:
 - `program` - Compiled program
 - `witness` - Witness (valid assignment of the variables) from the computation result
 - `provingKey` - Proving key from the setup keypair
-- `entropy` - User-provided entropy (optional)
+- `entropy` - User provided randomness (optional)
 
 Returns: `Proof`
 
