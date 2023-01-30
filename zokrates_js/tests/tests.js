@@ -1,10 +1,10 @@
-const assert = require("assert");
-const path = require("path");
-const fs = require("fs");
-const os = require("os");
-const dree = require("dree");
-const snarkjs = require("snarkjs");
-const { initialize, metadata } = require("../node/index.js");
+import assert from "assert";
+import path from "path";
+import fs from "fs";
+import os from "os";
+import * as snarkjs from "snarkjs";
+import dree from "dree";
+import { initialize, metadata } from "../index-node.js";
 
 let zokratesProvider;
 let tmpFolder;
@@ -364,8 +364,8 @@ describe("tests", () => {
       extensions: ["json"],
     };
 
-    dree.scan(testsPath, options, function (file) {
-      const test = require(file.path);
+    dree.scan(testsPath, options, async function (file) {
+      const test = JSON.parse(await fs.promises.readFile(file.path));
       const testName = file.path.substring(testsPath.length + 1);
 
       if (!ignoreList.some((v) => testName.startsWith(v)))

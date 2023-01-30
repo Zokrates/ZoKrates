@@ -26,6 +26,7 @@ zokrates_abi = { path = "../zokrates_abi", default-features = false, features = 
 zokrates_circom = { path = "../zokrates_circom" }
 console_error_panic_hook = "0.1.6"
 indexmap = "~1.6.2" # see https://github.com/rustwasm/wasm-bindgen/issues/2770#issuecomment-1041102532
+getrandom = { version = "0.2.8", features = ["js"] }
 
 [build-dependencies]
 json = "0.12.4"
