@@ -77,7 +77,13 @@ const initialize = async () => {
       return wasmExports.setup_with_srs(srs, program, options);
     },
     generateProof: (program, witness, provingKey, entropy, options) => {
-      return wasmExports.generate_proof(program, witness, provingKey, entropy, options);
+      return wasmExports.generate_proof(
+        program,
+        witness,
+        provingKey,
+        entropy,
+        options
+      );
     },
     verify: (vk, proof, options) => {
       return wasmExports.verify(vk, proof, options);
@@ -102,13 +108,20 @@ const initialize = async () => {
         }),
       computeWitness: (artifacts, args, computeOptions = {}) =>
         defaultProvider.computeWitness(artifacts, args, computeOptions),
-      setup: (program, entropy) => defaultProvider.setup(program, entropy, options),
+      setup: (program, entropy) =>
+        defaultProvider.setup(program, entropy, options),
       universalSetup: (size, entropy) =>
         defaultProvider.universalSetup(options.curve, size, entropy),
       setupWithSrs: (srs, program) =>
         defaultProvider.setupWithSrs(srs, program, options),
       generateProof: (program, witness, provingKey, entropy) =>
-        defaultProvider.generateProof(program, witness, provingKey, entropy, options),
+        defaultProvider.generateProof(
+          program,
+          witness,
+          provingKey,
+          entropy,
+          options
+        ),
       verify: (vk, proof) => defaultProvider.verify(vk, proof, options),
       exportSolidityVerifier: (vk) =>
         defaultProvider.exportSolidityVerifier(vk),
