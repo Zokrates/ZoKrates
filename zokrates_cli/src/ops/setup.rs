@@ -1,5 +1,7 @@
 use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use rand_0_8::rngs::StdRng;
+use rand_0_8::SeedableRng;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Write};
@@ -12,6 +14,7 @@ use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::Field;
+use zokrates_proof_systems::rng::get_rng_from_entropy;
 #[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
 
@@ -77,6 +80,14 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .default_value(cli_constants::UNIVERSAL_SETUP_DEFAULT_PATH),
+        )
+        .arg(
+            Arg::with_name("entropy")
+                .short("e")
+                .long("entropy")
+                .help("User provided randomness")
+                .takes_value(true)
+                .required(false),
         )
 }
 
@@ -182,8 +193,13 @@ fn cli_setup_non_universal<
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
 
+    let mut rng = sub_matches
+        .value_of("entropy")
+        .map(get_rng_from_entropy)
+        .unwrap_or_else(StdRng::from_entropy);
+
     // run setup phase
-    let keypair = B::setup(program);
+    let keypair = B::setup(program, &mut rng);
 
     // write verification key
     let mut vk_file = File::create(vk_path)

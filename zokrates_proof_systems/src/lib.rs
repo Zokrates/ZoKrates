@@ -1,3 +1,4 @@
+pub mod rng;
 pub mod to_token;
 
 mod scheme;
@@ -10,9 +11,8 @@ pub use tagged::{TaggedKeypair, TaggedProof, TaggedVerificationKey};
 
 use zokrates_ast::ir;
 
+use rand_0_8::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
-
-use rand_0_4::Rng;
 use std::io::{Read, Write};
 
 use zokrates_field::Field;
@@ -96,22 +96,24 @@ impl ToString for G2AffineFq2 {
 }
 
 pub trait Backend<T: Field, S: Scheme<T>> {
-    fn generate_proof<'a, I: IntoIterator<Item = ir::Statement<'a, T>>>(
+    fn generate_proof<'a, I: IntoIterator<Item = ir::Statement<'a, T>>, R: RngCore + CryptoRng>(
         program: ir::ProgIterator<'a, T, I>,
         witness: ir::Witness<T>,
         proving_key: Vec<u8>,
+        rng: &mut R,
     ) -> Proof<T, S>;
 
     fn verify(vk: S::VerificationKey, proof: Proof<T, S>) -> bool;
 }
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
-    fn setup<'a, I: IntoIterator<Item = ir::Statement<'a, T>>>(
+    fn setup<'a, I: IntoIterator<Item = ir::Statement<'a, T>>, R: RngCore + CryptoRng>(
         program: ir::ProgIterator<'a, T, I>,
+        rng: &mut R,
     ) -> SetupKeypair<T, S>;
 }
 
 pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
-    fn universal_setup(size: u32) -> Vec<u8>;
+    fn universal_setup<R: RngCore + CryptoRng>(size: u32, rng: &mut R) -> Vec<u8>;
 
     fn setup<'a, I: IntoIterator<Item = ir::Statement<'a, T>>>(
         srs: Vec<u8>,
@@ -126,7 +128,7 @@ pub trait MpcBackend<T: Field, S: Scheme<T>> {
         output: &mut W,
     ) -> Result<(), String>;
 
-    fn contribute<R: Read, W: Write, G: Rng>(
+    fn contribute<R: Read, W: Write, G: RngCore + CryptoRng>(
         params: &mut R,
         rng: &mut G,
         output: &mut W,

@@ -4,6 +4,7 @@ mod util;
 extern crate lazy_static;
 
 use crate::util::normalize_path;
+use rand_0_8::{rngs::StdRng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
 use std::convert::TryFrom;
@@ -25,6 +26,7 @@ use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, Comp
 use zokrates_core::imports::Error;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_proof_systems::groth16::G16;
+use zokrates_proof_systems::rng::get_rng_from_entropy;
 use zokrates_proof_systems::{
     Backend, Marlin, NonUniversalBackend, NonUniversalScheme, Proof, Scheme,
     SolidityCompatibleField, SolidityCompatibleScheme, TaggedKeypair, TaggedProof,
@@ -220,6 +222,7 @@ impl<'a> Write for LogWriter<'a> {
 
 mod internal {
     use super::*;
+    use rand_0_8::{CryptoRng, RngCore};
 
     pub fn compile<T: Field>(
         source: JsValue,
@@ -345,10 +348,12 @@ mod internal {
         T: Field,
         S: NonUniversalScheme<T> + Serialize,
         B: NonUniversalBackend<T, S>,
+        R: RngCore + CryptoRng,
     >(
         program: ir::Prog<T>,
+        rng: &mut R,
     ) -> JsValue {
-        let keypair = B::setup(program);
+        let keypair = B::setup(program, rng);
         let tagged_keypair = TaggedKeypair::<T, S>::new(keypair);
         JsValue::from_serde(&tagged_keypair).unwrap()
     }
@@ -367,22 +372,29 @@ mod internal {
         Ok(JsValue::from_serde(&TaggedKeypair::<T, S>::new(keypair)).unwrap())
     }
 
-    pub fn universal_setup_of_size<T: Field, S: UniversalScheme<T>, B: UniversalBackend<T, S>>(
+    pub fn universal_setup_of_size<
+        T: Field,
+        S: UniversalScheme<T>,
+        B: UniversalBackend<T, S>,
+        R: RngCore + CryptoRng,
+    >(
         size: u32,
+        rng: &mut R,
     ) -> Vec<u8> {
-        B::universal_setup(size)
+        B::universal_setup(size, rng)
     }
 
-    pub fn generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
+    pub fn generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>, R: RngCore + CryptoRng>(
         prog: ir::Prog<T>,
         witness: JsValue,
         pk: &[u8],
+        rng: &mut R,
     ) -> Result<JsValue, JsValue> {
         let str_witness = witness.as_string().unwrap();
         let ir_witness: ir::Witness<T> = ir::Witness::read(str_witness.as_bytes())
             .map_err(|err| JsValue::from_str(&format!("Could not read witness: {}", err)))?;
 
-        let proof = B::generate_proof(prog, ir_witness, pk.to_vec());
+        let proof = B::generate_proof(prog, ir_witness, pk.to_vec(), rng);
         Ok(JsValue::from_serde(&TaggedProof::<T, S>::new(proof.proof, proof.inputs)).unwrap())
     }
 
@@ -516,7 +528,7 @@ pub fn export_solidity_verifier(vk: JsValue) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn setup(program: &[u8], options: JsValue) -> Result<JsValue, JsValue> {
+pub fn setup(program: &[u8], entropy: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
     let options: serde_json::Value = options.into_serde().unwrap();
 
     let backend = BackendParameter::try_from(
@@ -537,25 +549,48 @@ pub fn setup(program: &[u8], options: JsValue) -> Result<JsValue, JsValue> {
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
 
+    let mut rng = entropy
+        .as_string()
+        .map(|s| get_rng_from_entropy(&s))
+        .unwrap_or_else(StdRng::from_entropy);
+
     match (backend, scheme) {
         (BackendParameter::Bellman, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, G16, Bellman>(p)),
+            ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, G16, Bellman, _>(
+                p, &mut rng,
+            )),
             ProgEnum::Bls12_381Program(_) => Err(JsValue::from_str(
                 "Not supported: https://github.com/Zokrates/ZoKrates/issues/1200",
             )),
             _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
-            ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
-            ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
-            ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
+            ProgEnum::Bn128Program(p) => {
+                Ok(internal::setup_non_universal::<_, G16, Ark, _>(p, &mut rng))
+            }
+            ProgEnum::Bls12_381Program(p) => {
+                Ok(internal::setup_non_universal::<_, G16, Ark, _>(p, &mut rng))
+            }
+            ProgEnum::Bls12_377Program(p) => {
+                Ok(internal::setup_non_universal::<_, G16, Ark, _>(p, &mut rng))
+            }
+            ProgEnum::Bw6_761Program(p) => {
+                Ok(internal::setup_non_universal::<_, G16, Ark, _>(p, &mut rng))
+            }
         },
         (BackendParameter::Ark, SchemeParameter::GM17) => match prog {
-            ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
-            ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
-            ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
-            ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
+            ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark, _>(
+                p, &mut rng,
+            )),
+            ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark, _>(
+                p, &mut rng,
+            )),
+            ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark, _>(
+                p, &mut rng,
+            )),
+            ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark, _>(
+                p, &mut rng,
+            )),
         },
         _ => Err(JsValue::from_str("Unsupported options")),
     }
@@ -588,27 +623,40 @@ pub fn setup_with_srs(srs: &[u8], program: &[u8], options: JsValue) -> Result<Js
 }
 
 #[wasm_bindgen]
-pub fn universal_setup(curve: JsValue, size: u32) -> Result<Vec<u8>, JsValue> {
+pub fn universal_setup(curve: JsValue, size: u32, entropy: JsValue) -> Result<Vec<u8>, JsValue> {
     let curve = CurveParameter::try_from(curve.as_string().unwrap().as_str())
         .map_err(|e| JsValue::from_str(&e))?;
 
+    let mut rng = entropy
+        .as_string()
+        .map(|s| get_rng_from_entropy(&s))
+        .unwrap_or_else(StdRng::from_entropy);
+
     match curve {
-        CurveParameter::Bn128 => {
-            Ok(internal::universal_setup_of_size::<Bn128Field, Marlin, Ark>(size))
-        }
+        CurveParameter::Bn128 => Ok(internal::universal_setup_of_size::<
+            Bn128Field,
+            Marlin,
+            Ark,
+            _,
+        >(size, &mut rng)),
         CurveParameter::Bls12_381 => Ok(internal::universal_setup_of_size::<
             Bls12_381Field,
             Marlin,
             Ark,
-        >(size)),
+            _,
+        >(size, &mut rng)),
         CurveParameter::Bls12_377 => Ok(internal::universal_setup_of_size::<
             Bls12_377Field,
             Marlin,
             Ark,
-        >(size)),
-        CurveParameter::Bw6_761 => {
-            Ok(internal::universal_setup_of_size::<Bw6_761Field, Marlin, Ark>(size))
-        }
+            _,
+        >(size, &mut rng)),
+        CurveParameter::Bw6_761 => Ok(internal::universal_setup_of_size::<
+            Bw6_761Field,
+            Marlin,
+            Ark,
+            _,
+        >(size, &mut rng)),
     }
 }
 
@@ -617,6 +665,7 @@ pub fn generate_proof(
     program: &[u8],
     witness: JsValue,
     pk: &[u8],
+    entropy: JsValue,
     options: JsValue,
 ) -> Result<JsValue, JsValue> {
     let options: serde_json::Value = options.into_serde().unwrap();
@@ -639,10 +688,15 @@ pub fn generate_proof(
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
 
+    let mut rng = entropy
+        .as_string()
+        .map(|s| get_rng_from_entropy(&s))
+        .unwrap_or_else(StdRng::from_entropy);
+
     match (backend, scheme) {
         (BackendParameter::Bellman, SchemeParameter::G16) => match prog {
             ProgEnum::Bn128Program(p) => {
-                internal::generate_proof::<_, G16, Bellman>(p, witness, pk)
+                internal::generate_proof::<_, G16, Bellman, _>(p, witness, pk, &mut rng)
             }
             ProgEnum::Bls12_381Program(_) => Err(JsValue::from_str(
                 "Not supported: https://github.com/Zokrates/ZoKrates/issues/1200",
@@ -650,35 +704,45 @@ pub fn generate_proof(
             _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => internal::generate_proof::<_, G16, Ark>(p, witness, pk),
+            ProgEnum::Bn128Program(p) => {
+                internal::generate_proof::<_, G16, Ark, _>(p, witness, pk, &mut rng)
+            }
             ProgEnum::Bls12_381Program(p) => {
-                internal::generate_proof::<_, G16, Ark>(p, witness, pk)
+                internal::generate_proof::<_, G16, Ark, _>(p, witness, pk, &mut rng)
             }
             ProgEnum::Bls12_377Program(p) => {
-                internal::generate_proof::<_, G16, Ark>(p, witness, pk)
-            }
-            ProgEnum::Bw6_761Program(p) => internal::generate_proof::<_, G16, Ark>(p, witness, pk),
-        },
-        (BackendParameter::Ark, SchemeParameter::GM17) => match prog {
-            ProgEnum::Bn128Program(p) => internal::generate_proof::<_, GM17, Ark>(p, witness, pk),
-            ProgEnum::Bls12_381Program(p) => {
-                internal::generate_proof::<_, GM17, Ark>(p, witness, pk)
-            }
-            ProgEnum::Bls12_377Program(p) => {
-                internal::generate_proof::<_, GM17, Ark>(p, witness, pk)
-            }
-            ProgEnum::Bw6_761Program(p) => internal::generate_proof::<_, GM17, Ark>(p, witness, pk),
-        },
-        (BackendParameter::Ark, SchemeParameter::MARLIN) => match prog {
-            ProgEnum::Bn128Program(p) => internal::generate_proof::<_, Marlin, Ark>(p, witness, pk),
-            ProgEnum::Bls12_381Program(p) => {
-                internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
-            }
-            ProgEnum::Bls12_377Program(p) => {
-                internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
+                internal::generate_proof::<_, G16, Ark, _>(p, witness, pk, &mut rng)
             }
             ProgEnum::Bw6_761Program(p) => {
-                internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
+                internal::generate_proof::<_, G16, Ark, _>(p, witness, pk, &mut rng)
+            }
+        },
+        (BackendParameter::Ark, SchemeParameter::GM17) => match prog {
+            ProgEnum::Bn128Program(p) => {
+                internal::generate_proof::<_, GM17, Ark, _>(p, witness, pk, &mut rng)
+            }
+            ProgEnum::Bls12_381Program(p) => {
+                internal::generate_proof::<_, GM17, Ark, _>(p, witness, pk, &mut rng)
+            }
+            ProgEnum::Bls12_377Program(p) => {
+                internal::generate_proof::<_, GM17, Ark, _>(p, witness, pk, &mut rng)
+            }
+            ProgEnum::Bw6_761Program(p) => {
+                internal::generate_proof::<_, GM17, Ark, _>(p, witness, pk, &mut rng)
+            }
+        },
+        (BackendParameter::Ark, SchemeParameter::MARLIN) => match prog {
+            ProgEnum::Bn128Program(p) => {
+                internal::generate_proof::<_, Marlin, Ark, _>(p, witness, pk, &mut rng)
+            }
+            ProgEnum::Bls12_381Program(p) => {
+                internal::generate_proof::<_, Marlin, Ark, _>(p, witness, pk, &mut rng)
+            }
+            ProgEnum::Bls12_377Program(p) => {
+                internal::generate_proof::<_, Marlin, Ark, _>(p, witness, pk, &mut rng)
+            }
+            ProgEnum::Bw6_761Program(p) => {
+                internal::generate_proof::<_, Marlin, Ark, _>(p, witness, pk, &mut rng)
             }
         },
         _ => Err(JsValue::from_str("Unsupported options")),

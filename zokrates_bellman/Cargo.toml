@@ -16,8 +16,9 @@ zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", 
 bellman = { package = "bellman_ce", version = "^0.3", default-features = false }
 pairing = { package = "pairing_ce", version = "^0.21" }
 phase2 = { git = "https://github.com/Zokrates/phase2", default-features = false }
-rand_0_4 = { version = "0.4", package = "rand" }#
-getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
+rand_0_4 = { version = "0.4", package = "rand" }
+rand_0_8 = { version = "0.8", package = "rand" }
+getrandom = { version = "0.2.8" }
 hex = "0.4.2"
 
 [dev-dependencies]
