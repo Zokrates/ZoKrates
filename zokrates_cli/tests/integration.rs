@@ -62,6 +62,11 @@ mod integration {
 
         let solidity_test_path = global_base.join("zokrates_verifier");
         std::fs::create_dir(&solidity_test_path).unwrap();
+
+        Command::new(&forge)
+            .output()
+            .expect("Could not run `forge`. Make sure foundry is installed to run this test");
+
         let output = Command::new(&forge)
             .current_dir(&solidity_test_path)
             .arg("init")
