@@ -2664,7 +2664,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
             e: TypedExpressionOrSpread<T>,
         ) -> Vec<TypedExpression<T>> {
             match e {
-                TypedExpressionOrSpread::Expression(e) => vec![e],
+                TypedExpressionOrSpread::Expression(e) => vec![e.into_canonical_constant()],
                 TypedExpressionOrSpread::Spread(s) => match s.array.into_inner() {
                     ArrayExpressionInner::Value(v) => v
                         .into_iter()
@@ -2698,7 +2698,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                             _ => unreachable!(),
                         };
 
-                        vec![e; count as usize]
+                        vec![e.into_canonical_constant(); count as usize]
                     }
                     a => unreachable!("{}", a),
                 },
