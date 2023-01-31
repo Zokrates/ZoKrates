@@ -1,5 +1,5 @@
 [workspace]
-
+resolver = "2"
 members = [
     "zokrates_common",
     "zokrates_core",

@@ -33,7 +33,7 @@
     "prebuild": "npm install",
     "build": "npm run wasm-pack -- --release && npm run patch && npm run bundle",
     "build:dev": "npm run wasm-pack -- --dev && npm run patch && npm run bundle",
-    "pretest": "npm run build",
+    "pretest": "npm run build:dev",
     "test": "npm run run-tests",
     "run-tests": "mocha --timeout 100000 --recursive tests",
     "patch": "node patch.js",

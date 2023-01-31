@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+default = []
 wasm = ["bellman/nolog", "bellman/wasm"]
 multicore = ["bellman/multicore", "phase2/multicore"]
 
