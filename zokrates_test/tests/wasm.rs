@@ -10,6 +10,7 @@ use zokrates_field::Bn128Field;
 use zokrates_interpreter::Interpreter;
 use zokrates_proof_systems::{Backend, NonUniversalBackend};
 
+use rand_0_8::{rngs::StdRng, SeedableRng};
 use zokrates_ark::Ark;
 use zokrates_proof_systems::groth16::G16;
 
@@ -26,6 +27,8 @@ fn generate_proof() {
         .execute(program.clone(), &[Bn128Field::from(42)])
         .unwrap();
 
-    let keypair = <Ark as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
-    let _proof = <Ark as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk);
+    let rng = &mut StdRng::from_entropy();
+    let keypair = <Ark as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone(), rng);
+    let _proof =
+        <Ark as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk, rng);
 }

@@ -8,11 +8,12 @@ use zokrates_parser::Rule;
 extern crate lazy_static;
 
 pub use ast::{
-    Access, Arguments, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement,
-    Assignee, AssigneeAccess, BasicOrStructOrTupleType, BasicType, BinaryExpression,
-    BinaryOperator, CallAccess, ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression,
-    DecimalNumber, DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType,
-    File, FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
+    Access, Arguments, ArrayAccess, ArrayInitializerExpression, ArrayType, AssemblyStatement,
+    AssemblyStatementInner, AssertionStatement, Assignee, AssigneeAccess, AssignmentOperator,
+    BasicOrStructOrTupleType, BasicType, BinaryExpression, BinaryOperator, CallAccess,
+    ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber,
+    DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType, File,
+    FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
     IdentifierExpression, IdentifierOrDecimal, IfElseExpression, ImportDirective, ImportSymbol,
     InlineArrayExpression, InlineStructExpression, InlineStructMember, InlineTupleExpression,
     IterationStatement, LiteralExpression, LogStatement, Parameter, PostfixExpression, Range,
@@ -211,7 +212,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::main_import_directive))]
     pub struct MainImportDirective<'ast> {
-        pub source: AnyString<'ast>,
+        pub source: QString<'ast>,
         pub alias: Option<IdentifierExpression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -229,7 +230,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::from_import_directive))]
     pub struct FromImportDirective<'ast> {
-        pub source: AnyString<'ast>,
+        pub source: QString<'ast>,
         pub symbols: Vec<ImportSymbol<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -366,12 +367,13 @@ mod ast {
         Assertion(AssertionStatement<'ast>),
         Iteration(IterationStatement<'ast>),
         Log(LogStatement<'ast>),
+        Assembly(AssemblyStatement<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::log_statement))]
     pub struct LogStatement<'ast> {
-        pub format_string: AnyString<'ast>,
+        pub format_string: QString<'ast>,
         pub expressions: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -388,9 +390,17 @@ mod ast {
 
     #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::string))]
-    pub struct AnyString<'ast> {
+    pub struct RawString<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
+    #[pest_ast(rule(Rule::quoted_string))]
+    pub struct QString<'ast> {
+        pub raw: RawString<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -399,7 +409,7 @@ mod ast {
     #[pest_ast(rule(Rule::assertion_statement))]
     pub struct AssertionStatement<'ast> {
         pub expression: Expression<'ast>,
-        pub message: Option<AnyString<'ast>>,
+        pub message: Option<QString<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -419,6 +429,55 @@ mod ast {
     #[pest_ast(rule(Rule::return_statement))]
     pub struct ReturnStatement<'ast> {
         pub expression: Option<Expression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
+    #[pest_ast(rule(Rule::op_asm))]
+    pub enum AssignmentOperator {
+        Assign(AssignOperator),
+        AssignConstrain(AssignConstrainOperator),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
+    #[pest_ast(rule(Rule::op_asm_assign))]
+    pub struct AssignOperator;
+
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
+    #[pest_ast(rule(Rule::op_asm_assign_constrain))]
+    pub struct AssignConstrainOperator;
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::asm_assignment))]
+    pub struct AssemblyAssignment<'ast> {
+        pub assignee: Assignee<'ast>,
+        pub operator: AssignmentOperator,
+        pub expression: Expression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::asm_constraint))]
+    pub struct AssemblyConstraint<'ast> {
+        pub lhs: Expression<'ast>,
+        pub rhs: Expression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::asm_statement_inner))]
+    pub enum AssemblyStatementInner<'ast> {
+        Assignment(AssemblyAssignment<'ast>),
+        Constraint(AssemblyConstraint<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::asm_statement))]
+    pub struct AssemblyStatement<'ast> {
+        pub inner: Vec<AssemblyStatementInner<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -1178,9 +1237,12 @@ mod tests {
                 pragma: None,
                 declarations: vec![
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
-                        source: AnyString {
-                            value: String::from("foo"),
-                            span: Span::new(source, 17, 20).unwrap()
+                        source: QString {
+                            raw: RawString {
+                                value: String::from("foo"),
+                                span: Span::new(source, 17, 20).unwrap()
+                            },
+                            span: Span::new(source, 16, 21).unwrap()
                         },
                         alias: None,
                         span: Span::new(source, 9, 21).unwrap()
@@ -1243,9 +1305,12 @@ mod tests {
                 pragma: None,
                 declarations: vec![
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
-                        source: AnyString {
-                            value: String::from("foo"),
-                            span: Span::new(source, 17, 20).unwrap()
+                        source: QString {
+                            raw: RawString {
+                                value: String::from("foo"),
+                                span: Span::new(source, 17, 20).unwrap()
+                            },
+                            span: Span::new(source, 16, 21).unwrap()
                         },
                         alias: None,
                         span: Span::new(source, 9, 21).unwrap()
@@ -1332,9 +1397,12 @@ mod tests {
                 pragma: None,
                 declarations: vec![
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
-                        source: AnyString {
-                            value: String::from("foo"),
-                            span: Span::new(source, 17, 20).unwrap()
+                        source: QString {
+                            raw: RawString {
+                                value: String::from("foo"),
+                                span: Span::new(source, 17, 20).unwrap()
+                            },
+                            span: Span::new(source, 16, 21).unwrap()
                         },
                         alias: None,
                         span: Span::new(source, 9, 21).unwrap()

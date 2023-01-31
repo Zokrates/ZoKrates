@@ -1,0 +1,36 @@
+// Subtraction of two binary numbers (comprising only two digits, 0 and 1)
+// Precondition: caller has to ensure `a` and `b` are constrained by a binary check
+def bin_sub<N>(field[N] a, field[N] b) -> field[N] {
+    field mut lin = 2**N;
+    field mut lout = 0;
+
+    for u32 i in 0..N {
+        lin = lin + a[i] * (2**i);
+        lin = lin - b[i] * (2**i);
+    }
+
+    field[N] mut out = [0; N];
+    for u32 i in 0..N {
+        asm {
+            out[i] <-- (lin >> i) & 1;
+            out[i] * (out[i] - 1) === 0;
+        }
+        lout = lout + out[i] * (2**i);
+    }
+
+    field mut aux = 0;
+    asm {
+        aux <-- (lin >> N) & 1;
+        aux * (aux - 1) === 0;
+    }
+
+    lout = lout + aux * (2**N);
+    asm {
+        lin === lout;
+    }
+    return out;
+}
+
+def main(field[4] a, field[4] b) -> field[4] {
+    return bin_sub(a, b);
+}

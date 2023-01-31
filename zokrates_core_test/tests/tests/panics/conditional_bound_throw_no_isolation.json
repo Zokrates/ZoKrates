@@ -12,7 +12,13 @@
             "left": "0",
             "right": "1",
             "error": {
-              "SourceAssertion": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
+              "SourceAssertion": {
+                "file": "./tests/tests/panics/conditional_bound_throw.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
             }
           }
         }
@@ -28,7 +34,13 @@
             "left": "1",
             "right": "0",
             "error": {
-              "SourceAssertion": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
+              "SourceAssertion": {
+                "file": "./tests/tests/panics/conditional_bound_throw.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
             }
           }
         }
@@ -44,7 +56,13 @@
             "left": "2",
             "right": "0",
             "error": {
-              "SourceAssertion": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
+              "SourceAssertion": {
+                "file": "./tests/tests/panics/conditional_bound_throw.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
             }
           }
         }

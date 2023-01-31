@@ -1,9 +1,20 @@
 [package]
 name = "zokrates_ark"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = []
+multicore = [
+    "ark-ff/parallel",
+    "ark-ec/parallel",
+    "ark-groth16/parallel",
+    "ark-gm17/parallel",
+    "ark-marlin/parallel",
+    "ark-poly/parallel",
+    "ark-poly-commit/parallel",
+    "ark-crypto-primitives/parallel",
+]
 
 [dependencies]
 zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }

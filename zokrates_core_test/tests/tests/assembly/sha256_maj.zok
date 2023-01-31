@@ -1,0 +1,17 @@
+// Maj function for sha256 => (a & b) ^ (a & c) ^ (b & c)
+// Precondition: caller has to ensure inputs are constrained by a binary check
+def maj<N>(field[N] a, field[N] b, field[N] c) -> field[N] {
+    field[N] mut out = [0; N];
+    field[N] mut bc = [0; N];
+    for u32 i in 0..N {
+        asm {
+            bc[i] <== b[i] * c[i];
+            out[i] <== a[i] * (b[i] + c[i] - 2*bc[i]) + bc[i];
+        }
+    }
+    return out;
+}
+
+def main(field[2] a, field[2] b, field[2] c) -> field[2] {
+    return maj(a, b, c);
+}

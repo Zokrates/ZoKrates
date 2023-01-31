@@ -53,6 +53,11 @@ pub fn visit_module<T: Field, F: Visitor<T>>(f: &mut F, p: &Prog<T>) {
 
 pub fn visit_statement<T: Field, F: Visitor<T>>(f: &mut F, s: &Statement<T>) {
     match s {
+        Statement::Block(statements) => {
+            for s in statements {
+                f.visit_statement(s);
+            }
+        }
         Statement::Constraint(quad, lin, error) => {
             f.visit_quadratic_combination(quad);
             f.visit_linear_combination(lin);

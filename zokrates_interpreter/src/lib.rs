@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 use zokrates_abi::{Decode, Value};
 use zokrates_ast::ir::{
     LinComb, ProgIterator, QuadComb, RuntimeError, Solver, Statement, Variable, Witness,
 };
+use zokrates_ast::zir;
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
@@ -11,7 +13,7 @@ pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 #[derive(Default)]
 pub struct Interpreter {
     /// Whether we should try to give out-of-range bit decompositions when the input is not a single summand.
-    /// Used to do targetted testing of `<` flattening, making sure the bit decomposition we base the result on is unique.
+    /// Used to do targeted testing of `<` flattening, making sure the bit decomposition we base the result on is unique.
     should_try_out_of_range: bool,
 }
 
@@ -24,21 +26,22 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<T: Field, I: IntoIterator<Item = Statement<T>>>(
+    pub fn execute<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>>(
         &self,
-        program: ProgIterator<T, I>,
+        program: ProgIterator<'ast, T, I>,
         inputs: &[T],
     ) -> ExecutionResult<T> {
         self.execute_with_log_stream(program, inputs, &mut std::io::sink())
     }
 
     pub fn execute_with_log_stream<
+        'ast,
         W: std::io::Write,
         T: Field,
-        I: IntoIterator<Item = Statement<T>>,
+        I: IntoIterator<Item = Statement<'ast, T>>,
     >(
         &self,
-        program: ProgIterator<T, I>,
+        program: ProgIterator<'ast, T, I>,
         inputs: &[T],
         log_stream: &mut W,
     ) -> ExecutionResult<T> {
@@ -52,6 +55,7 @@ impl Interpreter {
 
         for statement in program.statements.into_iter() {
             match statement {
+                Statement::Block(..) => unreachable!(),
                 Statement::Constraint(quad, lin, error) => match lin.is_assignee(&witness) {
                     true => {
                         let val = evaluate_quad(&witness, &quad).unwrap();
@@ -81,7 +85,7 @@ impl Interpreter {
                         }
                         _ => Self::execute_solver(&d.solver, &inputs),
                     }
-                    .map_err(|_| Error::Solver)?;
+                    .map_err(Error::Solver)?;
 
                     for (i, o) in d.outputs.iter().enumerate() {
                         witness.insert(*o, res[i].clone());
@@ -142,9 +146,9 @@ impl Interpreter {
             .collect()
     }
 
-    fn check_inputs<T: Field, I: IntoIterator<Item = Statement<T>>, U>(
+    fn check_inputs<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>, U>(
         &self,
-        program: &ProgIterator<T, I>,
+        program: &ProgIterator<'ast, T, I>,
         inputs: &[U],
     ) -> Result<(), Error> {
         if program.arguments.len() == inputs.len() {
@@ -157,11 +161,79 @@ impl Interpreter {
         }
     }
 
-    pub fn execute_solver<T: Field>(solver: &Solver, inputs: &[T]) -> Result<Vec<T>, String> {
+    pub fn execute_solver<'ast, T: Field>(
+        solver: &Solver<'ast, T>,
+        inputs: &[T],
+    ) -> Result<Vec<T>, String> {
         let (expected_input_count, expected_output_count) = solver.get_signature();
         assert_eq!(inputs.len(), expected_input_count);
 
         let res = match solver {
+            Solver::Zir(func) => {
+                use zokrates_ast::zir::result_folder::ResultFolder;
+                assert_eq!(func.arguments.len(), inputs.len());
+
+                let constants = func
+                    .arguments
+                    .iter()
+                    .zip(inputs)
+                    .map(|(a, v)| match &a.id._type {
+                        zir::Type::FieldElement => Ok((
+                            a.id.id.clone(),
+                            zokrates_ast::zir::FieldElementExpression::Number(v.clone()).into(),
+                        )),
+                        zir::Type::Boolean => match v {
+                            v if *v == T::from(0) => Ok((
+                                a.id.id.clone(),
+                                zokrates_ast::zir::BooleanExpression::Value(false).into(),
+                            )),
+                            v if *v == T::from(1) => Ok((
+                                a.id.id.clone(),
+                                zokrates_ast::zir::BooleanExpression::Value(true).into(),
+                            )),
+                            v => Err(format!("`{}` has unexpected value `{}`", a.id, v)),
+                        },
+                        zir::Type::Uint(bitwidth) => match v.bits() <= bitwidth.to_usize() as u32 {
+                            true => Ok((
+                                a.id.id.clone(),
+                                zokrates_ast::zir::UExpressionInner::Value(
+                                    v.to_dec_string().parse::<u128>().unwrap(),
+                                )
+                                .annotate(*bitwidth)
+                                .into(),
+                            )),
+                            false => Err(format!(
+                                "`{}` has unexpected bitwidth (got {} but expected {})",
+                                a.id,
+                                v.bits(),
+                                bitwidth
+                            )),
+                        },
+                    })
+                    .collect::<Result<HashMap<_, _>, _>>()?;
+
+                let mut propagator = zokrates_analysis::ZirPropagator::with_constants(constants);
+
+                let folded_function = propagator
+                    .fold_function(func.clone())
+                    .map_err(|e| e.to_string())?;
+
+                assert_eq!(folded_function.statements.len(), 1);
+                if let zokrates_ast::zir::ZirStatement::Return(v) =
+                    folded_function.statements[0].clone()
+                {
+                    v.into_iter()
+                        .map(|v| match v {
+                            zokrates_ast::zir::ZirExpression::FieldElement(
+                                zokrates_ast::zir::FieldElementExpression::Number(n),
+                            ) => n,
+                            _ => unreachable!(),
+                        })
+                        .collect()
+                } else {
+                    unreachable!()
+                }
+            }
             Solver::ConditionEq => match inputs[0].is_zero() {
                 true => vec![T::zero(), T::one()],
                 false => vec![
@@ -276,7 +348,7 @@ pub struct EvaluationError;
 #[derive(PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum Error {
     UnsatisfiedConstraint { error: Option<RuntimeError> },
-    Solver,
+    Solver(String),
     WrongInputCount { expected: usize, received: usize },
     LogStream,
 }
@@ -319,7 +391,7 @@ impl fmt::Display for Error {
                     _ => write!(f, ""),
                 }
             }
-            Error::Solver => write!(f, ""),
+            Error::Solver(ref e) => write!(f, "Solver error: {}", e),
             Error::WrongInputCount { expected, received } => write!(
                 f,
                 "Program takes {} input{} but was passed {} value{}",

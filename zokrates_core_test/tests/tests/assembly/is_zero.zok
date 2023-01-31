@@ -1,0 +1,10 @@
+def main(field inp) -> field {
+    field mut out = 0;
+    field mut inv = 0;
+    asm {
+        inv <-- inp != 0 ? 1 / inp : 0;
+        out <== -inp * inv + 1;
+        inp * out === 0;
+    }
+    return out;
+}

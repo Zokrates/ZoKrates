@@ -1,0 +1,9 @@
+from "EMBED" import field_to_bool_unsafe;
+
+def main(field x) -> bool {
+    asm {
+        x * (x - 1) === 0;
+    }
+    bool out = field_to_bool_unsafe(x);
+    return out;
+}

@@ -17,20 +17,20 @@ pub use self::parse::*;
 pub struct Ark;
 
 #[derive(Clone)]
-pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
-    program: ProgIterator<T, I>,
+pub struct Computation<'a, T, I: IntoIterator<Item = Statement<'a, T>>> {
+    program: ProgIterator<'a, T, I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
-    pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
+impl<'a, T, I: IntoIterator<Item = Statement<'a, T>>> Computation<'a, T, I> {
+    pub fn with_witness(program: ProgIterator<'a, T, I>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
         }
     }
 
-    pub fn without_witness(program: ProgIterator<T, I>) -> Self {
+    pub fn without_witness(program: ProgIterator<'a, T, I>) -> Self {
         Computation {
             program,
             witness: None,
@@ -72,9 +72,9 @@ fn ark_combination<T: Field + ArkFieldExtensions>(
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
+impl<'a, T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<'a, T>>>
     ConstraintSynthesizer<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>
-    for Computation<T, I>
+    for Computation<'a, T, I>
 {
     fn generate_constraints(
         self,
@@ -143,7 +143,9 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
     }
 }
 
-impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+impl<'a, T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<'a, T>>>
+    Computation<'a, T, I>
+{
     pub fn public_inputs_values(&self) -> Vec<<T::ArkEngine as PairingEngine>::Fr> {
         self.program
             .public_inputs_values(self.witness.as_ref().unwrap())

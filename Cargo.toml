@@ -1,16 +1,17 @@
 [workspace]
-
+resolver = "2"
 members = [
     "zokrates_common",
     "zokrates_core",
     "zokrates_cli",
     "zokrates_fs_resolver",
     "zokrates_stdlib",
+    "zokrates_codegen",
+    "zokrates_analysis",
     "zokrates_embed",
     "zokrates_abi",
     "zokrates_test",
     "zokrates_core_test",
-    "zokrates_solidity_test",
     "zokrates_ark",
     "zokrates_ast",
     "zokrates_interpreter",

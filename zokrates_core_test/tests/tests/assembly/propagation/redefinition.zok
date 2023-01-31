@@ -1,0 +1,10 @@
+def main() {
+    field mut a = 0;
+    field mut b = 0;
+    asm {
+        a <-- 1;
+        b <-- a;
+        b === 1;
+    }
+    return;
+}

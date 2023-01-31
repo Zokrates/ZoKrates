@@ -1,0 +1,5 @@
+import "./is_zero.zok";
+
+def main(field a, field b) -> field {
+    return is_zero(b - a);
+}

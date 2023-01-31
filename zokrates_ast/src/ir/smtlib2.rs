@@ -12,9 +12,9 @@ pub trait SMTLib2 {
     fn to_smtlib2(&self, f: &mut fmt::Formatter) -> fmt::Result;
 }
 
-pub struct SMTLib2Display<'a, T>(pub &'a Prog<T>);
+pub struct SMTLib2Display<'a, 'ast, T>(pub &'a Prog<'ast, T>);
 
-impl<T: Field> fmt::Display for SMTLib2Display<'_, T> {
+impl<'ast, T: Field> fmt::Display for SMTLib2Display<'_, 'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.to_smtlib2(f)
     }
@@ -30,7 +30,7 @@ impl<T: Field> Visitor<T> for VariableCollector {
     }
 }
 
-impl<T: Field> SMTLib2 for Prog<T> {
+impl<'ast, T: Field> SMTLib2 for Prog<'ast, T> {
     fn to_smtlib2(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut collector = VariableCollector {
             variables: BTreeSet::<Variable>::new(),
@@ -75,9 +75,10 @@ fn format_prefix_op_smtlib2<T: SMTLib2, Ts: SMTLib2>(
     write!(f, ")")
 }
 
-impl<T: Field> SMTLib2 for Statement<T> {
+impl<'ast, T: Field> SMTLib2 for Statement<'ast, T> {
     fn to_smtlib2(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Statement::Block(..) => unreachable!(),
             Statement::Constraint(ref quad, ref lin, _) => {
                 write!(f, "(= (mod ")?;
                 quad.to_smtlib2(f)?;
@@ -91,7 +92,7 @@ impl<T: Field> SMTLib2 for Statement<T> {
     }
 }
 
-impl<T: Field> SMTLib2 for Directive<T> {
+impl<'ast, T: Field> SMTLib2 for Directive<'ast, T> {
     fn to_smtlib2(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "")
     }

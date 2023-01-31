@@ -1,5 +1,7 @@
 use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use rand_0_8::rngs::StdRng;
+use rand_0_8::SeedableRng;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
@@ -12,6 +14,7 @@ use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::Field;
+use zokrates_proof_systems::rng::get_rng_from_entropy;
 #[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
 
@@ -79,6 +82,14 @@ pub fn subcommand() -> App<'static, 'static> {
                 .possible_values(cli_constants::SCHEMES)
                 .default_value(constants::G16),
         )
+        .arg(
+            Arg::with_name("entropy")
+                .short("e")
+                .long("entropy")
+                .help("User provided randomness")
+                .takes_value(true)
+                .required(false),
+        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -136,12 +147,13 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 }
 
 fn cli_generate_proof<
+    'a,
     T: Field,
-    I: Iterator<Item = ir::Statement<T>>,
+    I: Iterator<Item = ir::Statement<'a, T>>,
     S: Scheme<T>,
     B: Backend<T, S>,
 >(
-    program: ir::ProgIterator<T, I>,
+    program: ir::ProgIterator<'a, T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Generating proof...");
@@ -166,7 +178,12 @@ fn cli_generate_proof<
         .read_to_end(&mut pk)
         .map_err(|why| format!("Could not read {}: {}", pk_path.display(), why))?;
 
-    let proof = B::generate_proof(program, witness, pk);
+    let mut rng = sub_matches
+        .value_of("entropy")
+        .map(get_rng_from_entropy)
+        .unwrap_or_else(StdRng::from_entropy);
+
+    let proof = B::generate_proof(program, witness, pk, &mut rng);
     let mut proof_file = File::create(proof_path).unwrap();
 
     let proof =

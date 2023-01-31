@@ -1,0 +1,36 @@
+{
+  "curves": ["Bn128"],
+  "max_constraint_count": 1,
+  "tests": [
+    {
+      "input": {
+        "values": ["1", "1"]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0", "1"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": {
+              "SourceAssemblyConstraint": {
+                "file": "tests/tests/assembly/constraint.zok",
+                "position": {
+                  "line": 3,
+                  "col": 9
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
