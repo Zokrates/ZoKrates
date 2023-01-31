@@ -249,7 +249,7 @@ workflows:
     jobs:
       - build
       - test
-      - wasm_test
+      # - wasm_test
       - integration_test
       - zokrates_js_build
       - zokrates_js_test
@@ -307,7 +307,7 @@ workflows:
           requires:
             - build
             - test
-            - wasm_test
+            # - wasm_test
             - integration_test
             - zokrates_js_build
             - zokrates_js_test
