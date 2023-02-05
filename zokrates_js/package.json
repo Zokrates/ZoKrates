@@ -1,6 +1,6 @@
 {
   "name": "zokrates-js",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "module": "index.js",
   "main": "index-node.js",
   "description": "JavaScript bindings for ZoKrates",
