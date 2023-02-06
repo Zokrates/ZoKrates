@@ -1,4 +1,4 @@
-use clap::{App, ArgMatches, SubCommand, AppSettings};
+use clap::{App, AppSettings, ArgMatches, SubCommand};
 
 pub mod beacon;
 pub mod contribute;
@@ -26,6 +26,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         ("beacon", Some(sub_matches)) => beacon::exec(sub_matches),
         ("verify", Some(sub_matches)) => verify::exec(sub_matches),
         ("export", Some(sub_matches)) => export::exec(sub_matches),
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }
