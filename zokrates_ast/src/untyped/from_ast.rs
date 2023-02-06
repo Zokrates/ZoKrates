@@ -31,13 +31,13 @@ fn import_directive_to_symbol_vec(
                 source,
                 id: untyped::SymbolIdentifier::from(id).alias(alias),
             }
-            .span(span.clone());
+            .span(span);
 
             vec![untyped::SymbolDeclaration {
                 id: alias.unwrap_or(id),
                 symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Import(import)),
             }
-            .span(span.clone())]
+            .span(span)]
         }
         pest::ImportDirective::From(import) => {
             let span = import.span;
@@ -57,13 +57,13 @@ fn import_directive_to_symbol_vec(
                         id: untyped::SymbolIdentifier::from(symbol.id.span.as_str())
                             .alias(Some(alias)),
                     }
-                    .span(span.clone());
+                    .span(span);
 
                     untyped::SymbolDeclaration {
                         id: alias,
                         symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Import(import)),
                     }
-                    .span(span.clone())
+                    .span(span)
                 })
                 .collect()
         }
@@ -90,7 +90,7 @@ impl<'ast> From<pest::StructDefinition<'ast>> for untyped::SymbolDeclarationNode
                 .map(untyped::StructDefinitionFieldNode::from)
                 .collect(),
         }
-        .span(span.clone());
+        .span(span);
 
         untyped::SymbolDeclaration {
             id,
@@ -125,7 +125,7 @@ impl<'ast> From<pest::ConstantDefinition<'ast>> for untyped::SymbolDeclarationNo
             ty: definition.id.ty.into(),
             expression: definition.expression.into(),
         }
-        .span(span.clone());
+        .span(span);
 
         untyped::SymbolDeclaration {
             id,
@@ -150,7 +150,7 @@ impl<'ast> From<pest::TypeDefinition<'ast>> for untyped::SymbolDeclarationNode<'
                 .collect(),
             ty: definition.ty.into(),
         }
-        .span(span.clone());
+        .span(span);
 
         untyped::SymbolDeclaration {
             id,
@@ -199,7 +199,7 @@ impl<'ast> From<pest::FunctionDefinition<'ast>> for untyped::SymbolDeclarationNo
             statements: function.statements.into_iter().map(|s| s.into()).collect(),
             signature,
         }
-        .span(span.clone());
+        .span(span);
 
         untyped::SymbolDeclaration {
             id,
@@ -296,14 +296,14 @@ impl<'ast> From<pest::DefinitionStatement<'ast>> for untyped::StatementNode<'ast
                     untyped::UnresolvedTypeNode::from(i.ty),
                     i.mutable.is_some(),
                 )
-                .span(i.span.clone()),
+                .span(i.span),
                 e,
             ),
             pest::TypedIdentifierOrAssignee::Assignee(a) => {
                 untyped::Statement::Assignment(untyped::AssigneeNode::from(a), e)
             }
         }
-        .span(definition.span.clone())
+        .span(definition.span)
     }
 }
 
@@ -467,7 +467,7 @@ impl<'ast> From<pest::BinaryExpression<'ast>> for untyped::ExpressionNode<'ast> 
                     box untyped::ExpressionNode::from(*expression.left),
                     box untyped::ExpressionNode::from(*expression.right),
                 )
-                .span(expression.span.clone()),
+                .span(expression.span),
             ),
         }
         .span(expression.span)
@@ -795,7 +795,7 @@ impl<'ast> From<pest::Assignee<'ast>> for untyped::AssigneeNode<'ast> {
                     }
                 },
             }
-            .span(span.clone())
+            .span(span)
         })
     }
 }
@@ -861,10 +861,10 @@ impl<'ast> From<pest::Type<'ast>> for untyped::UnresolvedTypeNode<'ast> {
                     .rev()
                     .fold(None, |acc, s| match acc {
                         None => Some(UnresolvedType::array(inner_type.clone(), s)),
-                        Some(acc) => Some(UnresolvedType::array(acc.span(span.clone()), s)),
+                        Some(acc) => Some(UnresolvedType::array(acc.span(span), s)),
                     })
                     .unwrap()
-                    .span(span.clone())
+                    .span(span)
             }
             pest::Type::Struct(s) => UnresolvedType::User(
                 s.id.span.as_str().to_string(),
@@ -1219,10 +1219,10 @@ mod tests {
             lhs: pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
                 id: pest::IdentifierExpression {
                     value: String::from("a"),
-                    span: span.clone(),
+                    span: span,
                 },
                 accesses: vec![],
-                span: span.clone(),
+                span: span,
             }),
             expression: pest::Expression::Literal(pest::LiteralExpression::DecimalLiteral(
                 pest::DecimalLiteralExpression {
@@ -1230,10 +1230,10 @@ mod tests {
                         span: Span::new("1", 0, 1).unwrap(),
                     },
                     suffix: None,
-                    span: span.clone(),
+                    span: span,
                 },
             )),
-            span: span.clone(),
+            span: span,
         };
 
         let statement = untyped::StatementNode::from(definition);
@@ -1250,32 +1250,30 @@ mod tests {
 
         let definition = pest::DefinitionStatement {
             lhs: pest::TypedIdentifierOrAssignee::TypedIdentifier(pest::TypedIdentifier {
-                ty: pest::Type::Basic(pest::BasicType::Field(pest::FieldType {
-                    span: span.clone(),
-                })),
+                ty: pest::Type::Basic(pest::BasicType::Field(pest::FieldType { span: span })),
                 identifier: pest::IdentifierExpression {
                     value: String::from("a"),
-                    span: span.clone(),
+                    span: span,
                 },
                 mutable: None,
-                span: span.clone(),
+                span: span,
             }),
             expression: pest::Expression::Postfix(pest::PostfixExpression {
                 base: box pest::Expression::Identifier(pest::IdentifierExpression {
                     value: String::from("foo"),
-                    span: span.clone(),
+                    span: span,
                 }),
                 accesses: vec![pest::Access::Call(pest::CallAccess {
                     explicit_generics: None,
                     arguments: pest::Arguments {
                         expressions: vec![],
-                        span: span.clone(),
+                        span: span,
                     },
-                    span: span.clone(),
+                    span: span,
                 })],
-                span: span.clone(),
+                span: span,
             }),
-            span: span.clone(),
+            span: span,
         };
 
         let statement = untyped::StatementNode::from(definition);
