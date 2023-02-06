@@ -68,7 +68,7 @@ impl std::fmt::Display for SchemeParameter {
             G16 => write!(f, "g16"),
             GM17 => write!(f, "gm17"),
             MARLIN => write!(f, "marlin"),
-            NOVA => write!(f, "marlin"),
+            NOVA => write!(f, "nova"),
         }
     }
 }
