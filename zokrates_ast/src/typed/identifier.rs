@@ -1,10 +1,12 @@
 use crate::typed::CanonicalConstantIdentifier;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-pub type SourceIdentifier<'ast> = &'ast str;
+pub type SourceIdentifier<'ast> = std::borrow::Cow<'ast, str>;
 
-#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum CoreIdentifier<'ast> {
+    #[serde(borrow)]
     Source(ShadowedIdentifier<'ast>),
     Call(usize),
     Constant(CanonicalConstantIdentifier<'ast>),
@@ -29,16 +31,18 @@ impl<'ast> From<CanonicalConstantIdentifier<'ast>> for CoreIdentifier<'ast> {
 }
 
 /// A identifier for a variable
-#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Identifier<'ast> {
     /// the id of the variable
+    #[serde(borrow)]
     pub id: CoreIdentifier<'ast>,
     /// the version of the variable, used after SSA transformation
     pub version: usize,
 }
 
-#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ShadowedIdentifier<'ast> {
+    #[serde(borrow)]
     pub id: SourceIdentifier<'ast>,
     pub shadow: usize,
 }
@@ -97,7 +101,7 @@ impl<'ast> Identifier<'ast> {
 // these two From implementations are only used in tests but somehow cfg(test) doesn't work
 impl<'ast> From<&'ast str> for CoreIdentifier<'ast> {
     fn from(s: &str) -> CoreIdentifier {
-        CoreIdentifier::Source(ShadowedIdentifier::shadow(s, 0))
+        CoreIdentifier::Source(ShadowedIdentifier::shadow(std::borrow::Cow::Borrowed(s), 0))
     }
 }
 

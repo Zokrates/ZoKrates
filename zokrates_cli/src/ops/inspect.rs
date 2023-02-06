@@ -45,14 +45,17 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_inspect<T: Field, I: Iterator<Item = ir::Statement<T>>>(
-    ir_prog: ir::ProgIterator<T, I>,
+fn cli_inspect<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
+    ir_prog: ir::ProgIterator<'a, T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     let ir_prog: ir::Prog<T> = ir_prog.collect();
 
     let curve = format!("{:<17} {}", "curve:", T::name());
     let constraint_count = format!("{:<17} {}", "constraint_count:", ir_prog.constraint_count());
+
+    println!("{}", curve);
+    println!("{}", constraint_count);
 
     if sub_matches.is_present("ztf") {
         let output_path =

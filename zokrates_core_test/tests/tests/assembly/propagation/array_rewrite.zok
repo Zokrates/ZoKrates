@@ -1,0 +1,8 @@
+def main(field x) -> field[1] {
+    field[1] mut a = [x];
+    asm {
+        a[0] <-- a[0] + a[0];
+        a[0] === x + x;
+    }
+    return a;
+}

@@ -2,7 +2,7 @@ use crate::cli_constants::{self, FLATTENED_CODE_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use serde_json::from_reader;
 use std::fs::File;
-use std::io::stdin;
+use std::io::{stdin, Write};
 use std::io::{BufReader, Read};
 use std::path::Path;
 use zokrates_abi::Encode;
@@ -53,6 +53,16 @@ pub fn subcommand() -> App<'static, 'static> {
                 .conflicts_with("stdin")
         )
         .arg(
+            Arg::with_name("proof-path")
+                .short("j")
+                .long("proof-path")
+                .help("Path of the JSON proof file")
+                .value_name("FILE")
+                .takes_value(true)
+                .required(false)
+                .default_value(cli_constants::JSON_PROOF_PATH),
+        )
+        .arg(
             Arg::with_name("abi")
                 .long("abi")
                 .help("Use ABI encoding. Arguments are expected as a JSON object as specified at zokrates.github.io/toolbox/abi.html#abi-input-format")
@@ -83,13 +93,14 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_nova_prove_step<T: NovaField, I: Iterator<Item = ir::Statement<T>>>(
-    program: ir::ProgIterator<T, I>,
+fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast, T>>>(
+    program: ir::ProgIterator<'ast, T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     let is_stdin = sub_matches.is_present("stdin");
     let is_abi = sub_matches.is_present("abi");
     let steps_count: usize = sub_matches.value_of("steps").unwrap().parse().unwrap();
+    let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
     let program = program.collect();
 
@@ -180,11 +191,11 @@ fn cli_nova_prove_step<T: NovaField, I: Iterator<Item = ir::Statement<T>>>(
 
     match proof {
         None => println!("No proof to verify"),
-        Some(proof) => {
+        Some(ref proof) => {
             // verify the recursive SNARK
             println!("Verifying the final proof...");
 
-            let res = nova::verify(&params, proof, steps_count, arguments);
+            let res = nova::verify(&params, proof.clone(), steps_count, arguments);
 
             match res {
                 Ok(_) => {
@@ -196,6 +207,13 @@ fn cli_nova_prove_step<T: NovaField, I: Iterator<Item = ir::Statement<T>>>(
             }
         }
     }
+
+    let mut proof_file = File::create(proof_path).unwrap();
+
+    let proof = serde_json::to_string_pretty(&proof).unwrap();
+    proof_file
+        .write(proof.as_bytes())
+        .map_err(|why| format!("Could not write to {}: {}", proof_path.display(), why))?;
 
     Ok(())
 }

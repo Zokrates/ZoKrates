@@ -14,20 +14,20 @@ use zokrates_field::Field;
 pub struct Bellperson;
 
 #[derive(Clone, Debug)]
-pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
-    pub program: ProgIterator<T, I>,
+pub struct Computation<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> {
+    pub program: ProgIterator<'ast, T, I>,
     pub witness: Option<Witness<T>>,
 }
 
-impl<T: Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
-    pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
+impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> Computation<'ast, T, I> {
+    pub fn with_witness(program: ProgIterator<'ast, T, I>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
         }
     }
 
-    pub fn without_witness(program: ProgIterator<T, I>) -> Self {
+    pub fn without_witness(program: ProgIterator<'ast, T, I>) -> Self {
         Computation {
             program,
             witness: None,
@@ -67,8 +67,8 @@ fn bellperson_combination<
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: BellpersonFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
-    Circuit<T::BellpersonField> for Computation<T, I>
+impl<'ast, T: BellpersonFieldExtensions + Field, I: IntoIterator<Item = Statement<'ast, T>>>
+    Circuit<T::BellpersonField> for Computation<'ast, T, I>
 {
     fn synthesize<CS: ConstraintSystem<T::BellpersonField>>(
         self,
@@ -126,7 +126,9 @@ impl<T: BellpersonFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
     }
 }
 
-impl<T: BellpersonFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+impl<'ast, T: BellpersonFieldExtensions + Field, I: IntoIterator<Item = Statement<'ast, T>>>
+    Computation<'ast, T, I>
+{
     pub fn synthesize_input_to_output<CS: ConstraintSystem<T::BellpersonField>>(
         self,
         cs: &mut CS,

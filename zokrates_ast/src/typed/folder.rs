@@ -260,6 +260,13 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_assignee(self, a)
     }
 
+    fn fold_assembly_statement(
+        &mut self,
+        s: TypedAssemblyStatement<'ast, T>,
+    ) -> Vec<TypedAssemblyStatement<'ast, T>> {
+        fold_assembly_statement(self, s)
+    }
+
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         fold_statement(self, s)
     }
@@ -515,6 +522,27 @@ pub fn fold_definition_rhs<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
+pub fn fold_assembly_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: TypedAssemblyStatement<'ast, T>,
+) -> Vec<TypedAssemblyStatement<'ast, T>> {
+    match s {
+        TypedAssemblyStatement::Assignment(a, e) => {
+            vec![TypedAssemblyStatement::Assignment(
+                f.fold_assignee(a),
+                f.fold_expression(e),
+            )]
+        }
+        TypedAssemblyStatement::Constraint(lhs, rhs, metadata) => {
+            vec![TypedAssemblyStatement::Constraint(
+                f.fold_field_expression(lhs),
+                f.fold_field_expression(rhs),
+                metadata,
+            )]
+        }
+    }
+}
+
 pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: TypedStatement<'ast, T>,
@@ -539,6 +567,12 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
         TypedStatement::Log(s, e) => {
             TypedStatement::Log(s, e.into_iter().map(|e| f.fold_expression(e)).collect())
         }
+        TypedStatement::Assembly(statements) => TypedStatement::Assembly(
+            statements
+                .into_iter()
+                .flat_map(|s| f.fold_assembly_statement(s))
+                .collect(),
+        ),
         s => s,
     };
     vec![res]
@@ -760,6 +794,36 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e = f.fold_field_expression(e);
 
             Pos(box e)
+        }
+        And(box left, box right) => {
+            let left = f.fold_field_expression(left);
+            let right = f.fold_field_expression(right);
+
+            And(box left, box right)
+        }
+        Or(box left, box right) => {
+            let left = f.fold_field_expression(left);
+            let right = f.fold_field_expression(right);
+
+            Or(box left, box right)
+        }
+        Xor(box left, box right) => {
+            let left = f.fold_field_expression(left);
+            let right = f.fold_field_expression(right);
+
+            Xor(box left, box right)
+        }
+        LeftShift(box e, box by) => {
+            let e = f.fold_field_expression(e);
+            let by = f.fold_uint_expression(by);
+
+            LeftShift(box e, box by)
+        }
+        RightShift(box e, box by) => {
+            let e = f.fold_field_expression(e);
+            let by = f.fold_uint_expression(by);
+
+            RightShift(box e, box by)
         }
         Conditional(c) => match f.fold_conditional_expression(&Type::FieldElement, c) {
             ConditionalOrExpression::Conditional(s) => Conditional(s),

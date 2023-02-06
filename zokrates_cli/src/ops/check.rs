@@ -5,8 +5,8 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use zokrates_common::constants::BN128;
-use zokrates_common::helpers::CurveParameter;
-use zokrates_core::compile::{check, CompileConfig, CompileError};
+use zokrates_common::{helpers::CurveParameter, CompileConfig};
+use zokrates_core::compile::{check, CompileError};
 use zokrates_field::{
     Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField, VestaField,
 };

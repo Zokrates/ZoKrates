@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use zokrates_ast::typed::types::GTupleType;
 use zokrates_ast::typed::ConcreteSignature;
 use zokrates_ast::typed::ConcreteType;
-use zokrates_core::compile::{compile, CompileConfig};
+use zokrates_common::CompileConfig;
+use zokrates_core::compile::compile;
 
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;

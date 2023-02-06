@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 use typed_arena::Arena;
 use zokrates_circom::write_r1cs;
 use zokrates_common::constants::BN128;
-use zokrates_common::helpers::CurveParameter;
-use zokrates_core::compile::{compile, CompileConfig, CompileError};
+use zokrates_common::{helpers::CurveParameter, CompileConfig};
+use zokrates_core::compile::{compile, CompileError};
 use zokrates_field::{
     Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField, VestaField,
 };

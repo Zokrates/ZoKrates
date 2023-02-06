@@ -1,0 +1,12 @@
+def mul(field a, field b) -> field {
+    field mut res = 0;
+    asm {
+        res <== a * b;
+    }
+    return res;
+}
+
+def main(field a) -> field {
+    field[2] b = [2, a]; // this will get propagated in zir
+    return mul(b[0], b[1]);
+}

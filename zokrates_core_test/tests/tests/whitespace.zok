@@ -1,0 +1,21 @@
+from "field" import FIELD_MIN,
+    FIELD_MAX,
+    FIELD_SIZE_IN_BITS;
+
+struct Foo
+{
+    field a;
+    field b;
+}
+
+def main(
+    private Foo foo,
+    field c
+) -> bool
+{
+    field[2] arr = [
+        foo.a,
+        foo.b
+    ];
+    return arr[0] * arr[1] == c;
+}

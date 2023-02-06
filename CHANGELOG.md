@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.8.4] - 2023-01-31
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.4 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Fix array propagation for spreads and repeaters (#1269, @schaeff)
+- Remove solc dependency for tests, use foundry instead (#1266, @schaeff)
+- Optimize `zokrates-js` library size (#1264, @dark64)
+- Use multicore feature in ark and bellman to improve performance (#1261, @dark64)
+- Allow user-provided randomness in setup and proof generation (#1254, @dark64)
+- Fix typos (#1260, @rex4539)
+- Introduce constraint generation through assembly blocks (#1246, @dark64)
+- Loosen up whitespace restrictions to allow more formatting styles (#1232, @dark64)
+- Reduce cost of boolean array equality checks (#1228, @schaeff)
+
+## [0.8.3] - 2022-10-11
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.3 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Disallow the use of the `private` and `public` keywords on non-entrypoint functions (#1224, @dark64)
+- Fix duplicate constraint optimiser (#1226, @schaeff)
+
 ## [0.8.2] - 2022-09-05
 
 ### Release

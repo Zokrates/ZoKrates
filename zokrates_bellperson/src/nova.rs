@@ -31,11 +31,11 @@ impl<
 }
 
 #[derive(Clone, Debug)]
-pub struct NovaComputation<T>(Computation<T, Vec<Statement<T>>>);
+pub struct NovaComputation<'ast, T>(Computation<'ast, T, Vec<Statement<'ast, T>>>);
 
-impl<T> TryFrom<Computation<T, Vec<Statement<T>>>> for NovaComputation<T> {
+impl<'ast, T> TryFrom<Computation<'ast, T, Vec<Statement<'ast, T>>>> for NovaComputation<'ast, T> {
     type Error = Error;
-    fn try_from(c: Computation<T, Vec<Statement<T>>>) -> Result<Self, Self::Error> {
+    fn try_from(c: Computation<'ast, T, Vec<Statement<'ast, T>>>) -> Result<Self, Self::Error> {
         if c.program.arguments.len() != c.program.return_count {
             return Err(Error::User(format!("Number of return values must match number of input values for Nova circuits, found `{} != {}`", c.program.return_count, c.program.arguments.len())));
         }
@@ -46,11 +46,11 @@ impl<T> TryFrom<Computation<T, Vec<Statement<T>>>> for NovaComputation<T> {
 
 type G1<T> = <T as Cycle>::Point;
 type G2<T> = <<T as Cycle>::Other as Cycle>::Point;
-type C1<T> = NovaComputation<T>;
+type C1<'ast, T> = NovaComputation<'ast, T>;
 type C2<T> = TrivialTestCircuit<<<T as Cycle>::Point as Group>::Base>;
 
-type PublicParams<T> = GPublicParams<G1<T>, G2<T>, C1<T>, C2<T>>;
-type RecursiveSNARK<T> = GRecursiveSNARK<G1<T>, G2<T>, C1<T>, C2<T>>;
+type PublicParams<'ast, T> = GPublicParams<G1<T>, G2<T>, C1<'ast, T>, C2<T>>;
+type RecursiveSNARK<'ast, T> = GRecursiveSNARK<G1<T>, G2<T>, C1<'ast, T>, C2<T>>;
 
 #[derive(Debug)]
 pub enum Error {
@@ -101,12 +101,12 @@ pub fn verify<T: NovaField>(
         .map_err(Error::Internal)
 }
 
-pub fn prove<T: NovaField>(
-    public_parameters: &PublicParams<T>,
-    program: Prog<T>,
+pub fn prove<'ast, T: NovaField>(
+    public_parameters: &PublicParams<'ast, T>,
+    program: Prog<'ast, T>,
     arguments: Vec<T>,
     steps_count: usize,
-) -> Result<Option<RecursiveSNARK<T>>, Error> {
+) -> Result<Option<RecursiveSNARK<'ast, T>>, Error> {
     if steps_count == 0 {
         return Ok(None);
     }
@@ -133,8 +133,8 @@ pub fn prove<T: NovaField>(
     Ok(proof)
 }
 
-impl<T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::BellpersonField>
-    for NovaComputation<T>
+impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::BellpersonField>
+    for NovaComputation<'ast, T>
 {
     fn arity(&self) -> usize {
         let input_count = self.0.program.arguments.len();

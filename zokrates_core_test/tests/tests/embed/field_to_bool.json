@@ -1,0 +1,46 @@
+{
+  "curves": ["Bn128"],
+  "max_constraint_count": 2,
+  "tests": [
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Ok": {
+          "value": false
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["1"]
+      },
+      "output": {
+        "Ok": {
+          "value": true
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": {
+              "SourceAssemblyConstraint": {
+                "file": "tests/tests/embed/field_to_bool.zok",
+                "position": {
+                  "line": 5,
+                  "col": 9
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
