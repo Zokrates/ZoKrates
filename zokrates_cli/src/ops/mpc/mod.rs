@@ -1,4 +1,4 @@
-use clap::{App, ArgMatches, SubCommand};
+use clap::{App, ArgMatches, SubCommand, AppSettings};
 
 pub mod beacon;
 pub mod contribute;
@@ -9,6 +9,7 @@ pub mod verify;
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("mpc")
         .about("Multi-party computation (MPC) protocol")
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommands(vec![
             init::subcommand().display_order(1),
             contribute::subcommand().display_order(2),
@@ -25,6 +26,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         ("beacon", Some(sub_matches)) => beacon::exec(sub_matches),
         ("verify", Some(sub_matches)) => verify::exec(sub_matches),
         ("export", Some(sub_matches)) => export::exec(sub_matches),
-        _ => unreachable!(),
+        _ => unreachable!()
     }
 }
