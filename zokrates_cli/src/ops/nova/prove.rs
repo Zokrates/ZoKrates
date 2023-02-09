@@ -104,6 +104,8 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
 
     let program = program.collect();
 
+    println!("{}", program);
+
     println!("Generating public parameters");
 
     let params = nova::generate_public_parameters(program.clone()).map_err(|e| e.to_string())?;
@@ -186,8 +188,17 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
 
     let arguments = arguments.encode();
 
-    let proof = nova::prove(&params, program, arguments.clone(), steps_count)
+    let step_privates = vec![vec![T::from(1)]];
+
+    let proof = nova::prove(&params, program, arguments.clone(), step_privates)
         .map_err(|e| format!("Error `{:#?}` during proving", e))?;
+
+    let mut proof_file = File::create(proof_path).unwrap();
+
+    let proof_json = serde_json::to_string_pretty(&proof).unwrap();
+    proof_file
+        .write(proof_json.as_bytes())
+        .map_err(|why| format!("Could not write to {}: {}", proof_path.display(), why))?;
 
     match proof {
         None => println!("No proof to verify"),
@@ -207,13 +218,6 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
             }
         }
     }
-
-    let mut proof_file = File::create(proof_path).unwrap();
-
-    let proof = serde_json::to_string_pretty(&proof).unwrap();
-    proof_file
-        .write(proof.as_bytes())
-        .map_err(|why| format!("Could not write to {}: {}", proof_path.display(), why))?;
 
     Ok(())
 }

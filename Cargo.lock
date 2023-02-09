@@ -3540,10 +3540,8 @@ dependencies = [
  "rand 0.4.6",
  "typed-arena",
  "zokrates_ast",
- "zokrates_core",
  "zokrates_field",
  "zokrates_interpreter",
- "zokrates_proof_systems",
 ]
 
 [[package]]

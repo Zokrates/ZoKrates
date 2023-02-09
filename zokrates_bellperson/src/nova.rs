@@ -31,16 +31,25 @@ impl<
 }
 
 #[derive(Clone, Debug)]
-pub struct NovaComputation<'ast, T>(Computation<'ast, T, Vec<Statement<'ast, T>>>);
+pub struct NovaComputation<'ast, T> {
+    step_private: Option<Vec<T>>,
+    computation: Computation<'ast, T, Vec<Statement<'ast, T>>>,
+}
 
 impl<'ast, T> TryFrom<Computation<'ast, T, Vec<Statement<'ast, T>>>> for NovaComputation<'ast, T> {
     type Error = Error;
     fn try_from(c: Computation<'ast, T, Vec<Statement<'ast, T>>>) -> Result<Self, Self::Error> {
-        if c.program.arguments.len() != c.program.return_count {
-            return Err(Error::User(format!("Number of return values must match number of input values for Nova circuits, found `{} != {}`", c.program.return_count, c.program.arguments.len())));
+        let return_count = c.program.return_count;
+        let public_input_count = c.program.public_count() - return_count;
+
+        if public_input_count != return_count {
+            return Err(Error::User(format!("Number of return values must match number of public input values for Nova circuits, found `{} != {}`", c.program.return_count, c.program.arguments.len())));
         }
 
-        Ok(NovaComputation(c))
+        Ok(NovaComputation {
+            step_private: None,
+            computation: c,
+        })
     }
 }
 
@@ -95,18 +104,24 @@ pub fn verify<T: NovaField>(
     let z0_primary: Vec<_> = arguments.into_iter().map(|a| a.into_bellperson()).collect();
     let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::one()];
 
-    proof
+    dbg!(proof
         .verify(params, steps_count, z0_primary, z0_secondary)
         .map(|_| ())
-        .map_err(Error::Internal)
+        .map_err(Error::Internal))
 }
 
 pub fn prove<'ast, T: NovaField>(
     public_parameters: &PublicParams<'ast, T>,
     program: Prog<'ast, T>,
     arguments: Vec<T>,
-    steps_count: usize,
+    steps: Vec<Vec<T>>,
 ) -> Result<Option<RecursiveSNARK<'ast, T>>, Error> {
+    let private_input_count = program.private_input_count();
+
+    assert!(steps.iter().all(|v| v.len() == private_input_count));
+
+    let steps_count = steps.len();
+
     if steps_count == 0 {
         return Ok(None);
     }
@@ -119,7 +134,10 @@ pub fn prove<'ast, T: NovaField>(
 
     let mut proof = None;
 
-    for _ in 0..steps_count {
+    for steps_private in steps {
+        let mut c_primary = c_primary.clone();
+        c_primary.step_private = Some(steps_private);
+
         proof = Some(RecursiveSNARK::prove_step(
             public_parameters,
             proof,
@@ -137,8 +155,8 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
     for NovaComputation<'ast, T>
 {
     fn arity(&self) -> usize {
-        let input_count = self.0.program.arguments.len();
-        let output_count = self.0.program.return_count;
+        let output_count = self.computation.program.return_count;
+        let input_count = self.computation.program.public_count() - output_count;
         assert_eq!(input_count, output_count);
         input_count
     }
@@ -151,7 +169,9 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
         Vec<bellperson::gadgets::num::AllocatedNum<T::BellpersonField>>,
         bellperson::SynthesisError,
     > {
-        assert_eq!(self.0.program.arguments.len(), input.len());
+        let output_count = self.computation.program.return_count;
+        let input_count = self.computation.program.public_count() - output_count;
+        assert_eq!(input_count, output_count);
 
         let mut symbols = BTreeMap::new();
 
@@ -168,21 +188,22 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
             let inputs: Vec<_> = input
                 .iter()
                 .map(|v| T::from_bellperson(v.get_value().unwrap()))
+                .chain(self.step_private.clone().unwrap())
                 .collect();
             witness = interpreter
-                .execute(self.0.program.clone(), &inputs)
+                .execute(self.computation.program.clone(), &inputs)
                 .unwrap();
         }
 
         // allocate the inputs
-        for (p, allocated_num) in self.0.program.arguments.iter().zip(input) {
+        for (p, allocated_num) in self.computation.program.arguments.iter().zip(input) {
             symbols.insert(p.id, allocated_num.get_variable());
         }
 
         // allocate the outputs
 
         let outputs: Vec<_> = self
-            .0
+            .computation
             .program
             .returns()
             .iter()
@@ -204,7 +225,7 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
             })
             .collect();
 
-        self.0
+        self.computation
             .clone()
             .synthesize_input_to_output(cs, &mut symbols, &mut witness)?;
 
@@ -213,9 +234,13 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
 
     fn output(&self, z: &[T::BellpersonField]) -> Vec<T::BellpersonField> {
         let interpreter = Interpreter::default();
-        let inputs: Vec<_> = z.iter().map(|v| T::from_bellperson(*v)).collect();
+        let inputs: Vec<_> = z
+            .iter()
+            .map(|v| T::from_bellperson(*v))
+            .chain(self.step_private.clone().unwrap())
+            .collect();
         let output = interpreter
-            .execute(self.0.program.clone(), &inputs)
+            .execute(self.computation.program.clone(), &inputs)
             .unwrap();
         output
             .return_values()
@@ -236,38 +261,28 @@ mod tests {
         use zokrates_ast::ir::Prog;
         use zokrates_field::PallasField;
 
-        fn test<T: NovaField>(program: Prog<T>, arguments: Vec<T>, step_count: usize) {
+        fn test<T: NovaField>(program: Prog<T>, arguments: Vec<T>, step_privates: Vec<Vec<T>>) {
+            let steps_count = step_privates.len();
             let params = generate_public_parameters(program.clone()).unwrap();
-            let proof = prove(&params, program.clone(), arguments.clone(), step_count).unwrap();
-            assert!(verify(&params, proof.unwrap(), step_count, arguments).is_ok());
+            let proof = prove(&params, program.clone(), arguments.clone(), step_privates).unwrap();
+            assert!(verify(&params, proof.unwrap(), steps_count, arguments).is_ok());
         }
 
         #[test]
         fn empty() {
             let program: Prog<PallasField> = Prog::default();
-            test(program, vec![], 3);
+            test(program, vec![], vec![vec![]; 3]);
         }
 
         #[test]
         fn identity() {
-            let program: Prog<PallasField> = Prog {
-                arguments: vec![Parameter::private(Variable::new(0))],
-                return_count: 1,
-                statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
-            };
-
-            test(program, vec![PallasField::from(0)], 3);
-        }
-
-        #[test]
-        fn public_identity() {
             let program: Prog<PallasField> = Prog {
                 arguments: vec![Parameter::public(Variable::new(0))],
                 return_count: 1,
                 statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
             };
 
-            test(program, vec![PallasField::from(0)], 3);
+            test(program, vec![PallasField::from(0)], vec![vec![]; 3]);
         }
 
         #[test]
@@ -281,14 +296,14 @@ mod tests {
                 )],
             };
 
-            test(program, vec![PallasField::from(3)], 3);
+            test(program, vec![PallasField::from(3)], vec![vec![]; 3]);
         }
 
         #[test]
         fn private_gaps() {
             let program = Prog {
                 arguments: vec![
-                    Parameter::private(Variable::new(42)),
+                    Parameter::public(Variable::new(42)),
                     Parameter::public(Variable::new(51)),
                 ],
                 return_count: 2,
@@ -304,7 +319,43 @@ mod tests {
                 ],
             };
 
-            test(program, vec![PallasField::from(0), PallasField::from(1)], 3);
+            test(
+                program,
+                vec![PallasField::from(0), PallasField::from(1)],
+                vec![vec![]; 3],
+            );
+        }
+
+        #[test]
+        fn fold() {
+            // def main(public field acc, field e) -> field {
+            //     return acc + e
+            // }
+
+            // called with init 2 and round private inputs [1, 2, 3]
+            // should return (((2 + 1) + 2) + 3) = 8
+
+            let program = Prog {
+                arguments: vec![
+                    Parameter::public(Variable::new(0)),
+                    Parameter::private(Variable::new(1)),
+                ],
+                return_count: 1,
+                statements: vec![Statement::constraint(
+                    LinComb::from(Variable::new(0)) + LinComb::from(Variable::new(1)),
+                    Variable::public(0),
+                )],
+            };
+
+            test(
+                program,
+                vec![PallasField::from(2)],
+                vec![
+                    vec![PallasField::from(1)],
+                    vec![PallasField::from(2)],
+                    vec![PallasField::from(3)],
+                ],
+            );
         }
     }
 }

@@ -36,7 +36,7 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> Computation<'as
 }
 
 fn bellperson_combination<
-    T: BellpersonFieldExtensions,
+    T: Field + BellpersonFieldExtensions,
     CS: ConstraintSystem<T::BellpersonField>,
 >(
     l: CanonicalLinComb<T>,
@@ -50,7 +50,9 @@ fn bellperson_combination<
                 v.into_bellperson(),
                 *symbols.entry(k).or_insert_with(|| {
                     match k.is_output() {
-                        true => unreachable!("outputs should already have been allocated"),
+                        true => {
+                            unreachable!("outputs should already have been allocated, found {}", k)
+                        }
                         false => AllocatedNum::alloc(cs.namespace(|| format!("{}", k)), || {
                             Ok(witness
                                 .0
