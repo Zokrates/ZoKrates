@@ -10,7 +10,7 @@ use bellman::{
     Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable as BellmanVariable,
 };
 use std::collections::BTreeMap;
-use zokrates_ast::common::Variable;
+use zokrates_ast::common::flat::Variable;
 use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
@@ -126,20 +126,21 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
         }));
 
         for statement in self.program.statements {
-            if let Statement::Constraint(quad, lin, _) = statement {
+            if let Statement::Constraint(s) = statement {
                 let a = &bellman_combination(
-                    quad.left.into_canonical(),
+                    s.quad.left.into_canonical(),
                     cs,
                     &mut symbols,
                     &mut witness,
                 );
                 let b = &bellman_combination(
-                    quad.right.into_canonical(),
+                    s.quad.right.into_canonical(),
                     cs,
                     &mut symbols,
                     &mut witness,
                 );
-                let c = &bellman_combination(lin.into_canonical(), cs, &mut symbols, &mut witness);
+                let c =
+                    &bellman_combination(s.lin.into_canonical(), cs, &mut symbols, &mut witness);
 
                 cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
             }

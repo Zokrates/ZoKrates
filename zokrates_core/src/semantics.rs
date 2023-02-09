@@ -9,7 +9,7 @@ use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
 use zokrates_ast::common::expressions::ValueExpression;
-use zokrates_ast::common::{FormatString, Span, WithSpan};
+use zokrates_ast::common::{FormatString, ModuleMap, Span, WithSpan};
 use zokrates_ast::typed::types::{GGenericsAssignment, GTupleType, GenericsAssignment};
 use zokrates_ast::typed::SourceIdentifier;
 use zokrates_ast::typed::*;
@@ -371,6 +371,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         Ok(TypedProgram {
             main: program.main,
+            module_map: ModuleMap::new(state.typed_modules.iter().map(|(id, _)| id).cloned()),
             modules: state.typed_modules,
         })
     }
@@ -381,7 +382,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &State<'ast, T>,
     ) -> Result<UserDeclarationType<'ast, T>, Vec<ErrorInner>> {
-        let span = ty.span();
+        let span = ty.span().in_module(module_id);
         let ty = ty.value;
 
         let mut errors = vec![];
@@ -397,7 +398,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 .is_some()
             {
                 errors.push(ErrorInner {
-                    span: Some(g.span()),
+                    span: Some(g.span().in_module(module_id)),
                     message: format!(
                         "Generic parameter {p} conflicts with constant symbol {p}",
                         p = g.value
@@ -412,7 +413,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     false => {
                         errors.push(ErrorInner {
-                            span: Some(g.span()),
+                            span: Some(g.span().in_module(module_id)),
                             message: format!("Generic parameter {} is already declared", g.value),
                         });
                     }
@@ -460,7 +461,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &State<'ast, T>,
     ) -> Result<TypedConstant<'ast, T>, ErrorInner> {
-        let span = c.span();
+        let span = c.span().in_module(module_id);
 
         let ty = self.check_declaration_type(
             c.value.ty.clone(),
@@ -513,7 +514,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &State<'ast, T>,
     ) -> Result<DeclarationStructType<'ast, T>, Vec<ErrorInner>> {
-        let span = s.span();
+        let span = s.span().in_module(module_id);
         let s = s.value;
 
         let mut errors = vec![];
@@ -531,7 +532,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 .is_some()
             {
                 errors.push(ErrorInner {
-                    span: Some(g.span()),
+                    span: Some(g.span().in_module(module_id)),
                     message: format!(
                         "Generic parameter {p} conflicts with constant symbol {p}",
                         p = g.value
@@ -546,7 +547,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     false => {
                         errors.push(ErrorInner {
-                            span: Some(g.span()),
+                            span: Some(g.span().in_module(module_id)),
                             message: format!("Generic parameter {} is already declared", g.value),
                         });
                     }
@@ -616,7 +617,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     ) -> Result<(), Vec<Error>> {
         let mut errors: Vec<Error> = vec![];
 
-        let span = declaration.span();
+        let span = declaration.span().in_module(module_id);
         let declaration = declaration.value;
 
         match declaration.symbol.clone() {
@@ -791,7 +792,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
             }
             Symbol::There(import) => {
-                let span = import.span();
+                let span = import.span().in_module(module_id);
                 let import = import.value;
 
                 match Checker::default().check_module(&import.module_id, state) {
@@ -1072,7 +1073,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<Variable<'ast, T>, Vec<ErrorInner>> {
-        let span = var.span();
+        let span = var.span().in_module(module_id);
 
         let var = self.check_variable(var, module_id, types)?;
 
@@ -1108,7 +1109,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         self.enter_scope();
 
-        let span = funct_node.span();
+        let span = funct_node.span().in_module(module_id);
 
         let mut errors = vec![];
         let funct = funct_node.value;
@@ -1144,7 +1145,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
 
                 for (arg, decl_ty) in funct.arguments.into_iter().zip(s.inputs.iter()) {
-                    let span = arg.span();
+                    let span = arg.span().in_module(module_id);
 
                     let arg = arg.value;
 
@@ -1195,7 +1196,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let mut found_return = false;
 
                 for stat in funct.statements.into_iter() {
-                    let span = Some(stat.span());
+                    let span = Some(stat.span().in_module(module_id));
 
                     if let Statement::Return(..) = stat.value {
                         if found_return {
@@ -1274,7 +1275,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 .is_some()
             {
                 errors.push(ErrorInner {
-                    span: Some(g.span()),
+                    span: Some(g.span().in_module(module_id)),
                     message: format!(
                         "Generic parameter {p} conflicts with constant symbol {p}",
                         p = g.value
@@ -1289,7 +1290,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     false => {
                         errors.push(ErrorInner {
-                            span: Some(g.span()),
+                            span: Some(g.span().in_module(module_id)),
                             message: format!("Generic parameter {} is already declared", g.value),
                         });
                     }
@@ -1351,7 +1352,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<Type<'ast, T>, ErrorInner> {
-        let span = ty.span();
+        let span = ty.span().in_module(module_id);
         let ty = ty.value;
 
         match ty {
@@ -1484,7 +1485,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         generics_map: &BTreeMap<Identifier<'ast>, usize>,
         used_generics: &mut HashSet<Identifier<'ast>>,
     ) -> Result<DeclarationConstant<'ast, T>, ErrorInner> {
-        let span = expr.span();
+        let span = expr.span().in_module(module_id);
 
         match expr.value {
             Expression::U32Constant(c) => Ok(DeclarationConstant::from(c)),
@@ -1544,7 +1545,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         generics_map: &BTreeMap<Identifier<'ast>, usize>,
         used_generics: &mut HashSet<Identifier<'ast>>,
     ) -> Result<DeclarationType<'ast, T>, ErrorInner> {
-        let span = ty.span();
+        let span = ty.span().in_module(module_id);
         let ty = ty.value;
 
         match ty {
@@ -1792,7 +1793,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
-        let span = stat.span();
+        let span = stat.span().in_module(module_id);
 
         match stat.value {
             Statement::Log(l, expressions) => {
@@ -1830,7 +1831,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     return Err(errors);
                 }
 
-                Ok(TypedStatement::Log(l, expressions))
+                Ok(TypedStatement::log(l, expressions))
             }
             Statement::Return(e) => {
                 let mut errors = vec![];
@@ -2051,13 +2052,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedAssignee<'ast, T>, ErrorInner> {
-        let span = assignee.span();
+        let span = assignee.span().in_module(module_id);
         // check that the assignee is declared
         match assignee.value {
             Assignee::Identifier(variable_name) => match self.scope.get(&variable_name) {
                 Some(info) => match info.is_mutable {
                     false => Err(ErrorInner {
-                        span: Some(assignee.span()),
+                        span: Some(assignee.span().in_module(module_id)),
                         message: format!("Assignment to an immutable variable `{}`", variable_name),
                     }),
                     _ => Ok(TypedAssignee::Identifier(Variable::new(
@@ -2067,7 +2068,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     ))),
                 },
                 None => Err(ErrorInner {
-                    span: Some(assignee.span()),
+                    span: Some(assignee.span().in_module(module_id)),
                     message: format!("Variable `{}` is undeclared", variable_name),
                 }),
             },
@@ -2181,7 +2182,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     ) -> Result<TypedExpressionOrSpread<'ast, T>, ErrorInner> {
         match spread_or_expression {
             SpreadOrExpression::Spread(s) => {
-                let span = s.span();
+                let span = s.span().in_module(module_id);
 
                 let checked_expression =
                     self.check_expression(s.value.expression, module_id, types)?;
@@ -2212,7 +2213,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
-        let span = function_id.span();
+        let span = function_id.span().in_module(module_id);
         let fun_id = match function_id.value {
             Expression::Identifier(id) => Ok(id),
             e => Err(ErrorInner {
@@ -2231,7 +2232,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .into_iter()
                     .map(|g| {
                         g.map(|g| {
-                            let span = g.span();
+                            let span = g.span().in_module(module_id);
                             self.check_expression(g, module_id, types).and_then(|g| {
                                 UExpression::try_from_typed(g, &UBitwidth::B32).map_err(|e| {
                                     ErrorInner {
@@ -2356,7 +2357,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
-        let span = expr.span();
+        let span = expr.span().in_module(module_id);
 
         match expr.value {
             Expression::IntConstant(v) => Ok(IntExpression::from_value(v).into()),
@@ -3017,10 +3018,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                                 })?;
 
                                 Ok(ArrayExpressionInner::Slice(
-                                    box array,
-                                    box from.clone(),
-                                    box to.clone(),
-                                )
+                                    SliceExpression::new(
+                                    array,
+                                    from.clone(),
+                                    to.clone(),
+                                    ))
                                 .annotate(inner_type, UExpression::floor_sub(to, from))
                                 .into())
                             }
@@ -3268,7 +3270,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                 })?;
 
-                Ok(ArrayExpressionInner::Repeat(box e, box count.clone())
+                Ok(ArrayExpressionInner::Repeat(RepeatExpression::new(e, count.clone()))
                     .annotate(ty, count)
                     .into())
             }

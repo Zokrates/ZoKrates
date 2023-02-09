@@ -161,7 +161,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         })
     }
 
-    fn fold_module_id(&mut self, i: OwnedTypedModuleId) -> Result<OwnedTypedModuleId, Self::Error> {
+    fn fold_module_id(&mut self, i: OwnedModuleId) -> Result<OwnedModuleId, Self::Error> {
         Ok(i)
     }
 
@@ -278,6 +278,20 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         e: MemberExpression<'ast, T, E>,
     ) -> Result<MemberOrExpression<'ast, T, E>, Self::Error> {
         fold_member_expression(self, ty, e)
+    }
+
+    fn fold_slice_expression(
+        &mut self,
+        e: SliceExpression<'ast, T>,
+    ) -> Result<SliceOrExpression<'ast, T>, Self::Error> {
+        fold_slice_expression(self, e)
+    }
+
+    fn fold_repeat_expression(
+        &mut self,
+        e: RepeatExpression<'ast, T>,
+    ) -> Result<RepeatOrExpression<'ast, T>, Self::Error> {
+        fold_repeat_expression(self, e)
     }
 
     fn fold_element_expression<
@@ -433,6 +447,48 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_statement(self, s)
     }
 
+    fn fold_statement_cases(
+        &mut self,
+        s: TypedStatement<'ast, T>,
+    ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        fold_statement_cases(self, s)
+    }
+
+    fn fold_definition_statement(
+        &mut self,
+        s: DefinitionStatement<'ast, T>,
+    ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        fold_definition_statement(self, s)
+    }
+
+    fn fold_return_statement(
+        &mut self,
+        s: ReturnStatement<'ast, T>,
+    ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        fold_return_statement(self, s)
+    }
+
+    fn fold_assertion_statement(
+        &mut self,
+        s: AssertionStatement<'ast, T>,
+    ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        fold_assertion_statement(self, s)
+    }
+
+    fn fold_log_statement(
+        &mut self,
+        s: LogStatement<'ast, T>,
+    ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        fold_log_statement(self, s)
+    }
+
+    fn fold_for_statement(
+        &mut self,
+        s: ForStatement<'ast, T>,
+    ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        fold_for_statement(self, s)
+    }
+
     fn fold_definition_rhs(
         &mut self,
         rhs: DefinitionRhs<'ast, T>,
@@ -511,12 +567,28 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
         fold_field_expression(self, e)
     }
+
+    fn fold_field_expression_cases(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
+        fold_field_expression_cases(self, e)
+    }
+
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
         fold_boolean_expression(self, e)
     }
+
+    fn fold_boolean_expression_cases(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
+        fold_boolean_expression_cases(self, e)
+    }
+
     fn fold_uint_expression(
         &mut self,
         e: UExpression<'ast, T>,
@@ -532,6 +604,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_uint_expression_inner(self, bitwidth, e)
     }
 
+    fn fold_uint_expression_cases(
+        &mut self,
+        bitwidth: UBitwidth,
+        e: UExpressionInner<'ast, T>,
+    ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
+        fold_uint_expression_cases(self, bitwidth, e)
+    }
+
     fn fold_array_expression_inner(
         &mut self,
         ty: &ArrayType<'ast, T>,
@@ -539,6 +619,15 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
         fold_array_expression_inner(self, ty, e)
     }
+
+    fn fold_array_expression_cases(
+        &mut self,
+        ty: &ArrayType<'ast, T>,
+        e: ArrayExpressionInner<'ast, T>,
+    ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
+        fold_array_expression_cases(self, ty, e)
+    }
+
     fn fold_struct_expression_inner(
         &mut self,
         ty: &StructType<'ast, T>,
@@ -547,12 +636,28 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_struct_expression_inner(self, ty, e)
     }
 
+    fn fold_struct_expression_cases(
+        &mut self,
+        ty: &StructType<'ast, T>,
+        e: StructExpressionInner<'ast, T>,
+    ) -> Result<StructExpressionInner<'ast, T>, Self::Error> {
+        fold_struct_expression_cases(self, ty, e)
+    }
+
     fn fold_tuple_expression_inner(
         &mut self,
         ty: &TupleType<'ast, T>,
         e: TupleExpressionInner<'ast, T>,
     ) -> Result<TupleExpressionInner<'ast, T>, Self::Error> {
         fold_tuple_expression_inner(self, ty, e)
+    }
+
+    fn fold_tuple_expression_cases(
+        &mut self,
+        ty: &TupleType<'ast, T>,
+        e: TupleExpressionInner<'ast, T>,
+    ) -> Result<TupleExpressionInner<'ast, T>, Self::Error> {
+        fold_tuple_expression_cases(self, ty, e)
     }
 
     fn fold_struct_value_expression(
@@ -589,45 +694,86 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     }
 }
 
+pub fn fold_statement_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: TypedStatement<'ast, T>,
+) -> Result<Vec<TypedStatement<'ast, T>>, F::Error> {
+    match s {
+        TypedStatement::Return(s) => f.fold_return_statement(s),
+        TypedStatement::Definition(s) => f.fold_definition_statement(s),
+        TypedStatement::Assertion(s) => f.fold_assertion_statement(s),
+        TypedStatement::For(s) => f.fold_for_statement(s),
+        TypedStatement::Log(s) => f.fold_log_statement(s),
+        s => Ok(vec![s]),
+    }
+}
+
 pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: TypedStatement<'ast, T>,
 ) -> Result<Vec<TypedStatement<'ast, T>>, F::Error> {
-    let res = match s {
-        TypedStatement::Return(s) => {
-            TypedStatement::Return(ReturnStatement::new(f.fold_expression(s.inner)?).span(s.span))
-        }
-        TypedStatement::Definition(s) => TypedStatement::Definition(
-            DefinitionStatement::new(f.fold_assignee(s.assignee)?, f.fold_definition_rhs(s.rhs)?)
-                .span(s.span),
-        ),
-        TypedStatement::Assertion(s) => TypedStatement::Assertion(
-            AssertionStatement::new(f.fold_boolean_expression(s.expression)?, s.error).span(s.span),
-        ),
-        TypedStatement::For(s) => TypedStatement::For(
-            ForStatement::new(
-                f.fold_variable(s.var)?,
-                f.fold_uint_expression(s.from)?,
-                f.fold_uint_expression(s.to)?,
-                s.statements
-                    .into_iter()
-                    .map(|s| f.fold_statement(s))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter()
-                    .flatten()
-                    .collect(),
-            )
-            .span(s.span),
-        ),
-        TypedStatement::Log(s, e) => TypedStatement::Log(
-            s,
-            e.into_iter()
-                .map(|e| f.fold_expression(e))
-                .collect::<Result<Vec<_>, _>>()?,
-        ),
-        s => s,
-    };
-    Ok(vec![res])
+    let span = s.get_span();
+    f.fold_statement_cases(s)
+        .map(|s| s.into_iter().map(|s| s.span(span)).collect())
+}
+
+pub fn fold_return_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: ReturnStatement<'ast, T>,
+) -> Result<Vec<TypedStatement<'ast, T>>, F::Error> {
+    Ok(vec![TypedStatement::Return(ReturnStatement::new(
+        f.fold_expression(s.inner)?,
+    ))])
+}
+
+pub fn fold_definition_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: DefinitionStatement<'ast, T>,
+) -> Result<Vec<TypedStatement<'ast, T>>, F::Error> {
+    Ok(vec![TypedStatement::Definition(DefinitionStatement::new(
+        f.fold_assignee(s.assignee)?,
+        f.fold_definition_rhs(s.rhs)?,
+    ))])
+}
+
+pub fn fold_assertion_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: AssertionStatement<'ast, T>,
+) -> Result<Vec<TypedStatement<'ast, T>>, F::Error> {
+    Ok(vec![TypedStatement::Assertion(
+        AssertionStatement::new(f.fold_boolean_expression(s.expression)?, s.error).span(s.span),
+    )])
+}
+
+pub fn fold_for_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: ForStatement<'ast, T>,
+) -> Result<Vec<TypedStatement<'ast, T>>, F::Error> {
+    Ok(vec![TypedStatement::For(ForStatement::new(
+        f.fold_variable(s.var)?,
+        f.fold_uint_expression(s.from)?,
+        f.fold_uint_expression(s.to)?,
+        s.statements
+            .into_iter()
+            .map(|s| f.fold_statement(s))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
+            .collect(),
+    ))])
+}
+
+pub fn fold_log_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: LogStatement<'ast, T>,
+) -> Result<Vec<TypedStatement<'ast, T>>, F::Error> {
+    Ok(vec![TypedStatement::Log(LogStatement::new(
+        s.format_string,
+        s.expressions
+            .into_iter()
+            .map(|e| f.fold_expression(e))
+            .collect::<Result<_, _>>()?,
+    ))])
 }
 
 pub fn fold_definition_rhs<'ast, T: Field, F: ResultFolder<'ast, T>>(
@@ -655,6 +801,15 @@ pub fn fold_embed_call<'ast, T: Field, F: ResultFolder<'ast, T>>(
 }
 
 pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    ty: &ArrayType<'ast, T>,
+    e: ArrayExpressionInner<'ast, T>,
+) -> Result<ArrayExpressionInner<'ast, T>, F::Error> {
+    let span = e.get_span();
+    f.fold_array_expression_cases(ty, e).map(|e| e.span(span))
+}
+
+pub fn fold_array_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     ty: &ArrayType<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
@@ -687,17 +842,14 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
             SelectOrExpression::Select(m) => Select(m),
             SelectOrExpression::Expression(u) => u,
         },
-        Slice(box array, box from, box to) => {
-            let array = f.fold_array_expression(array)?;
-            let from = f.fold_uint_expression(from)?;
-            let to = f.fold_uint_expression(to)?;
-            Slice(box array, box from, box to)
-        }
-        Repeat(box e, box count) => {
-            let e = f.fold_expression(e)?;
-            let count = f.fold_uint_expression(count)?;
-            Repeat(box e, box count)
-        }
+        Slice(s) => match f.fold_slice_expression(s)? {
+            SliceOrExpression::Slice(m) => Slice(m),
+            SliceOrExpression::Expression(u) => u,
+        },
+        Repeat(s) => match f.fold_repeat_expression(s)? {
+            RepeatOrExpression::Repeat(m) => Repeat(m),
+            RepeatOrExpression::Expression(u) => u,
+        },
         Element(element) => match f.fold_element_expression(ty, element)? {
             ElementOrExpression::Element(m) => Element(m),
             ElementOrExpression::Expression(u) => u,
@@ -778,6 +930,15 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     ty: &StructType<'ast, T>,
     e: StructExpressionInner<'ast, T>,
 ) -> Result<StructExpressionInner<'ast, T>, F::Error> {
+    let span = e.get_span();
+    f.fold_struct_expression_cases(ty, e).map(|e| e.span(span))
+}
+
+pub fn fold_struct_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    ty: &StructType<'ast, T>,
+    e: StructExpressionInner<'ast, T>,
+) -> Result<StructExpressionInner<'ast, T>, F::Error> {
     use StructExpressionInner::*;
 
     let e = match e {
@@ -819,6 +980,15 @@ pub fn fold_tuple_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     ty: &TupleType<'ast, T>,
     e: TupleExpressionInner<'ast, T>,
 ) -> Result<TupleExpressionInner<'ast, T>, F::Error> {
+    let span = e.get_span();
+    f.fold_tuple_expression_cases(ty, e).map(|e| e.span(span))
+}
+
+pub fn fold_tuple_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    ty: &TupleType<'ast, T>,
+    e: TupleExpressionInner<'ast, T>,
+) -> Result<TupleExpressionInner<'ast, T>, F::Error> {
     use TupleExpressionInner::*;
 
     let e = match e {
@@ -856,6 +1026,14 @@ pub fn fold_tuple_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
 }
 
 pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    e: FieldElementExpression<'ast, T>,
+) -> Result<FieldElementExpression<'ast, T>, F::Error> {
+    let span = e.get_span();
+    f.fold_field_expression_cases(e).map(|e| e.span(span))
+}
+
+pub fn fold_field_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: FieldElementExpression<'ast, T>,
 ) -> Result<FieldElementExpression<'ast, T>, F::Error> {
@@ -1027,6 +1205,24 @@ pub fn fold_member_expression<
     ))
 }
 
+pub fn fold_slice_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    e: SliceExpression<'ast, T>,
+) -> Result<SliceOrExpression<'ast, T>, F::Error> {
+    Ok(SliceOrExpression::Slice(
+        SliceExpression::new(todo!(), todo!(), todo!()).span(e.span),
+    ))
+}
+
+pub fn fold_repeat_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    e: RepeatExpression<'ast, T>,
+) -> Result<RepeatOrExpression<'ast, T>, F::Error> {
+    Ok(RepeatOrExpression::Repeat(
+        RepeatExpression::new(todo!(), todo!()).span(e.span),
+    ))
+}
+
 pub fn fold_identifier_expression<
     'ast,
     T: Field,
@@ -1106,6 +1302,14 @@ pub fn fold_function_call_expression<
 }
 
 pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    e: BooleanExpression<'ast, T>,
+) -> Result<BooleanExpression<'ast, T>, F::Error> {
+    let span = e.get_span();
+    f.fold_boolean_expression_cases(e).map(|e| e.span(span))
+}
+
+pub fn fold_boolean_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: BooleanExpression<'ast, T>,
 ) -> Result<BooleanExpression<'ast, T>, F::Error> {
@@ -1207,6 +1411,15 @@ pub fn fold_uint_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
 }
 
 pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    ty: UBitwidth,
+    e: UExpressionInner<'ast, T>,
+) -> Result<UExpressionInner<'ast, T>, F::Error> {
+    let span = e.get_span();
+    f.fold_uint_expression_cases(ty, e).map(|e| e.span(span))
+}
+
+pub fn fold_uint_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     ty: UBitwidth,
     e: UExpressionInner<'ast, T>,
@@ -1514,5 +1727,6 @@ pub fn fold_program<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 f.fold_module(module).map(|m| (module_id, m))
             })
             .collect::<Result<_, _>>()?,
+        ..p
     })
 }

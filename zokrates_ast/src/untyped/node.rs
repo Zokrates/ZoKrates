@@ -1,4 +1,4 @@
-use crate::common::Span;
+use crate::common::LocalSpan as Span;
 use std::fmt;
 use zokrates_pest_ast::Span as PestSpan;
 

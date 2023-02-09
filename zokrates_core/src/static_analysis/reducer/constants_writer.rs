@@ -5,16 +5,16 @@ use crate::static_analysis::reducer::{
 };
 use std::collections::{BTreeMap, HashSet};
 use zokrates_ast::typed::{
-    result_folder::*, types::ConcreteGenericsAssignment, Constant, OwnedTypedModuleId, Typed,
-    TypedConstant, TypedConstantSymbol, TypedConstantSymbolDeclaration, TypedModuleId,
-    TypedProgram, TypedSymbolDeclaration, UExpression,
+    result_folder::*, types::ConcreteGenericsAssignment, Constant, ModuleId, OwnedModuleId, Typed,
+    TypedConstant, TypedConstantSymbol, TypedConstantSymbolDeclaration, TypedProgram,
+    TypedSymbolDeclaration, UExpression,
 };
 use zokrates_field::Field;
 
 pub struct ConstantsWriter<'ast, T> {
-    treated: HashSet<OwnedTypedModuleId>,
+    treated: HashSet<OwnedModuleId>,
     constants: ConstantDefinitions<'ast, T>,
-    location: OwnedTypedModuleId,
+    location: OwnedModuleId,
     program: TypedProgram<'ast, T>,
 }
 
@@ -28,22 +28,19 @@ impl<'ast, T: Field> ConstantsWriter<'ast, T> {
         }
     }
 
-    fn change_location(&mut self, location: OwnedTypedModuleId) -> OwnedTypedModuleId {
+    fn change_location(&mut self, location: OwnedModuleId) -> OwnedModuleId {
         let prev = self.location.clone();
         self.location = location;
         self.treated.insert(self.location.clone());
         prev
     }
 
-    fn treated(&self, id: &TypedModuleId) -> bool {
+    fn treated(&self, id: &ModuleId) -> bool {
         self.treated.contains(id)
     }
 
     fn update_program(&mut self) {
-        let mut p = TypedProgram {
-            main: "".into(),
-            modules: BTreeMap::default(),
-        };
+        let mut p = TypedProgram::default();
         std::mem::swap(&mut self.program, &mut p);
         self.program = ConstantsReader::with_constants(&self.constants).read_into_program(p);
     }
@@ -59,10 +56,7 @@ impl<'ast, T: Field> ConstantsWriter<'ast, T> {
 impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
     type Error = Error;
 
-    fn fold_module_id(
-        &mut self,
-        id: OwnedTypedModuleId,
-    ) -> Result<OwnedTypedModuleId, Self::Error> {
+    fn fold_module_id(&mut self, id: OwnedModuleId) -> Result<OwnedModuleId, Self::Error> {
         // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
         if !self.treated(&id) {
             let current_m_id = self.change_location(id.clone());

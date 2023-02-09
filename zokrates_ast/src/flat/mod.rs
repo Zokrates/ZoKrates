@@ -9,10 +9,12 @@ pub mod folder;
 pub mod utils;
 
 use crate::common;
+pub use crate::common::flat::Parameter;
+pub use crate::common::flat::Variable;
+use crate::common::statements::DirectiveStatement;
 use crate::common::FormatString;
-pub use crate::common::Parameter;
+use crate::common::ModuleMap;
 pub use crate::common::RuntimeError;
-pub use crate::common::Variable;
 use crate::common::{
     expressions::{BinaryExpression, IdentifierExpression, ValueExpression},
     operators::*,
@@ -38,6 +40,8 @@ pub type FlatProgIterator<T, I> = FlatFunctionIterator<T, I>;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct FlatFunctionIterator<T, I: IntoIterator<Item = FlatStatement<T>>> {
+    /// The map of the modules for sourcemaps
+    pub module_map: ModuleMap,
     /// Arguments of the function
     pub arguments: Vec<Parameter>,
     /// Vector of statements that are executed when running the function
@@ -52,6 +56,7 @@ impl<T, I: IntoIterator<Item = FlatStatement<T>>> FlatFunctionIterator<T, I> {
             statements: self.statements.into_iter().collect(),
             arguments: self.arguments,
             return_count: self.return_count,
+            module_map: self.module_map,
         }
     }
 }
@@ -80,13 +85,15 @@ pub type DefinitionStatement<T> =
     common::expressions::DefinitionStatement<Variable, FlatExpression<T>>;
 pub type AssertionStatement<T> =
     common::expressions::AssertionStatement<FlatExpression<T>, RuntimeError>;
+pub type LogStatement<T> = common::statements::LogStatement<(ConcreteType, Vec<FlatExpression<T>>)>;
+pub type FlatDirective<T> = common::statements::DirectiveStatement<FlatExpression<T>, Variable>;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum FlatStatement<T> {
     Condition(AssertionStatement<T>),
     Definition(DefinitionStatement<T>),
     Directive(FlatDirective<T>),
-    Log(FormatString, Vec<(ConcreteType, Vec<FlatExpression<T>>)>),
+    Log(LogStatement<T>),
 }
 
 impl<T> FlatStatement<T> {
@@ -105,6 +112,21 @@ impl<T> FlatStatement<T> {
     ) -> Self {
         Self::assertion(left - right, error)
     }
+
+    pub fn log(
+        format_string: FormatString,
+        expressions: Vec<(ConcreteType, Vec<FlatExpression<T>>)>,
+    ) -> Self {
+        Self::Log(LogStatement::new(format_string, expressions))
+    }
+
+    pub fn directive(
+        outputs: Vec<Variable>,
+        solver: Solver,
+        inputs: Vec<FlatExpression<T>>,
+    ) -> Self {
+        Self::Directive(DirectiveStatement::new(outputs, solver, inputs))
+    }
 }
 
 impl<T> WithSpan for FlatStatement<T> {
@@ -114,8 +136,8 @@ impl<T> WithSpan for FlatStatement<T> {
         match self {
             Condition(e) => Condition(e.span(span)),
             Definition(e) => Definition(e.span(span)),
-            Directive(_) => todo!(),
-            Log(_, _) => todo!(),
+            Directive(e) => Directive(e.span(span)),
+            Log(e) => Log(e.span(span)),
         }
     }
 
@@ -125,8 +147,8 @@ impl<T> WithSpan for FlatStatement<T> {
         match self {
             Condition(e) => e.get_span(),
             Definition(e) => e.get_span(),
-            Directive(_) => todo!(),
-            Log(_, _) => todo!(),
+            Directive(e) => e.get_span(),
+            Log(e) => e.get_span(),
         }
     }
 }
@@ -139,11 +161,11 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
                 write!(f, "{} == 0 // {}", s.expression, s.error)
             }
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
-            FlatStatement::Log(ref l, ref expressions) => write!(
+            FlatStatement::Log(ref s) => write!(
                 f,
                 "log(\"{}\"), {})",
-                l,
-                expressions
+                s.format_string,
+                s.expressions
                     .iter()
                     .map(|(_, e)| format!(
                         "[{}]",
@@ -190,9 +212,10 @@ impl<T: Field> FlatStatement<T> {
                     ..d
                 })
             }
-            FlatStatement::Log(l, e) => FlatStatement::Log(
-                l,
-                e.into_iter()
+            FlatStatement::Log(s) => FlatStatement::Log(LogStatement::new(
+                s.format_string,
+                s.expressions
+                    .into_iter()
                     .map(|(t, e)| {
                         (
                             t,
@@ -202,52 +225,8 @@ impl<T: Field> FlatStatement<T> {
                         )
                     })
                     .collect(),
-            ),
+            )),
         }
-    }
-}
-
-#[derive(Clone, Hash, Debug, PartialEq, Eq)]
-pub struct FlatDirective<T> {
-    pub inputs: Vec<FlatExpression<T>>,
-    pub outputs: Vec<Variable>,
-    pub solver: Solver,
-}
-
-impl<T> FlatDirective<T> {
-    pub fn new<E: Into<FlatExpression<T>>>(
-        outputs: Vec<Variable>,
-        solver: Solver,
-        inputs: Vec<E>,
-    ) -> Self {
-        let (in_len, out_len) = solver.get_signature();
-        assert_eq!(in_len, inputs.len());
-        assert_eq!(out_len, outputs.len());
-        FlatDirective {
-            solver,
-            inputs: inputs.into_iter().map(|i| i.into()).collect(),
-            outputs,
-        }
-    }
-}
-
-impl<T: Field> fmt::Display for FlatDirective<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "# {} = {}({})",
-            self.outputs
-                .iter()
-                .map(|o| o.to_string())
-                .collect::<Vec<String>>()
-                .join(", "),
-            self.solver,
-            self.inputs
-                .iter()
-                .map(|i| i.to_string())
-                .collect::<Vec<String>>()
-                .join(", ")
-        )
     }
 }
 

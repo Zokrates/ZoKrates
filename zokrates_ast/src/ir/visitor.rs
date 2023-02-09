@@ -1,7 +1,7 @@
 // Generic walk through an IR AST. Not mutating in place
 
 use super::*;
-use crate::common::Variable;
+use crate::common::flat::Variable;
 use zokrates_field::Field;
 
 pub trait Visitor<T: Field>: Sized {
@@ -53,16 +53,16 @@ pub fn visit_module<T: Field, F: Visitor<T>>(f: &mut F, p: &Prog<T>) {
 
 pub fn visit_statement<T: Field, F: Visitor<T>>(f: &mut F, s: &Statement<T>) {
     match s {
-        Statement::Constraint(quad, lin, error) => {
-            f.visit_quadratic_combination(quad);
-            f.visit_linear_combination(lin);
-            if let Some(error) = error.as_ref() {
+        Statement::Constraint(s) => {
+            f.visit_quadratic_combination(&s.quad);
+            f.visit_linear_combination(&s.lin);
+            if let Some(error) = s.error.as_ref() {
                 f.visit_runtime_error(error);
             }
         }
         Statement::Directive(dir) => f.visit_directive(dir),
-        Statement::Log(_, expressions) => {
-            for (_, e) in expressions {
+        Statement::Log(s) => {
+            for (_, e) in &s.expressions {
                 for e in e {
                     f.visit_linear_combination(e);
                 }

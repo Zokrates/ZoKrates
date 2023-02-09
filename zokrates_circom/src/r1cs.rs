@@ -69,18 +69,18 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<Variable>, usize, Vec<Const
     let mut ordered_variables_set = BTreeSet::default();
 
     // first pass through statements to populate `variables`
-    for (quad, lin) in prog.statements.iter().filter_map(|s| match s {
-        Statement::Constraint(quad, lin, _) => Some((quad, lin)),
+    for s in prog.statements.iter().filter_map(|s| match s {
+        Statement::Constraint(s) => Some(s),
         Statement::Directive(..) => None,
         Statement::Log(..) => None,
     }) {
-        for (k, _) in &quad.left.value {
+        for (k, _) in &s.quad.left.value {
             ordered_variables_set.insert(k);
         }
-        for (k, _) in &quad.right.value {
+        for (k, _) in &s.quad.right.value {
             ordered_variables_set.insert(k);
         }
-        for (k, _) in &lin.value {
+        for (k, _) in &s.lin.value {
             ordered_variables_set.insert(k);
         }
     }
@@ -94,7 +94,7 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<Variable>, usize, Vec<Const
 
     // second pass to convert program to raw sparse vectors
     for (quad, lin) in prog.statements.into_iter().filter_map(|s| match s {
-        Statement::Constraint(quad, lin, _) => Some((quad, lin)),
+        Statement::Constraint(s) => Some((s.quad, s.lin)),
         Statement::Directive(..) => None,
         Statement::Log(..) => None,
     }) {

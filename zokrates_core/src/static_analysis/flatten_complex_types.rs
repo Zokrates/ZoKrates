@@ -2,10 +2,11 @@ use std::marker::PhantomData;
 use std::ops::*;
 use zokrates_ast::common::expressions::{BinaryExpression, ValueExpression};
 use zokrates_ast::common::operators::OpEq;
+use zokrates_ast::common::statements::LogStatement;
 use zokrates_ast::common::WithSpan;
 use zokrates_ast::typed::types::{ConcreteArrayType, IntoType, UBitwidth};
 use zokrates_ast::typed::{self, Basic, Expr, Typed};
-use zokrates_ast::zir::{self, Expr as ZirExpr, Id, Select};
+use zokrates_ast::zir::{self, Expr as ZirExpr, Id, MultipleDefinitionStatement, Select};
 use zokrates_field::Field;
 
 use std::convert::{TryFrom, TryInto};
@@ -506,21 +507,24 @@ fn fold_statement<'ast, T: Field>(
             ..
         }) => {
             vec![zir::ZirStatement::MultipleDefinition(
-                f.fold_assignee(a),
-                zir::ZirExpressionList::EmbedCall(
-                    embed_call.embed,
-                    embed_call.generics,
-                    embed_call
-                        .arguments
-                        .into_iter()
-                        .flat_map(|a| f.fold_expression(statements_buffer, a))
-                        .collect(),
+                MultipleDefinitionStatement::new(
+                    f.fold_assignee(a),
+                    zir::ZirExpressionList::EmbedCall(
+                        embed_call.embed,
+                        embed_call.generics,
+                        embed_call
+                            .arguments
+                            .into_iter()
+                            .flat_map(|a| f.fold_expression(statements_buffer, a))
+                            .collect(),
+                    ),
                 ),
             )]
         }
-        typed::TypedStatement::Log(l, e) => vec![zir::ZirStatement::Log(
-            l,
-            e.into_iter()
+        typed::TypedStatement::Log(e) => vec![zir::ZirStatement::Log(LogStatement::new(
+            e.format_string,
+            e.expressions
+                .into_iter()
                 .map(|e| {
                     (
                         e.get_type().try_into().unwrap(),
@@ -528,7 +532,7 @@ fn fold_statement<'ast, T: Field>(
                     )
                 })
                 .collect(),
-        )],
+        ))],
         typed::TypedStatement::PushCallLog(..) => vec![],
         typed::TypedStatement::PopCallLog => vec![],
         typed::TypedStatement::For(..) => unreachable!(),
@@ -573,10 +577,10 @@ fn fold_array_expression_inner<'ast, T: Field>(
         typed::ArrayExpressionInner::Select(select) => {
             f.fold_select_expression(statements_buffer, select)
         }
-        typed::ArrayExpressionInner::Slice(box array, box from, box to) => {
-            let array = f.fold_array_expression(statements_buffer, array);
-            let from = f.fold_uint_expression(statements_buffer, from);
-            let to = f.fold_uint_expression(statements_buffer, to);
+        typed::ArrayExpressionInner::Slice(e) => {
+            let array = f.fold_array_expression(statements_buffer, *e.array);
+            let from = f.fold_uint_expression(statements_buffer, *e.from);
+            let to = f.fold_uint_expression(statements_buffer, *e.to);
 
             match (from.into_inner(), to.into_inner()) {
                 (zir::UExpressionInner::Value(from), zir::UExpressionInner::Value(to)) => {
@@ -590,9 +594,9 @@ fn fold_array_expression_inner<'ast, T: Field>(
                 _ => unreachable!(),
             }
         }
-        typed::ArrayExpressionInner::Repeat(box e, box count) => {
-            let e = f.fold_expression(statements_buffer, e);
-            let count = f.fold_uint_expression(statements_buffer, count);
+        typed::ArrayExpressionInner::Repeat(r) => {
+            let e = f.fold_expression(statements_buffer, *r.e);
+            let count = f.fold_uint_expression(statements_buffer, *r.count);
 
             match count.into_inner() {
                 zir::UExpressionInner::Value(count) => vec![e; count.value as usize]
@@ -838,7 +842,7 @@ fn fold_conditional_expression<'ast, T: Field, E: Flatten<'ast, T>>(
     assert_eq!(consequence.len(), alternative.len());
 
     if !consequence_statements.is_empty() || !alternative_statements.is_empty() {
-        statements_buffer.push(zir::ZirStatement::IfElse(
+        statements_buffer.push(zir::ZirStatement::if_else(
             condition.clone(),
             consequence_statements,
             alternative_statements,
@@ -1312,5 +1316,6 @@ fn fold_program<'ast, T: Field>(
 
     zir::ZirProgram {
         main: f.fold_function(main_function),
+        module_map: p.module_map,
     }
 }

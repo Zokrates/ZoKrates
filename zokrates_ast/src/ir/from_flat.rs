@@ -1,3 +1,4 @@
+use crate::common::statements::LogStatement;
 use crate::common::WithSpan;
 use crate::flat::{FlatDirective, FlatExpression, FlatProgIterator, FlatStatement, Variable};
 use crate::ir::{Directive, LinComb, ProgIterator, QuadComb, Statement};
@@ -24,6 +25,7 @@ pub fn from_flat<T: Field, I: IntoIterator<Item = FlatStatement<T>>>(
         statements: flat_prog_iterator.statements.into_iter().map(Into::into),
         arguments: flat_prog_iterator.arguments,
         return_count: flat_prog_iterator.return_count,
+        module_map: flat_prog_iterator.module_map,
     }
 }
 
@@ -60,36 +62,32 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
                     let quadratic = *e.right;
                     let linear = *e.left;
                     match quadratic {
-                        FlatExpression::Mult(e) => Statement::Constraint(
+                        FlatExpression::Mult(e) => Statement::constraint(
                             QuadComb::new((*e.left).into(), (*e.right).into()).span(e.span),
                             LinComb::from(linear),
                             Some(s.error),
                         ),
-                        e => Statement::Constraint(
-                            LinComb::from(e).into(),
-                            linear.into(),
-                            Some(s.error),
-                        ),
+                        e => Statement::constraint(LinComb::from(e), linear, Some(s.error)),
                     }
                 }
                 _ => unreachable!(),
             },
             FlatStatement::Definition(s) => match s.rhs {
-                FlatExpression::Mult(e) => Statement::Constraint(
+                FlatExpression::Mult(e) => Statement::constraint(
                     QuadComb::new((*e.left).into(), (*e.right).into()).span(e.span),
-                    s.assignee.into(),
+                    s.assignee,
                     None,
                 ),
-                e => Statement::Constraint(LinComb::from(e).into(), s.assignee.into(), None),
+                e => Statement::constraint(LinComb::from(e), s.assignee, None),
             },
             FlatStatement::Directive(ds) => Statement::Directive(ds.into()),
-            FlatStatement::Log(l, expressions) => Statement::Log(
-                l,
-                expressions
+            FlatStatement::Log(s) => Statement::Log(LogStatement::new(
+                s.format_string,
+                s.expressions
                     .into_iter()
                     .map(|(t, e)| (t, e.into_iter().map(LinComb::from).collect()))
                     .collect(),
-            ),
+            )),
         }
     }
 }

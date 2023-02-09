@@ -3,7 +3,7 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use crate::flatten::from_function_and_config;
+use crate::flatten::from_program_and_config;
 use crate::imports::{self, Importer};
 use crate::macros;
 use crate::optimizer::optimize;
@@ -208,7 +208,7 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
 
     // flatten input program
     log::debug!("Flatten");
-    let program_flattened = from_function_and_config(typed_ast.main, config);
+    let program_flattened = from_program_and_config(typed_ast, config);
 
     let program_flattened = program_flattened.collect();
     log::trace!("{:#?}", program_flattened);

@@ -71,6 +71,48 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_statement(self, s)
     }
 
+    fn fold_definition_statement(
+        &mut self,
+        s: DefinitionStatement<'ast, T>,
+    ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
+        fold_definition_statement(self, s)
+    }
+
+    fn fold_multiple_definition_statement(
+        &mut self,
+        s: MultipleDefinitionStatement<'ast, T>,
+    ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
+        fold_multiple_definition_statement(self, s)
+    }
+
+    fn fold_return_statement(
+        &mut self,
+        s: ReturnStatement<'ast, T>,
+    ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
+        fold_return_statement(self, s)
+    }
+
+    fn fold_log_statement(
+        &mut self,
+        s: LogStatement<'ast, T>,
+    ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
+        fold_log_statement(self, s)
+    }
+
+    fn fold_assertion_statement(
+        &mut self,
+        s: AssertionStatement<'ast, T>,
+    ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
+        fold_assertion_statement(self, s)
+    }
+
+    fn fold_if_else_statement(
+        &mut self,
+        s: IfElseStatement<'ast, T>,
+    ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
+        fold_if_else_statement(self, s)
+    }
+
     fn fold_expression(
         &mut self,
         e: ZirExpression<'ast, T>,
@@ -189,62 +231,109 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: ZirStatement<'ast, T>,
 ) -> Result<Vec<ZirStatement<'ast, T>>, F::Error> {
-    let res = match s {
-        ZirStatement::Return(s) => ZirStatement::Return(
-            ReturnStatement::new(
-                s.inner
-                    .into_iter()
-                    .map(|e| f.fold_expression(e))
-                    .collect::<Result<_, _>>()?,
-            )
+    match s {
+        ZirStatement::Return(s) => f.fold_return_statement(s),
+        ZirStatement::Definition(s) => f.fold_definition_statement(s),
+        ZirStatement::IfElse(s) => f.fold_if_else_statement(s),
+        ZirStatement::Assertion(s) => f.fold_assertion_statement(s),
+        ZirStatement::MultipleDefinition(s) => f.fold_multiple_definition_statement(s),
+        ZirStatement::Log(s) => f.fold_log_statement(s),
+    }
+}
+
+pub fn fold_return_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: ReturnStatement<'ast, T>,
+) -> Result<Vec<ZirStatement<'ast, T>>, F::Error> {
+    Ok(vec![ZirStatement::Return(
+        ReturnStatement::new(
+            s.inner
+                .into_iter()
+                .map(|e| f.fold_expression(e))
+                .collect::<Result<_, _>>()?,
+        )
+        .span(s.span),
+    )])
+}
+
+pub fn fold_definition_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: DefinitionStatement<'ast, T>,
+) -> Result<Vec<ZirStatement<'ast, T>>, F::Error> {
+    Ok(vec![ZirStatement::Definition(
+        DefinitionStatement::new(f.fold_assignee(s.assignee)?, f.fold_expression(s.rhs)?)
             .span(s.span),
-        ),
-        ZirStatement::Definition(s) => ZirStatement::Definition(
-            DefinitionStatement::new(f.fold_assignee(s.assignee)?, f.fold_expression(s.rhs)?)
-                .span(s.span),
-        ),
-        ZirStatement::IfElse(condition, consequence, alternative) => ZirStatement::IfElse(
-            f.fold_boolean_expression(condition)?,
-            consequence
+    )])
+}
+
+pub fn fold_if_else_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: IfElseStatement<'ast, T>,
+) -> Result<Vec<ZirStatement<'ast, T>>, F::Error> {
+    Ok(vec![ZirStatement::IfElse(
+        IfElseStatement::new(
+            f.fold_boolean_expression(s.condition)?,
+            s.consequence
                 .into_iter()
                 .map(|s| f.fold_statement(s))
                 .collect::<Result<Vec<_>, _>>()?
                 .into_iter()
                 .flatten()
                 .collect(),
-            alternative
+            s.alternative
                 .into_iter()
                 .map(|s| f.fold_statement(s))
                 .collect::<Result<Vec<_>, _>>()?
                 .into_iter()
                 .flatten()
                 .collect(),
-        ),
-        ZirStatement::Assertion(s) => ZirStatement::Assertion(
-            AssertionStatement::new(f.fold_boolean_expression(s.expression)?, s.error).span(s.span),
-        ),
-        ZirStatement::MultipleDefinition(variables, elist) => ZirStatement::MultipleDefinition(
-            variables
+        )
+        .span(s.span),
+    )])
+}
+
+pub fn fold_assertion_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: AssertionStatement<'ast, T>,
+) -> Result<Vec<ZirStatement<'ast, T>>, F::Error> {
+    Ok(vec![ZirStatement::Assertion(
+        AssertionStatement::new(f.fold_boolean_expression(s.expression)?, s.error).span(s.span),
+    )])
+}
+
+pub fn fold_log_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: LogStatement<'ast, T>,
+) -> Result<Vec<ZirStatement<'ast, T>>, F::Error> {
+    let expressions = s
+        .expressions
+        .into_iter()
+        .map(|(t, e)| {
+            e.into_iter()
+                .map(|e| f.fold_expression(e))
+                .collect::<Result<Vec<_>, _>>()
+                .map(|e| (t, e))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(vec![ZirStatement::Log(LogStatement::new(
+        s.format_string,
+        expressions,
+    ))])
+}
+
+pub fn fold_multiple_definition_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: MultipleDefinitionStatement<'ast, T>,
+) -> Result<Vec<ZirStatement<'ast, T>>, F::Error> {
+    Ok(vec![ZirStatement::MultipleDefinition(
+        MultipleDefinitionStatement::new(
+            s.assignees
                 .into_iter()
                 .map(|v| f.fold_assignee(v))
                 .collect::<Result<_, _>>()?,
-            f.fold_expression_list(elist)?,
+            f.fold_expression_list(s.rhs)?,
         ),
-        ZirStatement::Log(l, e) => {
-            let e = e
-                .into_iter()
-                .map(|(t, e)| {
-                    e.into_iter()
-                        .map(|e| f.fold_expression(e))
-                        .collect::<Result<Vec<_>, _>>()
-                        .map(|e| (t, e))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-
-            ZirStatement::Log(l, e)
-        }
-    };
-    Ok(vec![res])
+    )])
 }
 
 pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
@@ -477,6 +566,7 @@ pub fn fold_program<'ast, T: Field, F: ResultFolder<'ast, T>>(
 ) -> Result<ZirProgram<'ast, T>, F::Error> {
     Ok(ZirProgram {
         main: f.fold_function(p.main)?,
+        ..p
     })
 }
 

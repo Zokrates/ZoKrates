@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::ops::{BitAnd, Shl, Shr};
+use std::ops::{BitAnd, Mul, Shl, Shr};
 use zokrates_ast::common::{FlatEmbed, Fold};
 use zokrates_ast::zir::folder::*;
 use zokrates_ast::zir::*;
@@ -402,41 +402,49 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         res
     }
 
-    fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
-        match s {
-            ZirStatement::Definition(s) => {
-                let e = self.fold_expression(s.rhs);
+    fn fold_return_statement(&mut self, s: ReturnStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
+        // we need to put back in range to return
+        vec![ZirStatement::ret(
+            s.inner
+                .into_iter()
+                .map(|e| match e {
+                    ZirExpression::Uint(e) => {
+                        let e = self.fold_uint_expression(e);
 
-                let e = match e {
-                    ZirExpression::Uint(i) => {
-                        let i = force_no_reduce(i);
-                        self.register(s.assignee.clone(), i.metadata.clone().unwrap());
-                        ZirExpression::Uint(i)
+                        let e = force_reduce(e);
+
+                        ZirExpression::Uint(e)
                     }
-                    e => e,
-                };
-                vec![ZirStatement::definition(s.assignee, e)]
+                    e => self.fold_expression(e),
+                })
+                .collect(),
+        )]
+    }
+
+    fn fold_definition_statement(
+        &mut self,
+        s: DefinitionStatement<'ast, T>,
+    ) -> Vec<ZirStatement<'ast, T>> {
+        let e = self.fold_expression(s.rhs);
+
+        let e = match e {
+            ZirExpression::Uint(i) => {
+                let i = force_no_reduce(i);
+                self.register(s.assignee.clone(), i.metadata.clone().unwrap());
+                ZirExpression::Uint(i)
             }
-            // we need to put back in range to return
-            ZirStatement::Return(s) => vec![ZirStatement::ret(
-                s.inner
-                    .into_iter()
-                    .map(|e| match e {
-                        ZirExpression::Uint(e) => {
-                            let e = self.fold_uint_expression(e);
+            e => e,
+        };
+        vec![ZirStatement::definition(s.assignee, e)]
+    }
 
-                            let e = force_reduce(e);
-
-                            ZirExpression::Uint(e)
-                        }
-                        e => self.fold_expression(e),
-                    })
-                    .collect(),
-            )],
-            ZirStatement::MultipleDefinition(
-                lhs,
-                ZirExpressionList::EmbedCall(embed, generics, arguments),
-            ) => {
+    fn fold_multiple_definition_statement(
+        &mut self,
+        s: MultipleDefinitionStatement<'ast, T>,
+    ) -> Vec<ZirStatement<'ast, T>> {
+        let lhs = s.assignees;
+        match s.rhs {
+            ZirExpressionList::EmbedCall(embed, generics, arguments) => {
                 match embed {
                     FlatEmbed::U64FromBits => {
                         assert_eq!(lhs.len(), 1);
@@ -487,39 +495,51 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     | FlatEmbed::U32ToBits
                     | FlatEmbed::U64ToBits => {
                         vec![ZirStatement::MultipleDefinition(
-                            lhs,
-                            ZirExpressionList::EmbedCall(
-                                embed,
-                                generics,
-                                arguments
-                                    .into_iter()
-                                    .map(|e| match e {
-                                        ZirExpression::Uint(e) => {
-                                            let e = self.fold_uint_expression(e);
-                                            let e = force_reduce(e);
-                                            ZirExpression::Uint(e)
-                                        }
-                                        e => self.fold_expression(e),
-                                    })
-                                    .collect(),
+                            MultipleDefinitionStatement::new(
+                                lhs,
+                                ZirExpressionList::EmbedCall(
+                                    embed,
+                                    generics,
+                                    arguments
+                                        .into_iter()
+                                        .map(|e| match e {
+                                            ZirExpression::Uint(e) => {
+                                                let e = self.fold_uint_expression(e);
+                                                let e = force_reduce(e);
+                                                ZirExpression::Uint(e)
+                                            }
+                                            e => self.fold_expression(e),
+                                        })
+                                        .collect(),
+                                ),
                             ),
                         )]
                     }
                     _ => {
                         vec![ZirStatement::MultipleDefinition(
-                            lhs,
-                            ZirExpressionList::EmbedCall(
-                                embed,
-                                generics,
-                                arguments
-                                    .into_iter()
-                                    .map(|e| self.fold_expression(e))
-                                    .collect(),
+                            MultipleDefinitionStatement::new(
+                                lhs,
+                                ZirExpressionList::EmbedCall(
+                                    embed,
+                                    generics,
+                                    arguments
+                                        .into_iter()
+                                        .map(|e| self.fold_expression(e))
+                                        .collect(),
+                                ),
                             ),
                         )]
                     }
                 }
             }
+            rhs => vec![ZirStatement::MultipleDefinition(
+                MultipleDefinitionStatement::new(lhs, self.fold_expression_list(rhs)),
+            )],
+        }
+    }
+
+    fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
+        match s {
             ZirStatement::Assertion(AssertionStatement {
                 error,
                 expression: BooleanExpression::UintEq(e),
@@ -537,9 +557,10 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     error,
                 )]
             }
-            ZirStatement::Log(l, e) => vec![ZirStatement::Log(
-                l,
-                e.into_iter()
+            ZirStatement::Log(s) => vec![ZirStatement::Log(LogStatement::new(
+                s.format_string,
+                s.expressions
+                    .into_iter()
                     .map(|(t, e)| {
                         (
                             t,
@@ -554,7 +575,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         )
                     })
                     .collect(),
-            )],
+            ))],
             s => fold_statement(self, s),
         }
     }

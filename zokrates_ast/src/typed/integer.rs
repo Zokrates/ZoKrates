@@ -21,7 +21,7 @@ use zokrates_field::Field;
 
 use crate::common::expressions::*;
 
-use super::ArrayValueExpression;
+use super::{ArrayValueExpression, RepeatExpression};
 
 type TypedExpressionPair<'ast, T> = (TypedExpression<'ast, T>, TypedExpression<'ast, T>);
 
@@ -749,16 +749,17 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
 
                 Ok(ArrayExpressionInner::Value(res).annotate(inner_ty, *array_ty.size))
             }
-            ArrayExpressionInner::Repeat(box e, box count) => {
+            ArrayExpressionInner::Repeat(r) => {
                 match &*target_array_ty.ty {
-                    GType::Int => Ok(ArrayExpressionInner::Repeat(box e, box count)
-                        .annotate(Type::Int, *array_ty.size)),
+                    GType::Int => {
+                        Ok(ArrayExpressionInner::Repeat(r).annotate(Type::Int, *array_ty.size))
+                    }
                     // try to align the repeated element to the target type
-                    t => TypedExpression::align_to_type(e, t)
+                    t => TypedExpression::align_to_type(*r.e, t)
                         .map(|e| {
                             let ty = e.get_type().clone();
 
-                            ArrayExpressionInner::Repeat(box e, box count)
+                            ArrayExpressionInner::Repeat(RepeatExpression::new(e, *r.count))
                                 .annotate(ty, *array_ty.size)
                         })
                         .map_err(|(e, _)| e),

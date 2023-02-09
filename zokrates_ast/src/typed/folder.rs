@@ -264,6 +264,39 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_statement(self, s)
     }
 
+    fn fold_statement_cases(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+        fold_statement_cases(self, s)
+    }
+
+    fn fold_definition_statement(
+        &mut self,
+        s: DefinitionStatement<'ast, T>,
+    ) -> Vec<TypedStatement<'ast, T>> {
+        fold_definition_statement(self, s)
+    }
+
+    fn fold_return_statement(
+        &mut self,
+        s: ReturnStatement<'ast, T>,
+    ) -> Vec<TypedStatement<'ast, T>> {
+        fold_return_statement(self, s)
+    }
+
+    fn fold_assertion_statement(
+        &mut self,
+        s: AssertionStatement<'ast, T>,
+    ) -> Vec<TypedStatement<'ast, T>> {
+        fold_assertion_statement(self, s)
+    }
+
+    fn fold_log_statement(&mut self, s: LogStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+        fold_log_statement(self, s)
+    }
+
+    fn fold_for_statement(&mut self, s: ForStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+        fold_for_statement(self, s)
+    }
+
     fn fold_definition_rhs(&mut self, rhs: DefinitionRhs<'ast, T>) -> DefinitionRhs<'ast, T> {
         fold_definition_rhs(self, rhs)
     }
@@ -302,7 +335,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
-    fn fold_module_id(&mut self, i: OwnedTypedModuleId) -> OwnedTypedModuleId {
+    fn fold_module_id(&mut self, i: OwnedModuleId) -> OwnedModuleId {
         i
     }
 
@@ -368,6 +401,17 @@ pub trait Folder<'ast, T: Field>: Sized {
         e: MemberExpression<'ast, T, E>,
     ) -> MemberOrExpression<'ast, T, E> {
         fold_member_expression(self, ty, e)
+    }
+
+    fn fold_slice_expression(&mut self, e: SliceExpression<'ast, T>) -> SliceOrExpression<'ast, T> {
+        fold_slice_expression(self, e)
+    }
+
+    fn fold_repeat_expression(
+        &mut self,
+        e: RepeatExpression<'ast, T>,
+    ) -> RepeatOrExpression<'ast, T> {
+        fold_repeat_expression(self, e)
     }
 
     fn fold_identifier_expression<
@@ -582,39 +626,85 @@ pub fn fold_definition_rhs<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
+pub fn fold_return_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: ReturnStatement<'ast, T>,
+) -> Vec<TypedStatement<'ast, T>> {
+    vec![TypedStatement::Return(ReturnStatement::new(
+        f.fold_expression(s.inner),
+    ))]
+}
+
+pub fn fold_definition_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: DefinitionStatement<'ast, T>,
+) -> Vec<TypedStatement<'ast, T>> {
+    vec![TypedStatement::Definition(
+        DefinitionStatement::new(f.fold_assignee(s.assignee), f.fold_definition_rhs(s.rhs))
+            .span(s.span),
+    )]
+}
+
+pub fn fold_assertion_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: AssertionStatement<'ast, T>,
+) -> Vec<TypedStatement<'ast, T>> {
+    vec![TypedStatement::Assertion(
+        AssertionStatement::new(f.fold_boolean_expression(s.expression), s.error).span(s.span),
+    )]
+}
+
+pub fn fold_for_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: ForStatement<'ast, T>,
+) -> Vec<TypedStatement<'ast, T>> {
+    vec![TypedStatement::For(ForStatement::new(
+        f.fold_variable(s.var),
+        f.fold_uint_expression(s.from),
+        f.fold_uint_expression(s.to),
+        s.statements
+            .into_iter()
+            .flat_map(|s| f.fold_statement(s))
+            .collect(),
+    ))]
+}
+
+pub fn fold_log_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: LogStatement<'ast, T>,
+) -> Vec<TypedStatement<'ast, T>> {
+    vec![TypedStatement::Log(LogStatement::new(
+        s.format_string,
+        s.expressions
+            .into_iter()
+            .map(|e| f.fold_expression(e))
+            .collect(),
+    ))]
+}
+
+pub fn fold_statement_cases<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: TypedStatement<'ast, T>,
+) -> Vec<TypedStatement<'ast, T>> {
+    match s {
+        TypedStatement::Return(s) => f.fold_return_statement(s),
+        TypedStatement::Definition(s) => f.fold_definition_statement(s),
+        TypedStatement::Assertion(s) => f.fold_assertion_statement(s),
+        TypedStatement::For(s) => f.fold_for_statement(s),
+        TypedStatement::Log(s) => f.fold_log_statement(s),
+        s => vec![s],
+    }
+}
+
 pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: TypedStatement<'ast, T>,
 ) -> Vec<TypedStatement<'ast, T>> {
-    let res = match s {
-        TypedStatement::Return(s) => {
-            TypedStatement::Return(ReturnStatement::new(f.fold_expression(s.inner)).span(s.span))
-        }
-        TypedStatement::Definition(s) => TypedStatement::Definition(
-            DefinitionStatement::new(f.fold_assignee(s.assignee), f.fold_definition_rhs(s.rhs))
-                .span(s.span),
-        ),
-        TypedStatement::Assertion(s) => TypedStatement::Assertion(
-            AssertionStatement::new(f.fold_boolean_expression(s.expression), s.error).span(s.span),
-        ),
-        TypedStatement::For(s) => TypedStatement::For(
-            ForStatement::new(
-                f.fold_variable(s.var),
-                f.fold_uint_expression(s.from),
-                f.fold_uint_expression(s.to),
-                s.statements
-                    .into_iter()
-                    .flat_map(|s| f.fold_statement(s))
-                    .collect(),
-            )
-            .span(s.span),
-        ),
-        TypedStatement::Log(s, e) => {
-            TypedStatement::Log(s, e.into_iter().map(|e| f.fold_expression(e)).collect())
-        }
-        s => s,
-    };
-    vec![res]
+    let span = s.get_span();
+    f.fold_statement_cases(s)
+        .into_iter()
+        .map(|s| s.span(span))
+        .collect()
 }
 
 pub fn fold_identifier_expression<
@@ -692,17 +782,14 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             MemberOrExpression::Member(m) => Member(m),
             MemberOrExpression::Expression(u) => u,
         },
-        Slice(box array, box from, box to) => {
-            let array = f.fold_array_expression(array);
-            let from = f.fold_uint_expression(from);
-            let to = f.fold_uint_expression(to);
-            Slice(box array, box from, box to)
-        }
-        Repeat(box e, box count) => {
-            let e = f.fold_expression(e);
-            let count = f.fold_uint_expression(count);
-            Repeat(box e, box count)
-        }
+        Slice(s) => match f.fold_slice_expression(s) {
+            SliceOrExpression::Slice(m) => Slice(m),
+            SliceOrExpression::Expression(u) => u,
+        },
+        Repeat(s) => match f.fold_repeat_expression(s) {
+            RepeatOrExpression::Repeat(m) => Repeat(m),
+            RepeatOrExpression::Expression(u) => u,
+        },
         Element(m) => match f.fold_element_expression(ty, m) {
             ElementOrExpression::Element(m) => Element(m),
             ElementOrExpression::Expression(u) => u,
@@ -926,6 +1013,20 @@ pub fn fold_member_expression<
     MemberOrExpression::Member(
         MemberExpression::new(f.fold_struct_expression(*e.struc), e.id).span(e.span),
     )
+}
+
+pub fn fold_slice_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: SliceExpression<'ast, T>,
+) -> SliceOrExpression<'ast, T> {
+    SliceOrExpression::Slice(SliceExpression::new(todo!(), todo!(), todo!()).span(e.span))
+}
+
+pub fn fold_repeat_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: RepeatExpression<'ast, T>,
+) -> RepeatOrExpression<'ast, T> {
+    RepeatOrExpression::Repeat(RepeatExpression::new(todo!(), todo!()).span(e.span))
 }
 
 pub fn fold_element_expression<
@@ -1420,5 +1521,6 @@ pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
             .map(|(module_id, module)| (f.fold_module_id(module_id), f.fold_module(module)))
             .collect(),
         main: f.fold_module_id(p.main),
+        ..p
     }
 }

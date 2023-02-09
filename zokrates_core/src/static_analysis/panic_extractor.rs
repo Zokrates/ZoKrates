@@ -3,8 +3,8 @@ use zokrates_ast::{
     common::{expressions::BinaryExpression, Fold},
     zir::{
         folder::*, BooleanExpression, Conditional, ConditionalExpression, ConditionalOrExpression,
-        Expr, FieldElementExpression, RuntimeError, UBitwidth, UExpression, UExpressionInner,
-        ZirProgram, ZirStatement,
+        Expr, FieldElementExpression, IfElseStatement, RuntimeError, UBitwidth, UExpression,
+        UExpressionInner, ZirProgram, ZirStatement,
     },
 };
 use zokrates_field::Field;
@@ -23,32 +23,39 @@ impl<'ast, T: Field> PanicExtractor<'ast, T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
+    fn fold_if_else_statement(
+        &mut self,
+        s: IfElseStatement<'ast, T>,
+    ) -> Vec<ZirStatement<'ast, T>> {
+        let condition = self.fold_boolean_expression(s.condition);
+        let mut consequence_extractor = Self::default();
+        let consequence = s
+            .consequence
+            .into_iter()
+            .flat_map(|s| consequence_extractor.fold_statement(s))
+            .collect();
+        assert!(consequence_extractor.panic_buffer.is_empty());
+        let mut alternative_extractor = Self::default();
+        let alternative = s
+            .alternative
+            .into_iter()
+            .flat_map(|s| alternative_extractor.fold_statement(s))
+            .collect();
+        assert!(alternative_extractor.panic_buffer.is_empty());
+
+        self.panic_buffer
+            .drain(..)
+            .chain(std::iter::once(ZirStatement::if_else(
+                condition,
+                consequence,
+                alternative,
+            )))
+            .collect()
+    }
+
     fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
         match s {
-            ZirStatement::IfElse(condition, consequence, alternative) => {
-                let condition = self.fold_boolean_expression(condition);
-                let mut consequence_extractor = Self::default();
-                let consequence = consequence
-                    .into_iter()
-                    .flat_map(|s| consequence_extractor.fold_statement(s))
-                    .collect();
-                assert!(consequence_extractor.panic_buffer.is_empty());
-                let mut alternative_extractor = Self::default();
-                let alternative = alternative
-                    .into_iter()
-                    .flat_map(|s| alternative_extractor.fold_statement(s))
-                    .collect();
-                assert!(alternative_extractor.panic_buffer.is_empty());
-
-                self.panic_buffer
-                    .drain(..)
-                    .chain(std::iter::once(ZirStatement::IfElse(
-                        condition,
-                        consequence,
-                        alternative,
-                    )))
-                    .collect()
-            }
+            ZirStatement::IfElse(s) => self.fold_if_else_statement(s),
             s => {
                 let s = fold_statement(self, s);
                 self.panic_buffer.drain(..).chain(s).collect()
@@ -94,11 +101,12 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
         let alternative_panics: Vec<_> = alternative_extractor.panic_buffer.drain(..).collect();
 
         if !(consequence_panics.is_empty() && alternative_panics.is_empty()) {
-            self.panic_buffer.push(ZirStatement::IfElse(
-                condition.clone(),
-                consequence_panics,
-                alternative_panics,
-            ));
+            self.panic_buffer
+                .push(ZirStatement::IfElse(IfElseStatement::new(
+                    condition.clone(),
+                    consequence_panics,
+                    alternative_panics,
+                )));
         }
 
         ConditionalOrExpression::Conditional(ConditionalExpression::new(

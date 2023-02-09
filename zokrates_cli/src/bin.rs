@@ -57,7 +57,9 @@ fn cli() -> Result<(), String> {
             generate_smtlib2::subcommand(),
             print_proof::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark"))]
-            verify::subcommand()])
+            verify::subcommand(),
+            profile::subcommand()
+        ])
         .get_matches();
 
     match matches.subcommand() {
@@ -78,6 +80,7 @@ fn cli() -> Result<(), String> {
         ("print-proof", Some(sub_matches)) => print_proof::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark"))]
         ("verify", Some(sub_matches)) => verify::exec(sub_matches),
+        ("profile", Some(sub_matches)) => profile::exec(sub_matches),
         _ => unreachable!(),
     }
 }

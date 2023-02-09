@@ -26,38 +26,56 @@ impl<'ast, T: Field> Folder<'ast, T> for DeadCodeEliminator<'ast> {
         ZirFunction { statements, ..f }
     }
 
-    fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
-        match s {
-            ZirStatement::Definition(s) => {
-                // if the lhs is used later in the program
-                if self.used.remove(&s.assignee.id) {
-                    // include this statement
-                    fold_statement(self, ZirStatement::Definition(s))
-                } else {
-                    // otherwise remove it
-                    vec![]
-                }
-            }
-            ZirStatement::IfElse(condition, consequence, alternative) => {
-                let condition = self.fold_boolean_expression(condition);
+    fn fold_if_else_statement(
+        &mut self,
+        s: zokrates_ast::zir::IfElseStatement<'ast, T>,
+    ) -> Vec<ZirStatement<'ast, T>> {
+        let condition = self.fold_boolean_expression(s.condition);
 
-                let mut consequence: Vec<_> = consequence
-                    .into_iter()
-                    .rev()
-                    .flat_map(|e| self.fold_statement(e))
-                    .collect();
-                consequence.reverse();
+        let mut consequence: Vec<_> = s
+            .consequence
+            .into_iter()
+            .rev()
+            .flat_map(|e| self.fold_statement(e))
+            .collect();
+        consequence.reverse();
 
-                let mut alternative: Vec<_> = alternative
-                    .into_iter()
-                    .rev()
-                    .flat_map(|e| self.fold_statement(e))
-                    .collect();
-                alternative.reverse();
+        let mut alternative: Vec<_> = s
+            .alternative
+            .into_iter()
+            .rev()
+            .flat_map(|e| self.fold_statement(e))
+            .collect();
+        alternative.reverse();
 
-                vec![ZirStatement::IfElse(condition, consequence, alternative)]
-            }
-            s => fold_statement(self, s),
+        vec![ZirStatement::if_else(condition, consequence, alternative)]
+    }
+
+    fn fold_multiple_definition_statement(
+        &mut self,
+        s: zokrates_ast::zir::MultipleDefinitionStatement<'ast, T>,
+    ) -> Vec<ZirStatement<'ast, T>> {
+        // if the lhs is used later in the program
+        if s.assignees.iter().any(|a| self.used.remove(&a.id)) {
+            // include this statement
+            fold_statement(self, ZirStatement::MultipleDefinition(s))
+        } else {
+            // otherwise remove it
+            vec![]
+        }
+    }
+
+    fn fold_definition_statement(
+        &mut self,
+        s: zokrates_ast::zir::DefinitionStatement<'ast, T>,
+    ) -> Vec<ZirStatement<'ast, T>> {
+        // if the lhs is used later in the program
+        if self.used.remove(&s.assignee.id) {
+            // include this statement
+            fold_statement(self, ZirStatement::Definition(s))
+        } else {
+            // otherwise remove it
+            vec![]
         }
     }
 

@@ -95,7 +95,7 @@ impl Importer {
         modules: &mut HashMap<OwnedModuleId, Module<'ast>>,
         arena: &'ast Arena<String>,
     ) -> Result<SymbolDeclarationNode<'ast>, CompileErrors> {
-        let span = import.span();
+        let span = import.span().in_module(location);
         let module_id = import.value.source;
         let symbol = import.value.id;
 

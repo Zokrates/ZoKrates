@@ -58,6 +58,42 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_statement(self, s)
     }
 
+    fn fold_definition_statement(
+        &mut self,
+        s: DefinitionStatement<'ast, T>,
+    ) -> Vec<ZirStatement<'ast, T>> {
+        fold_definition_statement(self, s)
+    }
+
+    fn fold_if_else_statement(
+        &mut self,
+        s: IfElseStatement<'ast, T>,
+    ) -> Vec<ZirStatement<'ast, T>> {
+        fold_if_else_statement(self, s)
+    }
+
+    fn fold_multiple_definition_statement(
+        &mut self,
+        s: MultipleDefinitionStatement<'ast, T>,
+    ) -> Vec<ZirStatement<'ast, T>> {
+        fold_multiple_definition_statement(self, s)
+    }
+
+    fn fold_assertion_statement(
+        &mut self,
+        s: AssertionStatement<'ast, T>,
+    ) -> Vec<ZirStatement<'ast, T>> {
+        fold_assertion_statement(self, s)
+    }
+
+    fn fold_return_statement(&mut self, s: ReturnStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
+        fold_return_statement(self, s)
+    }
+
+    fn fold_log_statement(&mut self, s: LogStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
+        fold_log_statement(self, s)
+    }
+
     fn fold_identifier_expression<E: Expr<'ast, T> + Id<'ast, T>>(
         &mut self,
         ty: &E::Ty,
@@ -152,47 +188,121 @@ pub trait Folder<'ast, T: Field>: Sized {
     ) -> UExpressionInner<'ast, T> {
         fold_uint_expression_inner(self, bitwidth, e)
     }
+
+    fn fold_field_expression_cases(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> FieldElementExpression<'ast, T> {
+        fold_field_expression_cases(self, e)
+    }
+
+    fn fold_boolean_expression_cases(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> BooleanExpression<'ast, T> {
+        fold_boolean_expression_cases(self, e)
+    }
+
+    fn fold_uint_expression_cases(
+        &mut self,
+        bitwidth: UBitwidth,
+        e: UExpressionInner<'ast, T>,
+    ) -> UExpressionInner<'ast, T> {
+        fold_uint_expression_cases(self, bitwidth, e)
+    }
 }
 
 pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: ZirStatement<'ast, T>,
 ) -> Vec<ZirStatement<'ast, T>> {
-    let res = match s {
-        ZirStatement::Return(s) => ZirStatement::Return(
-            ReturnStatement::new(s.inner.into_iter().map(|e| f.fold_expression(e)).collect())
-                .span(s.span),
-        ),
-        ZirStatement::Definition(s) => ZirStatement::Definition(
-            DefinitionStatement::new(f.fold_assignee(s.assignee), f.fold_expression(s.rhs))
-                .span(s.span),
-        ),
-        ZirStatement::IfElse(condition, consequence, alternative) => ZirStatement::IfElse(
-            f.fold_boolean_expression(condition),
-            consequence
+    let span = s.get_span();
+
+    match s {
+        ZirStatement::Return(s) => f.fold_return_statement(s),
+        ZirStatement::Definition(s) => f.fold_definition_statement(s),
+        ZirStatement::IfElse(s) => f.fold_if_else_statement(s),
+        ZirStatement::Assertion(s) => f.fold_assertion_statement(s),
+        ZirStatement::MultipleDefinition(s) => f.fold_multiple_definition_statement(s),
+        ZirStatement::Log(s) => f.fold_log_statement(s),
+    }
+    .into_iter()
+    .map(|s| s.span(span))
+    .collect()
+}
+
+pub fn fold_multiple_definition_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: MultipleDefinitionStatement<'ast, T>,
+) -> Vec<ZirStatement<'ast, T>> {
+    vec![ZirStatement::MultipleDefinition(
+        MultipleDefinitionStatement::new(
+            s.assignees
                 .into_iter()
-                .flat_map(|e| f.fold_statement(e))
+                .map(|v| f.fold_variable(v))
                 .collect(),
-            alternative
-                .into_iter()
-                .flat_map(|e| f.fold_statement(e))
-                .collect(),
+            f.fold_expression_list(s.rhs),
         ),
-        ZirStatement::Assertion(s) => ZirStatement::Assertion(
-            AssertionStatement::new(f.fold_boolean_expression(s.expression), s.error).span(s.span),
-        ),
-        ZirStatement::MultipleDefinition(variables, elist) => ZirStatement::MultipleDefinition(
-            variables.into_iter().map(|v| f.fold_variable(v)).collect(),
-            f.fold_expression_list(elist),
-        ),
-        ZirStatement::Log(l, e) => ZirStatement::Log(
-            l,
-            e.into_iter()
-                .map(|(t, e)| (t, e.into_iter().map(|e| f.fold_expression(e)).collect()))
-                .collect(),
-        ),
-    };
-    vec![res]
+    )]
+}
+
+pub fn fold_if_else_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: IfElseStatement<'ast, T>,
+) -> Vec<ZirStatement<'ast, T>> {
+    vec![ZirStatement::IfElse(IfElseStatement::new(
+        f.fold_boolean_expression(s.condition),
+        s.consequence
+            .into_iter()
+            .flat_map(|e| f.fold_statement(e))
+            .collect(),
+        s.alternative
+            .into_iter()
+            .flat_map(|e| f.fold_statement(e))
+            .collect(),
+    ))]
+}
+
+pub fn fold_definition_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: DefinitionStatement<'ast, T>,
+) -> Vec<ZirStatement<'ast, T>> {
+    vec![ZirStatement::Definition(DefinitionStatement::new(
+        f.fold_assignee(s.assignee),
+        f.fold_expression(s.rhs),
+    ))]
+}
+
+pub fn fold_assertion_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: AssertionStatement<'ast, T>,
+) -> Vec<ZirStatement<'ast, T>> {
+    vec![ZirStatement::Assertion(AssertionStatement::new(
+        f.fold_boolean_expression(s.expression),
+        s.error,
+    ))]
+}
+
+pub fn fold_return_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: ReturnStatement<'ast, T>,
+) -> Vec<ZirStatement<'ast, T>> {
+    vec![ZirStatement::Return(ReturnStatement::new(
+        s.inner.into_iter().map(|e| f.fold_expression(e)).collect(),
+    ))]
+}
+
+pub fn fold_log_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: LogStatement<'ast, T>,
+) -> Vec<ZirStatement<'ast, T>> {
+    vec![ZirStatement::Log(LogStatement::new(
+        s.format_string,
+        s.expressions
+            .into_iter()
+            .map(|(t, e)| (t, e.into_iter().map(|e| f.fold_expression(e)).collect()))
+            .collect(),
+    ))]
 }
 
 pub fn fold_identifier_expression<
@@ -209,6 +319,14 @@ pub fn fold_identifier_expression<
 }
 
 pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: FieldElementExpression<'ast, T>,
+) -> FieldElementExpression<'ast, T> {
+    let span = e.get_span();
+    f.fold_field_expression_cases(e).span(span)
+}
+
+pub fn fold_field_expression_cases<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: FieldElementExpression<'ast, T>,
 ) -> FieldElementExpression<'ast, T> {
@@ -256,6 +374,14 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
 }
 
 pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: BooleanExpression<'ast, T>,
+) -> BooleanExpression<'ast, T> {
+    let span = e.get_span();
+    f.fold_boolean_expression_cases(e).span(span)
+}
+
+pub fn fold_boolean_expression_cases<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: BooleanExpression<'ast, T>,
 ) -> BooleanExpression<'ast, T> {
@@ -331,6 +457,15 @@ pub fn fold_uint_expression<'ast, T: Field, F: Folder<'ast, T>>(
 }
 
 pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    ty: UBitwidth,
+    e: UExpressionInner<'ast, T>,
+) -> UExpressionInner<'ast, T> {
+    let span = e.get_span();
+    f.fold_uint_expression_cases(ty, e).span(span)
+}
+
+pub fn fold_uint_expression_cases<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     ty: UBitwidth,
     e: UExpressionInner<'ast, T>,
@@ -423,6 +558,7 @@ pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> ZirProgram<'ast, T> {
     ZirProgram {
         main: f.fold_function(p.main),
+        ..p
     }
 }
 

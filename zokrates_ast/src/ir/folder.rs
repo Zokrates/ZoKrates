@@ -1,7 +1,7 @@
 // Generic walk through an IR AST. Not mutating in place
 
 use super::*;
-use crate::common::{Variable, WithSpan};
+use crate::common::{flat::Variable, statements::DirectiveStatement, WithSpan};
 use zokrates_field::Field;
 
 pub trait Folder<T: Field>: Sized {
@@ -19,6 +19,18 @@ pub trait Folder<T: Field>: Sized {
 
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
         fold_statement(self, s)
+    }
+
+    fn fold_constraint_statement(&mut self, s: ConstraintStatement<T>) -> Vec<Statement<T>> {
+        fold_constraint_statement(self, s)
+    }
+
+    fn fold_directive_statement(&mut self, s: Directive<T>) -> Vec<Statement<T>> {
+        fold_directive_statement(self, s)
+    }
+
+    fn fold_log_statement(&mut self, s: LogStatement<T>) -> Vec<Statement<T>> {
+        fold_log_statement(self, s)
     }
 
     fn fold_linear_combination(&mut self, e: LinComb<T>) -> LinComb<T> {
@@ -46,31 +58,53 @@ pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
             .into_iter()
             .flat_map(|s| f.fold_statement(s))
             .collect(),
-        return_count: p.return_count,
+        ..p
     }
+}
+
+pub fn fold_constraint_statement<T: Field, F: Folder<T>>(
+    f: &mut F,
+    s: ConstraintStatement<T>,
+) -> Vec<Statement<T>> {
+    vec![Statement::constraint(
+        f.fold_quadratic_combination(s.quad),
+        f.fold_linear_combination(s.lin),
+        s.error,
+    )]
+}
+
+pub fn fold_directive_statement<T: Field, F: Folder<T>>(
+    f: &mut F,
+    s: Directive<T>,
+) -> Vec<Statement<T>> {
+    vec![Statement::Directive(f.fold_directive(s))]
+}
+
+pub fn fold_log_statement<T: Field, F: Folder<T>>(
+    f: &mut F,
+    s: LogStatement<T>,
+) -> Vec<Statement<T>> {
+    vec![Statement::log(
+        s.format_string,
+        s.expressions
+            .into_iter()
+            .map(|(t, e)| {
+                (
+                    t,
+                    e.into_iter()
+                        .map(|e| f.fold_linear_combination(e))
+                        .collect(),
+                )
+            })
+            .collect(),
+    )]
 }
 
 pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec<Statement<T>> {
     match s {
-        Statement::Constraint(quad, lin, message) => vec![Statement::Constraint(
-            f.fold_quadratic_combination(quad),
-            f.fold_linear_combination(lin),
-            message,
-        )],
-        Statement::Directive(dir) => vec![Statement::Directive(f.fold_directive(dir))],
-        Statement::Log(l, e) => vec![Statement::Log(
-            l,
-            e.into_iter()
-                .map(|(t, e)| {
-                    (
-                        t,
-                        e.into_iter()
-                            .map(|e| f.fold_linear_combination(e))
-                            .collect(),
-                    )
-                })
-                .collect(),
-        )],
+        Statement::Constraint(s) => f.fold_constraint_statement(s),
+        Statement::Directive(s) => f.fold_directive_statement(s),
+        Statement::Log(s) => f.fold_log_statement(s),
     }
 }
 

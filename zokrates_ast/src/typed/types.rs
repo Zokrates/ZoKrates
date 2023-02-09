@@ -1,6 +1,6 @@
 use crate::common::expressions::ValueExpression;
 use crate::typed::{
-    CoreIdentifier, Identifier, OwnedTypedModuleId, TypedExpression, UExpression, UExpressionInner,
+    CoreIdentifier, Identifier, OwnedModuleId, TypedExpression, UExpression, UExpressionInner,
 };
 use crate::typed::{TryFrom, TryInto};
 use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
@@ -123,7 +123,7 @@ pub type ConstantIdentifier<'ast> = &'ast str;
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 pub struct CanonicalConstantIdentifier<'ast> {
-    pub module: OwnedTypedModuleId,
+    pub module: OwnedModuleId,
     pub id: ConstantIdentifier<'ast>,
 }
 
@@ -134,7 +134,7 @@ impl<'ast> fmt::Display for CanonicalConstantIdentifier<'ast> {
 }
 
 impl<'ast> CanonicalConstantIdentifier<'ast> {
-    pub fn new(id: ConstantIdentifier<'ast>, module: OwnedTypedModuleId) -> Self {
+    pub fn new(id: ConstantIdentifier<'ast>, module: OwnedModuleId) -> Self {
         CanonicalConstantIdentifier { module, id }
     }
 }
@@ -964,7 +964,7 @@ pub type FunctionIdentifier<'ast> = &'ast str;
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, PartialOrd, Ord)]
 pub struct GFunctionKey<'ast, S> {
-    pub module: OwnedTypedModuleId,
+    pub module: OwnedModuleId,
     pub id: FunctionIdentifier<'ast>,
     pub signature: GSignature<S>,
 }
@@ -1042,7 +1042,7 @@ impl<'ast, T> From<ConcreteFunctionKey<'ast>> for DeclarationFunctionKey<'ast, T
 }
 
 impl<'ast, S> GFunctionKey<'ast, S> {
-    pub fn with_location<T: Into<OwnedTypedModuleId>, U: Into<FunctionIdentifier<'ast>>>(
+    pub fn with_location<T: Into<OwnedModuleId>, U: Into<FunctionIdentifier<'ast>>>(
         module: T,
         id: U,
     ) -> Self {
@@ -1063,7 +1063,7 @@ impl<'ast, S> GFunctionKey<'ast, S> {
         self
     }
 
-    pub fn module<T: Into<OwnedTypedModuleId>>(mut self, module: T) -> Self {
+    pub fn module<T: Into<OwnedModuleId>>(mut self, module: T) -> Self {
         self.module = module.into();
         self
     }

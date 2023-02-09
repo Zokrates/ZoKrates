@@ -3,7 +3,8 @@
 use super::*;
 use crate::common::{
     expressions::{BinaryOrExpression, IdentifierOrExpression},
-    Fold, Variable, WithSpan,
+    flat::Variable,
+    Fold, WithSpan,
 };
 use zokrates_field::Field;
 
@@ -64,7 +65,7 @@ pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: FlatProg<T>) -> FlatPr
             .into_iter()
             .flat_map(|s| f.fold_statement(s))
             .collect(),
-        return_count: p.return_count,
+        ..p
     }
 }
 
@@ -82,9 +83,10 @@ pub fn fold_statement<T: Field, F: Folder<T>>(
             f.fold_expression(s.rhs),
         )],
         FlatStatement::Directive(d) => vec![FlatStatement::Directive(f.fold_directive(d))],
-        FlatStatement::Log(s, e) => vec![FlatStatement::Log(
-            s,
-            e.into_iter()
+        FlatStatement::Log(s) => vec![FlatStatement::log(
+            s.format_string,
+            s.expressions
+                .into_iter()
                 .map(|(t, e)| (t, e.into_iter().map(|e| f.fold_expression(e)).collect()))
                 .collect(),
         )],

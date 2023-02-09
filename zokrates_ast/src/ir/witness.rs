@@ -1,4 +1,4 @@
-use crate::common::Variable;
+use crate::common::flat::Variable;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::io;

@@ -1,5 +1,5 @@
 use super::Witness;
-use crate::common::{Span, Variable, WithSpan};
+use crate::common::{flat::Variable, Span, WithSpan};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::{BTreeMap, Entry};

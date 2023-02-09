@@ -52,16 +52,16 @@ impl Interpreter {
 
         for statement in program.statements.into_iter() {
             match statement {
-                Statement::Constraint(quad, lin, error) => match lin.is_assignee(&witness) {
+                Statement::Constraint(s) => match s.lin.is_assignee(&witness) {
                     true => {
-                        let val = evaluate_quad(&witness, &quad).unwrap();
-                        witness.insert(lin.value.get(0).unwrap().0, val);
+                        let val = evaluate_quad(&witness, &s.quad).unwrap();
+                        witness.insert(s.lin.value.get(0).unwrap().0, val);
                     }
                     false => {
-                        let lhs_value = evaluate_quad(&witness, &quad).unwrap();
-                        let rhs_value = evaluate_lin(&witness, &lin).unwrap();
+                        let lhs_value = evaluate_quad(&witness, &s.quad).unwrap();
+                        let rhs_value = evaluate_lin(&witness, &s.lin).unwrap();
                         if lhs_value != rhs_value {
-                            return Err(Error::UnsatisfiedConstraint { error });
+                            return Err(Error::UnsatisfiedConstraint { error: s.error });
                         }
                     }
                 },
@@ -87,13 +87,13 @@ impl Interpreter {
                         witness.insert(*o, res[i].clone());
                     }
                 }
-                Statement::Log(l, expressions) => {
-                    let mut parts = l.parts.into_iter();
+                Statement::Log(s) => {
+                    let mut parts = s.format_string.parts.into_iter();
 
                     write!(log_stream, "{}", parts.next().unwrap())
                         .map_err(|_| Error::LogStream)?;
 
-                    for ((t, e), part) in expressions.into_iter().zip(parts) {
+                    for ((t, e), part) in s.expressions.into_iter().zip(parts) {
                         let values: Vec<_> = e
                             .iter()
                             .map(|e| evaluate_lin(&witness, e).unwrap())

@@ -130,6 +130,8 @@ impl<'de, R: Read>
                 r.read_exact(&mut curve)
                     .map_err(|_| String::from("Cannot read curve identifier"))?;
 
+                let module_map = unimplemented!();
+
                 use serde::de::Deserializer;
                 let mut p = serde_cbor::Deserializer::from_reader(r);
 
@@ -195,6 +197,7 @@ impl<'de, R: Read>
                             arguments,
                             UnwrappedStreamDeserializer { s },
                             return_count,
+                            module_map,
                         )))
                     }
                     m if m == Bn128Field::id() => {
@@ -204,6 +207,7 @@ impl<'de, R: Read>
                             arguments,
                             UnwrappedStreamDeserializer { s },
                             return_count,
+                            module_map,
                         )))
                     }
                     m if m == Bls12_377Field::id() => {
@@ -213,6 +217,7 @@ impl<'de, R: Read>
                             arguments,
                             UnwrappedStreamDeserializer { s },
                             return_count,
+                            module_map,
                         )))
                     }
                     m if m == Bw6_761Field::id() => {
@@ -222,6 +227,7 @@ impl<'de, R: Read>
                             arguments,
                             UnwrappedStreamDeserializer { s },
                             return_count,
+                            module_map,
                         )))
                     }
                     _ => Err(String::from("Unknown curve identifier")),

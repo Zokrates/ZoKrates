@@ -32,7 +32,8 @@ use crate::common::expressions::{
     self, BinaryExpression, BooleanValueExpression, FieldValueExpression, UnaryExpression,
     ValueExpression,
 };
-use crate::common::{self, Span, Value, WithSpan};
+use crate::common::{self, ModuleMap, Span, Value, WithSpan};
+pub use crate::common::{ModuleId, OwnedModuleId};
 use crate::typed::types::{ConcreteGenericsAssignment, IntoType};
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
@@ -60,12 +61,8 @@ use crate::typed::abi::{Abi, AbiInput};
 
 pub use self::identifier::Identifier;
 
-/// An identifier for a `TypedModule`. Typically a path or uri.
-pub type OwnedTypedModuleId = PathBuf;
-pub type TypedModuleId = Path;
-
 /// A collection of `TypedModule`s
-pub type TypedModules<'ast, T> = BTreeMap<OwnedTypedModuleId, TypedModule<'ast, T>>;
+pub type TypedModules<'ast, T> = BTreeMap<OwnedModuleId, TypedModule<'ast, T>>;
 
 /// A collection of `TypedFunctionSymbol`s
 /// # Remarks
@@ -88,10 +85,11 @@ pub type TypedConstantSymbols<'ast, T> = Vec<(
 )>;
 
 /// A typed program as a collection of modules, one of them being the main
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Default)]
 pub struct TypedProgram<'ast, T> {
+    pub module_map: ModuleMap,
     pub modules: TypedModules<'ast, T>,
-    pub main: OwnedTypedModuleId,
+    pub main: OwnedModuleId,
 }
 
 pub type IdentifierOrExpression<'ast, T, E> =
@@ -687,15 +685,17 @@ impl<'ast, T: fmt::Display> fmt::Display for DefinitionRhs<'ast, T> {
 }
 
 pub type DefinitionStatement<'ast, T> =
-    common::expressions::DefinitionStatement<TypedAssignee<'ast, T>, DefinitionRhs<'ast, T>>;
+    common::statements::DefinitionStatement<TypedAssignee<'ast, T>, DefinitionRhs<'ast, T>>;
 pub type AssertionStatement<'ast, T> =
-    common::expressions::AssertionStatement<BooleanExpression<'ast, T>, RuntimeError>;
-pub type ReturnStatement<'ast, T> = common::expressions::ReturnStatement<TypedExpression<'ast, T>>;
+    common::statements::AssertionStatement<BooleanExpression<'ast, T>, RuntimeError>;
+pub type ReturnStatement<'ast, T> = common::statements::ReturnStatement<TypedExpression<'ast, T>>;
+pub type LogStatement<'ast, T> = common::statements::LogStatement<TypedExpression<'ast, T>>;
 
 #[derive(Derivative)]
 #[derivative(PartialOrd, PartialEq, Hash)]
 #[derive(Clone, Debug, Eq, Ord)]
 pub struct ForStatement<'ast, T> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub var: Variable<'ast, T>,
     pub from: UExpression<'ast, T>,
@@ -738,7 +738,7 @@ pub enum TypedStatement<'ast, T> {
     Definition(DefinitionStatement<'ast, T>),
     Assertion(AssertionStatement<'ast, T>),
     For(ForStatement<'ast, T>),
-    Log(FormatString, Vec<TypedExpression<'ast, T>>),
+    Log(LogStatement<'ast, T>),
     // Aux
     PushCallLog(
         DeclarationFunctionKey<'ast, T>,
@@ -756,9 +756,8 @@ impl<'ast, T> WithSpan for TypedStatement<'ast, T> {
             Definition(e) => Definition(e.span(span)),
             Assertion(e) => Assertion(e.span(span)),
             For(e) => For(e.span(span)),
-            Log(_, _) => todo!(),
-            PushCallLog(_, _) => todo!(),
-            PopCallLog => todo!(),
+            Log(e) => Log(e.span(span)),
+            s @ PushCallLog(_, _) | s @ PopCallLog => s,
         }
     }
 
@@ -770,9 +769,8 @@ impl<'ast, T> WithSpan for TypedStatement<'ast, T> {
             Definition(e) => e.get_span(),
             Assertion(e) => e.get_span(),
             For(e) => e.get_span(),
-            Log(_, _) => todo!(),
-            PushCallLog(_, _) => todo!(),
-            PopCallLog => todo!(),
+            Log(e) => e.get_span(),
+            PushCallLog(_, _) | PopCallLog => None,
         }
     }
 }
@@ -802,10 +800,23 @@ impl<'ast, T> TypedStatement<'ast, T> {
     pub fn embed_call_definition(a: TypedAssignee<'ast, T>, c: EmbedCall<'ast, T>) -> Self {
         Self::Definition(DefinitionStatement::new(a, c.into()))
     }
+
+    pub fn log(format_string: FormatString, expressions: Vec<TypedExpression<'ast, T>>) -> Self {
+        Self::Log(LogStatement::new(format_string, expressions))
+    }
 }
 
 impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
     fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
+        let span = self.get_span();
+
+        write!(
+            f,
+            "/* {} : */ ",
+            span.map(|span| span.to_string())
+                .unwrap_or("NONE".to_string())
+        )?;
+
         match self {
             TypedStatement::For(s) => {
                 write!(f, "{}", "\t".repeat(depth))?;
@@ -845,16 +856,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                 }
                 write!(f, "\t}}")
             }
-            TypedStatement::Log(ref l, ref expressions) => write!(
-                f,
-                "log({}, {})",
-                l,
-                expressions
-                    .iter()
-                    .map(|e| e.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            TypedStatement::Log(ref s) => write!(f, "{}", s),
             TypedStatement::PushCallLog(ref key, ref generics) => write!(
                 f,
                 "// PUSH CALL TO {}/{}::<{}>",
@@ -1047,6 +1049,84 @@ impl<'ast, T, E> BlockExpression<'ast, T, E> {
             statements,
             value: box value,
         }
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
+pub struct SliceExpression<'ast, T> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
+    pub span: Option<Span>,
+    pub array: Box<ArrayExpression<'ast, T>>,
+    pub from: Box<UExpression<'ast, T>>,
+    pub to: Box<UExpression<'ast, T>>,
+}
+
+impl<'ast, T> SliceExpression<'ast, T> {
+    pub fn new(
+        array: ArrayExpression<'ast, T>,
+        from: UExpression<'ast, T>,
+        to: UExpression<'ast, T>,
+    ) -> Self {
+        SliceExpression {
+            span: None,
+            array: Box::new(array),
+            from: Box::new(from),
+            to: Box::new(to),
+        }
+    }
+}
+
+impl<'ast, T> WithSpan for SliceExpression<'ast, T> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self { span, ..self }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for SliceExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}[{}..{}]", self.array, self.from, self.to)
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, Ord)]
+pub struct RepeatExpression<'ast, T> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
+    pub span: Option<Span>,
+    pub count: Box<UExpression<'ast, T>>,
+    pub e: Box<TypedExpression<'ast, T>>,
+}
+
+impl<'ast, T> RepeatExpression<'ast, T> {
+    pub fn new(e: TypedExpression<'ast, T>, count: UExpression<'ast, T>) -> Self {
+        RepeatExpression {
+            span: None,
+            e: Box::new(e),
+            count: Box::new(count),
+        }
+    }
+}
+
+impl<'ast, T> WithSpan for RepeatExpression<'ast, T> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self { span, ..self }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for RepeatExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}; {}]", self.e, self.count)
     }
 }
 
@@ -1550,12 +1630,8 @@ pub enum ArrayExpressionInner<'ast, T> {
     Member(MemberExpression<'ast, T, ArrayExpression<'ast, T>>),
     Select(SelectExpression<'ast, T, ArrayExpression<'ast, T>>),
     Element(ElementExpression<'ast, T, ArrayExpression<'ast, T>>),
-    Slice(
-        Box<ArrayExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
-    ),
-    Repeat(Box<TypedExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Slice(SliceExpression<'ast, T>),
+    Repeat(RepeatExpression<'ast, T>),
 }
 
 impl<'ast, T> ArrayExpressionInner<'ast, T> {
@@ -1949,12 +2025,8 @@ impl<'ast, T: fmt::Display> fmt::Display for ArrayExpressionInner<'ast, T> {
             ArrayExpressionInner::Conditional(ref c) => write!(f, "{}", c),
             ArrayExpressionInner::Member(ref m) => write!(f, "{}", m),
             ArrayExpressionInner::Select(ref select) => write!(f, "{}", select),
-            ArrayExpressionInner::Slice(ref a, ref from, ref to) => {
-                write!(f, "{}[{}..{}]", a, from, to)
-            }
-            ArrayExpressionInner::Repeat(ref e, ref count) => {
-                write!(f, "[{}; {}]", e, count)
-            }
+            ArrayExpressionInner::Slice(ref e) => write!(f, "{}", e),
+            ArrayExpressionInner::Repeat(ref e) => write!(f, "{}", e),
             ArrayExpressionInner::Element(ref element) => write!(f, "{}", element),
         }
     }
@@ -2063,7 +2135,20 @@ impl<'ast, T> WithSpan for BooleanExpression<'ast, T> {
             FunctionCall(e) => FunctionCall(e.span(span)),
             Member(e) => Member(e.span(span)),
             Element(e) => Element(e.span(span)),
-            e => e,
+            Value(e) => Value(e.span(span)),
+            FieldLt(e) => FieldLt(e.span(span)),
+            FieldLe(e) => FieldLe(e.span(span)),
+            UintLt(e) => UintLt(e.span(span)),
+            UintLe(e) => UintLe(e.span(span)),
+            FieldEq(e) => FieldEq(e.span(span)),
+            BoolEq(e) => BoolEq(e.span(span)),
+            ArrayEq(e) => ArrayEq(e.span(span)),
+            StructEq(e) => StructEq(e.span(span)),
+            TupleEq(e) => TupleEq(e.span(span)),
+            UintEq(e) => UintEq(e.span(span)),
+            Or(e) => Or(e.span(span)),
+            And(e) => And(e.span(span)),
+            Not(e) => Not(e.span(span)),
         }
     }
 
@@ -2077,7 +2162,20 @@ impl<'ast, T> WithSpan for BooleanExpression<'ast, T> {
             FunctionCall(e) => e.get_span(),
             Member(e) => e.get_span(),
             Element(e) => e.get_span(),
-            _e => unimplemented!(),
+            Value(e) => e.get_span(),
+            FieldLt(e) => e.get_span(),
+            FieldLe(e) => e.get_span(),
+            UintLt(e) => e.get_span(),
+            UintLe(e) => e.get_span(),
+            FieldEq(e) => e.get_span(),
+            BoolEq(e) => e.get_span(),
+            ArrayEq(e) => e.get_span(),
+            StructEq(e) => e.get_span(),
+            TupleEq(e) => e.get_span(),
+            UintEq(e) => e.get_span(),
+            Or(e) => e.get_span(),
+            And(e) => e.get_span(),
+            Not(e) => e.get_span(),
         }
     }
 }
@@ -2152,7 +2250,8 @@ impl<'ast, T> WithSpan for ArrayExpressionInner<'ast, T> {
             Member(e) => Member(e.span(span)),
             Element(e) => Element(e.span(span)),
             Value(e) => Value(e.span(span)),
-            _e => unimplemented!(),
+            Slice(e) => Slice(e.span(span)),
+            Repeat(e) => Repeat(e.span(span)),
         }
     }
 
@@ -2167,7 +2266,8 @@ impl<'ast, T> WithSpan for ArrayExpressionInner<'ast, T> {
             Member(e) => e.get_span(),
             Element(e) => e.get_span(),
             Value(e) => e.get_span(),
-            _e => unimplemented!(),
+            Slice(e) => e.get_span(),
+            Repeat(e) => e.get_span(),
         }
     }
 }
@@ -2238,7 +2338,21 @@ impl<'ast, T> WithSpan for IntExpression<'ast, T> {
         match self {
             Conditional(e) => Conditional(e.span(span)),
             Select(e) => Select(e.span(span)),
-            e => e,
+            Value(e) => Value(e.span(span)),
+            Pos(e) => Pos(e.span(span)),
+            Neg(e) => Neg(e.span(span)),
+            Not(e) => Not(e.span(span)),
+            Add(e) => Add(e.span(span)),
+            Sub(e) => Sub(e.span(span)),
+            Mult(e) => Mult(e.span(span)),
+            Div(e) => Div(e.span(span)),
+            Rem(e) => Rem(e.span(span)),
+            Pow(e) => Pow(e.span(span)),
+            Xor(e) => Xor(e.span(span)),
+            And(e) => And(e.span(span)),
+            Or(e) => Or(e.span(span)),
+            LeftShift(e) => LeftShift(e.span(span)),
+            RightShift(e) => RightShift(e.span(span)),
         }
     }
 
@@ -2247,7 +2361,21 @@ impl<'ast, T> WithSpan for IntExpression<'ast, T> {
         match self {
             Conditional(e) => e.get_span(),
             Select(e) => e.get_span(),
-            _e => unimplemented!(),
+            Value(e) => e.get_span(),
+            Pos(e) => e.get_span(),
+            Neg(e) => e.get_span(),
+            Not(e) => e.get_span(),
+            Add(e) => e.get_span(),
+            Sub(e) => e.get_span(),
+            Mult(e) => e.get_span(),
+            Div(e) => e.get_span(),
+            Rem(e) => e.get_span(),
+            Pow(e) => e.get_span(),
+            Xor(e) => e.get_span(),
+            And(e) => e.get_span(),
+            Or(e) => e.get_span(),
+            LeftShift(e) => e.get_span(),
+            RightShift(e) => e.get_span(),
         }
     }
 }
@@ -2630,6 +2758,16 @@ pub enum SelectOrExpression<'ast, T, E: Expr<'ast, T>> {
 pub enum MemberOrExpression<'ast, T, E: Expr<'ast, T>> {
     Member(MemberExpression<'ast, T, E>),
     Expression(E::Inner),
+}
+
+pub enum RepeatOrExpression<'ast, T> {
+    Repeat(RepeatExpression<'ast, T>),
+    Expression(ArrayExpressionInner<'ast, T>),
+}
+
+pub enum SliceOrExpression<'ast, T> {
+    Slice(SliceExpression<'ast, T>),
+    Expression(ArrayExpressionInner<'ast, T>),
 }
 
 pub enum ElementOrExpression<'ast, T, E: Expr<'ast, T>> {
@@ -3192,12 +3330,10 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                 TypedExpressionOrSpread::Expression(e) => e.is_constant(),
                 TypedExpressionOrSpread::Spread(s) => s.array.is_constant(),
             }),
-            ArrayExpressionInner::Slice(box a, box from, box to) => {
-                from.is_constant() && to.is_constant() && a.is_constant()
+            ArrayExpressionInner::Slice(e) => {
+                e.from.is_constant() && e.to.is_constant() && e.array.is_constant()
             }
-            ArrayExpressionInner::Repeat(box e, box count) => {
-                count.is_constant() && e.is_constant()
-            }
+            ArrayExpressionInner::Repeat(e) => e.count.is_constant() && e.e.is_constant(),
             _ => false,
         }
     }
@@ -3213,18 +3349,18 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                         .into_iter()
                         .flat_map(into_canonical_constant_aux)
                         .collect(),
-                    ArrayExpressionInner::Slice(box v, box from, box to) => {
-                        let from = match from.into_inner() {
+                    ArrayExpressionInner::Slice(e) => {
+                        let from = match e.from.into_inner() {
                             UExpressionInner::Value(v) => v,
                             _ => unreachable!(),
                         };
 
-                        let to = match to.into_inner() {
+                        let to = match e.to.into_inner() {
                             UExpressionInner::Value(v) => v,
                             _ => unreachable!(),
                         };
 
-                        let v = match v.into_inner() {
+                        let v = match e.array.into_inner() {
                             ArrayExpressionInner::Value(v) => v,
                             _ => unreachable!(),
                         };
@@ -3235,13 +3371,13 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                             .take(to.value as usize - from.value as usize)
                             .collect()
                     }
-                    ArrayExpressionInner::Repeat(box e, box count) => {
-                        let count = match count.into_inner() {
+                    ArrayExpressionInner::Repeat(e) => {
+                        let count = match e.count.into_inner() {
                             UExpressionInner::Value(count) => count,
                             _ => unreachable!(),
                         };
 
-                        vec![e; count.value as usize]
+                        vec![*e.e; count.value as usize]
                     }
                     a => unreachable!("{}", a),
                 },
@@ -3258,18 +3394,18 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                     .collect::<Vec<_>>(),
             )
             .annotate(*array_ty.ty, *array_ty.size),
-            ArrayExpressionInner::Slice(box a, box from, box to) => {
-                let from = match from.into_inner() {
+            ArrayExpressionInner::Slice(e) => {
+                let from = match e.from.into_inner() {
                     UExpressionInner::Value(from) => from.value as usize,
                     _ => unreachable!("should be a uint value"),
                 };
 
-                let to = match to.into_inner() {
+                let to = match e.to.into_inner() {
                     UExpressionInner::Value(to) => to.value as usize,
                     _ => unreachable!("should be a uint value"),
                 };
 
-                let v = match a.into_inner() {
+                let v = match e.array.into_inner() {
                     ArrayExpressionInner::Value(v) => v,
                     _ => unreachable!("should be an array value"),
                 };
@@ -3284,13 +3420,13 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                 )
                 .annotate(*array_ty.ty, *array_ty.size)
             }
-            ArrayExpressionInner::Repeat(box e, box count) => {
-                let count = match count.into_inner() {
+            ArrayExpressionInner::Repeat(e) => {
+                let count = match e.count.into_inner() {
                     UExpressionInner::Value(from) => from.value as usize,
                     _ => unreachable!("should be a uint value"),
                 };
 
-                let e = e.into_canonical_constant();
+                let e = e.e.into_canonical_constant();
 
                 ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(e); count])
                     .annotate(*array_ty.ty, *array_ty.size)

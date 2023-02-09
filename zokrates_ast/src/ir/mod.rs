@@ -1,4 +1,4 @@
-use crate::common::FormatString;
+use crate::common::{FormatString, ModuleMap, Span, WithSpan};
 use crate::typed::ConcreteType;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
@@ -19,34 +19,91 @@ mod witness;
 pub use self::expression::QuadComb;
 pub use self::expression::{CanonicalLinComb, LinComb};
 pub use self::serialize::ProgEnum;
-pub use crate::common::Parameter;
+pub use crate::common::flat::Parameter;
+pub use crate::common::flat::Variable;
 pub use crate::common::RuntimeError;
 pub use crate::common::Solver;
-pub use crate::common::Variable;
 
 pub use self::witness::Witness;
+
+pub type LogStatement<T> = crate::common::statements::LogStatement<(ConcreteType, Vec<LinComb<T>>)>;
+
+#[derive(Derivative, Clone, Debug, Serialize, Deserialize)]
+#[derivative(Hash, PartialEq, Eq)]
+pub struct ConstraintStatement<T> {
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    pub span: Option<Span>,
+    pub quad: QuadComb<T>,
+    pub lin: LinComb<T>,
+    #[derivative(Hash = "ignore")]
+    pub error: Option<RuntimeError>,
+}
+
+impl<T> ConstraintStatement<T> {
+    pub fn new(quad: QuadComb<T>, lin: LinComb<T>, error: Option<RuntimeError>) -> Self {
+        Self {
+            span: None,
+            quad,
+            lin,
+            error,
+        }
+    }
+}
+
+impl<T> WithSpan for ConstraintStatement<T> {
+    fn span(mut self, span: Option<Span>) -> Self {
+        self.span = span;
+        self
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+impl<T: Field> fmt::Display for ConstraintStatement<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} == {}{}",
+            self.quad,
+            self.lin,
+            self.error
+                .as_ref()
+                .map(|e| format!(" // {}", e))
+                .unwrap_or_else(|| "".to_string())
+        )
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Derivative)]
 #[derivative(Hash, PartialEq, Eq)]
 pub enum Statement<T> {
-    Constraint(
-        QuadComb<T>,
-        LinComb<T>,
-        #[derivative(Hash = "ignore")] Option<RuntimeError>,
-    ),
+    Constraint(ConstraintStatement<T>),
     Directive(Directive<T>),
-    Log(FormatString, Vec<(ConcreteType, Vec<LinComb<T>>)>),
+    Log(LogStatement<T>),
 }
 
 pub type PublicInputs = BTreeSet<Variable>;
 
 impl<T: Field> Statement<T> {
     pub fn definition<U: Into<QuadComb<T>>>(v: Variable, e: U) -> Self {
-        Statement::Constraint(e.into(), v.into(), None)
+        Statement::constraint(e, v, None)
     }
 
-    pub fn constraint<U: Into<QuadComb<T>>, V: Into<LinComb<T>>>(quad: U, lin: V) -> Self {
-        Statement::Constraint(quad.into(), lin.into(), None)
+    pub fn constraint<U: Into<QuadComb<T>>, V: Into<LinComb<T>>>(
+        quad: U,
+        lin: V,
+        error: Option<RuntimeError>,
+    ) -> Self {
+        Statement::Constraint(ConstraintStatement::new(quad.into(), lin.into(), error))
+    }
+
+    pub fn log(
+        format_string: FormatString,
+        expressions: Vec<(ConcreteType, Vec<LinComb<T>>)>,
+    ) -> Self {
+        Statement::Log(LogStatement::new(format_string, expressions))
     }
 }
 
@@ -80,22 +137,13 @@ impl<T: Field> fmt::Display for Directive<T> {
 impl<T: Field> fmt::Display for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Statement::Constraint(ref quad, ref lin, ref error) => write!(
-                f,
-                "{} == {}{}",
-                quad,
-                lin,
-                error
-                    .as_ref()
-                    .map(|e| format!(" // {}", e))
-                    .unwrap_or_else(|| "".to_string())
-            ),
+            Statement::Constraint(ref s) => write!(f, "{}", s),
             Statement::Directive(ref s) => write!(f, "{}", s),
-            Statement::Log(ref s, ref expressions) => write!(
+            Statement::Log(ref s) => write!(
                 f,
                 "log(\"{}\", {})",
-                s,
-                expressions
+                s.format_string,
+                s.expressions
                     .iter()
                     .map(|(_, l)| format!(
                         "[{}]",
@@ -115,17 +163,24 @@ pub type Prog<T> = ProgIterator<T, Vec<Statement<T>>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct ProgIterator<T, I: IntoIterator<Item = Statement<T>>> {
+    pub module_map: ModuleMap,
     pub arguments: Vec<Parameter>,
     pub return_count: usize,
     pub statements: I,
 }
 
 impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
-    pub fn new(arguments: Vec<Parameter>, statements: I, return_count: usize) -> Self {
+    pub fn new(
+        arguments: Vec<Parameter>,
+        statements: I,
+        return_count: usize,
+        module_map: ModuleMap,
+    ) -> Self {
         Self {
             arguments,
             return_count,
             statements,
+            module_map,
         }
     }
 
@@ -134,6 +189,7 @@ impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
             statements: self.statements.into_iter().collect::<Vec<_>>(),
             arguments: self.arguments,
             return_count: self.return_count,
+            module_map: self.module_map,
         }
     }
 
@@ -178,6 +234,7 @@ impl<T> Prog<T> {
             statements: self.statements.into_iter(),
             arguments: self.arguments,
             return_count: self.return_count,
+            module_map: self.module_map,
         }
     }
 }

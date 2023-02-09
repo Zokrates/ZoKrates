@@ -3103,6 +3103,7 @@ dependencies = [
  "zokrates_field",
  "zokrates_fs_resolver",
  "zokrates_interpreter",
+ "zokrates_profiler",
  "zokrates_proof_systems",
  "zokrates_solidity_test",
 ]
@@ -3253,6 +3254,13 @@ dependencies = [
  "pest",
  "pest-ast",
  "zokrates_parser",
+]
+
+[[package]]
+name = "zokrates_profiler"
+version = "0.1.0"
+dependencies = [
+ "zokrates_ast",
 ]
 
 [[package]]

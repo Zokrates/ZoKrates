@@ -68,109 +68,105 @@ impl<T> RedefinitionOptimizer<T> {
 }
 
 impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
-    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
-        match s {
-            Statement::Constraint(quad, lin, message) => {
-                let quad = self.fold_quadratic_combination(quad);
-                let lin = self.fold_linear_combination(lin);
+    fn fold_constraint_statement(&mut self, s: ConstraintStatement<T>) -> Vec<Statement<T>> {
+        let quad = self.fold_quadratic_combination(s.quad);
+        let lin = self.fold_linear_combination(s.lin);
 
-                if lin.is_zero() {
-                    return vec![Statement::Constraint(quad, lin, message)];
-                }
+        if lin.is_zero() {
+            return vec![Statement::constraint(quad, lin, s.error)];
+        }
 
-                let (constraint, to_insert, to_ignore) = match self.ignore.contains(&lin.value[0].0)
-                    || self.substitution.contains_key(&lin.value[0].0)
+        let (constraint, to_insert, to_ignore) = match self.ignore.contains(&lin.value[0].0)
+            || self.substitution.contains_key(&lin.value[0].0)
+        {
+            true => (Some(Statement::constraint(quad, lin, s.error)), None, None),
+            false => match lin.try_summand() {
+                // if the right side is a single variable
+                Ok((variable, coefficient)) => match quad.try_linear() {
+                    // if the left side is linear
+                    Ok(l) => (None, Some((variable, l / &coefficient)), None),
+                    // if the left side isn't linear
+                    Err(quad) => (
+                        Some(Statement::constraint(
+                            quad,
+                            LinComb::summand(coefficient, variable),
+                            s.error,
+                        )),
+                        None,
+                        Some(variable),
+                    ),
+                },
+                Err(l) => (Some(Statement::constraint(quad, l, s.error)), None, None),
+            },
+        };
+
+        // insert into the ignored set
+        if let Some(v) = to_ignore {
+            self.ignore.insert(v);
+        }
+
+        // insert into the substitution map
+        if let Some((k, v)) = to_insert {
+            self.substitution.insert(k, v.into_canonical());
+        };
+
+        // decide whether the constraint should be kept
+        match constraint {
+            Some(c) => vec![c],
+            _ => vec![],
+        }
+    }
+
+    fn fold_directive_statement(&mut self, d: Directive<T>) -> Vec<Statement<T>> {
+        let d = self.fold_directive(d);
+
+        // check if the inputs are constants, ie reduce to the form `coeff * ~one`
+        let inputs: Vec<_> = d
+            .inputs
+            .into_iter()
+            // we need to reduce to the canonical form to interpret `a + 1 - a` as `1`
+            .map(|i| i.reduce())
+            .map(|q| {
+                match q
+                    .try_linear()
+                    .map(|l| l.try_constant().map_err(|l| l.into()))
                 {
-                    true => (Some(Statement::Constraint(quad, lin, message)), None, None),
-                    false => match lin.try_summand() {
-                        // if the right side is a single variable
-                        Ok((variable, coefficient)) => match quad.try_linear() {
-                            // if the left side is linear
-                            Ok(l) => (None, Some((variable, l / &coefficient)), None),
-                            // if the left side isn't linear
-                            Err(quad) => (
-                                Some(Statement::Constraint(
-                                    quad,
-                                    LinComb::summand(coefficient, variable),
-                                    message,
-                                )),
-                                None,
-                                Some(variable),
-                            ),
-                        },
-                        Err(l) => (Some(Statement::Constraint(quad, l, message)), None, None),
-                    },
-                };
-
-                // insert into the ignored set
-                if let Some(v) = to_ignore {
-                    self.ignore.insert(v);
+                    Ok(r) => r,
+                    Err(e) => Err(e),
                 }
+            })
+            .collect::<Vec<Result<T, QuadComb<T>>>>();
 
-                // insert into the substitution map
-                if let Some((k, v)) = to_insert {
-                    self.substitution.insert(k, v.into_canonical());
-                };
+        match inputs.iter().all(|i| i.is_ok()) {
+            true => {
+                // unwrap inputs to their constant value
+                let inputs: Vec<_> = inputs.into_iter().map(|i| i.unwrap()).collect();
+                // run the solver
+                let outputs = Interpreter::execute_solver(&d.solver, &inputs).unwrap();
+                assert_eq!(outputs.len(), d.outputs.len());
 
-                // decide whether the constraint should be kept
-                match constraint {
-                    Some(c) => vec![c],
-                    _ => vec![],
+                // insert the results in the substitution
+                for (output, value) in d.outputs.into_iter().zip(outputs.into_iter()) {
+                    self.substitution
+                        .insert(output, LinComb::from(value).into_canonical());
                 }
+                vec![]
             }
-            Statement::Directive(d) => {
-                let d = self.fold_directive(d);
-
-                // check if the inputs are constants, ie reduce to the form `coeff * ~one`
-                let inputs: Vec<_> = d
-                    .inputs
+            false => {
+                //reconstruct the input expressions
+                let inputs: Vec<_> = inputs
                     .into_iter()
-                    // we need to reduce to the canonical form to interpret `a + 1 - a` as `1`
-                    .map(|i| i.reduce())
-                    .map(|q| {
-                        match q
-                            .try_linear()
-                            .map(|l| l.try_constant().map_err(|l| l.into()))
-                        {
-                            Ok(r) => r,
-                            Err(e) => Err(e),
-                        }
+                    .map(|i| {
+                        i.map(|v| LinComb::summand(v, Variable::one()).into())
+                            .unwrap_or_else(|q| q)
                     })
-                    .collect::<Vec<Result<T, QuadComb<T>>>>();
-
-                match inputs.iter().all(|i| i.is_ok()) {
-                    true => {
-                        // unwrap inputs to their constant value
-                        let inputs: Vec<_> = inputs.into_iter().map(|i| i.unwrap()).collect();
-                        // run the solver
-                        let outputs = Interpreter::execute_solver(&d.solver, &inputs).unwrap();
-                        assert_eq!(outputs.len(), d.outputs.len());
-
-                        // insert the results in the substitution
-                        for (output, value) in d.outputs.into_iter().zip(outputs.into_iter()) {
-                            self.substitution
-                                .insert(output, LinComb::from(value).into_canonical());
-                        }
-                        vec![]
-                    }
-                    false => {
-                        //reconstruct the input expressions
-                        let inputs: Vec<_> = inputs
-                            .into_iter()
-                            .map(|i| {
-                                i.map(|v| LinComb::summand(v, Variable::one()).into())
-                                    .unwrap_or_else(|q| q)
-                            })
-                            .collect();
-                        // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
-                        for o in d.outputs.iter().cloned() {
-                            self.ignore.insert(o);
-                        }
-                        vec![Statement::Directive(Directive { inputs, ..d })]
-                    }
+                    .collect();
+                // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
+                for o in d.outputs.iter().cloned() {
+                    self.ignore.insert(o);
                 }
+                vec![Statement::Directive(Directive { inputs, ..d })]
             }
-            s => fold_statement(self, s),
         }
     }
 

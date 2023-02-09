@@ -24,15 +24,18 @@ use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::ConcreteGenericsAssignment;
 use zokrates_ast::typed::types::GGenericsAssignment;
 use zokrates_ast::typed::Folder;
+use zokrates_ast::typed::SliceExpression;
+use zokrates_ast::typed::SliceOrExpression;
 use zokrates_ast::typed::{CanonicalConstantIdentifier, EmbedCall, Variable};
 
 use zokrates_ast::typed::{
     ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
-    FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, OwnedTypedModuleId,
-    TypedExpression, TypedFunction, TypedFunctionSymbol, TypedFunctionSymbolDeclaration,
-    TypedModule, TypedProgram, TypedStatement, UExpression, UExpressionInner,
+    FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, TypedExpression,
+    TypedFunction, TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule, TypedProgram,
+    TypedStatement, UExpression, UExpressionInner,
 };
 
+use zokrates_ast::untyped::OwnedModuleId;
 use zokrates_field::Field;
 
 use self::constants_writer::ConstantsWriter;
@@ -65,7 +68,7 @@ pub enum Error {
     // TODO: give more details about what's blocking the progress
     NoProgress,
     LoopTooLarge(u128),
-    ConstantReduction(String, OwnedTypedModuleId),
+    ConstantReduction(String, OwnedModuleId),
     Type(String),
 }
 
@@ -400,28 +403,24 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         res.map(|res| self.statement_buffer.drain(..).chain(res).collect())
     }
 
-    fn fold_array_expression_inner(
+    fn fold_slice_expression(
         &mut self,
-        array_ty: &ArrayType<'ast, T>,
-        e: ArrayExpressionInner<'ast, T>,
-    ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
-        match e {
-            ArrayExpressionInner::Slice(box array, box from, box to) => {
-                let array = self.fold_array_expression(array)?;
-                let from = self.fold_uint_expression(from)?;
-                let to = self.fold_uint_expression(to)?;
+        e: zokrates_ast::typed::SliceExpression<'ast, T>,
+    ) -> Result<zokrates_ast::typed::SliceOrExpression<'ast, T>, Self::Error> {
+        let array = self.fold_array_expression(*e.array)?;
+        let from = self.fold_uint_expression(*e.from)?;
+        let to = self.fold_uint_expression(*e.to)?;
 
-                match (from.as_inner(), to.as_inner()) {
-                    (UExpressionInner::Value(..), UExpressionInner::Value(..)) => {
-                        Ok(ArrayExpressionInner::Slice(box array, box from, box to))
-                    }
-                    _ => {
-                        self.complete = false;
-                        Ok(ArrayExpressionInner::Slice(box array, box from, box to))
-                    }
-                }
+        match (from.as_inner(), to.as_inner()) {
+            (UExpressionInner::Value(..), UExpressionInner::Value(..)) => Ok(
+                SliceOrExpression::Slice(SliceExpression::new(array, from, to)),
+            ),
+            _ => {
+                self.complete = false;
+                Ok(SliceOrExpression::Slice(SliceExpression::new(
+                    array, from, to,
+                )))
             }
-            _ => fold_array_expression_inner(self, array_ty, e),
         }
     }
 }
@@ -464,6 +463,7 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
                 )]
                 .into_iter()
                 .collect(),
+                ..p
             })
         }
         _ => Err(Error::GenericsInMain),

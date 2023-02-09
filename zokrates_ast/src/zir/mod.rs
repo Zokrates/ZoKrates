@@ -11,7 +11,7 @@ pub use self::parameter::Parameter;
 pub use self::types::{Type, UBitwidth};
 pub use self::variable::Variable;
 use crate::common::expressions::{BooleanValueExpression, UnaryExpression};
-use crate::common::{self, FlatEmbed, FormatString, Span, Value, WithSpan};
+use crate::common::{self, FlatEmbed, FormatString, ModuleMap, Span, Value, WithSpan};
 use crate::common::{
     expressions::{self, BinaryExpression, ValueExpression},
     operators::*,
@@ -32,6 +32,7 @@ pub use self::identifier::{Identifier, SourceIdentifier};
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct ZirProgram<'ast, T> {
     pub main: ZirFunction<'ast, T>,
+    pub module_map: ModuleMap,
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
@@ -128,23 +129,84 @@ pub type AssertionStatement<'ast, T> =
     common::expressions::AssertionStatement<BooleanExpression<'ast, T>, RuntimeError>;
 pub type ReturnStatement<'ast, T> =
     common::expressions::ReturnStatement<Vec<ZirExpression<'ast, T>>>;
+pub type LogStatement<'ast, T> =
+    common::statements::LogStatement<(ConcreteType, Vec<ZirExpression<'ast, T>>)>;
+
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug, Eq)]
+pub struct IfElseStatement<'ast, T> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
+    pub span: Option<Span>,
+    pub condition: BooleanExpression<'ast, T>,
+    pub consequence: Vec<ZirStatement<'ast, T>>,
+    pub alternative: Vec<ZirStatement<'ast, T>>,
+}
+
+impl<'ast, T> IfElseStatement<'ast, T> {
+    pub fn new(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Vec<ZirStatement<'ast, T>>,
+        alternative: Vec<ZirStatement<'ast, T>>,
+    ) -> Self {
+        Self {
+            span: None,
+            condition,
+            consequence,
+            alternative,
+        }
+    }
+}
+
+impl<'ast, T> WithSpan for IfElseStatement<'ast, T> {
+    fn span(self, _: Option<Span>) -> Self {
+        todo!()
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        todo!()
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug, Eq)]
+pub struct MultipleDefinitionStatement<'ast, T> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
+    pub span: Option<Span>,
+    pub assignees: Vec<ZirAssignee<'ast>>,
+    pub rhs: ZirExpressionList<'ast, T>,
+}
+
+impl<'ast, T> MultipleDefinitionStatement<'ast, T> {
+    pub fn new(assignees: Vec<ZirAssignee<'ast>>, rhs: ZirExpressionList<'ast, T>) -> Self {
+        Self {
+            span: None,
+            assignees,
+            rhs,
+        }
+    }
+}
+
+impl<'ast, T> WithSpan for MultipleDefinitionStatement<'ast, T> {
+    fn span(self, _: Option<Span>) -> Self {
+        todo!()
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        todo!()
+    }
+}
 
 /// A statement in a `ZirFunction`
 #[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum ZirStatement<'ast, T> {
     Return(ReturnStatement<'ast, T>),
     Definition(DefinitionStatement<'ast, T>),
-    IfElse(
-        BooleanExpression<'ast, T>,
-        Vec<ZirStatement<'ast, T>>,
-        Vec<ZirStatement<'ast, T>>,
-    ),
+    IfElse(IfElseStatement<'ast, T>),
     Assertion(AssertionStatement<'ast, T>),
-    MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
-    Log(
-        FormatString,
-        Vec<(ConcreteType, Vec<ZirExpression<'ast, T>>)>,
-    ),
+    MultipleDefinition(MultipleDefinitionStatement<'ast, T>),
+    Log(LogStatement<'ast, T>),
 }
 
 impl<'ast, T> ZirStatement<'ast, T> {
@@ -159,6 +221,14 @@ impl<'ast, T> ZirStatement<'ast, T> {
     pub fn ret(e: Vec<ZirExpression<'ast, T>>) -> Self {
         Self::Return(ReturnStatement::new(e))
     }
+
+    pub fn if_else(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Vec<ZirStatement<'ast, T>>,
+        alternative: Vec<ZirStatement<'ast, T>>,
+    ) -> Self {
+        Self::IfElse(IfElseStatement::new(condition, consequence, alternative))
+    }
 }
 
 impl<'ast, T> WithSpan for ZirStatement<'ast, T> {
@@ -169,9 +239,9 @@ impl<'ast, T> WithSpan for ZirStatement<'ast, T> {
             Return(e) => Return(e.span(span)),
             Definition(e) => Definition(e.span(span)),
             Assertion(e) => Assertion(e.span(span)),
-            IfElse(_, _, _) => todo!(),
-            MultipleDefinition(_, _) => todo!(),
-            Log(_, _) => todo!(),
+            IfElse(e) => IfElse(e.span(span)),
+            MultipleDefinition(e) => MultipleDefinition(e.span(span)),
+            Log(e) => Log(e.span(span)),
         }
     }
 
@@ -182,9 +252,9 @@ impl<'ast, T> WithSpan for ZirStatement<'ast, T> {
             Return(e) => e.get_span(),
             Definition(e) => e.get_span(),
             Assertion(e) => e.get_span(),
-            IfElse(_, _, _) => todo!(),
-            MultipleDefinition(_, _) => todo!(),
-            Log(_, _) => todo!(),
+            IfElse(e) => e.get_span(),
+            MultipleDefinition(e) => e.get_span(),
+            Log(e) => e.get_span(),
         }
     }
 }
@@ -213,18 +283,19 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
             ZirStatement::Definition(ref s) => {
                 write!(f, "{}", s)
             }
-            ZirStatement::IfElse(ref condition, ref consequence, ref alternative) => {
-                writeln!(f, "if {} {{", condition)?;
-                for s in consequence {
-                    s.fmt_indented(f, depth + 1)?;
-                    writeln!(f)?;
-                }
-                writeln!(f, "{}}} else {{", "\t".repeat(depth))?;
-                for s in alternative {
-                    s.fmt_indented(f, depth + 1)?;
-                    writeln!(f)?;
-                }
-                write!(f, "{}}};", "\t".repeat(depth))
+            ZirStatement::IfElse(ref e) => {
+                // writeln!(f, "if {} {{", condition)?;
+                // for s in consequence {
+                //     s.fmt_indented(f, depth + 1)?;
+                //     writeln!(f)?;
+                // }
+                // writeln!(f, "{}}} else {{", "\t".repeat(depth))?;
+                // for s in alternative {
+                //     s.fmt_indented(f, depth + 1)?;
+                //     writeln!(f)?;
+                // }
+                // write!(f, "{}}};", "\t".repeat(depth))
+                unimplemented!()
             }
             ZirStatement::Assertion(ref s) => {
                 write!(f, "assert({}", s.expression)?;
@@ -233,20 +304,21 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                     error => write!(f, "); // {}", error),
                 }
             }
-            ZirStatement::MultipleDefinition(ref ids, ref rhs) => {
-                for (i, id) in ids.iter().enumerate() {
-                    write!(f, "{}", id)?;
-                    if i < ids.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, " = {};", rhs)
+            ZirStatement::MultipleDefinition(ref e) => {
+                // for (i, id) in ids.iter().enumerate() {
+                //     write!(f, "{}", id)?;
+                //     if i < ids.len() - 1 {
+                //         write!(f, ", ")?;
+                //     }
+                // }
+                // write!(f, " = {};", rhs)
+                unimplemented!()
             }
-            ZirStatement::Log(ref l, ref expressions) => write!(
+            ZirStatement::Log(ref e) => write!(
                 f,
                 "log(\"{}\"), {});",
-                l,
-                expressions
+                e.format_string,
+                e.expressions
                     .iter()
                     .map(|(_, e)| format!(
                         "[{}]",

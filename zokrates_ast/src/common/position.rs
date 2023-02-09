@@ -1,6 +1,35 @@
-use std::fmt;
+use std::{
+    collections::BTreeMap,
+    fmt,
+    path::{Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord, Deserialize, Serialize)]
+pub struct LocalSpan {
+    pub from: Position,
+    pub to: Position,
+}
+
+pub type ModuleIdHash = u64;
+
+pub type ModuleId = Path;
+
+pub type OwnedModuleId = PathBuf;
+
+#[derive(Clone, PartialEq, Debug, Eq, Hash, Default, PartialOrd, Ord, Deserialize, Serialize)]
+pub struct ModuleMap {
+    modules: BTreeMap<ModuleIdHash, OwnedModuleId>,
+}
+
+impl ModuleMap {
+    pub fn new<I: IntoIterator<Item = OwnedModuleId>>(i: I) -> Self {
+        Self {
+            modules: i.into_iter().map(|id| (hash(&id), id)).collect(),
+        }
+    }
+}
 
 #[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct Position {
@@ -10,8 +39,26 @@ pub struct Position {
 
 #[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct Span {
+    pub module: ModuleIdHash,
     pub from: Position,
     pub to: Position,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct ResolvedSpan {
+    pub module: OwnedModuleId,
+    pub from: Position,
+    pub to: Position,
+}
+
+impl Span {
+    pub fn resolve(self, map: &ModuleMap) -> ResolvedSpan {
+        ResolvedSpan {
+            module: map.modules.get(&self.module).cloned().unwrap(),
+            from: self.from,
+            to: self.to,
+        }
+    }
 }
 
 pub trait WithSpan: Sized {
@@ -24,11 +71,28 @@ pub trait WithSpan: Sized {
     fn get_span(&self) -> Option<Span>;
 }
 
-impl Span {
+fn hash(id: &ModuleId) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = DefaultHasher::new();
+    id.hash(&mut hasher);
+    hasher.finish()
+}
+
+impl LocalSpan {
     pub fn mock() -> Self {
-        Span {
+        Self {
             from: Position::mock(),
             to: Position::mock(),
+        }
+    }
+
+    pub fn in_module(self, module_id: &ModuleId) -> Span {
+        Span {
+            module: hash(module_id),
+            from: self.from,
+            to: self.to,
         }
     }
 }
@@ -66,6 +130,18 @@ impl fmt::Display for Span {
 impl fmt::Debug for Span {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
+    }
+}
+
+impl fmt::Display for ResolvedSpan {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}:{} (until {})",
+            self.module.display(),
+            self.from,
+            self.to
+        )
     }
 }
 

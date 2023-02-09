@@ -8,7 +8,7 @@ use ark_relations::r1cs::{
     SynthesisError, Variable as ArkVariable,
 };
 use std::collections::BTreeMap;
-use zokrates_ast::common::Variable;
+use zokrates_ast::common::flat::Variable;
 use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
 use zokrates_field::{ArkFieldExtensions, Field};
 
@@ -113,21 +113,21 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
                 }));
 
                 for statement in self.program.statements {
-                    if let Statement::Constraint(quad, lin, _) = statement {
+                    if let Statement::Constraint(s) = statement {
                         let a = ark_combination(
-                            quad.left.clone().into_canonical(),
+                            s.quad.left.clone().into_canonical(),
                             &mut cs,
                             &mut symbols,
                             &mut witness,
                         );
                         let b = ark_combination(
-                            quad.right.clone().into_canonical(),
+                            s.quad.right.clone().into_canonical(),
                             &mut cs,
                             &mut symbols,
                             &mut witness,
                         );
                         let c = ark_combination(
-                            lin.into_canonical(),
+                            s.lin.into_canonical(),
                             &mut cs,
                             &mut symbols,
                             &mut witness,

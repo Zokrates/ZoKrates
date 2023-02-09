@@ -1,4 +1,7 @@
-use crate::common::{Parameter, RuntimeError, Solver, Variable};
+use crate::common::{
+    flat::{Parameter, Variable},
+    RuntimeError, Solver,
+};
 use crate::flat::{flat_expression_from_bits, flat_expression_from_variable_summands};
 use crate::flat::{FlatDirective, FlatExpression, FlatFunctionIterator, FlatStatement};
 use crate::typed::types::{
@@ -12,6 +15,8 @@ use crate::untyped::{
 use std::collections::HashMap;
 use std::ops::*;
 use zokrates_field::Field;
+
+use super::ModuleMap;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "bellman")] {
@@ -393,15 +398,15 @@ pub fn sha256_round<T: Field>(
     // define which subset of the witness is returned
     let outputs = output_indices.map(|o| FlatExpression::identifier(Variable::new(o)));
     // insert a directive to set the witness based on the bellman gadget and  inputs
-    let directive_statement = FlatStatement::Directive(FlatDirective {
-        outputs: cs_indices.map(Variable::new).collect(),
-        inputs: input_argument_indices
+    let directive_statement = FlatStatement::Directive(FlatDirective::new(
+        cs_indices.map(Variable::new).collect(),
+        Solver::Sha256Round,
+        input_argument_indices
             .into_iter()
             .chain(current_hash_argument_indices)
             .map(|i| Variable::new(i).into())
             .collect(),
-        solver: Solver::Sha256Round,
-    });
+    ));
     // insert a statement to return the subset of the witness
     let return_statements = outputs
         .into_iter()
@@ -417,6 +422,7 @@ pub fn sha256_round<T: Field>(
         arguments,
         statements,
         return_count,
+        module_map: ModuleMap::default(),
     }
 }
 
@@ -505,15 +511,15 @@ pub fn snark_verify_bls12_377<T: Field>(
     );
 
     // insert a directive to set the witness
-    let directive_statement = FlatStatement::Directive(FlatDirective {
-        outputs: cs_indices.map(Variable::new).collect(),
-        inputs: input_argument_indices
+    let directive_statement = FlatStatement::Directive(FlatDirective::new(
+        cs_indices.map(Variable::new).collect(),
+        Solver::SnarkVerifyBls12377(n),
+        input_argument_indices
             .chain(proof_argument_indices)
             .chain(vk_argument_indices)
             .map(|i| Variable::new(i).into())
             .collect(),
-        solver: Solver::SnarkVerifyBls12377(n),
-    });
+    ));
 
     let statements = std::iter::once(directive_statement)
         .chain(std::iter::once(one_binding_statement))
@@ -525,6 +531,7 @@ pub fn snark_verify_bls12_377<T: Field>(
         arguments,
         statements,
         return_count: 1,
+        module_map: ModuleMap::default(),
     }
 }
 
@@ -610,11 +617,11 @@ pub fn unpack_to_bitwidth<T: Field>(
 
     statements.insert(
         0,
-        FlatStatement::Directive(FlatDirective {
-            inputs: directive_inputs,
-            outputs: directive_outputs,
+        FlatStatement::Directive(FlatDirective::new(
+            directive_outputs,
             solver,
-        }),
+            directive_inputs,
+        )),
     );
 
     statements.extend(
@@ -628,6 +635,7 @@ pub fn unpack_to_bitwidth<T: Field>(
         arguments,
         statements: statements.into_iter(),
         return_count: bit_width,
+        module_map: ModuleMap::default(),
     }
 }
 
