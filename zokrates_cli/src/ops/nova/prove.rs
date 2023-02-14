@@ -47,17 +47,6 @@ pub fn subcommand() -> App<'static, 'static> {
                 .default_value(cli_constants::ABI_SPEC_DEFAULT_PATH)
         )
         .arg(
-            Arg::with_name("arguments")
-                .short("a")
-                .long("arguments")
-                .help("Arguments for the program's main function, when not using ABI encoding. Expects a space-separated list of field elements like `-a 1 2 3`")
-                .takes_value(true)
-                .multiple(true) // allows multiple values
-                .required(false)
-                .conflicts_with("abi")
-                .conflicts_with("stdin")
-        )
-        .arg(
             Arg::with_name("proof-path")
                 .short("j")
                 .long("proof-path")
@@ -66,13 +55,6 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .default_value(cli_constants::JSON_PROOF_PATH),
-        )
-        .arg(
-            Arg::with_name("stdin")
-                .long("stdin")
-                .help("Read arguments from stdin")
-                .conflicts_with("arguments")
-                .required(false)
         )
 }
 
@@ -120,8 +102,6 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
             .unwrap()
             .encode()
     };
-
-    println!("Init {:#?}", init);
 
     let steps: Vec<_> = {
         let path = Path::new(sub_matches.value_of("steps").unwrap());

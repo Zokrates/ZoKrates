@@ -1,10 +1,11 @@
-use clap::{App, ArgMatches, SubCommand};
+use clap::{App, ArgMatches, SubCommand, AppSettings};
 
 pub mod prove;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("nova")
         .about("Nova IVC")
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommands(vec![prove::subcommand().display_order(1)])
 }
 
