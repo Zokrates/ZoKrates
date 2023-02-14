@@ -100,32 +100,22 @@ pub fn verify<T: NovaField>(
     proof: RecursiveSNARK<T>,
     steps_count: usize,
     arguments: Vec<T>,
-) -> Result<(), Error> {
+) -> Result<Vec<T>, Error> {
     let z0_primary: Vec<_> = arguments.into_iter().map(|a| a.into_bellperson()).collect();
     let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::one()];
 
-    dbg!(proof
+    proof
         .verify(params, steps_count, z0_primary, z0_secondary)
-        .map(|_| ())
-        .map_err(Error::Internal))
+        .map_err(Error::Internal)
+        .map(|(primary, _)| primary.into_iter().map(T::from_bellperson).collect())
 }
 
 pub fn prove<'ast, T: NovaField>(
     public_parameters: &PublicParams<'ast, T>,
     program: Prog<'ast, T>,
     arguments: Vec<T>,
-    steps: Vec<Vec<T>>,
+    steps: impl IntoIterator<Item = Vec<T>>,
 ) -> Result<Option<RecursiveSNARK<'ast, T>>, Error> {
-    let private_input_count = program.private_input_count();
-
-    assert!(steps.iter().all(|v| v.len() == private_input_count));
-
-    let steps_count = steps.len();
-
-    if steps_count == 0 {
-        return Ok(None);
-    }
-
     let c_primary = NovaComputation::try_from(Computation::without_witness(program))?;
     let c_secondary = TrivialTestCircuit::default();
     let z0_primary: Vec<_> = arguments.into_iter().map(|a| a.into_bellperson()).collect();
@@ -188,7 +178,7 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
             let inputs: Vec<_> = input
                 .iter()
                 .map(|v| T::from_bellperson(v.get_value().unwrap()))
-                .chain(self.step_private.clone().unwrap())
+                .chain(self.step_private.clone().into_iter().flatten())
                 .collect();
             witness = interpreter
                 .execute(self.computation.program.clone(), &inputs)
@@ -261,17 +251,17 @@ mod tests {
         use zokrates_ast::ir::Prog;
         use zokrates_field::PallasField;
 
-        fn test<T: NovaField>(program: Prog<T>, arguments: Vec<T>, step_privates: Vec<Vec<T>>) {
+        fn test<T: NovaField>(program: Prog<T>, initial_state: Vec<T>, step_privates: Vec<Vec<T>>, expected_final_state: Vec<T>) {
             let steps_count = step_privates.len();
             let params = generate_public_parameters(program.clone()).unwrap();
-            let proof = prove(&params, program.clone(), arguments.clone(), step_privates).unwrap();
-            assert!(verify(&params, proof.unwrap(), steps_count, arguments).is_ok());
+            let proof = prove(&params, program.clone(), initial_state.clone(), step_privates).unwrap().unwrap();
+            assert_eq!(verify(&params, proof, steps_count, initial_state).unwrap(), expected_final_state);
         }
 
         #[test]
         fn empty() {
             let program: Prog<PallasField> = Prog::default();
-            test(program, vec![], vec![vec![]; 3]);
+            test(program, vec![], vec![vec![]; 3], vec![]);
         }
 
         #[test]
@@ -282,7 +272,7 @@ mod tests {
                 statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
             };
 
-            test(program, vec![PallasField::from(0)], vec![vec![]; 3]);
+            test(program, vec![PallasField::from(0)], vec![vec![]; 3], vec![PallasField::from(0)]);
         }
 
         #[test]
@@ -296,7 +286,7 @@ mod tests {
                 )],
             };
 
-            test(program, vec![PallasField::from(3)], vec![vec![]; 3]);
+            test(program, vec![PallasField::from(3)], vec![vec![]; 3], vec![PallasField::from(6)]);
         }
 
         #[test]
@@ -323,6 +313,7 @@ mod tests {
                 program,
                 vec![PallasField::from(0), PallasField::from(1)],
                 vec![vec![]; 3],
+                vec![PallasField::from(4), PallasField::from(4)],
             );
         }
 
@@ -355,6 +346,46 @@ mod tests {
                     vec![PallasField::from(2)],
                     vec![PallasField::from(3)],
                 ],
+                vec![PallasField::from(8)]
+            );
+        }
+
+        #[test]
+        fn complex_fold() {
+            // def main(public field[2] acc, field[2] e) -> field[2] {
+            //     return [acc[0] + e[0], acc[1] + e[1]]
+            // }
+
+            // called with init [2, 3] and round private inputs [[1, 2], [3, 4], [5, 6]]
+            // should return [2 + 1 + 3 + 5, 3 + 2 + 4 + 6] = [11, 15]
+
+            let program = Prog {
+                arguments: vec![
+                    Parameter::public(Variable::new(0)),
+                    Parameter::public(Variable::new(1)),
+                    Parameter::private(Variable::new(2)),
+                    Parameter::private(Variable::new(3)),
+                ],
+                return_count: 2,
+                statements: vec![Statement::constraint(
+                    LinComb::from(Variable::new(0)) + LinComb::from(Variable::new(2)),
+                    Variable::public(0),
+                ),
+                Statement::constraint(
+                    LinComb::from(Variable::new(1)) + LinComb::from(Variable::new(3)),
+                    Variable::public(1),
+                )],
+            };
+
+            test(
+                program,
+                vec![PallasField::from(2), PallasField::from(3)],
+                vec![
+                    vec![PallasField::from(1), PallasField::from(2)],
+                    vec![PallasField::from(3), PallasField::from(4)],
+                    vec![PallasField::from(5), PallasField::from(6)],
+                ],
+                vec![PallasField::from(11), PallasField::from(15)],
             );
         }
     }
