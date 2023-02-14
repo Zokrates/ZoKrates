@@ -157,10 +157,6 @@ impl<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, 
         self.arguments.iter().filter(|a| !a.private).count() + self.return_count
     }
 
-    pub fn private_input_count(&self) -> usize {
-        self.arguments.iter().filter(|a| a.private).count()
-    }
-
     pub fn public_inputs(&self) -> PublicInputs {
         self.arguments
             .iter()
