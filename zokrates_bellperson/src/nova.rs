@@ -251,11 +251,26 @@ mod tests {
         use zokrates_ast::ir::Prog;
         use zokrates_field::PallasField;
 
-        fn test<T: NovaField>(program: Prog<T>, initial_state: Vec<T>, step_privates: Vec<Vec<T>>, expected_final_state: Vec<T>) {
+        fn test<T: NovaField>(
+            program: Prog<T>,
+            initial_state: Vec<T>,
+            step_privates: Vec<Vec<T>>,
+            expected_final_state: Vec<T>,
+        ) {
             let steps_count = step_privates.len();
             let params = generate_public_parameters(program.clone()).unwrap();
-            let proof = prove(&params, program.clone(), initial_state.clone(), step_privates).unwrap().unwrap();
-            assert_eq!(verify(&params, proof, steps_count, initial_state).unwrap(), expected_final_state);
+            let proof = prove(
+                &params,
+                program.clone(),
+                initial_state.clone(),
+                step_privates,
+            )
+            .unwrap()
+            .unwrap();
+            assert_eq!(
+                verify(&params, proof, steps_count, initial_state).unwrap(),
+                expected_final_state
+            );
         }
 
         #[test]
@@ -272,7 +287,12 @@ mod tests {
                 statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
             };
 
-            test(program, vec![PallasField::from(0)], vec![vec![]; 3], vec![PallasField::from(0)]);
+            test(
+                program,
+                vec![PallasField::from(0)],
+                vec![vec![]; 3],
+                vec![PallasField::from(0)],
+            );
         }
 
         #[test]
@@ -286,7 +306,12 @@ mod tests {
                 )],
             };
 
-            test(program, vec![PallasField::from(3)], vec![vec![]; 3], vec![PallasField::from(6)]);
+            test(
+                program,
+                vec![PallasField::from(3)],
+                vec![vec![]; 3],
+                vec![PallasField::from(6)],
+            );
         }
 
         #[test]
@@ -346,7 +371,7 @@ mod tests {
                     vec![PallasField::from(2)],
                     vec![PallasField::from(3)],
                 ],
-                vec![PallasField::from(8)]
+                vec![PallasField::from(8)],
             );
         }
 
@@ -367,14 +392,16 @@ mod tests {
                     Parameter::private(Variable::new(3)),
                 ],
                 return_count: 2,
-                statements: vec![Statement::constraint(
-                    LinComb::from(Variable::new(0)) + LinComb::from(Variable::new(2)),
-                    Variable::public(0),
-                ),
-                Statement::constraint(
-                    LinComb::from(Variable::new(1)) + LinComb::from(Variable::new(3)),
-                    Variable::public(1),
-                )],
+                statements: vec![
+                    Statement::constraint(
+                        LinComb::from(Variable::new(0)) + LinComb::from(Variable::new(2)),
+                        Variable::public(0),
+                    ),
+                    Statement::constraint(
+                        LinComb::from(Variable::new(1)) + LinComb::from(Variable::new(3)),
+                        Variable::public(1),
+                    ),
+                ],
             };
 
             test(
