@@ -36,14 +36,14 @@ impl<Op: OperatorStr, L: fmt::Display, R: fmt::Display, Out: fmt::Display> fmt::
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({} {} {} /* {} */)",
+            "({} {} {}{})",
             self.left,
             Op::STR,
             self.right,
             self.span
                 .as_ref()
-                .map(|s| s.to_string())
-                .unwrap_or("".to_string())
+                .map(|_| "".to_string())
+                .unwrap_or(" /* NONE */".to_string())
         )
     }
 }
@@ -131,12 +131,12 @@ impl<V: fmt::Display> fmt::Display for ValueExpression<V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{} /* {} */",
+            "{}{}",
             self.value,
             self.span
                 .as_ref()
-                .map(|s| s.to_string())
-                .unwrap_or("".to_string())
+                .map(|_| "".to_string())
+                .unwrap_or(" /* NONE */".to_string())
         )
     }
 }
@@ -176,7 +176,15 @@ impl<I, E> IdentifierExpression<I, E> {
 
 impl<I: fmt::Display, E> fmt::Display for IdentifierExpression<I, E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.id)
+        write!(
+            f,
+            "{}{}",
+            self.id,
+            self.span
+                .as_ref()
+                .map(|_| "".to_string())
+                .unwrap_or(" /* NONE */".to_string())
+        )
     }
 }
 

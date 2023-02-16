@@ -435,13 +435,13 @@ fn is_constant<T>(assignee: &TypedAssignee<T>) -> bool {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
-    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
-        match s {
-            TypedStatement::Definition(DefinitionStatement {
-                assignee: a,
-                rhs: DefinitionRhs::Expression(expr),
-                ..
-            }) => {
+    fn fold_definition_statement(
+        &mut self,
+        s: DefinitionStatement<'ast, T>,
+    ) -> Vec<TypedStatement<'ast, T>> {
+        match s.rhs {
+            DefinitionRhs::Expression(expr) => {
+                let a = s.assignee;
                 let expr = self.fold_expression(expr);
 
                 if is_constant(&a) {
@@ -496,7 +496,7 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
                         .collect()
                 }
             }
-            s => fold_statement(self, s),
+            _ => fold_definition_statement(self, s),
         }
     }
 }

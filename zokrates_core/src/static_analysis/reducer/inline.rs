@@ -190,6 +190,8 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         _ => unreachable!(),
     };
 
+    let return_span = return_expression.get_span();
+
     let v: ConcreteVariable<'ast> = ConcreteVariable::new(
         Identifier::from(CoreIdentifier::Call(0)).version(
             *versions
@@ -203,9 +205,12 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
 
     let expression = TypedExpression::from(Variable::from(v.clone()));
 
-    let output_binding = TypedStatement::definition(Variable::from(v).into(), return_expression);
+    let output_binding =
+        TypedStatement::definition(Variable::from(v).into(), return_expression).span(return_span);
 
     let pop_log = TypedStatement::PopCallLog;
+
+    use zokrates_ast::common::WithSpan;
 
     let statements: Vec<_> = std::iter::once(call_log)
         .chain(input_bindings)

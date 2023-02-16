@@ -58,7 +58,7 @@ impl<'ast, T: Field> Folder<'ast, T> for DeadCodeEliminator<'ast> {
         // if the lhs is used later in the program
         if s.assignees.iter().any(|a| self.used.remove(&a.id)) {
             // include this statement
-            fold_statement(self, ZirStatement::MultipleDefinition(s))
+            fold_multiple_definition_statement(self, s)
         } else {
             // otherwise remove it
             vec![]
@@ -72,7 +72,7 @@ impl<'ast, T: Field> Folder<'ast, T> for DeadCodeEliminator<'ast> {
         // if the lhs is used later in the program
         if self.used.remove(&s.assignee.id) {
             // include this statement
-            fold_statement(self, ZirStatement::Definition(s))
+            fold_definition_statement(self, s)
         } else {
             // otherwise remove it
             vec![]

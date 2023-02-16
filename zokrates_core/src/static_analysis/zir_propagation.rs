@@ -152,7 +152,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         }
     }
 
-    fn fold_field_expression(
+    fn fold_field_expression_cases(
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
@@ -249,11 +249,11 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     }
                 }
             }
-            e => fold_field_expression(self, e),
+            e => fold_field_expression_cases(self, e),
         }
     }
 
-    fn fold_boolean_expression(
+    fn fold_boolean_expression_cases(
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> Result<BooleanExpression<'ast, T>, Error> {
@@ -403,7 +403,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 BooleanExpression::Value(v) => Ok(BooleanExpression::from_value(!v.value)),
                 e => Ok(BooleanExpression::not(e)),
             },
-            e => fold_boolean_expression(self, e),
+            e => fold_boolean_expression_cases(self, e),
         }
     }
 
@@ -433,7 +433,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         }
     }
 
-    fn fold_uint_expression_inner(
+    fn fold_uint_expression_cases(
         &mut self,
         bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
@@ -642,7 +642,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     e => Ok(UExpression::not(e.annotate(bitwidth)).into_inner()),
                 }
             }
-            e => fold_uint_expression_inner(self, bitwidth, e),
+            e => fold_uint_expression_cases(self, bitwidth, e),
         }
     }
 

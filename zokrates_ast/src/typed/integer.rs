@@ -11,7 +11,7 @@ use crate::typed::{
     TypedExpressionOrSpread, TypedSpread, UExpression,
 };
 
-use crate::common::operators::*;
+use crate::common::{operators::*, WithSpan};
 
 use num_bigint::BigUint;
 use std::convert::TryFrom;
@@ -508,6 +508,8 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
     }
 
     pub fn try_from_int(i: IntExpression<'ast, T>) -> Result<Self, IntExpression<'ast, T>> {
+        let span = i.get_span();
+
         match i {
             IntExpression::Value(i) => Ok(Self::Number(ValueExpression::new(
                 T::try_from(i.value.clone()).map_err(|_| IntExpression::Value(i))?,
@@ -579,6 +581,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
             }
             i => Err(i),
         }
+        .map(|e| e.span(span))
     }
 }
 
@@ -604,6 +607,8 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         bitwidth: &UBitwidth,
     ) -> Result<Self, IntExpression<'ast, T>> {
         use self::IntExpression::*;
+
+        let span = i.get_span();
 
         match i {
             Value(i) => {
@@ -699,6 +704,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
             }
             i => Err(i),
         }
+        .map(|e| e.span(span))
     }
 }
 
@@ -718,6 +724,8 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
         array: Self,
         target_array_ty: &GArrayType<S>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
+        let span = array.get_span();
+
         let array_ty = array.ty().clone();
 
         // elements must fit in the target type
@@ -773,6 +781,7 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                 }
             }
         }
+        .map(|e| e.span(span))
     }
 }
 
@@ -781,6 +790,8 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
         struc: Self,
         target_struct_ty: &GStructType<S>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
+        let span = struc.get_span();
+
         let struct_ty = struc.ty().clone();
 
         if struct_ty.members.len() != target_struct_ty.members.len() {
@@ -810,6 +821,7 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
                 }
             }
         }
+        .map(|e| e.span(span))
     }
 
     pub fn try_from_typed<S: PartialEq<UExpression<'ast, T>>>(
@@ -828,6 +840,8 @@ impl<'ast, T: Field> TupleExpression<'ast, T> {
         tuple: Self,
         target_tuple_ty: &GTupleType<S>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
+        let span = tuple.get_span();
+
         let tuple_ty = tuple.ty().clone();
 
         if tuple_ty.elements.len() != target_tuple_ty.elements.len() {
@@ -858,6 +872,7 @@ impl<'ast, T: Field> TupleExpression<'ast, T> {
                 }
             }
         }
+        .map(|e| e.span(span))
     }
 
     pub fn try_from_typed<S: PartialEq<UExpression<'ast, T>>>(

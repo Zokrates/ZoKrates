@@ -29,10 +29,10 @@ use zokrates_ast::typed::SliceOrExpression;
 use zokrates_ast::typed::{CanonicalConstantIdentifier, EmbedCall, Variable};
 
 use zokrates_ast::typed::{
-    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
-    FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, TypedExpression,
-    TypedFunction, TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule, TypedProgram,
-    TypedStatement, UExpression, UExpressionInner,
+    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, ForStatement,
+    FunctionCall, FunctionCallExpression, FunctionCallOrExpression, Id, Identifier,
+    TypedExpression, TypedFunction, TypedFunctionSymbol, TypedFunctionSymbolDeclaration,
+    TypedModule, TypedProgram, TypedStatement, UExpression, UExpressionInner,
 };
 
 use zokrates_ast::untyped::OwnedModuleId;
@@ -222,6 +222,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         ty: &E::Ty,
         e: FunctionCallExpression<'ast, T, E>,
     ) -> Result<FunctionCallOrExpression<'ast, T, E>, Self::Error> {
+        let span = e.get_span();
+
         let generics = e
             .generics
             .into_iter()
@@ -247,6 +249,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             Ok(Output::Complete((statements, expression))) => {
                 self.complete &= true;
                 self.statement_buffer.extend(statements);
+
                 Ok(FunctionCallOrExpression::Expression(
                     E::from(expression).into_inner(),
                 ))
@@ -282,14 +285,16 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 let var = Variable::immutable(identifier.clone(), output_type);
                 let v = var.clone().into();
 
-                self.statement_buffer
-                    .push(TypedStatement::embed_call_definition(
+                self.statement_buffer.push(
+                    TypedStatement::embed_call_definition(
                         v,
                         EmbedCall::new(embed, generics, arguments),
-                    ));
-                Ok(FunctionCallOrExpression::Expression(E::identifier(
-                    identifier,
-                )))
+                    )
+                    .span(span),
+                );
+                Ok(FunctionCallOrExpression::Expression(
+                    E::identifier(identifier).span(span),
+                ))
             }
         }
     }
@@ -324,83 +329,91 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         unreachable!("canonical constant identifiers should not be folded, they should be inlined")
     }
 
+    fn fold_for_statement(
+        &mut self,
+        s: ForStatement<'ast, T>,
+    ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        let span = s.get_span();
+
+        let versions_before = self.for_loop_versions.pop().unwrap();
+
+        match (s.from.as_inner(), s.to.as_inner()) {
+            (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
+                let mut out_statements = vec![];
+
+                // get a fresh set of versions for all variables to use as a starting point inside the loop
+                self.versions.values_mut().for_each(|v| *v += 1);
+
+                // add this set of versions to the substitution, pointing to the versions before the loop
+                register(self.substitutions, self.versions, &versions_before);
+
+                // the versions after the loop are found by applying an offset of 1 to the versions before the loop
+                let versions_after = versions_before
+                    .clone()
+                    .into_iter()
+                    .map(|(k, v)| (k, v + 1))
+                    .collect();
+
+                let mut transformer = ShallowTransformer::with_versions(self.versions);
+
+                if to.value - from.value > MAX_FOR_LOOP_SIZE {
+                    return Err(Error::LoopTooLarge(to.value.saturating_sub(from.value)));
+                }
+
+                for index in from.value..to.value {
+                    let statements: Vec<TypedStatement<_>> =
+                        std::iter::once(TypedStatement::definition(
+                            s.var.clone().into(),
+                            UExpression::from(index as u32).into(),
+                        ))
+                        .chain(s.statements.clone().into_iter())
+                        .flat_map(|s| transformer.fold_statement(s))
+                        .collect();
+
+                    out_statements.extend(statements);
+                }
+
+                let backups = transformer.for_loop_backups;
+                let blocked = transformer.blocked;
+
+                // we know the final versions of the variables after full unrolling of the loop
+                // the versions after the loop need to point to these, so we add to the substitutions
+                register(self.substitutions, &versions_after, self.versions);
+
+                // we may have found new for loops when unrolling this one, which means new backed up versions
+                // we insert these in our backup list and update our cursor
+
+                self.for_loop_versions_after.extend(backups);
+
+                // if the ssa transform got blocked, the reduction is not complete
+                self.complete &= !blocked;
+
+                Ok(out_statements)
+            }
+            _ => {
+                let from = self.fold_uint_expression(s.from)?;
+                let to = self.fold_uint_expression(s.to)?;
+                self.complete = false;
+                self.for_loop_versions_after.push(versions_before);
+                Ok(vec![TypedStatement::for_(s.var, from, to, s.statements)])
+            }
+        }
+    }
+
     fn fold_statement(
         &mut self,
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
         let span = s.get_span();
 
-        let res = match s {
-            TypedStatement::For(s) => {
-                let versions_before = self.for_loop_versions.pop().unwrap();
+        let res = fold_statement(self, s);
 
-                match (s.from.as_inner(), s.to.as_inner()) {
-                    (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
-                        let mut out_statements = vec![];
-
-                        // get a fresh set of versions for all variables to use as a starting point inside the loop
-                        self.versions.values_mut().for_each(|v| *v += 1);
-
-                        // add this set of versions to the substitution, pointing to the versions before the loop
-                        register(self.substitutions, self.versions, &versions_before);
-
-                        // the versions after the loop are found by applying an offset of 1 to the versions before the loop
-                        let versions_after = versions_before
-                            .clone()
-                            .into_iter()
-                            .map(|(k, v)| (k, v + 1))
-                            .collect();
-
-                        let mut transformer = ShallowTransformer::with_versions(self.versions);
-
-                        if to.value - from.value > MAX_FOR_LOOP_SIZE {
-                            return Err(Error::LoopTooLarge(to.value.saturating_sub(from.value)));
-                        }
-
-                        for index in from.value..to.value {
-                            let statements: Vec<TypedStatement<_>> =
-                                std::iter::once(TypedStatement::definition(
-                                    s.var.clone().into(),
-                                    UExpression::from(index as u32).into(),
-                                ))
-                                .chain(s.statements.clone().into_iter())
-                                .flat_map(|s| transformer.fold_statement(s))
-                                .map(|s| s.span(span))
-                                .collect();
-
-                            out_statements.extend(statements);
-                        }
-
-                        let backups = transformer.for_loop_backups;
-                        let blocked = transformer.blocked;
-
-                        // we know the final versions of the variables after full unrolling of the loop
-                        // the versions after the loop need to point to these, so we add to the substitutions
-                        register(self.substitutions, &versions_after, self.versions);
-
-                        // we may have found new for loops when unrolling this one, which means new backed up versions
-                        // we insert these in our backup list and update our cursor
-
-                        self.for_loop_versions_after.extend(backups);
-
-                        // if the ssa transform got blocked, the reduction is not complete
-                        self.complete &= !blocked;
-
-                        Ok(out_statements)
-                    }
-                    _ => {
-                        let from = self.fold_uint_expression(s.from)?;
-                        let to = self.fold_uint_expression(s.to)?;
-                        self.complete = false;
-                        self.for_loop_versions_after.push(versions_before);
-                        Ok(vec![TypedStatement::for_(s.var, from, to, s.statements)])
-                    }
-                }
-            }
-            s => fold_statement(self, s),
-        };
-
-        res.map(|res| self.statement_buffer.drain(..).chain(res).collect())
+        res.map(|res| {
+            self.statement_buffer
+                .drain(..)
+                .chain(res.into_iter().map(|s| s.span(span)))
+                .collect()
+        })
     }
 
     fn fold_slice_expression(
@@ -475,6 +488,10 @@ fn reduce_function<'ast, T: Field>(
     generics: ConcreteGenericsAssignment<'ast>,
     program: &TypedProgram<'ast, T>,
 ) -> Result<TypedFunction<'ast, T>, Error> {
+    println!("reduce");
+
+    println!("{}", program);
+
     let mut versions = Versions::default();
 
     let mut constants = Constants::default();

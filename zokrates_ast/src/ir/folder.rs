@@ -1,7 +1,7 @@
 // Generic walk through an IR AST. Not mutating in place
 
 use super::*;
-use crate::common::{flat::Variable, statements::DirectiveStatement, WithSpan};
+use crate::common::{flat::Variable, WithSpan};
 use zokrates_field::Field;
 
 pub trait Folder<T: Field>: Sized {
@@ -25,7 +25,7 @@ pub trait Folder<T: Field>: Sized {
         fold_constraint_statement(self, s)
     }
 
-    fn fold_directive_statement(&mut self, s: Directive<T>) -> Vec<Statement<T>> {
+    fn fold_directive_statement(&mut self, s: DirectiveStatement<T>) -> Vec<Statement<T>> {
         fold_directive_statement(self, s)
     }
 
@@ -39,10 +39,6 @@ pub trait Folder<T: Field>: Sized {
 
     fn fold_quadratic_combination(&mut self, es: QuadComb<T>) -> QuadComb<T> {
         fold_quadratic_combination(self, es)
-    }
-
-    fn fold_directive(&mut self, d: Directive<T>) -> Directive<T> {
-        fold_directive(self, d)
     }
 }
 
@@ -73,13 +69,6 @@ pub fn fold_constraint_statement<T: Field, F: Folder<T>>(
     )]
 }
 
-pub fn fold_directive_statement<T: Field, F: Folder<T>>(
-    f: &mut F,
-    s: Directive<T>,
-) -> Vec<Statement<T>> {
-    vec![Statement::Directive(f.fold_directive(s))]
-}
-
 pub fn fold_log_statement<T: Field, F: Folder<T>>(
     f: &mut F,
     s: LogStatement<T>,
@@ -101,11 +90,16 @@ pub fn fold_log_statement<T: Field, F: Folder<T>>(
 }
 
 pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec<Statement<T>> {
+    let span = s.get_span();
+
     match s {
         Statement::Constraint(s) => f.fold_constraint_statement(s),
         Statement::Directive(s) => f.fold_directive_statement(s),
         Statement::Log(s) => f.fold_log_statement(s),
     }
+    .into_iter()
+    .map(|s| s.span(span))
+    .collect()
 }
 
 pub fn fold_linear_combination<T: Field, F: Folder<T>>(f: &mut F, e: LinComb<T>) -> LinComb<T> {
@@ -129,8 +123,11 @@ pub fn fold_quadratic_combination<T: Field, F: Folder<T>>(
     .span(e.span)
 }
 
-pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: Directive<T>) -> Directive<T> {
-    Directive {
+pub fn fold_directive_statement<T: Field, F: Folder<T>>(
+    f: &mut F,
+    ds: DirectiveStatement<T>,
+) -> Vec<Statement<T>> {
+    vec![Statement::Directive(DirectiveStatement {
         inputs: ds
             .inputs
             .into_iter()
@@ -138,7 +135,7 @@ pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: Directive<T>) -> Di
             .collect(),
         outputs: ds.outputs.into_iter().map(|o| f.fold_variable(o)).collect(),
         ..ds
-    }
+    })]
 }
 
 pub fn fold_argument<T: Field, F: Folder<T>>(f: &mut F, a: Parameter) -> Parameter {

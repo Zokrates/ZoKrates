@@ -17,7 +17,7 @@ impl BooleanArrayComparator {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
-    fn fold_boolean_expression(
+    fn fold_boolean_expression_cases(
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
@@ -100,9 +100,9 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                             .annotate(Type::FieldElement, chunk_count as u32),
                     )
                 }
-                _ => fold_boolean_expression(self, BooleanExpression::ArrayEq(e)),
+                _ => fold_boolean_expression_cases(self, BooleanExpression::ArrayEq(e)),
             },
-            e => fold_boolean_expression(self, e),
+            e => fold_boolean_expression_cases(self, e),
         }
     }
 }

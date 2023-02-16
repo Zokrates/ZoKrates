@@ -1,6 +1,6 @@
 use std::ops::*;
 use zokrates_ast::{
-    common::{expressions::BinaryExpression, Fold},
+    common::{expressions::BinaryExpression, Fold, WithSpan},
     zir::{
         folder::*, BooleanExpression, Conditional, ConditionalExpression, ConditionalOrExpression,
         Expr, FieldElementExpression, IfElseStatement, RuntimeError, UBitwidth, UExpression,
@@ -63,24 +63,32 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
         }
     }
 
-    fn fold_field_expression(
+    fn fold_field_expression_cases(
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> FieldElementExpression<'ast, T> {
+        let span = e.get_span();
+
         match e {
             FieldElementExpression::Div(e) => {
                 let n = self.fold_field_expression(*e.left);
                 let d = self.fold_field_expression(*e.right);
-                self.panic_buffer.push(ZirStatement::assertion(
-                    BooleanExpression::not(BooleanExpression::field_eq(
-                        d.clone(),
-                        FieldElementExpression::from_value(T::zero()),
-                    )),
-                    RuntimeError::DivisionByZero,
-                ));
+                self.panic_buffer.push(
+                    ZirStatement::assertion(
+                        BooleanExpression::not(
+                            BooleanExpression::field_eq(
+                                d.clone().span(span),
+                                FieldElementExpression::from_value(T::zero()).span(span),
+                            )
+                            .span(span),
+                        ),
+                        RuntimeError::DivisionByZero,
+                    )
+                    .span(span),
+                );
                 FieldElementExpression::div(n, d)
             }
-            e => fold_field_expression(self, e),
+            e => fold_field_expression_cases(self, e),
         }
     }
 
@@ -116,29 +124,38 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
         ))
     }
 
-    fn fold_uint_expression_inner(
+    fn fold_uint_expression_cases(
         &mut self,
         b: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
+        let span = e.get_span();
+
         match e {
             UExpressionInner::Div(e) => {
                 let n = self.fold_uint_expression(*e.left);
                 let d = self.fold_uint_expression(*e.right);
-                self.panic_buffer.push(ZirStatement::assertion(
-                    BooleanExpression::not(BooleanExpression::uint_eq(
-                        d.clone(),
-                        UExpression::from_value(0).annotate(b),
-                    )),
-                    RuntimeError::DivisionByZero,
-                ));
+                self.panic_buffer.push(
+                    ZirStatement::assertion(
+                        BooleanExpression::not(
+                            BooleanExpression::uint_eq(
+                                d.clone().span(span),
+                                UExpression::from_value(0).annotate(b).span(span),
+                            )
+                            .span(span),
+                        )
+                        .span(span),
+                        RuntimeError::DivisionByZero,
+                    )
+                    .span(span),
+                );
                 UExpression::div(n, d).into_inner()
             }
-            e => fold_uint_expression_inner(self, b, e),
+            e => fold_uint_expression_cases(self, b, e),
         }
     }
 
-    fn fold_boolean_expression(
+    fn fold_boolean_expression_cases(
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
@@ -151,8 +168,10 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
             | e @ BooleanExpression::FieldLt(BinaryExpression {
                 right: box FieldElementExpression::Number(_),
                 ..
-            }) => fold_boolean_expression(self, e),
+            }) => fold_boolean_expression_cases(self, e),
             BooleanExpression::FieldLt(e) => {
+                let span = e.get_span();
+
                 let left = self.fold_field_expression(*e.left);
                 let right = self.fold_field_expression(*e.right);
 
@@ -170,23 +189,37 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
 
                 // we split this check in two:
                 // `2**(safe_width) + left - right < 2**(safe_width + 1)`
-                self.panic_buffer.push(ZirStatement::assertion(
-                    BooleanExpression::field_lt(
-                        offset.clone() + FieldElementExpression::sub(left.clone(), right.clone()),
-                        max,
-                    ),
-                    RuntimeError::IncompleteDynamicRange,
-                ));
+                self.panic_buffer.push(
+                    ZirStatement::assertion(
+                        BooleanExpression::field_lt(
+                            offset.clone()
+                                + FieldElementExpression::sub(left.clone(), right.clone()),
+                            max,
+                        ),
+                        RuntimeError::IncompleteDynamicRange,
+                    )
+                    .span(span),
+                );
 
                 // and
                 // `2**(safe_width) + left - right != 0`
-                self.panic_buffer.push(ZirStatement::assertion(
-                    BooleanExpression::not(BooleanExpression::field_eq(
-                        FieldElementExpression::sub(right.clone(), left.clone()),
-                        offset,
-                    )),
-                    RuntimeError::IncompleteDynamicRange,
-                ));
+                self.panic_buffer.push(
+                    ZirStatement::assertion(
+                        BooleanExpression::not(
+                            BooleanExpression::field_eq(
+                                FieldElementExpression::sub(
+                                    right.clone().span(span),
+                                    left.clone().span(span),
+                                )
+                                .span(span),
+                                offset.span(span),
+                            )
+                            .span(span),
+                        ),
+                        RuntimeError::IncompleteDynamicRange,
+                    )
+                    .span(span),
+                );
 
                 // NOTE:
                 // instead of splitting the check in two, we could have used a single `Lt` here, by simply subtracting 1 from all sides:
@@ -198,7 +231,7 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
 
                 BooleanExpression::field_eq(left, right)
             }
-            e => fold_boolean_expression(self, e),
+            e => fold_boolean_expression_cases(self, e),
         }
     }
 }

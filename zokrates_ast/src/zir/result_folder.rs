@@ -204,11 +204,25 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_field_expression(self, e)
     }
 
+    fn fold_field_expression_cases(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
+        fold_field_expression_cases(self, e)
+    }
+
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
         fold_boolean_expression(self, e)
+    }
+
+    fn fold_boolean_expression_cases(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
+        fold_boolean_expression_cases(self, e)
     }
 
     fn fold_uint_expression(
@@ -225,12 +239,22 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
         fold_uint_expression_inner(self, bitwidth, e)
     }
+
+    fn fold_uint_expression_cases(
+        &mut self,
+        bitwidth: UBitwidth,
+        e: UExpressionInner<'ast, T>,
+    ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
+        fold_uint_expression_cases(self, bitwidth, e)
+    }
 }
 
 pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: ZirStatement<'ast, T>,
 ) -> Result<Vec<ZirStatement<'ast, T>>, F::Error> {
+    let span = s.get_span();
+
     match s {
         ZirStatement::Return(s) => f.fold_return_statement(s),
         ZirStatement::Definition(s) => f.fold_definition_statement(s),
@@ -239,6 +263,7 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
         ZirStatement::MultipleDefinition(s) => f.fold_multiple_definition_statement(s),
         ZirStatement::Log(s) => f.fold_log_statement(s),
     }
+    .map(|s| s.into_iter().map(|s| s.span(span)).collect())
 }
 
 pub fn fold_return_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
@@ -336,7 +361,15 @@ pub fn fold_multiple_definition_statement<'ast, T: Field, F: ResultFolder<'ast, 
     )])
 }
 
-pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    e: FieldElementExpression<'ast, T>,
+) -> Result<FieldElementExpression<'ast, T>, F::Error> {
+    let span = e.get_span();
+    f.fold_field_expression_cases(e).map(|e| e.span(span))
+}
+
+pub fn fold_field_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: FieldElementExpression<'ast, T>,
 ) -> Result<FieldElementExpression<'ast, T>, F::Error> {
@@ -393,7 +426,15 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     })
 }
 
-pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    e: BooleanExpression<'ast, T>,
+) -> Result<BooleanExpression<'ast, T>, F::Error> {
+    let span = e.get_span();
+    f.fold_boolean_expression_cases(e).map(|e| e.span(span))
+}
+
+pub fn fold_boolean_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: BooleanExpression<'ast, T>,
 ) -> Result<BooleanExpression<'ast, T>, F::Error> {
@@ -470,7 +511,16 @@ pub fn fold_uint_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     })
 }
 
-pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
+fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    ty: UBitwidth,
+    e: UExpressionInner<'ast, T>,
+) -> Result<UExpressionInner<'ast, T>, F::Error> {
+    let span = e.get_span();
+    f.fold_uint_expression_cases(ty, e).map(|e| e.span(span))
+}
+
+pub fn fold_uint_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     ty: UBitwidth,
     e: UExpressionInner<'ast, T>,

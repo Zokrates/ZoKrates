@@ -800,7 +800,7 @@ pub fn fold_embed_call<'ast, T: Field, F: ResultFolder<'ast, T>>(
     })
 }
 
-pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
+fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     ty: &ArrayType<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
@@ -925,7 +925,7 @@ pub fn fold_tuple_value_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     }))
 }
 
-pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
+fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     ty: &StructType<'ast, T>,
     e: StructExpressionInner<'ast, T>,
@@ -975,7 +975,7 @@ pub fn fold_struct_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     Ok(e)
 }
 
-pub fn fold_tuple_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
+fn fold_tuple_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     ty: &TupleType<'ast, T>,
     e: TupleExpressionInner<'ast, T>,
@@ -1025,7 +1025,7 @@ pub fn fold_tuple_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     Ok(e)
 }
 
-pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: FieldElementExpression<'ast, T>,
 ) -> Result<FieldElementExpression<'ast, T>, F::Error> {
@@ -1209,18 +1209,21 @@ pub fn fold_slice_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: SliceExpression<'ast, T>,
 ) -> Result<SliceOrExpression<'ast, T>, F::Error> {
-    Ok(SliceOrExpression::Slice(
-        SliceExpression::new(todo!(), todo!(), todo!()).span(e.span),
-    ))
+    Ok(SliceOrExpression::Slice(SliceExpression::new(
+        f.fold_array_expression(*e.array)?,
+        f.fold_uint_expression(*e.from)?,
+        f.fold_uint_expression(*e.to)?,
+    )))
 }
 
 pub fn fold_repeat_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: RepeatExpression<'ast, T>,
 ) -> Result<RepeatOrExpression<'ast, T>, F::Error> {
-    Ok(RepeatOrExpression::Repeat(
-        RepeatExpression::new(todo!(), todo!()).span(e.span),
-    ))
+    Ok(RepeatOrExpression::Repeat(RepeatExpression::new(
+        f.fold_expression(*e.e)?,
+        f.fold_uint_expression(*e.count)?,
+    )))
 }
 
 pub fn fold_identifier_expression<
@@ -1301,7 +1304,7 @@ pub fn fold_function_call_expression<
     ))
 }
 
-pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: BooleanExpression<'ast, T>,
 ) -> Result<BooleanExpression<'ast, T>, F::Error> {
@@ -1410,7 +1413,7 @@ pub fn fold_uint_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     })
 }
 
-pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
+fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     ty: UBitwidth,
     e: UExpressionInner<'ast, T>,

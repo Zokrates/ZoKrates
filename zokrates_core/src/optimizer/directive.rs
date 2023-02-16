@@ -26,8 +26,20 @@ impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
         *self.substitution.get(&v).unwrap_or(&v)
     }
 
-    fn fold_directive_statement(&mut self, d: Directive<T>) -> Vec<Statement<T>> {
-        let d = self.fold_directive(d);
+    fn fold_directive_statement(&mut self, d: DirectiveStatement<T>) -> Vec<Statement<T>> {
+        let d = DirectiveStatement {
+            inputs: d
+                .inputs
+                .into_iter()
+                .map(|e| self.fold_quadratic_combination(e))
+                .collect(),
+            outputs: d
+                .outputs
+                .into_iter()
+                .map(|o| self.fold_variable(o))
+                .collect(),
+            ..d
+        };
 
         match self.calls.entry((d.solver.clone(), d.inputs.clone())) {
             Entry::Vacant(e) => {

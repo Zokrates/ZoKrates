@@ -33,8 +33,8 @@ pub trait Visitor<T: Field>: Sized {
         visit_quadratic_combination(self, es)
     }
 
-    fn visit_directive(&mut self, d: &Directive<T>) {
-        visit_directive(self, d)
+    fn visit_directive_statement(&mut self, d: &DirectiveStatement<T>) {
+        visit_directive_statement(self, d)
     }
 
     fn visit_runtime_error(&mut self, e: &RuntimeError) {
@@ -60,7 +60,7 @@ pub fn visit_statement<T: Field, F: Visitor<T>>(f: &mut F, s: &Statement<T>) {
                 f.visit_runtime_error(error);
             }
         }
-        Statement::Directive(dir) => f.visit_directive(dir),
+        Statement::Directive(dir) => f.visit_directive_statement(dir),
         Statement::Log(s) => {
             for (_, e) in &s.expressions {
                 for e in e {
@@ -83,7 +83,7 @@ pub fn visit_quadratic_combination<T: Field, F: Visitor<T>>(f: &mut F, e: &QuadC
     f.visit_linear_combination(&e.right);
 }
 
-pub fn visit_directive<T: Field, F: Visitor<T>>(f: &mut F, ds: &Directive<T>) {
+pub fn visit_directive_statement<T: Field, F: Visitor<T>>(f: &mut F, ds: &DirectiveStatement<T>) {
     for expr in ds.inputs.iter() {
         f.visit_quadratic_combination(expr);
     }

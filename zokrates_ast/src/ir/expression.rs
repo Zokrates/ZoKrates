@@ -63,10 +63,13 @@ impl<T: Field> fmt::Display for QuadComb<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({}) * ({}) /* {} */",
+            "({}) * ({}){}",
             self.left,
             self.right,
-            self.span.map(|s| s.to_string()).unwrap_or_default()
+            self.span
+                .as_ref()
+                .map(|_| "".to_string())
+                .unwrap_or(" /* NONE */".to_string())
         )
     }
 }

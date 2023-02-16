@@ -1,8 +1,9 @@
 use std::fmt;
 use zokrates_ast::common::FlatEmbed;
+use zokrates_ast::typed::result_folder::fold_uint_expression_cases;
 use zokrates_ast::typed::{
     result_folder::ResultFolder,
-    result_folder::{fold_statement, fold_uint_expression_inner},
+    result_folder::{fold_definition_statement, fold_statement},
     Constant, EmbedCall, TypedStatement, UBitwidth, UExpressionInner,
 };
 use zokrates_ast::typed::{DefinitionRhs, DefinitionStatement, TypedProgram, UExpression};
@@ -28,16 +29,12 @@ impl fmt::Display for Error {
 impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
     type Error = Error;
 
-    fn fold_statement(
+    fn fold_definition_statement(
         &mut self,
-        s: TypedStatement<'ast, T>,
+        s: DefinitionStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
-        match s {
-            TypedStatement::Definition(DefinitionStatement {
-                assignee: a,
-                rhs: DefinitionRhs::EmbedCall(embed_call),
-                ..
-            }) => match embed_call {
+        match s.rhs {
+            DefinitionRhs::EmbedCall(embed_call) => match embed_call {
                 EmbedCall {
                     embed: FlatEmbed::BitArrayLe,
                     ..
@@ -50,7 +47,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
 
                     if arguments[1].is_constant() {
                         Ok(vec![TypedStatement::embed_call_definition(
-                            a,
+                            s.assignee,
                             EmbedCall {
                                 embed: FlatEmbed::BitArrayLe,
                                 generics: embed_call.generics,
@@ -64,13 +61,15 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
                         )))
                     }
                 }
-                embed_call => Ok(vec![TypedStatement::embed_call_definition(a, embed_call)]),
+                embed_call => Ok(vec![TypedStatement::embed_call_definition(
+                    s.assignee, embed_call,
+                )]),
             },
-            s => fold_statement(self, s),
+            _ => fold_definition_statement(self, s),
         }
     }
 
-    fn fold_uint_expression_inner(
+    fn fold_uint_expression_cases(
         &mut self,
         bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
@@ -106,7 +105,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
                     ))),
                 }
             }
-            e => fold_uint_expression_inner(self, bitwidth, e),
+            e => fold_uint_expression_cases(self, bitwidth, e),
         }
     }
 }

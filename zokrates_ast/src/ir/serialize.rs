@@ -1,6 +1,7 @@
 use crate::ir::check::UnconstrainedVariableDetector;
 
 use super::{ProgIterator, Statement};
+use crate::ir::ModuleMap;
 use serde_cbor::{self, StreamDeserializer};
 use std::io::{Read, Write};
 use zokrates_field::*;
@@ -67,6 +68,7 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
 
         serde_cbor::to_writer(&mut w, &self.arguments)?;
         serde_cbor::to_writer(&mut w, &self.return_count)?;
+        serde_cbor::to_writer(&mut w, &self.module_map)?;
 
         let mut unconstrained_variable_detector = UnconstrainedVariableDetector::new(&self);
 
@@ -130,8 +132,6 @@ impl<'de, R: Read>
                 r.read_exact(&mut curve)
                     .map_err(|_| String::from("Cannot read curve identifier"))?;
 
-                let module_map = unimplemented!();
-
                 use serde::de::Deserializer;
                 let mut p = serde_cbor::Deserializer::from_reader(r);
 
@@ -188,6 +188,8 @@ impl<'de, R: Read>
                 }
 
                 let return_count = p.deserialize_u32(ReturnCountVisitor).unwrap();
+
+                let module_map: ModuleMap = serde::Deserialize::deserialize(&mut p).unwrap();
 
                 match curve {
                     m if m == Bls12_381Field::id() => {

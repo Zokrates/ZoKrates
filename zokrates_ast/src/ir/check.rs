@@ -1,5 +1,5 @@
 use crate::ir::folder::Folder;
-use crate::ir::Directive;
+use crate::ir::DirectiveStatement;
 use crate::ir::Parameter;
 use crate::ir::ProgIterator;
 use crate::ir::Statement;
@@ -40,8 +40,8 @@ impl<T: Field> Folder<T> for UnconstrainedVariableDetector {
         self.variables.remove(&v);
         v
     }
-    fn fold_directive(&mut self, d: Directive<T>) -> Directive<T> {
+    fn fold_directive_statement(&mut self, d: DirectiveStatement<T>) -> Vec<Statement<T>> {
         self.variables.extend(d.outputs.iter());
-        d
+        vec![Statement::Directive(d)]
     }
 }

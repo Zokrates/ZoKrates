@@ -473,11 +473,25 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_int_expression(self, e)
     }
 
+    fn fold_field_expression_cases(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> FieldElementExpression<'ast, T> {
+        fold_field_expression_cases(self, e)
+    }
+
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> FieldElementExpression<'ast, T> {
         fold_field_expression(self, e)
+    }
+
+    fn fold_boolean_expression_cases(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> BooleanExpression<'ast, T> {
+        fold_boolean_expression_cases(self, e)
     }
 
     fn fold_boolean_expression(
@@ -491,12 +505,28 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_uint_expression(self, e)
     }
 
+    fn fold_uint_expression_cases(
+        &mut self,
+        bitwidth: UBitwidth,
+        e: UExpressionInner<'ast, T>,
+    ) -> UExpressionInner<'ast, T> {
+        fold_uint_expression_cases(self, bitwidth, e)
+    }
+
     fn fold_uint_expression_inner(
         &mut self,
         bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
         fold_uint_expression_inner(self, bitwidth, e)
+    }
+
+    fn fold_array_expression_cases(
+        &mut self,
+        ty: &ArrayType<'ast, T>,
+        e: ArrayExpressionInner<'ast, T>,
+    ) -> ArrayExpressionInner<'ast, T> {
+        fold_array_expression_cases(self, ty, e)
     }
 
     fn fold_array_expression_inner(
@@ -507,12 +537,28 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_array_expression_inner(self, ty, e)
     }
 
+    fn fold_tuple_expression_cases(
+        &mut self,
+        ty: &TupleType<'ast, T>,
+        e: TupleExpressionInner<'ast, T>,
+    ) -> TupleExpressionInner<'ast, T> {
+        fold_tuple_expression_cases(self, ty, e)
+    }
+
     fn fold_tuple_expression_inner(
         &mut self,
         ty: &TupleType<'ast, T>,
         e: TupleExpressionInner<'ast, T>,
     ) -> TupleExpressionInner<'ast, T> {
         fold_tuple_expression_inner(self, ty, e)
+    }
+
+    fn fold_struct_expression_cases(
+        &mut self,
+        ty: &StructType<'ast, T>,
+        e: StructExpressionInner<'ast, T>,
+    ) -> StructExpressionInner<'ast, T> {
+        fold_struct_expression_cases(self, ty, e)
     }
 
     fn fold_struct_expression_inner(
@@ -749,7 +795,16 @@ pub fn fold_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    ty: &ArrayType<'ast, T>,
+    e: ArrayExpressionInner<'ast, T>,
+) -> ArrayExpressionInner<'ast, T> {
+    let span = e.get_span();
+    f.fold_array_expression_cases(ty, e).span(span)
+}
+
+pub fn fold_array_expression_cases<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     ty: &ArrayType<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
@@ -797,7 +852,16 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    ty: &StructType<'ast, T>,
+    e: StructExpressionInner<'ast, T>,
+) -> StructExpressionInner<'ast, T> {
+    let span = e.get_span();
+    f.fold_struct_expression_cases(ty, e).span(span)
+}
+
+pub fn fold_struct_expression_cases<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     ty: &StructType<'ast, T>,
     e: StructExpressionInner<'ast, T>,
@@ -837,7 +901,16 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_tuple_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_tuple_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    ty: &TupleType<'ast, T>,
+    e: TupleExpressionInner<'ast, T>,
+) -> TupleExpressionInner<'ast, T> {
+    let span = e.get_span();
+    f.fold_tuple_expression_cases(ty, e).span(span)
+}
+
+pub fn fold_tuple_expression_cases<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     ty: &TupleType<'ast, T>,
     e: TupleExpressionInner<'ast, T>,
@@ -877,7 +950,15 @@ pub fn fold_tuple_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: FieldElementExpression<'ast, T>,
+) -> FieldElementExpression<'ast, T> {
+    let span = e.get_span();
+    f.fold_field_expression_cases(e).span(span)
+}
+
+pub fn fold_field_expression_cases<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: FieldElementExpression<'ast, T>,
 ) -> FieldElementExpression<'ast, T> {
@@ -982,7 +1063,7 @@ pub fn fold_binary_expression<
     _: &E::Ty,
     e: BinaryExpression<Op, L, R, E>,
 ) -> BinaryOrExpression<Op, L, R, E, E::Inner> {
-    BinaryOrExpression::Binary(BinaryExpression::new(e.left.fold(f), e.right.fold(f)).span(e.span))
+    BinaryOrExpression::Binary(BinaryExpression::new(e.left.fold(f), e.right.fold(f)))
 }
 
 pub fn fold_unary_expression<
@@ -997,7 +1078,7 @@ pub fn fold_unary_expression<
     _: &E::Ty,
     e: UnaryExpression<Op, In, E>,
 ) -> UnaryOrExpression<Op, In, E, E::Inner> {
-    UnaryOrExpression::Unary(UnaryExpression::new(e.inner.fold(f)).span(e.span))
+    UnaryOrExpression::Unary(UnaryExpression::new(e.inner.fold(f)))
 }
 
 pub fn fold_member_expression<
@@ -1010,23 +1091,31 @@ pub fn fold_member_expression<
     _: &E::Ty,
     e: MemberExpression<'ast, T, E>,
 ) -> MemberOrExpression<'ast, T, E> {
-    MemberOrExpression::Member(
-        MemberExpression::new(f.fold_struct_expression(*e.struc), e.id).span(e.span),
-    )
+    MemberOrExpression::Member(MemberExpression::new(
+        f.fold_struct_expression(*e.struc),
+        e.id,
+    ))
 }
 
 pub fn fold_slice_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: SliceExpression<'ast, T>,
 ) -> SliceOrExpression<'ast, T> {
-    SliceOrExpression::Slice(SliceExpression::new(todo!(), todo!(), todo!()).span(e.span))
+    SliceOrExpression::Slice(SliceExpression::new(
+        f.fold_array_expression(*e.array),
+        f.fold_uint_expression(*e.from),
+        f.fold_uint_expression(*e.to),
+    ))
 }
 
 pub fn fold_repeat_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: RepeatExpression<'ast, T>,
 ) -> RepeatOrExpression<'ast, T> {
-    RepeatOrExpression::Repeat(RepeatExpression::new(todo!(), todo!()).span(e.span))
+    RepeatOrExpression::Repeat(RepeatExpression::new(
+        f.fold_expression(*e.e),
+        f.fold_uint_expression(*e.count),
+    ))
 }
 
 pub fn fold_element_expression<
@@ -1070,7 +1159,15 @@ pub fn fold_int_expression<'ast, T: Field, F: Folder<'ast, T>>(
     unreachable!()
 }
 
-pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: BooleanExpression<'ast, T>,
+) -> BooleanExpression<'ast, T> {
+    let span = e.get_span();
+    f.fold_boolean_expression_cases(e).span(span)
+}
+
+pub fn fold_boolean_expression_cases<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: BooleanExpression<'ast, T>,
 ) -> BooleanExpression<'ast, T> {
@@ -1175,7 +1272,16 @@ pub fn fold_uint_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    ty: UBitwidth,
+    e: UExpressionInner<'ast, T>,
+) -> UExpressionInner<'ast, T> {
+    let span = e.get_span();
+    f.fold_uint_expression_cases(ty, e).span(span)
+}
+
+pub fn fold_uint_expression_cases<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     ty: UBitwidth,
     e: UExpressionInner<'ast, T>,

@@ -125,13 +125,14 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
 }
 
 impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
-    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
-        match s {
-            TypedStatement::Definition(DefinitionStatement {
-                assignee: a,
-                rhs: DefinitionRhs::Expression(e),
-                span,
-            }) => {
+    fn fold_definition_statement(
+        &mut self,
+        s: DefinitionStatement<'ast, T>,
+    ) -> Vec<TypedStatement<'ast, T>> {
+        let a = s.assignee;
+
+        match s.rhs {
+            DefinitionRhs::Expression(e) => {
                 let e = self.fold_expression(e);
 
                 let a = match a {
@@ -142,13 +143,9 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
                     a => fold_assignee(self, a),
                 };
 
-                vec![TypedStatement::definition(a, e).span(span)]
+                vec![TypedStatement::definition(a, e)]
             }
-            TypedStatement::Definition(DefinitionStatement {
-                assignee: a,
-                rhs: DefinitionRhs::EmbedCall(embed_call),
-                span,
-            }) => {
+            DefinitionRhs::EmbedCall(embed_call) => {
                 let assignee = match a {
                     TypedAssignee::Identifier(v) => {
                         let v = self.issue_next_ssa_variable(v);
@@ -157,18 +154,18 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
                     a => fold_assignee(self, a),
                 };
                 let embed_call = self.fold_embed_call(embed_call);
-                vec![TypedStatement::embed_call_definition(assignee, embed_call).span(span)]
+                vec![TypedStatement::embed_call_definition(assignee, embed_call)]
             }
-            TypedStatement::For(s) => {
-                let from = self.fold_uint_expression(s.from);
-                let to = self.fold_uint_expression(s.to);
-                self.blocked = true;
-                let versions_before_loop = self.create_version_gap();
-                self.for_loop_backups.push(versions_before_loop);
-                vec![TypedStatement::for_(s.var, from, to, s.statements).span(s.span)]
-            }
-            s => fold_statement(self, s),
         }
+    }
+
+    fn fold_for_statement(&mut self, s: ForStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+        let from = self.fold_uint_expression(s.from);
+        let to = self.fold_uint_expression(s.to);
+        self.blocked = true;
+        let versions_before_loop = self.create_version_gap();
+        self.for_loop_backups.push(versions_before_loop);
+        vec![TypedStatement::for_(s.var, from, to, s.statements)]
     }
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {

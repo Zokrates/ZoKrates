@@ -27,6 +27,8 @@ pub use crate::common::Solver;
 pub use self::witness::Witness;
 
 pub type LogStatement<T> = crate::common::statements::LogStatement<(ConcreteType, Vec<LinComb<T>>)>;
+pub type DirectiveStatement<T> =
+    crate::common::statements::DirectiveStatement<QuadComb<T>, Variable>;
 
 #[derive(Derivative, Clone, Debug, Serialize, Deserialize)]
 #[derivative(Hash, PartialEq, Eq)]
@@ -80,11 +82,29 @@ impl<T: Field> fmt::Display for ConstraintStatement<T> {
 #[derivative(Hash, PartialEq, Eq)]
 pub enum Statement<T> {
     Constraint(ConstraintStatement<T>),
-    Directive(Directive<T>),
+    Directive(DirectiveStatement<T>),
     Log(LogStatement<T>),
 }
 
 pub type PublicInputs = BTreeSet<Variable>;
+
+impl<T> WithSpan for Statement<T> {
+    fn span(mut self, span: Option<Span>) -> Self {
+        match self {
+            Statement::Constraint(c) => Statement::Constraint(c.span(span)),
+            Statement::Directive(c) => Statement::Directive(c.span(span)),
+            Statement::Log(c) => Statement::Log(c.span(span)),
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        match self {
+            Statement::Constraint(c) => c.get_span(),
+            Statement::Directive(c) => c.get_span(),
+            Statement::Log(c) => c.get_span(),
+        }
+    }
+}
 
 impl<T: Field> Statement<T> {
     pub fn definition<U: Into<QuadComb<T>>>(v: Variable, e: U) -> Self {
@@ -104,33 +124,6 @@ impl<T: Field> Statement<T> {
         expressions: Vec<(ConcreteType, Vec<LinComb<T>>)>,
     ) -> Self {
         Statement::Log(LogStatement::new(format_string, expressions))
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
-pub struct Directive<T> {
-    pub inputs: Vec<QuadComb<T>>,
-    pub outputs: Vec<Variable>,
-    pub solver: Solver,
-}
-
-impl<T: Field> fmt::Display for Directive<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "# {} = {}({})",
-            self.outputs
-                .iter()
-                .map(|o| format!("{}", o))
-                .collect::<Vec<_>>()
-                .join(", "),
-            self.solver,
-            self.inputs
-                .iter()
-                .map(|i| format!("{}", i))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
     }
 }
 

@@ -26,7 +26,7 @@ impl HeatMap {
             .iter()
             .map(|(span, c)| {
                 format!(
-                    "{:>4.1}% : {}",
+                    "{:>4.2}% : {}",
                     (**c as f64) / (count as f64) * 100.0,
                     span.map(|s| s.resolve(module_map).to_string())
                         .unwrap_or_else(|| String::from("???")),

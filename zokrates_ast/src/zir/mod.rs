@@ -189,12 +189,25 @@ impl<'ast, T> MultipleDefinitionStatement<'ast, T> {
 }
 
 impl<'ast, T> WithSpan for MultipleDefinitionStatement<'ast, T> {
-    fn span(self, _: Option<Span>) -> Self {
-        todo!()
+    fn span(mut self, span: Option<Span>) -> Self {
+        self.span = span;
+        self
     }
 
     fn get_span(&self) -> Option<Span> {
-        todo!()
+        self.span
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for MultipleDefinitionStatement<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, id) in self.assignees.iter().enumerate() {
+            write!(f, "{}", id)?;
+            if i < self.assignees.len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+        write!(f, " = {};", self.rhs)
     }
 }
 
@@ -268,6 +281,17 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
 impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
     fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
         write!(f, "{}", "\t".repeat(depth))?;
+
+        let span = self.get_span();
+
+        write!(
+            f,
+            "{}",
+            span.as_ref()
+                .map(|_| "".to_string())
+                .unwrap_or(" /* NONE */".to_string())
+        )?;
+
         match self {
             ZirStatement::Return(ref s) => {
                 write!(
@@ -283,19 +307,18 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
             ZirStatement::Definition(ref s) => {
                 write!(f, "{}", s)
             }
-            ZirStatement::IfElse(ref e) => {
-                // writeln!(f, "if {} {{", condition)?;
-                // for s in consequence {
-                //     s.fmt_indented(f, depth + 1)?;
-                //     writeln!(f)?;
-                // }
-                // writeln!(f, "{}}} else {{", "\t".repeat(depth))?;
-                // for s in alternative {
-                //     s.fmt_indented(f, depth + 1)?;
-                //     writeln!(f)?;
-                // }
-                // write!(f, "{}}};", "\t".repeat(depth))
-                unimplemented!()
+            ZirStatement::IfElse(ref s) => {
+                writeln!(f, "if {} {{", s.condition)?;
+                for s in &s.consequence {
+                    s.fmt_indented(f, depth + 1)?;
+                    writeln!(f)?;
+                }
+                writeln!(f, "{}}} else {{", "\t".repeat(depth))?;
+                for s in &s.alternative {
+                    s.fmt_indented(f, depth + 1)?;
+                    writeln!(f)?;
+                }
+                write!(f, "{}}};", "\t".repeat(depth))
             }
             ZirStatement::Assertion(ref s) => {
                 write!(f, "assert({}", s.expression)?;
@@ -304,15 +327,8 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                     error => write!(f, "); // {}", error),
                 }
             }
-            ZirStatement::MultipleDefinition(ref e) => {
-                // for (i, id) in ids.iter().enumerate() {
-                //     write!(f, "{}", id)?;
-                //     if i < ids.len() - 1 {
-                //         write!(f, ", ")?;
-                //     }
-                // }
-                // write!(f, " = {};", rhs)
-                unimplemented!()
+            ZirStatement::MultipleDefinition(ref s) => {
+                write!(f, "{}", s)
             }
             ZirStatement::Log(ref e) => write!(
                 f,
@@ -1125,6 +1141,19 @@ impl<'ast, T> WithSpan for BooleanExpression<'ast, T> {
             And(e) => e.get_span(),
             Not(e) => e.get_span(),
         }
+    }
+}
+
+impl<'ast, T> WithSpan for UExpression<'ast, T> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self {
+            inner: self.inner.span(span),
+            ..self
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.inner.get_span()
     }
 }
 

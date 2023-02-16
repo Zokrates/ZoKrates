@@ -1,4 +1,4 @@
-use zokrates_ast::typed::{folder::*, TypedProgram, TypedStatement};
+use zokrates_ast::typed::{folder::*, LogStatement, TypedProgram, TypedStatement};
 use zokrates_field::Field;
 
 #[derive(Default)]
@@ -11,10 +11,7 @@ impl LogIgnorer {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for LogIgnorer {
-    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
-        match s {
-            TypedStatement::Log(..) => vec![],
-            s => fold_statement(self, s),
-        }
+    fn fold_log_statement(&mut self, s: LogStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+        vec![]
     }
 }

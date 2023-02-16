@@ -66,7 +66,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         SelectOrExpression::Select(SelectExpression::new(array, force_reduce(index)))
     }
 
-    fn fold_boolean_expression(
+    fn fold_boolean_expression_cases(
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
@@ -98,7 +98,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 BooleanExpression::uint_le(left, right)
             }
-            e => fold_boolean_expression(self, e),
+            e => fold_boolean_expression_cases(self, e),
         }
     }
 
@@ -538,46 +538,26 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         }
     }
 
-    fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
-        match s {
-            ZirStatement::Assertion(AssertionStatement {
-                error,
-                expression: BooleanExpression::UintEq(e),
-                ..
-            }) => {
-                let left = self.fold_uint_expression(*e.left);
-                let right = self.fold_uint_expression(*e.right);
-
-                // we can only compare two unsigned integers if they are in range
-                let left = force_reduce(left);
-                let right = force_reduce(right);
-
-                vec![ZirStatement::assertion(
-                    BooleanExpression::uint_eq(left, right),
-                    error,
-                )]
-            }
-            ZirStatement::Log(s) => vec![ZirStatement::Log(LogStatement::new(
-                s.format_string,
-                s.expressions
-                    .into_iter()
-                    .map(|(t, e)| {
-                        (
-                            t,
-                            e.into_iter()
-                                .map(|e| match e {
-                                    ZirExpression::Uint(e) => {
-                                        force_reduce(self.fold_uint_expression(e)).into()
-                                    }
-                                    e => self.fold_expression(e),
-                                })
-                                .collect(),
-                        )
-                    })
-                    .collect(),
-            ))],
-            s => fold_statement(self, s),
-        }
+    fn fold_log_statement(&mut self, s: LogStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
+        vec![ZirStatement::Log(LogStatement::new(
+            s.format_string,
+            s.expressions
+                .into_iter()
+                .map(|(t, e)| {
+                    (
+                        t,
+                        e.into_iter()
+                            .map(|e| match e {
+                                ZirExpression::Uint(e) => {
+                                    force_reduce(self.fold_uint_expression(e)).into()
+                                }
+                                e => self.fold_expression(e),
+                            })
+                            .collect(),
+                    )
+                })
+                .collect(),
+        ))]
     }
 
     fn fold_parameter(&mut self, p: Parameter<'ast>) -> Parameter<'ast> {

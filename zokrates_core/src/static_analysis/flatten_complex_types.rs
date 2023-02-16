@@ -473,6 +473,8 @@ fn fold_statement<'ast, T: Field>(
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     s: typed::TypedStatement<'ast, T>,
 ) {
+    let span = s.get_span();
+
     let res = match s {
         typed::TypedStatement::Return(s) => vec![zir::ZirStatement::ret(
             f.fold_expression(statements_buffer, s.inner),
@@ -538,7 +540,7 @@ fn fold_statement<'ast, T: Field>(
         typed::TypedStatement::For(..) => unreachable!(),
     };
 
-    statements_buffer.extend(res);
+    statements_buffer.extend(res.into_iter().map(|s| s.span(span)));
 }
 
 fn fold_array_expression_inner<'ast, T: Field>(
@@ -900,6 +902,8 @@ fn fold_field_expression<'ast, T: Field>(
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     e: typed::FieldElementExpression<'ast, T>,
 ) -> zir::FieldElementExpression<'ast, T> {
+    let span = e.get_span();
+
     match e {
         typed::FieldElementExpression::Number(n) => zir::FieldElementExpression::Number(n),
         typed::FieldElementExpression::Identifier(id) => f
@@ -967,6 +971,7 @@ fn fold_field_expression<'ast, T: Field>(
             f.fold_field_expression(statements_buffer, *block.value)
         }
     }
+    .span(span)
 }
 
 // util function to output a boolean expression representing the equality of two lists of ZirExpression.
@@ -1020,6 +1025,8 @@ fn fold_boolean_expression<'ast, T: Field>(
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     e: typed::BooleanExpression<'ast, T>,
 ) -> zir::BooleanExpression<'ast, T> {
+    let span = e.get_span();
+
     match e {
         typed::BooleanExpression::Block(block) => {
             block
@@ -1088,6 +1095,7 @@ fn fold_boolean_expression<'ast, T: Field>(
             .try_into()
             .unwrap(),
     }
+    .span(span)
 }
 
 fn fold_uint_expression<'ast, T: Field>(
@@ -1105,6 +1113,8 @@ fn fold_uint_expression_inner<'ast, T: Field>(
     bitwidth: UBitwidth,
     e: typed::UExpressionInner<'ast, T>,
 ) -> zir::UExpressionInner<'ast, T> {
+    let span = e.get_span();
+
     match e {
         typed::UExpressionInner::Block(block) => {
             block
@@ -1229,6 +1239,7 @@ fn fold_uint_expression_inner<'ast, T: Field>(
         .unwrap()
         .into_inner(),
     }
+    .span(span)
 }
 
 fn fold_function<'ast, T: Field>(

@@ -4,8 +4,9 @@ use crate::static_analysis::reducer::ConstantDefinitions;
 use zokrates_ast::typed::{
     folder::*, ArrayExpression, ArrayExpressionInner, ArrayType, BooleanExpression, CoreIdentifier,
     DeclarationConstant, Expr, FieldElementExpression, Id, Identifier, IdentifierExpression,
-    StructExpression, StructExpressionInner, StructType, TupleExpression, TupleExpressionInner,
-    TupleType, TypedProgram, TypedSymbolDeclaration, UBitwidth, UExpression, UExpressionInner,
+    IdentifierOrExpression, StructExpression, StructExpressionInner, StructType, TupleExpression,
+    TupleExpressionInner, TupleType, TypedExpression, TypedProgram, TypedSymbolDeclaration,
+    UBitwidth, UExpression, UExpressionInner,
 };
 use zokrates_field::Field;
 
@@ -53,155 +54,27 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
         }
     }
 
-    fn fold_field_expression(
+    fn fold_identifier_expression<
+        E: Expr<'ast, T> + Id<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
         &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> FieldElementExpression<'ast, T> {
-        match e {
-            FieldElementExpression::Identifier(IdentifierExpression {
-                id:
-                    Identifier {
-                        id: CoreIdentifier::Constant(c),
-                        version,
-                    },
-                ..
-            }) => {
+        ty: &E::Ty,
+        e: IdentifierExpression<'ast, E>,
+    ) -> IdentifierOrExpression<'ast, T, E> {
+        match e.id {
+            Identifier {
+                id: CoreIdentifier::Constant(c),
+                version,
+            } => {
                 assert_eq!(version, 0);
                 match self.constants.get(&c).cloned() {
-                    Some(v) => v.try_into().unwrap(),
-                    None => FieldElementExpression::identifier(Identifier::from(
-                        CoreIdentifier::Constant(c),
+                    Some(v) => IdentifierOrExpression::Expression(E::from(v).into_inner()),
+                    None => IdentifierOrExpression::Identifier(IdentifierExpression::new(
+                        CoreIdentifier::Constant(c).into(),
                     )),
                 }
             }
-            e => fold_field_expression(self, e),
-        }
-    }
-
-    fn fold_boolean_expression(
-        &mut self,
-        e: BooleanExpression<'ast, T>,
-    ) -> BooleanExpression<'ast, T> {
-        match e {
-            BooleanExpression::Identifier(IdentifierExpression {
-                id:
-                    Identifier {
-                        id: CoreIdentifier::Constant(c),
-                        version,
-                    },
-                ..
-            }) => {
-                assert_eq!(version, 0);
-                match self.constants.get(&c).cloned() {
-                    Some(v) => v.try_into().unwrap(),
-                    None => {
-                        BooleanExpression::identifier(Identifier::from(CoreIdentifier::Constant(c)))
-                    }
-                }
-            }
-            e => fold_boolean_expression(self, e),
-        }
-    }
-
-    fn fold_uint_expression_inner(
-        &mut self,
-        ty: UBitwidth,
-        e: UExpressionInner<'ast, T>,
-    ) -> UExpressionInner<'ast, T> {
-        match e {
-            UExpressionInner::Identifier(IdentifierExpression {
-                id:
-                    Identifier {
-                        id: CoreIdentifier::Constant(c),
-                        version,
-                    },
-                ..
-            }) => {
-                assert_eq!(version, 0);
-                match self.constants.get(&c).cloned() {
-                    Some(v) => UExpression::try_from(v).unwrap().into_inner(),
-                    None => UExpression::identifier(Identifier::from(CoreIdentifier::Constant(c))),
-                }
-            }
-            e => fold_uint_expression_inner(self, ty, e),
-        }
-    }
-
-    fn fold_array_expression_inner(
-        &mut self,
-        ty: &ArrayType<'ast, T>,
-        e: ArrayExpressionInner<'ast, T>,
-    ) -> ArrayExpressionInner<'ast, T> {
-        match e {
-            ArrayExpressionInner::Identifier(IdentifierExpression {
-                id:
-                    Identifier {
-                        id: CoreIdentifier::Constant(c),
-                        version,
-                    },
-                ..
-            }) => {
-                assert_eq!(version, 0);
-                match self.constants.get(&c).cloned() {
-                    Some(v) => ArrayExpression::try_from(v).unwrap().into_inner(),
-                    None => {
-                        ArrayExpression::identifier(Identifier::from(CoreIdentifier::Constant(c)))
-                    }
-                }
-            }
-            e => fold_array_expression_inner(self, ty, e),
-        }
-    }
-
-    fn fold_tuple_expression_inner(
-        &mut self,
-        ty: &TupleType<'ast, T>,
-        e: TupleExpressionInner<'ast, T>,
-    ) -> TupleExpressionInner<'ast, T> {
-        match e {
-            TupleExpressionInner::Identifier(IdentifierExpression {
-                id:
-                    Identifier {
-                        id: CoreIdentifier::Constant(c),
-                        version,
-                    },
-                ..
-            }) => {
-                assert_eq!(version, 0);
-                match self.constants.get(&c).cloned() {
-                    Some(v) => TupleExpression::try_from(v).unwrap().into_inner(),
-                    None => {
-                        TupleExpression::identifier(Identifier::from(CoreIdentifier::Constant(c)))
-                    }
-                }
-            }
-            e => fold_tuple_expression_inner(self, ty, e),
-        }
-    }
-
-    fn fold_struct_expression_inner(
-        &mut self,
-        ty: &StructType<'ast, T>,
-        e: StructExpressionInner<'ast, T>,
-    ) -> StructExpressionInner<'ast, T> {
-        match e {
-            StructExpressionInner::Identifier(IdentifierExpression {
-                id:
-                    Identifier {
-                        id: CoreIdentifier::Constant(c),
-                        version,
-                    },
-                ..
-            }) => {
-                assert_eq!(version, 0);
-                match self.constants.get(&c).cloned() {
-                    Some(v) => StructExpression::try_from(v).unwrap().into_inner(),
-                    None => {
-                        StructExpression::identifier(Identifier::from(CoreIdentifier::Constant(c)))
-                    }
-                }
-            }
-            e => fold_struct_expression_inner(self, ty, e),
+            _ => fold_identifier_expression(self, ty, e),
         }
     }
 }

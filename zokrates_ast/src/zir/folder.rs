@@ -318,7 +318,7 @@ pub fn fold_identifier_expression<
     IdentifierOrExpression::Identifier(IdentifierExpression::new(f.fold_name(e.id)))
 }
 
-pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: FieldElementExpression<'ast, T>,
 ) -> FieldElementExpression<'ast, T> {
@@ -373,7 +373,7 @@ pub fn fold_field_expression_cases<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: BooleanExpression<'ast, T>,
 ) -> BooleanExpression<'ast, T> {
@@ -456,7 +456,7 @@ pub fn fold_uint_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     ty: UBitwidth,
     e: UExpressionInner<'ast, T>,

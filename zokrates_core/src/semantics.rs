@@ -1892,7 +1892,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 ),
                             }),
                         }
-                        TypedStatement::ret(e.with_span(span))
+                        TypedStatement::ret(e).with_span(span)
                     }
                     Err(err) => {
                         errors.extend(err);
@@ -2303,7 +2303,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     signature: signature.clone(),
                 };
 
-                match output_type {
+                let res: Result<TypedExpression<'ast, T>, _> = match output_type {
                     Type::Int => unreachable!(),
                     Type::FieldElement => Ok(FieldElementExpression::function_call(
                         function_key,
@@ -2335,7 +2335,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         generics_checked,
                         arguments_checked,
                     ).annotate(tuple_ty).into()),
-                }
+                };
+
+                res.map(|e| e.with_span(span))
             }
             0 => Err(ErrorInner {
                 span: Some(span),
@@ -2360,8 +2362,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let span = expr.span().in_module(module_id);
 
         match expr.value {
-            Expression::IntConstant(v) => Ok(IntExpression::from_value(v).into()),
-            Expression::BooleanConstant(b) => Ok(BooleanExpression::from_value(b).into()),
+            Expression::IntConstant(v) => Ok(IntExpression::from_value(v).with_span(span).into()),
+            Expression::BooleanConstant(b) => Ok(BooleanExpression::from_value(b).with_span(span).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
                 match self.scope.get(&name) {
@@ -2709,12 +2711,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             T::max_value()
                         ),
                     })?,
-            )
+            ).with_span(span)
             .into()),
-            Expression::U8Constant(n) => Ok(UExpression::from_value(n.into()).annotate(8).into()),
-            Expression::U16Constant(n) => Ok(UExpression::from_value(n.into()).annotate(16).into()),
-            Expression::U32Constant(n) => Ok(UExpression::from_value(n.into()).annotate(32).into()),
-            Expression::U64Constant(n) => Ok(UExpression::from_value(n.into()).annotate(64).into()),
+            Expression::U8Constant(n) => Ok(UExpression::from_value(n.into()).annotate(8).with_span(span).into()),
+            Expression::U16Constant(n) => Ok(UExpression::from_value(n.into()).annotate(16).with_span(span).into()),
+            Expression::U32Constant(n) => Ok(UExpression::from_value(n.into()).annotate(32).with_span(span).into()),
+            Expression::U64Constant(n) => Ok(UExpression::from_value(n.into()).annotate(64).with_span(span).into()),
             Expression::FunctionCall(box fun_id_expression, generics, arguments) => self
                 .check_function_call_expression(
                     fun_id_expression,

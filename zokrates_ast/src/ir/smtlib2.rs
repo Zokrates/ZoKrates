@@ -91,7 +91,7 @@ impl<T: Field> SMTLib2 for Statement<T> {
     }
 }
 
-impl<T: Field> SMTLib2 for Directive<T> {
+impl<T: Field> SMTLib2 for DirectiveStatement<T> {
     fn to_smtlib2(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "")
     }

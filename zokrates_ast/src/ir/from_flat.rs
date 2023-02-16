@@ -1,7 +1,7 @@
 use crate::common::statements::LogStatement;
 use crate::common::WithSpan;
 use crate::flat::{FlatDirective, FlatExpression, FlatProgIterator, FlatStatement, Variable};
-use crate::ir::{Directive, LinComb, ProgIterator, QuadComb, Statement};
+use crate::ir::{DirectiveStatement, LinComb, ProgIterator, QuadComb, Statement};
 use std::ops::*;
 use zokrates_field::Field;
 
@@ -56,6 +56,8 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
 
 impl<T: Field> From<FlatStatement<T>> for Statement<T> {
     fn from(flat_statement: FlatStatement<T>) -> Statement<T> {
+        let span = flat_statement.get_span();
+
         match flat_statement {
             FlatStatement::Condition(s) => match s.expression {
                 FlatExpression::Sub(e) => {
@@ -89,12 +91,13 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
                     .collect(),
             )),
         }
+        .span(span)
     }
 }
 
-impl<T: Field> From<FlatDirective<T>> for Directive<T> {
-    fn from(ds: FlatDirective<T>) -> Directive<T> {
-        Directive {
+impl<T: Field> From<FlatDirective<T>> for DirectiveStatement<T> {
+    fn from(ds: FlatDirective<T>) -> DirectiveStatement<T> {
+        DirectiveStatement {
             inputs: ds
                 .inputs
                 .into_iter()
@@ -102,6 +105,7 @@ impl<T: Field> From<FlatDirective<T>> for Directive<T> {
                 .collect(),
             solver: ds.solver,
             outputs: ds.outputs,
+            span: ds.span,
         }
     }
 }
