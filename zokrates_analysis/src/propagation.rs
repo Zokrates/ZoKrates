@@ -45,7 +45,7 @@ impl fmt::Display for Error {
 }
 
 #[derive(Debug)]
-pub struct Propagator<'ast, 'a, T: Field> {
+pub struct Propagator<'ast, 'a, T> {
     // constants keeps track of constant expressions
     // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is
     constants: &'a mut Constants<'ast, T>,
@@ -317,12 +317,21 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     }
                 };
 
+                // particular case of `lhs = rhs`
+                if TypedExpression::from(assignee.clone()) == expr {
+                    return Ok(vec![]);
+                }
+
                 if expr.is_constant() {
                     match assignee {
                         TypedAssignee::Identifier(var) => {
                             let expr = expr.into_canonical_constant();
 
-                            assert!(self.constants.insert(var.id, expr).is_none());
+                            assert!(
+                                self.constants.insert(var.clone().id, expr).is_none(),
+                                "{}",
+                                var
+                            );
 
                             Ok(vec![])
                         }

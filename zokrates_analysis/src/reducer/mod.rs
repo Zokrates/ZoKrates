@@ -18,9 +18,11 @@ mod shallow_ssa;
 
 use self::inline::{inline_call, InlineError};
 use std::collections::HashMap;
+use zokrates_ast::typed::identifier::FrameIdentifier;
 use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::ConcreteGenericsAssignment;
 use zokrates_ast::typed::types::GGenericsAssignment;
+use zokrates_ast::typed::DeclarationParameter;
 use zokrates_ast::typed::Folder;
 use zokrates_ast::typed::{CanonicalConstantIdentifier, EmbedCall, Variable};
 
@@ -31,6 +33,7 @@ use zokrates_ast::typed::{
     TypedModule, TypedProgram, TypedStatement, UExpression, UExpressionInner,
 };
 
+use zokrates_ast::zir::result_folder::fold_assembly_statement;
 use zokrates_field::Field;
 
 use self::constants_writer::ConstantsWriter;
@@ -47,13 +50,21 @@ pub type ConstantDefinitions<'ast, T> =
     HashMap<CanonicalConstantIdentifier<'ast>, TypedExpression<'ast, T>>;
 
 // An SSA version map, giving access to the latest version number for each identifier
-pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Versions<'ast> {
+    map: HashMap<usize, HashMap<CoreIdentifier<'ast>, usize>>,
+    frame: usize,
+}
 
-// A container to represent whether more treatment must be applied to the function
-#[derive(Debug, PartialEq, Eq)]
-pub enum Output<U, V> {
-    Complete(U),
-    Incomplete(U, V),
+impl<'ast> Versions<'ast> {
+    fn insert_in_frame(
+        &mut self,
+        id: CoreIdentifier<'ast>,
+        version: usize,
+        frame: usize,
+    ) -> Option<usize> {
+        self.map.entry(frame).or_default().insert(id, version)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,131 +95,46 @@ impl fmt::Display for Error {
     }
 }
 
-#[derive(Debug, Default)]
-struct Substitutions<'ast>(HashMap<CoreIdentifier<'ast>, HashMap<usize, usize>>);
-
-impl<'ast> Substitutions<'ast> {
-    // create an equivalent substitution map where all paths
-    // are of length 1
-    fn canonicalize(self) -> Self {
-        Substitutions(
-            self.0
-                .into_iter()
-                .map(|(id, sub)| (id, Self::canonicalize_sub(sub)))
-                .collect(),
-        )
-    }
-
-    // canonicalize substitutions for a given id
-    fn canonicalize_sub(sub: HashMap<usize, usize>) -> HashMap<usize, usize> {
-        fn add_to_cache(
-            sub: &HashMap<usize, usize>,
-            cache: HashMap<usize, usize>,
-            k: usize,
-        ) -> HashMap<usize, usize> {
-            match cache.contains_key(&k) {
-                // `k` is already in the cache, no changes to the cache
-                true => cache,
-                _ => match sub.get(&k) {
-                    // `k` does not point to anything, no changes to the cache
-                    None => cache,
-                    // `k` points to some `v
-                    Some(v) => {
-                        // add `v` to the cache
-                        let cache = add_to_cache(sub, cache, *v);
-                        // `k` points to what `v` points to, or to `v`
-                        let v = cache.get(v).cloned().unwrap_or(*v);
-                        let mut cache = cache;
-                        cache.insert(k, v);
-                        cache
-                    }
-                },
-            }
-        }
-
-        sub.keys()
-            .fold(HashMap::new(), |cache, k| add_to_cache(&sub, cache, *k))
-    }
-}
-
-struct Sub<'a, 'ast> {
-    substitutions: &'a Substitutions<'ast>,
-}
-
-impl<'a, 'ast> Sub<'a, 'ast> {
-    fn new(substitutions: &'a Substitutions<'ast>) -> Self {
-        Self { substitutions }
-    }
-}
-
-impl<'a, 'ast, T: Field> Folder<'ast, T> for Sub<'a, 'ast> {
-    fn fold_name(&mut self, id: Identifier<'ast>) -> Identifier<'ast> {
-        let version = self
-            .substitutions
-            .0
-            .get(&id.id)
-            .map(|sub| sub.get(&id.version).cloned().unwrap_or(id.version))
-            .unwrap_or(id.version);
-        id.version(version)
-    }
-}
-
-fn register<'ast>(
-    substitutions: &mut Substitutions<'ast>,
-    substitute: &Versions<'ast>,
-    with: &Versions<'ast>,
-) {
-    for (id, key, value) in substitute
-        .iter()
-        .filter_map(|(id, version)| with.get(id).map(|to| (id, version, to)))
-        .filter(|(_, key, value)| key != value)
-    {
-        let sub = substitutions.0.entry(id.clone()).or_default();
-
-        // redirect `k` to `v`, unless `v` is already redirected to `v0`, in which case we redirect to `v0`
-
-        sub.insert(*key, *sub.get(value).unwrap_or(value));
-    }
-}
-
 #[derive(Debug)]
 struct Reducer<'ast, 'a, T> {
+    propagator: Propagator<'ast, 'a, T>,
     statement_buffer: Vec<TypedStatement<'ast, T>>,
-    for_loop_versions: Vec<Versions<'ast>>,
-    for_loop_versions_after: Vec<Versions<'ast>>,
-    program: &'a TypedProgram<'ast, T>,
+    latest_frame: usize,
     versions: &'a mut Versions<'ast>,
-    substitutions: &'a mut Substitutions<'ast>,
-    complete: bool,
+    program: &'a TypedProgram<'ast, T>,
 }
 
 impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
     fn new(
         program: &'a TypedProgram<'ast, T>,
         versions: &'a mut Versions<'ast>,
-        substitutions: &'a mut Substitutions<'ast>,
-        for_loop_versions: Vec<Versions<'ast>>,
+        constants: &'a mut Constants<'ast, T>,
     ) -> Self {
-        // we reverse the vector as it's cheaper to `pop` than to take from
-        // the head
-        let mut for_loop_versions = for_loop_versions;
-
-        for_loop_versions.reverse();
+        // println!("create reducer with");
+        // println!("{} versions", versions.len());
+        // println!("{} constants", constants.len());
 
         Reducer {
+            propagator: Propagator::with_constants(constants),
             statement_buffer: vec![],
-            for_loop_versions_after: vec![],
-            for_loop_versions,
-            substitutions,
+            latest_frame: 0,
             program,
             versions,
-            complete: true,
         }
     }
 }
 
 impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     type Error = Error;
+
+    fn fold_parameter(
+        &mut self,
+        p: DeclarationParameter<'ast, T>,
+    ) -> Result<DeclarationParameter<'ast, T>, Self::Error> {
+        let id = p.id.id.id.id.clone();
+        assert!(self.versions.insert_in_frame(id, 0, 0).is_none());
+        Ok(p)
+    }
 
     fn fold_function_call_expression<
         E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
@@ -229,46 +155,104 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             .map(|e| self.fold_expression(e))
             .collect::<Result<_, _>>()?;
 
-        let res = inline_call::<_, E>(
-            e.function_key.clone(),
-            generics,
-            arguments,
-            ty,
-            self.program,
-            self.versions,
-        );
+        // back up the current frame
+        let frame_backup = self.versions.frame;
+
+        // create a new frame
+        self.latest_frame += 1;
+
+        // point the versions to this frame
+        self.versions.frame = self.latest_frame;
+        self.versions
+            .map
+            .insert(self.versions.frame, Default::default());
+
+        // println!("FRAME READY TO INLINE {}", self.versions.frame);
+
+        // println!("GENERICS {:?}", generics);
+
+        let res = inline_call::<_, E>(&e.function_key, generics, arguments, ty, self.program);
 
         match res {
-            Ok(Output::Complete((statements, expression))) => {
-                self.complete &= true;
+            Ok((input_variables, arguments, generics_bindings, statements, expression)) => {
+                // println!("FRAME BEFORE REDUCING INLINE RESULT {}", self.versions.frame);
+
+                let mut transformer = ShallowTransformer::with_versions(self.versions);
+                let propagator = &mut self.propagator;
+
+                // println!("BINDINGS BEFORE {}", generics_bindings[0]);
+
+                let generics_bindings: Vec<_> = generics_bindings
+                    .into_iter()
+                    .flat_map(|s| transformer.fold_statement(s))
+                    .flat_map(|s| propagator.fold_statement(s).unwrap())
+                    .collect();
+
+                // println!("{:#?}", propagator);
+
+                self.statement_buffer.extend(generics_bindings);
+
+                // the lhs is from the inner call frame, the rhs is from the outer one, so only fld the lhs
+                let input_bindings: Vec<_> = input_variables
+                    .into_iter()
+                    .zip(arguments)
+                    .map(|(v, a)| {
+                        TypedStatement::definition(transformer.fold_assignee(v.into()), a)
+                    })
+                    .collect();
+
+                let input_bindings: Vec<_> = input_bindings
+                    .into_iter()
+                    .flat_map(|s| propagator.fold_statement(s).unwrap())
+                    .collect();
+
+                self.statement_buffer.extend(input_bindings);
+
+                let statements: Vec<_> = statements
+                    .into_iter()
+                    .flat_map(|s| self.fold_statement(s).unwrap())
+                    .collect();
+
+                // println!("FRAME READY TO SSA {}", self.versions.frame);
+
+                let mut transformer = ShallowTransformer::with_versions(self.versions);
+                let propagator = &mut self.propagator;
+
                 self.statement_buffer.extend(statements);
+
+                // println!("call result {}", expression);
+
+                let expression = transformer.fold_expression(expression);
+
+                let expression = propagator.fold_expression(expression).unwrap();
+
+                // println!("call result reduced {}", expression);
+
+                // clean versions
+                self.versions.map.remove(&self.versions.frame);
+
+                // restore the original frame
+                // println!("RESTORING BACKUP {}", frame_backup);
+                self.versions.frame = frame_backup;
+
                 Ok(FunctionCallOrExpression::Expression(
                     E::from(expression).into_inner(),
-                ))
-            }
-            Ok(Output::Incomplete((statements, expression), delta_for_loop_versions)) => {
-                self.complete = false;
-                self.statement_buffer.extend(statements);
-                self.for_loop_versions_after.extend(delta_for_loop_versions);
-                Ok(FunctionCallOrExpression::Expression(
-                    E::from(expression.clone()).into_inner(),
                 ))
             }
             Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                 "Call site `{}` incompatible with declaration `{}`",
                 conc, decl
             ))),
-            Err(InlineError::NonConstant(key, generics, arguments, _)) => {
-                self.complete = false;
-
-                Ok(FunctionCallOrExpression::Expression(E::function_call(
-                    key, generics, arguments,
-                )))
-            }
+            Err(InlineError::NonConstant(key, generics, arguments, _)) => Ok(
+                FunctionCallOrExpression::Expression(E::function_call(key, generics, arguments)),
+            ),
             Err(InlineError::Flat(embed, generics, arguments, output_type)) => {
                 let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
                     *self
                         .versions
+                        .map
+                        .entry(self.versions.frame)
+                        .or_default()
                         .entry(CoreIdentifier::Call(0))
                         .and_modify(|e| *e += 1) // if it was already declared, we increment
                         .or_insert(0),
@@ -293,23 +277,24 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         &mut self,
         b: BlockExpression<'ast, T, E>,
     ) -> Result<BlockExpression<'ast, T, E>, Self::Error> {
-        // backup the statements and continue with a fresh state
-        let statement_buffer = std::mem::take(&mut self.statement_buffer);
+        // // backup the statements and continue with a fresh state
+        // let statement_buffer = std::mem::take(&mut self.statement_buffer);
 
-        let block = fold_block_expression(self, b)?;
+        // let block = fold_block_expression(self, b)?;
 
-        // put the original statements back and extract the statements created by visiting the block
-        let extra_statements = std::mem::replace(&mut self.statement_buffer, statement_buffer);
+        // // put the original statements back and extract the statements created by visiting the block
+        // let extra_statements = std::mem::replace(&mut self.statement_buffer, statement_buffer);
 
-        // return the visited block, augmented with the statements created while visiting it
-        Ok(BlockExpression {
-            statements: block
-                .statements
-                .into_iter()
-                .chain(extra_statements)
-                .collect(),
-            ..block
-        })
+        // // return the visited block, augmented with the statements created while visiting it
+        // Ok(BlockExpression {
+        //     statements: block
+        //         .statements
+        //         .into_iter()
+        //         .chain(extra_statements)
+        //         .collect(),
+        //     ..block
+        // })
+        todo!()
     }
 
     fn fold_canonical_constant_identifier(
@@ -324,76 +309,132 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
         let res = match s {
+            TypedStatement::Definition(a, rhs) => {
+                let mut transformer = ShallowTransformer::with_versions(self.versions);
+                // println!("rhs {}", rhs);
+                let rhs = transformer.fold_definition_rhs(rhs);
+                // println!("ssa-ed {}", rhs);
+                let rhs = self.propagator.fold_definition_rhs(rhs).unwrap();
+                // println!("propagated {}", rhs);
+                let rhs = self.fold_definition_rhs(rhs).unwrap();
+                // println!("reduced {}", rhs);
+
+                // println!("ASSIGNEE {}", a);
+
+                let a = ShallowTransformer::with_versions(self.versions).fold_assignee(a);
+
+                // println!("SSA ASSIGNEE {}", a);
+
+                let s = self
+                    .propagator
+                    .fold_statement(TypedStatement::Definition(a, rhs))
+                    .unwrap();
+
+                self.statement_buffer.drain(..).chain(s).collect::<Vec<_>>()
+            }
             TypedStatement::For(v, from, to, statements) => {
-                let versions_before = self.for_loop_versions.pop().unwrap();
+                let mut transformer = ShallowTransformer::with_versions(self.versions);
+                let from = transformer.fold_uint_expression(from);
+                let from = self.propagator.fold_uint_expression(from).unwrap();
+                let to = transformer.fold_uint_expression(to);
+                let to = self.propagator.fold_uint_expression(to).unwrap();
 
                 match (from.as_inner(), to.as_inner()) {
-                    (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
-                        let mut out_statements = vec![];
-
-                        // get a fresh set of versions for all variables to use as a starting point inside the loop
-                        self.versions.values_mut().for_each(|v| *v += 1);
-
-                        // add this set of versions to the substitution, pointing to the versions before the loop
-                        register(self.substitutions, self.versions, &versions_before);
-
-                        // the versions after the loop are found by applying an offset of 1 to the versions before the loop
-                        let versions_after = versions_before
-                            .clone()
-                            .into_iter()
-                            .map(|(k, v)| (k, v + 1))
-                            .collect();
-
-                        let mut transformer = ShallowTransformer::with_versions(self.versions);
-
-                        if to - from > MAX_FOR_LOOP_SIZE {
-                            return Err(Error::LoopTooLarge(to.saturating_sub(*from)));
-                        }
-
-                        for index in *from..*to {
-                            let statements: Vec<TypedStatement<_>> =
-                                std::iter::once(TypedStatement::definition(
-                                    v.clone().into(),
-                                    UExpression::from(index as u32).into(),
-                                ))
-                                .chain(statements.clone().into_iter())
-                                .flat_map(|s| transformer.fold_statement(s))
-                                .collect();
-
-                            out_statements.extend(statements);
-                        }
-
-                        let backups = transformer.for_loop_backups;
-                        let blocked = transformer.blocked;
-
-                        // we know the final versions of the variables after full unrolling of the loop
-                        // the versions after the loop need to point to these, so we add to the substitutions
-                        register(self.substitutions, &versions_after, self.versions);
-
-                        // we may have found new for loops when unrolling this one, which means new backed up versions
-                        // we insert these in our backup list and update our cursor
-
-                        self.for_loop_versions_after.extend(backups);
-
-                        // if the ssa transform got blocked, the reduction is not complete
-                        self.complete &= !blocked;
-
-                        Ok(out_statements)
-                    }
-                    _ => {
-                        let from = self.fold_uint_expression(from)?;
-                        let to = self.fold_uint_expression(to)?;
-                        self.complete = false;
-                        self.for_loop_versions_after.push(versions_before);
-                        Ok(vec![TypedStatement::For(v, from, to, statements)])
-                    }
+                    (UExpressionInner::Value(from), UExpressionInner::Value(to)) => (*from..*to)
+                        .flat_map(|index| {
+                            std::iter::once(TypedStatement::definition(
+                                v.clone().into(),
+                                UExpression::from(index as u32).into(),
+                            ))
+                            .chain(statements.clone())
+                            .flat_map(|s| self.fold_statement(s).unwrap())
+                            .collect::<Vec<_>>()
+                        })
+                        .collect(),
+                    _ => unimplemented!(),
                 }
             }
-            s => fold_statement(self, s),
+            TypedStatement::Assembly(_) => todo!(),
+            s => {
+                let mut transformer = ShallowTransformer::with_versions(self.versions);
+                let propagator = &mut self.propagator;
+                transformer
+                    .fold_statement(s)
+                    .into_iter()
+                    // .inspect(|s| println!("ssa {}\n", s))
+                    .flat_map(|s| propagator.fold_statement(s).unwrap())
+                    // .inspect(|s| println!("propagated {}\n", s))
+                    .collect()
+            }
         };
-
-        res.map(|res| self.statement_buffer.drain(..).chain(res).collect())
+        Ok(res)
     }
+
+    // fn fold_statement(
+    //     &mut self,
+    //     s: TypedStatement<'ast, T>,
+    // ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+    //     let mut transformer = ShallowTransformer::with_versions(self.versions);
+    //     let propagator = &mut self.propagator;
+
+    //     println!("FOLD_STATEMENT: {}", s);
+
+    //     let s: Vec<_> = transformer
+    //         .fold_statement(s)
+    //         .into_iter()
+    //         // .inspect(|s| println!("ssa {}\n", s))
+    //         .flat_map(|s| propagator.fold_statement(s).unwrap())
+    //         // .inspect(|s| println!("propagated {}\n", s))
+    //         .collect();
+
+    //     for s in &s {
+    //         println!("OUTER: {}", s);
+    //     }
+
+    //     let res: Vec<_> = s
+    //         .into_iter()
+    //         .flat_map(|s| match s {
+    //             TypedStatement::For(v, from, to, statements) => {
+    //                 match (from.as_inner(), to.as_inner()) {
+    //                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => (*from
+    //                         ..*to)
+    //                         .flat_map(|index| {
+    //                             std::iter::once(TypedStatement::definition(
+    //                                 v.clone().into(),
+    //                                 UExpression::from(index as u32).into(),
+    //                             ))
+    //                             .chain(statements.clone())
+    //                             .flat_map(|s| self.fold_statement(s).unwrap())
+    //                             .collect::<Vec<_>>()
+    //                         })
+    //                         .collect(),
+    //                     _ => unimplemented!(),
+    //                 }
+    //             }
+    //             s => {
+    //                 println!("UNROLL/INLINE STATEMENT {}", s);
+
+    //                 let s = fold_statement(self, s).unwrap();
+
+    //                 for s in &self.statement_buffer {
+    //                     println!("BUFFER {}", s);
+    //                 }
+
+    //                 for s in &s {
+    //                     println!("RESULT {}", s);
+    //                 }
+
+    //                 self.statement_buffer.drain(..).chain(s).collect::<Vec<_>>()
+    //             }
+    //         })
+    //         .collect();
+
+    //     for s in &res {
+    //         // println!("DONE: {}", s);
+    //     }
+
+    //     Ok(res)
+    // }
 
     fn fold_array_expression_inner(
         &mut self,
@@ -402,19 +443,20 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
         match e {
             ArrayExpressionInner::Slice(box array, box from, box to) => {
-                let array = self.fold_array_expression(array)?;
-                let from = self.fold_uint_expression(from)?;
-                let to = self.fold_uint_expression(to)?;
+                // let array = self.fold_array_expression(array)?;
+                // let from = self.fold_uint_expression(from)?;
+                // let to = self.fold_uint_expression(to)?;
 
-                match (from.as_inner(), to.as_inner()) {
-                    (UExpressionInner::Value(..), UExpressionInner::Value(..)) => {
-                        Ok(ArrayExpressionInner::Slice(box array, box from, box to))
-                    }
-                    _ => {
-                        self.complete = false;
-                        Ok(ArrayExpressionInner::Slice(box array, box from, box to))
-                    }
-                }
+                // match (from.as_inner(), to.as_inner()) {
+                //     (UExpressionInner::Value(..), UExpressionInner::Value(..)) => {
+                //         Ok(ArrayExpressionInner::Slice(box array, box from, box to))
+                //     }
+                //     _ => {
+                //         self.complete = false;
+                //         Ok(ArrayExpressionInner::Slice(box array, box from, box to))
+                //     }
+                // }
+                todo!()
             }
             _ => fold_array_expression_inner(self, array_ty, e),
         }
@@ -443,7 +485,7 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
 
     match main_function.signature.generics.len() {
         0 => {
-            let main_function = reduce_function(main_function, GGenericsAssignment::default(), &p)?;
+            let main_function = reduce_function(main_function, &p)?;
 
             Ok(TypedProgram {
                 main: p.main.clone(),
@@ -467,83 +509,129 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
 
 fn reduce_function<'ast, T: Field>(
     f: TypedFunction<'ast, T>,
-    generics: ConcreteGenericsAssignment<'ast>,
     program: &TypedProgram<'ast, T>,
 ) -> Result<TypedFunction<'ast, T>, Error> {
     let mut versions = Versions::default();
-
     let mut constants = Constants::default();
 
-    let f = match ShallowTransformer::transform(f, &generics, &mut versions) {
-        Output::Complete(f) => Ok(f),
-        Output::Incomplete(new_f, new_for_loop_versions) => {
-            let mut for_loop_versions = new_for_loop_versions;
+    assert!(f.signature.generics.is_empty());
 
-            let mut f = new_f;
+    // let f = match ShallowTransformer::transform(f, &generics, &mut versions) {
+    //     Output::Complete(f) => Ok(f),
+    //     Output::Incomplete(new_f, new_for_loop_versions) => {
+    //         let mut for_loop_versions = new_for_loop_versions;
 
-            let mut substitutions = Substitutions::default();
+    //         let mut f = Propagator::with_constants(&mut constants)
+    //             .fold_function(new_f)
+    //             .map_err(|e| Error::Incompatible(format!("{}", e)))?;
 
-            let mut hash = None;
+    //         let mut substitutions = Substitutions::default();
 
-            loop {
-                let mut reducer = Reducer::new(
-                    program,
-                    &mut versions,
-                    &mut substitutions,
-                    for_loop_versions,
-                );
+    //         let mut hash = None;
 
-                let new_f = TypedFunction {
-                    statements: f
-                        .statements
-                        .into_iter()
-                        .map(|s| reducer.fold_statement(s))
-                        .collect::<Result<Vec<_>, _>>()?
-                        .into_iter()
-                        .flatten()
-                        .collect(),
-                    ..f
-                };
+    //         let mut len = f.statements.len();
 
-                assert!(reducer.for_loop_versions.is_empty());
+    //         // println!("{}", f);
 
-                match reducer.complete {
-                    true => {
-                        substitutions = substitutions.canonicalize();
+    //         loop {
+    //             let mut reducer = Reducer::new(
+    //                 program,
+    //                 &mut versions,
+    //                 &mut substitutions,
+    //                 for_loop_versions,
+    //                 &mut constants,
+    //             );
 
-                        let new_f = Sub::new(&substitutions).fold_function(new_f);
+    //             println!("reduce");
 
-                        let new_f = Propagator::with_constants(&mut constants)
-                            .fold_function(new_f)
-                            .map_err(|e| Error::Incompatible(format!("{}", e)))?;
+    //             let new_f = TypedFunction {
+    //                 statements: f
+    //                     .statements
+    //                     .into_iter()
+    //                     .map(|s| reducer.fold_statement(s))
+    //                     .collect::<Result<Vec<_>, _>>()?
+    //                     .into_iter()
+    //                     .flatten()
+    //                     .collect(),
+    //                 ..f
+    //             };
 
-                        break Ok(new_f);
-                    }
-                    false => {
-                        for_loop_versions = reducer.for_loop_versions_after;
+    //             println!("done");
 
-                        let new_f = Sub::new(&substitutions).fold_function(new_f);
+    //             // println!("after reduction {}", new_f);
 
-                        f = Propagator::with_constants(&mut constants)
-                            .fold_function(new_f)
-                            .map_err(|e| Error::Incompatible(format!("{}", e)))?;
+    //             println!(
+    //                 "count {}, unrolled {} loops",
+    //                 new_f.statements.len(),
+    //                 reducer.credits
+    //             );
 
-                        let new_hash = Some(compute_hash(&f));
+    //             assert!(reducer.for_loop_versions.is_empty());
 
-                        if new_hash == hash {
-                            break Err(Error::NoProgress);
-                        } else {
-                            hash = new_hash
-                        }
-                    }
-                }
-            }
-        }
-    }?;
+    //             match reducer.complete {
+    //                 true => {
+    //                     substitutions = substitutions.canonicalize();
 
-    Propagator::with_constants(&mut constants)
-        .fold_function(f)
-        .map_err(|e| Error::Incompatible(format!("{}", e)))
+    //                     let new_f = Sub::new(&substitutions).fold_function(new_f);
+
+    //                     // println!("after last sub {}", new_f);
+
+    //                     // let new_f = Propagator::with_constants(&mut constants)
+    //                     //     .fold_function(new_f)
+    //                     //     .map_err(|e| Error::Incompatible(format!("{}", e)))?;
+
+    //                     // println!("after last prop {}", new_f);
+
+    //                     break Ok(new_f);
+    //                 }
+    //                 false => {
+    //                     for_loop_versions = reducer.for_loop_versions_after;
+
+    //                     println!("canonicalize");
+
+    //                     // substitutions = substitutions.canonicalize();
+
+    //                     // let new_f = Sub::new(&substitutions).fold_function(new_f);
+
+    //                     println!("done");
+    //                     // println!("after sub {}", new_f);
+
+    //                     println!("propagate");
+
+    //                     // f = Propagator::with_constants(&mut constants)
+    //                     //     .fold_function(new_f)
+    //                     //     .map_err(|e| Error::Incompatible(format!("{}", e)))?;
+
+    //                     println!("done");
+
+    //                     f = new_f;
+
+    //                     // println!("after prop {}", f);
+
+    //                     let new_len = f.statements.len();
+
+    //                     if new_len == len {
+    //                         let new_hash = Some(compute_hash(&f));
+
+    //                         if new_hash == hash {
+    //                             break Err(Error::NoProgress);
+    //                         } else {
+    //                             hash = new_hash;
+    //                         }
+    //                     } else {
+    //                         len = new_len;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }?;
+
+    // Propagator::with_constants(&mut constants)
+    //     .fold_function(f)
+    //     .map_err(|e| Error::Incompatible(format!("{}", e)))
+
+    Reducer::new(program, &mut versions, &mut constants).fold_function(f)
 }
 
 fn compute_hash<T: Field>(f: &TypedFunction<T>) -> u64 {

@@ -26,7 +26,6 @@
 // - The body of the function is in SSA form
 // - The return value(s) are assigned to internal variables
 
-use crate::reducer::Output;
 use crate::reducer::ShallowTransformer;
 use crate::reducer::Versions;
 
@@ -34,6 +33,8 @@ use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::types::{ConcreteGenericsAssignment, IntoType};
 use zokrates_ast::typed::CoreIdentifier;
 use zokrates_ast::typed::Identifier;
+use zokrates_ast::typed::TypedAssignee;
+use zokrates_ast::typed::UBitwidth;
 use zokrates_ast::typed::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Expr,
     Signature, Type, TypedExpression, TypedFunctionSymbol, TypedFunctionSymbolDeclaration,
@@ -58,7 +59,7 @@ pub enum InlineError<'ast, T> {
 }
 
 fn get_canonical_function<'ast, T: Field>(
-    function_key: DeclarationFunctionKey<'ast, T>,
+    function_key: &DeclarationFunctionKey<'ast, T>,
     program: &TypedProgram<'ast, T>,
 ) -> TypedFunctionSymbolDeclaration<'ast, T> {
     let s = program
@@ -66,27 +67,32 @@ fn get_canonical_function<'ast, T: Field>(
         .get(&function_key.module)
         .unwrap()
         .functions_iter()
-        .find(|d| d.key == function_key)
+        .find(|d| d.key == *function_key)
         .unwrap();
 
     match &s.symbol {
-        TypedFunctionSymbol::There(key) => get_canonical_function(key.clone(), program),
+        TypedFunctionSymbol::There(key) => get_canonical_function(key, program),
         _ => s.clone(),
     }
 }
 
 type InlineResult<'ast, T> = Result<
-    Output<(Vec<TypedStatement<'ast, T>>, TypedExpression<'ast, T>), Vec<Versions<'ast>>>,
+    (
+        Vec<Variable<'ast, T>>,
+        Vec<TypedExpression<'ast, T>>,
+        Vec<TypedStatement<'ast, T>>,
+        Vec<TypedStatement<'ast, T>>,
+        TypedExpression<'ast, T>,
+    ),
     InlineError<'ast, T>,
 >;
 
 pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
-    k: DeclarationFunctionKey<'ast, T>,
+    k: &DeclarationFunctionKey<'ast, T>,
     generics: Vec<Option<UExpression<'ast, T>>>,
     arguments: Vec<TypedExpression<'ast, T>>,
     output: &E::Ty,
     program: &TypedProgram<'ast, T>,
-    versions: &'a mut Versions<'ast>,
 ) -> InlineResult<'ast, T> {
     use zokrates_ast::typed::Typed;
     let output_type = output.clone().into_type();
@@ -124,7 +130,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         Ok(s) => s,
         Err(_) => {
             return Err(InlineError::NonConstant(
-                k,
+                k.clone(),
                 generics,
                 arguments,
                 output_type,
@@ -132,7 +138,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         }
     };
 
-    let decl = get_canonical_function(k.clone(), program);
+    let decl = get_canonical_function(&k, program);
 
     // get an assignment of generics for this call site
     let assignment: ConcreteGenericsAssignment<'ast> = k
@@ -162,23 +168,35 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
 
     assert_eq!(f.arguments.len(), arguments.len());
 
-    let (ssa_f, incomplete_data) = match ShallowTransformer::transform(f, &assignment, versions) {
-        Output::Complete(v) => (v, None),
-        Output::Incomplete(statements, for_loop_versions) => (statements, Some(for_loop_versions)),
-    };
+    // let ssa_f = ShallowTransformer::transform(f, &assignment, versions);
 
-    let call_log = TypedStatement::PushCallLog(decl.key.clone(), assignment.clone());
+    // let ssa_f = f;
 
-    let input_bindings: Vec<TypedStatement<'ast, T>> = ssa_f
+    // let call_log = TypedStatement::PushCallLog(decl.key.clone(), assignment.clone());
+
+    let generics_bindings: Vec<_> = assignment
+        .0
+        .into_iter()
+        .map(|(identifier, value)| {
+            TypedStatement::Definition(
+                TypedAssignee::Identifier(Variable::uint(
+                    CoreIdentifier::from(identifier),
+                    UBitwidth::B32,
+                )),
+                TypedExpression::from(UExpression::from(value)).into(),
+            )
+        })
+        .collect();
+
+    let input_variables: Vec<Variable<'ast, T>> = f
         .arguments
         .into_iter()
         .zip(inferred_signature.inputs.clone())
         .map(|(p, t)| ConcreteVariable::new(p.id.id, t, false))
-        .zip(arguments.clone())
-        .map(|(v, a)| TypedStatement::definition(Variable::from(v).into(), a))
+        .map(|v| Variable::from(v))
         .collect();
 
-    let (statements, mut returns): (Vec<_>, Vec<_>) = ssa_f
+    let (statements, mut returns): (Vec<_>, Vec<_>) = f
         .statements
         .into_iter()
         .partition(|s| !matches!(s, TypedStatement::Return(..)));
@@ -190,31 +208,28 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         _ => unreachable!(),
     };
 
-    let v: ConcreteVariable<'ast> = ConcreteVariable::new(
-        Identifier::from(CoreIdentifier::Call(0)).version(
-            *versions
-                .entry(CoreIdentifier::Call(0))
-                .and_modify(|e| *e += 1) // if it was already declared, we increment
-                .or_insert(0),
-        ),
-        *inferred_signature.output.clone(),
-        false,
-    );
+    // let v: ConcreteVariable<'ast> = ConcreteVariable::new(
+    //     Identifier::from(CoreIdentifier::Call(0)).version(
+    //         *versions
+    //             .entry(CoreIdentifier::Call(0))
+    //             .and_modify(|e| *e += 1) // if it was already declared, we increment
+    //             .or_insert(0),
+    //     ),
+    //     *inferred_signature.output.clone(),
+    //     false,
+    // );
 
-    let expression = TypedExpression::from(Variable::from(v.clone()));
+    // let expression = TypedExpression::from(Variable::from(v.clone()));
 
-    let output_binding = TypedStatement::definition(Variable::from(v).into(), return_expression);
+    // let output_binding = TypedStatement::definition(Variable::from(v).into(), return_expression);
 
-    let pop_log = TypedStatement::PopCallLog;
+    // let pop_log = TypedStatement::PopCallLog;
 
-    let statements: Vec<_> = std::iter::once(call_log)
-        .chain(input_bindings)
-        .chain(statements)
-        .chain(std::iter::once(output_binding))
-        .chain(std::iter::once(pop_log))
-        .collect();
-
-    Ok(incomplete_data
-        .map(|d| Output::Incomplete((statements.clone(), expression.clone()), d))
-        .unwrap_or_else(|| Output::Complete((statements, expression))))
+    Ok((
+        input_variables,
+        arguments,
+        generics_bindings,
+        statements,
+        return_expression,
+    ))
 }

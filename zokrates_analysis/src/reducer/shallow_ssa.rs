@@ -27,54 +27,41 @@
 // }
 
 use zokrates_ast::typed::folder::*;
+use zokrates_ast::typed::identifier::FrameIdentifier;
 use zokrates_ast::typed::types::ConcreteGenericsAssignment;
 use zokrates_ast::typed::types::Type;
 use zokrates_ast::typed::*;
 
 use zokrates_field::Field;
 
-use super::{Output, Versions};
+use super::Versions;
 
 pub struct ShallowTransformer<'ast, 'a> {
     // version index for any variable name
     pub versions: &'a mut Versions<'ast>,
-    // A backup of the versions before each for-loop
-    pub for_loop_backups: Vec<Versions<'ast>>,
-    // whether all statements could be unrolled so far. Loops with variable bounds cannot.
-    pub blocked: bool,
 }
 
 impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
     pub fn with_versions(versions: &'a mut Versions<'ast>) -> Self {
-        ShallowTransformer {
-            versions,
-            for_loop_backups: Vec::default(),
-            blocked: false,
-        }
-    }
-
-    // increase all versions by 1 and return the old versions
-    fn create_version_gap(&mut self) -> Versions<'ast> {
-        let ret = self.versions.clone();
-        self.versions.values_mut().for_each(|v| *v += 1);
-        ret
+        ShallowTransformer { versions }
     }
 
     fn issue_next_identifier(&mut self, c_id: CoreIdentifier<'ast>) -> Identifier<'ast> {
-        let version = *self
-            .versions
+        let frame_versions = self.versions.map.entry(self.versions.frame).or_default();
+
+        let version = frame_versions
             .entry(c_id.clone())
             .and_modify(|e| *e += 1) // if it was already declared, we increment
-            .or_insert(0); // otherwise, we start from this version
+            .or_default(); // otherwise, we start from this version
 
-        Identifier::from(c_id).version(version)
+        Identifier::from(c_id).version(*version)
     }
 
     fn issue_next_ssa_variable<T: Field>(&mut self, v: Variable<'ast, T>) -> Variable<'ast, T> {
         assert_eq!(v.id.version, 0);
 
         Variable {
-            id: self.issue_next_identifier(v.id.id),
+            id: self.issue_next_identifier(v.id.id.id),
             ..v
         }
     }
@@ -83,15 +70,10 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
         f: TypedFunction<'ast, T>,
         generics: &ConcreteGenericsAssignment<'ast>,
         versions: &'a mut Versions<'ast>,
-    ) -> Output<TypedFunction<'ast, T>, Vec<Versions<'ast>>> {
+    ) -> TypedFunction<'ast, T> {
         let mut unroller = ShallowTransformer::with_versions(versions);
 
-        let f = unroller.fold_function(f, generics);
-
-        match unroller.blocked {
-            false => Output::Complete(f),
-            true => Output::Incomplete(f, unroller.for_loop_backups),
-        }
+        unroller.fold_function(f, generics)
     }
 
     fn fold_function<T: Field>(
@@ -116,13 +98,15 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
             .collect();
 
         for arg in &f.arguments {
-            let _ = self.issue_next_identifier(arg.id.id.id.clone());
+            let _ = self.issue_next_identifier(arg.id.id.id.id.clone());
         }
 
         fold_function(self, f)
     }
+}
 
-    fn fold_assignee<T: Field>(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
+impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
+    fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
         match a {
             TypedAssignee::Identifier(v) => {
                 let v = self.issue_next_ssa_variable(v);
@@ -131,9 +115,7 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
             a => fold_assignee(self, a),
         }
     }
-}
 
-impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
     fn fold_assembly_statement(
         &mut self,
         s: TypedAssemblyStatement<'ast, T>,
@@ -162,9 +144,6 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
             TypedStatement::For(v, from, to, stats) => {
                 let from = self.fold_uint_expression(from);
                 let to = self.fold_uint_expression(to);
-                self.blocked = true;
-                let versions_before_loop = self.create_version_gap();
-                self.for_loop_backups.push(versions_before_loop);
                 vec![TypedStatement::For(v, from, to, stats)]
             }
             s => fold_statement(self, s),
@@ -172,25 +151,22 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
     }
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
-        let res = Identifier {
-            version: *self.versions.get(&(n.id)).unwrap_or(&0),
-            ..n
+        let version = self
+            .versions
+            .map
+            .get(&self.versions.frame)
+            .unwrap()
+            .get(&n.id.id)
+            .cloned()
+            .unwrap_or(0);
+
+        let id = FrameIdentifier {
+            frame: self.versions.frame,
+            ..n.id
         };
+
+        let res = Identifier { version, id };
         res
-    }
-
-    fn fold_function_call_expression<
-        E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
-    >(
-        &mut self,
-        ty: &E::Ty,
-        c: FunctionCallExpression<'ast, T, E>,
-    ) -> FunctionCallOrExpression<'ast, T, E> {
-        if !c.function_key.id.starts_with('_') {
-            self.blocked = true;
-        }
-
-        fold_function_call_expression(self, ty, c)
     }
 }
 

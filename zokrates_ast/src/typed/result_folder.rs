@@ -4,6 +4,8 @@ use crate::typed::types::*;
 use crate::typed::*;
 use zokrates_field::Field;
 
+use super::identifier::FrameIdentifier;
+
 pub trait ResultFold<'ast, T: Field>: Sized {
     fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error>;
 }
@@ -156,11 +158,12 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     }
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Result<Identifier<'ast>, Self::Error> {
-        let id = match n.id {
-            CoreIdentifier::Constant(c) => {
-                CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c)?)
-            }
-            id => id,
+        let id = match n.id.id.clone() {
+            CoreIdentifier::Constant(c) => FrameIdentifier {
+                id: CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c)?),
+                frame: 0,
+            },
+            id => n.id,
         };
 
         Ok(Identifier { id, ..n })

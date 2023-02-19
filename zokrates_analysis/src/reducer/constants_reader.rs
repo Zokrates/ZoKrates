@@ -2,10 +2,11 @@
 
 use crate::reducer::ConstantDefinitions;
 use zokrates_ast::typed::{
-    folder::*, ArrayExpression, ArrayExpressionInner, ArrayType, BooleanExpression, CoreIdentifier,
-    DeclarationConstant, Expr, FieldElementExpression, Id, Identifier, IdentifierExpression,
-    StructExpression, StructExpressionInner, StructType, TupleExpression, TupleExpressionInner,
-    TupleType, TypedProgram, TypedSymbolDeclaration, UBitwidth, UExpression, UExpressionInner,
+    folder::*, identifier::FrameIdentifier, ArrayExpression, ArrayExpressionInner, ArrayType,
+    BooleanExpression, CoreIdentifier, DeclarationConstant, Expr, FieldElementExpression, Id,
+    Identifier, IdentifierExpression, StructExpression, StructExpressionInner, StructType,
+    TupleExpression, TupleExpressionInner, TupleType, TypedProgram, TypedSymbolDeclaration,
+    UBitwidth, UExpression, UExpressionInner,
 };
 use zokrates_field::Field;
 
@@ -61,7 +62,11 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
             FieldElementExpression::Identifier(IdentifierExpression {
                 id:
                     Identifier {
-                        id: CoreIdentifier::Constant(c),
+                        id:
+                            FrameIdentifier {
+                                id: CoreIdentifier::Constant(c),
+                                frame,
+                            },
                         version,
                     },
                 ..
@@ -86,7 +91,11 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
             BooleanExpression::Identifier(IdentifierExpression {
                 id:
                     Identifier {
-                        id: CoreIdentifier::Constant(c),
+                        id:
+                            FrameIdentifier {
+                                id: CoreIdentifier::Constant(c),
+                                frame,
+                            },
                         version,
                     },
                 ..
@@ -112,7 +121,11 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
             UExpressionInner::Identifier(IdentifierExpression {
                 id:
                     Identifier {
-                        id: CoreIdentifier::Constant(c),
+                        id:
+                            FrameIdentifier {
+                                id: CoreIdentifier::Constant(c),
+                                frame,
+                            },
                         version,
                     },
                 ..
@@ -136,7 +149,11 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
             ArrayExpressionInner::Identifier(IdentifierExpression {
                 id:
                     Identifier {
-                        id: CoreIdentifier::Constant(c),
+                        id:
+                            FrameIdentifier {
+                                id: CoreIdentifier::Constant(c),
+                                frame,
+                            },
                         version,
                     },
                 ..
@@ -162,7 +179,11 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
             TupleExpressionInner::Identifier(IdentifierExpression {
                 id:
                     Identifier {
-                        id: CoreIdentifier::Constant(c),
+                        id:
+                            FrameIdentifier {
+                                id: CoreIdentifier::Constant(c),
+                                frame,
+                            },
                         version,
                     },
                 ..
@@ -188,7 +209,11 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
             StructExpressionInner::Identifier(IdentifierExpression {
                 id:
                     Identifier {
-                        id: CoreIdentifier::Constant(c),
+                        id:
+                            FrameIdentifier {
+                                id: CoreIdentifier::Constant(c),
+                                frame,
+                            },
                         version,
                     },
                 ..
