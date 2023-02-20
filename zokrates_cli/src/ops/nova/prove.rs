@@ -14,17 +14,19 @@ use zokrates_bellperson::nova::{self, NovaField};
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("prove")
         .about("Proves a many steps of an incremental computation")
-        .arg(Arg::with_name("init")
-            .long("init")
-            .help("Path to the initial value of the public input")
-            .takes_value(true)
-            .default_value(NOVA_PUBLIC_INIT),
+        .arg(
+            Arg::with_name("init")
+                .long("init")
+                .help("Path to the initial value of the public input")
+                .takes_value(true)
+                .default_value(NOVA_PUBLIC_INIT),
         )
-        .arg(Arg::with_name("steps")
-            .long("steps")
-            .help("Path to the value of the private input for each step")
-            .takes_value(true)
-            .default_value(NOVA_STEPS_PRIVATE_INPUTS),
+        .arg(
+            Arg::with_name("steps")
+                .long("steps")
+                .help("Path to the value of the private input for each step")
+                .takes_value(true)
+                .default_value(NOVA_STEPS_PRIVATE_INPUTS),
         )
         .arg(
             Arg::with_name("input")
@@ -44,7 +46,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(cli_constants::ABI_SPEC_DEFAULT_PATH)
+                .default_value(cli_constants::ABI_SPEC_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("proof-path")

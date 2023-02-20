@@ -125,8 +125,24 @@ impl<'ast, T: Field> fmt::Display for Statement<'ast, T> {
 
 pub type Prog<'ast, T> = ProgIterator<'ast, T, Vec<Statement<'ast, T>>>;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
-pub struct ProgIterator<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> {
+impl<'ast, T> Prog<'ast, T> {
+    pub fn to_ref_iterator<'a>(
+        &'a self,
+    ) -> ProgRefIterator<'ast, 'a, T, std::slice::Iter<'a, Statement<'ast, T>>> {
+        ProgRefIterator {
+            arguments: self.arguments.clone(),
+            return_count: self.return_count,
+            statements: self.statements.iter(),
+        }
+    }
+}
+
+pub type ProgRefIterator<'ast, 'a, T, I> = GProgIterator<&'a Statement<'ast, T>, I>;
+
+pub type ProgIterator<'ast, T, I> = GProgIterator<Statement<'ast, T>, I>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct GProgIterator<S, I: IntoIterator<Item = S>> {
     pub arguments: Vec<Parameter>,
     pub return_count: usize,
     pub statements: I,

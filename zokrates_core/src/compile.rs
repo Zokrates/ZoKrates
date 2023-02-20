@@ -19,7 +19,7 @@ use zokrates_ast::typed::abi::Abi;
 use zokrates_ast::untyped::{Module, OwnedModuleId, Program};
 use zokrates_ast::zir::ZirProgram;
 use zokrates_codegen::from_function_and_config;
-use zokrates_common::{CompileConfig, Resolver};
+pub use zokrates_common::{CompileConfig, Resolver};
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 

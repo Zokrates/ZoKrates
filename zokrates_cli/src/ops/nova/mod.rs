@@ -1,4 +1,4 @@
-use clap::{App, ArgMatches, SubCommand, AppSettings};
+use clap::{App, AppSettings, ArgMatches, SubCommand};
 
 pub mod prove;
 

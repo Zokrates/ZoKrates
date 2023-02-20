@@ -225,6 +225,7 @@ impl<'a> Write for LogWriter<'a> {
 mod internal {
     use super::*;
     use rand_0_8::{CryptoRng, RngCore};
+    use zokrates_ast::ir::ProgRefIterator;
 
     pub fn compile<T: Field>(
         source: JsValue,
@@ -325,6 +326,13 @@ mod internal {
         let public_inputs = program.public_inputs();
 
         let mut writer = LogWriter::new(log_callback);
+
+        let program = ProgRefIterator {
+            arguments: program.arguments,
+            return_count: program.return_count,
+            statements: program.statements.iter(),
+        };
+
         let witness = interpreter
             .execute_with_log_stream(program, &inputs.encode(), &mut writer)
             .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;

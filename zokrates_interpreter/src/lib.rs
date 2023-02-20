@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use std::fmt;
 use zokrates_abi::{Decode, Value};
 use zokrates_ast::ir::{
-    LinComb, ProgIterator, QuadComb, RuntimeError, Solver, Statement, Variable, Witness,
+    LinComb, ProgRefIterator, QuadComb, RuntimeError, Solver, Statement, Variable,
+    Witness,
 };
 use zokrates_ast::zir;
 use zokrates_field::Field;
@@ -26,9 +27,9 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>>(
+    pub fn execute<'ast, 'a, T: Field, I: IntoIterator<Item = &'a Statement<'ast, T>>>(
         &self,
-        program: ProgIterator<'ast, T, I>,
+        program: ProgRefIterator<'ast, 'a, T, I>,
         inputs: &[T],
     ) -> ExecutionResult<T> {
         self.execute_with_log_stream(program, inputs, &mut std::io::sink())
@@ -36,12 +37,13 @@ impl Interpreter {
 
     pub fn execute_with_log_stream<
         'ast,
+        'a,
         W: std::io::Write,
         T: Field,
-        I: IntoIterator<Item = Statement<'ast, T>>,
+        I: IntoIterator<Item = &'a Statement<'ast, T>>,
     >(
         &self,
-        program: ProgIterator<'ast, T, I>,
+        program: ProgRefIterator<'ast, 'a, T, I>,
         inputs: &[T],
         log_stream: &mut W,
     ) -> ExecutionResult<T> {
@@ -65,7 +67,9 @@ impl Interpreter {
                         let lhs_value = evaluate_quad(&witness, &quad).unwrap();
                         let rhs_value = evaluate_lin(&witness, &lin).unwrap();
                         if lhs_value != rhs_value {
-                            return Err(Error::UnsatisfiedConstraint { error });
+                            return Err(Error::UnsatisfiedConstraint {
+                                error: error.clone(),
+                            });
                         }
                     }
                 },
@@ -92,7 +96,7 @@ impl Interpreter {
                     }
                 }
                 Statement::Log(l, expressions) => {
-                    let mut parts = l.parts.into_iter();
+                    let mut parts = l.clone().parts.into_iter();
 
                     write!(log_stream, "{}", parts.next().unwrap())
                         .map_err(|_| Error::LogStream)?;
@@ -103,8 +107,12 @@ impl Interpreter {
                             .map(|e| evaluate_lin(&witness, e).unwrap())
                             .collect();
 
-                        write!(log_stream, "{}", Value::decode(values, t).into_serde_json())
-                            .map_err(|_| Error::LogStream)?;
+                        write!(
+                            log_stream,
+                            "{}",
+                            Value::decode(values, t.clone()).into_serde_json()
+                        )
+                        .map_err(|_| Error::LogStream)?;
 
                         write!(log_stream, "{}", part).map_err(|_| Error::LogStream)?;
                     }
@@ -146,9 +154,9 @@ impl Interpreter {
             .collect()
     }
 
-    fn check_inputs<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>, U>(
+    fn check_inputs<'ast, 'a, T: Field, I: IntoIterator<Item = &'a Statement<'ast, T>>, U>(
         &self,
-        program: &ProgIterator<'ast, T, I>,
+        program: &ProgRefIterator<'ast, 'a, T, I>,
         inputs: &[U],
     ) -> Result<(), Error> {
         if program.arguments.len() == inputs.len() {

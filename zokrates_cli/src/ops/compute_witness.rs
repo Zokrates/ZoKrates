@@ -173,8 +173,14 @@ fn cli_compute<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
 
     let public_inputs = ir_prog.public_inputs();
 
+    let ir_prog = ir_prog.collect();
+
     let witness = interpreter
-        .execute_with_log_stream(ir_prog, &arguments.encode(), &mut std::io::stdout())
+        .execute_with_log_stream(
+            ir_prog.to_ref_iterator(),
+            &arguments.encode(),
+            &mut std::io::stdout(),
+        )
         .map_err(|e| format!("Execution failed: {}", e))?;
 
     use zokrates_abi::Decode;
