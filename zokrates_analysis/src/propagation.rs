@@ -44,25 +44,16 @@ impl fmt::Display for Error {
     }
 }
 
-#[derive(Debug)]
-pub struct Propagator<'ast, 'a, T> {
+#[derive(Debug, Default)]
+pub struct Propagator<'ast, T> {
     // constants keeps track of constant expressions
     // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is
-    constants: &'a mut Constants<'ast, T>,
+    constants: Constants<'ast, T>,
 }
 
-impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
-    pub fn with_constants(constants: &'a mut Constants<'ast, T>) -> Self {
-        Propagator { constants }
-    }
-
+impl<'ast, T: Field> Propagator<'ast, T> {
     pub fn propagate(p: TypedProgram<'ast, T>) -> Result<TypedProgram<'ast, T>, Error> {
-        let mut constants = Constants::new();
-
-        Propagator {
-            constants: &mut constants,
-        }
-        .fold_program(p)
+        Propagator::default().fold_program(p)
     }
 
     // get a mutable reference to the constant corresponding to a given assignee if any, otherwise
@@ -141,7 +132,7 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
     }
 }
 
-impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
+impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
     type Error = Error;
 
     fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> Result<TypedProgram<'ast, T>, Error> {

@@ -26,13 +26,10 @@
 // - The body of the function is in SSA form
 // - The return value(s) are assigned to internal variables
 
-use crate::reducer::ShallowTransformer;
-use crate::reducer::Versions;
-
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::types::{ConcreteGenericsAssignment, IntoType};
 use zokrates_ast::typed::CoreIdentifier;
-use zokrates_ast::typed::Identifier;
+
 use zokrates_ast::typed::TypedAssignee;
 use zokrates_ast::typed::UBitwidth;
 use zokrates_ast::typed::{

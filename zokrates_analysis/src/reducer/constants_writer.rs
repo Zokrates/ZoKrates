@@ -5,9 +5,9 @@ use crate::reducer::{
 };
 use std::collections::{BTreeMap, HashSet};
 use zokrates_ast::typed::{
-    result_folder::*, types::ConcreteGenericsAssignment, Constant, OwnedTypedModuleId, Typed,
-    TypedConstant, TypedConstantSymbol, TypedConstantSymbolDeclaration, TypedModuleId,
-    TypedProgram, TypedSymbolDeclaration, UExpression,
+    result_folder::*, Constant, OwnedTypedModuleId, Typed, TypedConstant, TypedConstantSymbol,
+    TypedConstantSymbolDeclaration, TypedModuleId, TypedProgram, TypedSymbolDeclaration,
+    UExpression,
 };
 use zokrates_field::Field;
 

@@ -28,26 +28,24 @@
 
 use zokrates_ast::typed::folder::*;
 use zokrates_ast::typed::identifier::FrameIdentifier;
-use zokrates_ast::typed::types::ConcreteGenericsAssignment;
-use zokrates_ast::typed::types::Type;
+
 use zokrates_ast::typed::*;
 
 use zokrates_field::Field;
 
 use super::Versions;
 
-pub struct ShallowTransformer<'ast, 'a> {
+#[derive(Debug, Default)]
+pub struct ShallowTransformer<'ast> {
     // version index for any variable name
-    pub versions: &'a mut Versions<'ast>,
+    pub versions: Versions<'ast>,
+    pub frames: Vec<usize>,
+    pub latest_frame: usize,
 }
 
-impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
-    pub fn with_versions(versions: &'a mut Versions<'ast>) -> Self {
-        ShallowTransformer { versions }
-    }
-
-    fn issue_next_identifier(&mut self, c_id: CoreIdentifier<'ast>) -> Identifier<'ast> {
-        let frame_versions = self.versions.map.entry(self.versions.frame).or_default();
+impl<'ast> ShallowTransformer<'ast> {
+    pub fn issue_next_identifier(&mut self, c_id: CoreIdentifier<'ast>) -> Identifier<'ast> {
+        let frame_versions = self.versions.map.entry(self.frame()).or_default();
 
         let version = frame_versions
             .entry(c_id.clone())
@@ -66,42 +64,21 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
         }
     }
 
-    pub fn transform<T: Field>(
-        f: TypedFunction<'ast, T>,
-        generics: &ConcreteGenericsAssignment<'ast>,
-        versions: &'a mut Versions<'ast>,
-    ) -> TypedFunction<'ast, T> {
-        let mut unroller = ShallowTransformer::with_versions(versions);
-
-        unroller.fold_function(f, generics)
+    fn frame(&self) -> usize {
+        *self.frames.last().unwrap_or(&0)
     }
 
-    fn fold_function<T: Field>(
-        &mut self,
-        f: TypedFunction<'ast, T>,
-        generics: &ConcreteGenericsAssignment<'ast>,
-    ) -> TypedFunction<'ast, T> {
-        let mut f = f;
+    pub fn push_call_frame(&mut self) {
+        self.latest_frame += 1;
+        self.frames.push(self.latest_frame);
+        self.versions
+            .map
+            .insert(self.latest_frame, Default::default());
+    }
 
-        f.statements = generics
-            .0
-            .clone()
-            .into_iter()
-            .map(|(g, v)| {
-                TypedStatement::definition(
-                    Variable::new(CoreIdentifier::from(g), Type::Uint(UBitwidth::B32), false)
-                        .into(),
-                    UExpression::from(v as u32).into(),
-                )
-            })
-            .chain(f.statements)
-            .collect();
-
-        for arg in &f.arguments {
-            let _ = self.issue_next_identifier(arg.id.id.id.id.clone());
-        }
-
-        fold_function(self, f)
+    pub fn pop_call_frame(&mut self) {
+        let frame = self.frames.pop().unwrap();
+        self.versions.map.remove(&frame);
     }
 
     pub fn fold_assignee<T: Field>(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
@@ -115,7 +92,7 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
     }
 }
 
-impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
+impl<'ast, T: Field> Folder<'ast, T> for ShallowTransformer<'ast> {
     fn fold_assembly_statement(
         &mut self,
         s: TypedAssemblyStatement<'ast, T>,
@@ -154,14 +131,14 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         let version = self
             .versions
             .map
-            .get(&self.versions.frame)
+            .get(&self.frame())
             .unwrap()
             .get(&n.id.id)
             .cloned()
             .unwrap_or(0);
 
         let id = FrameIdentifier {
-            frame: self.versions.frame,
+            frame: self.frame(),
             ..n.id
         };
 

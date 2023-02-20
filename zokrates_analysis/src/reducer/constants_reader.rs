@@ -65,7 +65,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                         id:
                             FrameIdentifier {
                                 id: CoreIdentifier::Constant(c),
-                                frame,
+                                frame: _,
                             },
                         version,
                     },
@@ -94,7 +94,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                         id:
                             FrameIdentifier {
                                 id: CoreIdentifier::Constant(c),
-                                frame,
+                                frame: _,
                             },
                         version,
                     },
@@ -124,7 +124,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                         id:
                             FrameIdentifier {
                                 id: CoreIdentifier::Constant(c),
-                                frame,
+                                frame: _,
                             },
                         version,
                     },
@@ -152,7 +152,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                         id:
                             FrameIdentifier {
                                 id: CoreIdentifier::Constant(c),
-                                frame,
+                                frame: _,
                             },
                         version,
                     },
@@ -182,7 +182,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                         id:
                             FrameIdentifier {
                                 id: CoreIdentifier::Constant(c),
-                                frame,
+                                frame: _,
                             },
                         version,
                     },
@@ -212,7 +212,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                         id:
                             FrameIdentifier {
                                 id: CoreIdentifier::Constant(c),
-                                frame,
+                                frame: _,
                             },
                         version,
                     },
