@@ -163,7 +163,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
                 id: CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c)?),
                 frame: 0,
             },
-            id => n.id,
+            _ => n.id,
         };
 
         Ok(Identifier { id, ..n })

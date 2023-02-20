@@ -103,10 +103,8 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
 
         fold_function(self, f)
     }
-}
 
-impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
-    fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
+    pub fn fold_assignee<T: Field>(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
         match a {
             TypedAssignee::Identifier(v) => {
                 let v = self.issue_next_ssa_variable(v);
@@ -115,7 +113,9 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
             a => fold_assignee(self, a),
         }
     }
+}
 
+impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
     fn fold_assembly_statement(
         &mut self,
         s: TypedAssemblyStatement<'ast, T>,

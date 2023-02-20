@@ -24,6 +24,8 @@ use zokrates_ast::typed::types::ConcreteGenericsAssignment;
 use zokrates_ast::typed::types::GGenericsAssignment;
 use zokrates_ast::typed::DeclarationParameter;
 use zokrates_ast::typed::Folder;
+use zokrates_ast::typed::Typed;
+use zokrates_ast::typed::TypedAssignee;
 use zokrates_ast::typed::{CanonicalConstantIdentifier, EmbedCall, Variable};
 
 use zokrates_ast::typed::{
@@ -146,13 +148,27 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         let generics = e
             .generics
             .into_iter()
-            .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
+            .map(|g| {
+                g.map(|g| {
+                    let g =
+                        ShallowTransformer::with_versions(self.versions).fold_uint_expression(g);
+                    let g = self.propagator.fold_uint_expression(g).unwrap();
+
+                    self.fold_uint_expression(g)
+                })
+                .transpose()
+            })
             .collect::<Result<_, _>>()?;
 
         let arguments = e
             .arguments
             .into_iter()
-            .map(|e| self.fold_expression(e))
+            .map(|e| {
+                let e = ShallowTransformer::with_versions(self.versions).fold_expression(e);
+                let e = self.propagator.fold_expression(e).unwrap();
+
+                self.fold_expression(e)
+            })
             .collect::<Result<_, _>>()?;
 
         // back up the current frame
@@ -167,25 +183,21 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             .map
             .insert(self.versions.frame, Default::default());
 
-        // println!("FRAME READY TO INLINE {}", self.versions.frame);
-
         // println!("GENERICS {:?}", generics);
 
         let res = inline_call::<_, E>(&e.function_key, generics, arguments, ty, self.program);
 
-        match res {
+        let res = match res {
             Ok((input_variables, arguments, generics_bindings, statements, expression)) => {
-                // println!("FRAME BEFORE REDUCING INLINE RESULT {}", self.versions.frame);
-
-                let mut transformer = ShallowTransformer::with_versions(self.versions);
-                let propagator = &mut self.propagator;
-
-                // println!("BINDINGS BEFORE {}", generics_bindings[0]);
-
                 let generics_bindings: Vec<_> = generics_bindings
                     .into_iter()
-                    .flat_map(|s| transformer.fold_statement(s))
-                    .flat_map(|s| propagator.fold_statement(s).unwrap())
+                    .flat_map(|s| {
+                        ShallowTransformer::with_versions(self.versions).fold_statement(s)
+                    })
+                    .flat_map(|s| self.propagator.fold_statement(s).unwrap())
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .flat_map(|s| self.fold_statement(s).unwrap())
                     .collect();
 
                 // println!("{:#?}", propagator);
@@ -197,13 +209,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     .into_iter()
                     .zip(arguments)
                     .map(|(v, a)| {
-                        TypedStatement::definition(transformer.fold_assignee(v.into()), a)
+                        TypedStatement::definition(
+                            ShallowTransformer::with_versions(self.versions)
+                                .fold_assignee(v.into()),
+                            a,
+                        )
                     })
                     .collect();
 
                 let input_bindings: Vec<_> = input_bindings
                     .into_iter()
-                    .flat_map(|s| propagator.fold_statement(s).unwrap())
+                    .flat_map(|s| self.propagator.fold_statement(s).unwrap())
                     .collect();
 
                 self.statement_buffer.extend(input_bindings);
@@ -226,14 +242,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                 let expression = propagator.fold_expression(expression).unwrap();
 
+                let expression = self.fold_expression(expression).unwrap();
+
                 // println!("call result reduced {}", expression);
-
-                // clean versions
-                self.versions.map.remove(&self.versions.frame);
-
-                // restore the original frame
-                // println!("RESTORING BACKUP {}", frame_backup);
-                self.versions.frame = frame_backup;
 
                 Ok(FunctionCallOrExpression::Expression(
                     E::from(expression).into_inner(),
@@ -243,23 +254,24 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 "Call site `{}` incompatible with declaration `{}`",
                 conc, decl
             ))),
-            Err(InlineError::NonConstant(key, generics, arguments, _)) => Ok(
-                FunctionCallOrExpression::Expression(E::function_call(key, generics, arguments)),
-            ),
+            Err(InlineError::NonConstant(key, generics, arguments, _)) => Err(Error::NoProgress),
             Err(InlineError::Flat(embed, generics, arguments, output_type)) => {
-                let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
-                    *self
-                        .versions
-                        .map
-                        .entry(self.versions.frame)
-                        .or_default()
-                        .entry(CoreIdentifier::Call(0))
-                        .and_modify(|e| *e += 1) // if it was already declared, we increment
-                        .or_insert(0),
-                );
+                let identifier =
+                    Identifier::from(CoreIdentifier::Call(0).in_frame(self.versions.frame))
+                        .version(
+                            *self
+                                .versions
+                                .map
+                                .entry(self.versions.frame)
+                                .or_default()
+                                .entry(CoreIdentifier::Call(0))
+                                .and_modify(|e| *e += 1) // if it was already declared, we increment
+                                .or_insert(0),
+                        );
 
                 let var = Variable::immutable(identifier.clone(), output_type);
-                let v = var.clone().into();
+
+                let v: TypedAssignee<'ast, T> = var.clone().into();
 
                 self.statement_buffer
                     .push(TypedStatement::embed_call_definition(
@@ -270,7 +282,16 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     identifier,
                 )))
             }
-        }
+        };
+
+        // clean versions
+        self.versions.map.remove(&self.versions.frame);
+
+        // restore the original frame
+        // println!("RESTORING BACKUP {}", frame_backup);
+        self.versions.frame = frame_backup;
+
+        res
     }
 
     fn fold_block_expression<E: ResultFold<'ast, T>>(
@@ -310,6 +331,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
         let res = match s {
             TypedStatement::Definition(a, rhs) => {
+                // usually we transform and then propagate
+                // for definitions we need special treatment: we transform and propagate the rhs (which can contain function calls)
+                // then we reduce the rhs to remove the function calls
+                // only then we transform and propagate the assignee
+
                 let mut transformer = ShallowTransformer::with_versions(self.versions);
                 // println!("rhs {}", rhs);
                 let rhs = transformer.fold_definition_rhs(rhs);
@@ -321,23 +347,28 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                 // println!("ASSIGNEE {}", a);
 
+                // println!("{:?}", self.versions);
+
                 let a = ShallowTransformer::with_versions(self.versions).fold_assignee(a);
 
-                // println!("SSA ASSIGNEE {}", a);
+                // println!("{:?}", self.versions);
 
-                let s = self
-                    .propagator
+                // println!("definition before propagation {}", TypedStatement::Definition(a.clone(), rhs.clone()));
+
+                self.propagator
                     .fold_statement(TypedStatement::Definition(a, rhs))
-                    .unwrap();
+                    .unwrap()
 
-                self.statement_buffer.drain(..).chain(s).collect::<Vec<_>>()
+                // println!("final definition size: {}", s.len());
             }
             TypedStatement::For(v, from, to, statements) => {
-                let mut transformer = ShallowTransformer::with_versions(self.versions);
-                let from = transformer.fold_uint_expression(from);
+                let from =
+                    ShallowTransformer::with_versions(self.versions).fold_uint_expression(from);
                 let from = self.propagator.fold_uint_expression(from).unwrap();
-                let to = transformer.fold_uint_expression(to);
+                let from = self.fold_uint_expression(from).unwrap();
+                let to = ShallowTransformer::with_versions(self.versions).fold_uint_expression(to);
                 let to = self.propagator.fold_uint_expression(to).unwrap();
+                let to = self.fold_uint_expression(to).unwrap();
 
                 match (from.as_inner(), to.as_inner()) {
                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => (*from..*to)
@@ -350,11 +381,29 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             .flat_map(|s| self.fold_statement(s).unwrap())
                             .collect::<Vec<_>>()
                         })
-                        .collect(),
+                        .collect::<Vec<_>>(),
                     _ => unimplemented!(),
                 }
             }
             TypedStatement::Assembly(_) => todo!(),
+            TypedStatement::Return(e) => {
+                let mut transformer = ShallowTransformer::with_versions(self.versions);
+
+                let e = transformer.fold_expression(e);
+                let e = self.propagator.fold_expression(e).unwrap();
+                vec![TypedStatement::Return(self.fold_expression(e).unwrap())]
+            }
+            TypedStatement::Assertion(e, error) => {
+                let mut transformer = ShallowTransformer::with_versions(self.versions);
+
+                let e = transformer.fold_boolean_expression(e);
+                let e = self.propagator.fold_boolean_expression(e).unwrap();
+
+                vec![TypedStatement::Assertion(
+                    self.fold_boolean_expression(e).unwrap(),
+                    error,
+                )]
+            }
             s => {
                 let mut transformer = ShallowTransformer::with_versions(self.versions);
                 let propagator = &mut self.propagator;
@@ -363,11 +412,19 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     .into_iter()
                     // .inspect(|s| println!("ssa {}\n", s))
                     .flat_map(|s| propagator.fold_statement(s).unwrap())
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .flat_map(|s| fold_statement(self, s).unwrap())
                     // .inspect(|s| println!("propagated {}\n", s))
                     .collect()
             }
         };
-        Ok(res)
+
+        Ok(self
+            .statement_buffer
+            .drain(..)
+            .chain(res)
+            .collect::<Vec<_>>())
     }
 
     // fn fold_statement(
@@ -443,20 +500,26 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
         match e {
             ArrayExpressionInner::Slice(box array, box from, box to) => {
-                // let array = self.fold_array_expression(array)?;
-                // let from = self.fold_uint_expression(from)?;
-                // let to = self.fold_uint_expression(to)?;
+                let array =
+                    ShallowTransformer::with_versions(self.versions).fold_array_expression(array);
+                let array = self.propagator.fold_array_expression(array).unwrap();
+                let array = self.fold_array_expression(array).unwrap();
+                let from =
+                    ShallowTransformer::with_versions(self.versions).fold_uint_expression(from);
+                let from = self.propagator.fold_uint_expression(from).unwrap();
+                let from = self.fold_uint_expression(from).unwrap();
+                let to = ShallowTransformer::with_versions(self.versions).fold_uint_expression(to);
+                let to = self.propagator.fold_uint_expression(to).unwrap();
+                let to = self.fold_uint_expression(to).unwrap();
 
-                // match (from.as_inner(), to.as_inner()) {
-                //     (UExpressionInner::Value(..), UExpressionInner::Value(..)) => {
-                //         Ok(ArrayExpressionInner::Slice(box array, box from, box to))
-                //     }
-                //     _ => {
-                //         self.complete = false;
-                //         Ok(ArrayExpressionInner::Slice(box array, box from, box to))
-                //     }
-                // }
-                todo!()
+                match (from.as_inner(), to.as_inner()) {
+                    (UExpressionInner::Value(..), UExpressionInner::Value(..)) => {
+                        Ok(ArrayExpressionInner::Slice(box array, box from, box to))
+                    }
+                    _ => {
+                        todo!("non constant slice bounds")
+                    }
+                }
             }
             _ => fold_array_expression_inner(self, array_ty, e),
         }
