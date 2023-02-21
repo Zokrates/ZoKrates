@@ -18,7 +18,5 @@ def main(field[2] pk, field[2] sk) -> bool {
     // jubjub sk may not fit in bool[254], that why we use compress rather than nonStrictUnpack256
     bool[256] sk_bits = compress(sk);
     field[2] res = scalarMul(sk_bits, G, EDWARDS_A, EDWARDS_D);
-    assert(res[1] == pk[1]);
-    assert(res[0] == pk[0]);
     return (res[0] == pk[0] && res[1] == pk[1]);
 }
