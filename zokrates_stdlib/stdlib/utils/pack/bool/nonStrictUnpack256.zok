@@ -1,4 +1,3 @@
-#pragma curve bn128
 
 import "./unpack_unchecked";
 
