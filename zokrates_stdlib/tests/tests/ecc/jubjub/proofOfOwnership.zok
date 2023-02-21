@@ -1,0 +1,28 @@
+import "ecc/jubjub/proofOfOwnership" as proofOfOwnership;
+from "ecc/edwards" import scalarMul;
+
+// Code to create test cases:
+// https://github.com/Zokrates/pycrypto
+def testOwnershipTrue() -> bool {
+	field[2] pk = [14197449566532409051373899088449039913101429151158365207762164998470111126084, 39815292783067036895376009933490224522172606808755118734518018525613835149403];
+	field[2] sk = [0, 24537266074035586913841246471742714563414767347802800698790739697702568093815];
+	
+	bool out = proofOfOwnership(pk, sk);
+	log("x is {}", out);
+	assert(out);
+	return true;
+}
+
+// def testOwnershipFalse() -> bool {
+// 	field[2] pk = [14197449566532409051373899088449039913101429151158365207762164998470111126084, 39815292783067036895376009933490224522172606808755118734518018525613835149403];
+// 	field sk = 10373199597469011642833447973814301035791960523127709637201278600637657954762;
+// 	bool out = proofOfOwnership(pk, sk);
+
+// 	assert(!out);
+// 	return true;
+// }
+
+def main() {
+	assert(testOwnershipTrue());
+	// assert(testOwnershipFalse());
+}
