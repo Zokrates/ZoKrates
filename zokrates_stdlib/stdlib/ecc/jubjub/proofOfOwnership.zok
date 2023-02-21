@@ -1,0 +1,24 @@
+import "../babyjubjub/compress" as compress;
+from "./params" import EDWARDS_A, EDWARDS_D, G;
+from "ecc/edwards" import scalarMul;
+
+/// Verifies match of a given public/private keypair.
+///
+///    Checks if the following equation holds for the provided keypair:
+///    pk = sk*G
+///    where G is the chosen base point of the subgroup
+///    and * denotes scalar multiplication in the subgroup
+///
+/// Arguments:
+///    pk: Curve point (public key)
+///    sk: Private key
+///
+/// Returns true for pk/sk being a valid keypair, false otherwise.
+def main(field[2] pk, field[2] sk) -> bool {
+    // jubjub sk may not fit in bool[254], that why we use compress rather than nonStrictUnpack256
+    bool[256] sk_bits = compress(sk);
+    field[2] res = scalarMul(sk_bits, G, EDWARDS_A, EDWARDS_D);
+    assert(res[1] == pk[1]);
+    assert(res[0] == pk[0]);
+    return (res[0] == pk[0] && res[1] == pk[1]);
+}
