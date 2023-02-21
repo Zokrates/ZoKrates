@@ -7,7 +7,7 @@ use bellperson::{
 
 use std::collections::BTreeMap;
 use zokrates_ast::common::Variable;
-use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
+use zokrates_ast::ir::{LinComb, ProgIterator, Statement, Witness};
 use zokrates_field::BellpersonFieldExtensions;
 use zokrates_field::Field;
 
@@ -39,16 +39,16 @@ fn bellperson_combination<
     T: Field + BellpersonFieldExtensions,
     CS: ConstraintSystem<T::BellpersonField>,
 >(
-    l: CanonicalLinComb<T>,
+    l: &LinComb<T>,
     cs: &mut CS,
     symbols: &mut BTreeMap<Variable, BellpersonVariable>,
     witness: &mut Witness<T>,
 ) -> LinearCombination<T::BellpersonField> {
-    l.0.into_iter()
+    l.0.iter()
         .map(|(k, v)| {
             (
-                v.into_bellperson(),
-                *symbols.entry(k).or_insert_with(|| {
+                v.clone().into_bellperson(),
+                *symbols.entry(k.clone()).or_insert_with(|| {
                     match k.is_output() {
                         true => {
                             unreachable!("outputs should already have been allocated, found {}", k)
@@ -69,8 +69,8 @@ fn bellperson_combination<
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<'ast, T: BellpersonFieldExtensions + Field, I: IntoIterator<Item = Statement<'ast, T>>>
-    Circuit<T::BellpersonField> for Computation<'ast, T, I>
+impl<'ast, T: BellpersonFieldExtensions + Field> Circuit<T::BellpersonField>
+    for Computation<'ast, T, Vec<Statement<'ast, T>>>
 {
     fn synthesize<CS: ConstraintSystem<T::BellpersonField>>(
         self,
@@ -128,20 +128,18 @@ impl<'ast, T: BellpersonFieldExtensions + Field, I: IntoIterator<Item = Statemen
     }
 }
 
-impl<'ast, T: BellpersonFieldExtensions + Field, I: IntoIterator<Item = Statement<'ast, T>>>
-    Computation<'ast, T, I>
-{
+impl<'ast, T: BellpersonFieldExtensions + Field> Computation<'ast, T, Vec<Statement<'ast, T>>> {
     pub fn synthesize_input_to_output<CS: ConstraintSystem<T::BellpersonField>>(
-        self,
+        &self,
         cs: &mut CS,
         symbols: &mut BTreeMap<Variable, BellpersonVariable>,
         witness: &mut Witness<T>,
     ) -> Result<(), SynthesisError> {
-        for (i, statement) in self.program.statements.into_iter().enumerate() {
+        for (i, statement) in self.program.statements.iter().enumerate() {
             if let Statement::Constraint(quad, lin, _) = statement {
-                let a = &bellperson_combination(quad.left.into_canonical(), cs, symbols, witness);
-                let b = &bellperson_combination(quad.right.into_canonical(), cs, symbols, witness);
-                let c = &bellperson_combination(lin.into_canonical(), cs, symbols, witness);
+                let a = &bellperson_combination(&quad.left, cs, symbols, witness);
+                let b = &bellperson_combination(&quad.right, cs, symbols, witness);
+                let c = &bellperson_combination(lin, cs, symbols, witness);
 
                 cs.enforce(
                     || format!("Constraint {}", i),

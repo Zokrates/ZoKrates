@@ -167,6 +167,8 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
 
         let mut witness = Witness::default();
 
+        let outputs = self.computation.program.returns();
+
         // populate the witness if we got some input values
         // this is a bit hacky and in particular generates the witness in all cases if there are no inputs
         if input
@@ -181,7 +183,7 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
                 .chain(self.step_private.clone().into_iter().flatten())
                 .collect();
             witness = interpreter
-                .execute(self.computation.program.clone(), &inputs)
+                .execute(self.computation.program.to_ref_iterator(), &inputs)
                 .unwrap();
         }
 
@@ -192,10 +194,7 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
 
         // allocate the outputs
 
-        let outputs: Vec<_> = self
-            .computation
-            .program
-            .returns()
+        let outputs: Vec<_> = outputs
             .iter()
             .map(|v| {
                 assert!(v.id < 0); // this should indeed be an output
@@ -216,7 +215,6 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
             .collect();
 
         self.computation
-            .clone()
             .synthesize_input_to_output(cs, &mut symbols, &mut witness)?;
 
         Ok(outputs)
@@ -230,7 +228,7 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
             .chain(self.step_private.clone().unwrap())
             .collect();
         let output = interpreter
-            .execute(self.computation.program.clone(), &inputs)
+            .execute(self.computation.program.to_ref_iterator(), &inputs)
             .unwrap();
         output
             .return_values()
@@ -275,7 +273,11 @@ mod tests {
 
         #[test]
         fn empty() {
-            let program: Prog<PallasField> = Prog::default();
+            let program: Prog<PallasField> = Prog {
+                arguments: vec![],
+                return_count: 0,
+                statements: vec![],
+            };
             test(program, vec![], vec![vec![]; 3], vec![]);
         }
 

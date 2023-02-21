@@ -26,6 +26,7 @@ getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
 hex = "0.4.2"
 pairing = "0.22"
 pasta_curves = { version = "0.5.2", features = ["repr-c", "serde"], package = "fil_pasta_curves"}
+zokrates_core = { version = "0.7.3", path = "../zokrates_core" }
 
 
 
