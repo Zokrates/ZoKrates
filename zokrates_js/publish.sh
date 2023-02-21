@@ -24,12 +24,6 @@ if [ $NPM_VERSION = $PACKAGE_VERSION ]; then
     exit 0
 fi
 
-# make sure the pkg folder is present
-if [ ! -d "pkg" ]; then
-  echo "pkg folder is missing"
-  exit 1
-fi
-
 # publish
 npm set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
 npm publish

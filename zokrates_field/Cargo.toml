@@ -1,12 +1,13 @@
 [package]
 name = "zokrates_field"
-version = "0.5.2"
+version = "0.5.3"
 authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>", "Guillaume Ballet <gballet@gmail.com>"]
 edition = "2018"
 
 [features]
 default = ["bellman"]
 bellman = ["bellman_ce"]
+multicore = ["ark-ff/parallel", "ark-ec/parallel"]
 
 [dependencies]
 serde = "1.0"
