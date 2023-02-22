@@ -1253,48 +1253,6 @@ impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for FieldElementExpression<'as
     }
 }
 
-impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for BooleanExpression<'ast, T> {
-    fn from(assignee: TypedAssignee<'ast, T>) -> Self {
-        match assignee {
-            TypedAssignee::Identifier(v) => BooleanExpression::identifier(v.id),
-            TypedAssignee::Element(box a, index) => BooleanExpression::element(a.into(), index),
-            TypedAssignee::Member(box a, id) => BooleanExpression::member(a.into(), id),
-            TypedAssignee::Select(box a, box index) => BooleanExpression::select(a.into(), index),
-        }
-    }
-}
-
-impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for UExpression<'ast, T> {
-    fn from(assignee: TypedAssignee<'ast, T>) -> Self {
-        match assignee {
-            TypedAssignee::Identifier(v) => {
-                let inner = UExpression::identifier(v.id);
-                match v._type {
-                    GType::Uint(bitwidth) => inner.annotate(bitwidth),
-                    _ => unreachable!(),
-                }
-            }
-            TypedAssignee::Element(box a, index) => UExpression::element(a.into(), index),
-            TypedAssignee::Member(box a, id) => UExpression::member(a.into(), id),
-            TypedAssignee::Select(box a, box index) => UExpression::select(a.into(), index),
-        }
-    }
-}
-
-impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for TypedExpression<'ast, T> {
-    fn from(assignee: TypedAssignee<'ast, T>) -> Self {
-        match assignee.get_type() {
-            Type::FieldElement => FieldElementExpression::from(assignee).into(),
-            Type::Boolean => BooleanExpression::from(assignee).into(),
-            Type::Struct(_) => StructExpression::from(assignee).into(),
-            Type::Array(_) => ArrayExpression::from(assignee).into(),
-            Type::Uint(_) => UExpression::from(assignee).into(),
-            Type::Tuple(_) => TupleExpression::from(assignee).into(),
-            Type::Int => unreachable!(),
-        }
-    }
-}
-
 impl<'ast, T> Add for FieldElementExpression<'ast, T> {
     type Output = Self;
 

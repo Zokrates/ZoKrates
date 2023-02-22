@@ -135,7 +135,7 @@ pub trait Folder<'ast, T: Field>: Sized {
                 id: CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c)),
                 frame: 0,
             },
-            _id => n.id,
+            _ => n.id,
         };
 
         Identifier { id, ..n }

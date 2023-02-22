@@ -79,7 +79,6 @@ impl Importer {
             .into_iter()
             .map(|s| match s.value.symbol {
                 Symbol::Here(SymbolDefinition::Import(import)) => {
-                    log::debug!("Resolve {} from {}", import, location.display());
                     Importer::resolve::<T, E>(import, &location, resolver, modules, arena)
                 }
                 _ => Ok(s),
