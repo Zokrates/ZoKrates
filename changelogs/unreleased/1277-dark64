@@ -1,0 +1,1 @@
+Fix a potential crash in `zokrates-js` due to inefficient serialization of a setup keypair
