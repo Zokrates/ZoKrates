@@ -15,16 +15,17 @@
 // ```
 //
 // Becomes
-// ```
-// # Call foo::<42> with a_0 := x
-// n_0 = 42
-// a_1 = a_0
-// n_1 = n_0
-// # Pop call with #CALL_RETURN_AT_INDEX_0_0 := a_1
+// inputs: [a]
+// arguments: [x]
+// generics_bindings: [n = 42]
+// statements:
+// n = 42
+// a = a
+// n = n
+// return_expression: a
 
 // Notes:
-// - The body of the function is in SSA form
-// - The return value(s) are assigned to internal variables
+// - The body of the function is *not* in SSA form
 
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::types::{ConcreteGenericsAssignment, IntoType};
@@ -165,12 +166,6 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
 
     assert_eq!(f.arguments.len(), arguments.len());
 
-    // let ssa_f = ShallowTransformer::transform(f, &assignment, versions);
-
-    // let ssa_f = f;
-
-    // let call_log = TypedStatement::PushCallLog(decl.key.clone(), assignment.clone());
-
     let generics_bindings: Vec<_> = assignment
         .0
         .into_iter()
@@ -204,23 +199,6 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         TypedStatement::Return(e) => e,
         _ => unreachable!(),
     };
-
-    // let v: ConcreteVariable<'ast> = ConcreteVariable::new(
-    //     Identifier::from(CoreIdentifier::Call(0)).version(
-    //         *versions
-    //             .entry(CoreIdentifier::Call(0))
-    //             .and_modify(|e| *e += 1) // if it was already declared, we increment
-    //             .or_insert(0),
-    //     ),
-    //     *inferred_signature.output.clone(),
-    //     false,
-    // );
-
-    // let expression = TypedExpression::from(Variable::from(v.clone()));
-
-    // let output_binding = TypedStatement::definition(Variable::from(v).into(), return_expression);
-
-    // let pop_log = TypedStatement::PopCallLog;
 
     Ok((
         input_variables,
