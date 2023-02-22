@@ -240,9 +240,9 @@ impl<'ast, T> From<u32> for UExpression<'ast, T> {
 impl<'ast, T: Field> From<DeclarationConstant<'ast, T>> for UExpression<'ast, T> {
     fn from(c: DeclarationConstant<'ast, T>) -> Self {
         match c {
-            DeclarationConstant::Generic(_g) => {
-                // UExpression::identifier(FrameIdentifier::from(g).into()).annotate(UBitwidth::B32)
-                unreachable!()
+            DeclarationConstant::Generic(g) => {
+                UExpression::identifier(Identifier::from(CoreIdentifier::from(g)))
+                    .annotate(UBitwidth::B32)
             }
             DeclarationConstant::Concrete(v) => {
                 UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)

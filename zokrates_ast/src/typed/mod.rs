@@ -27,7 +27,7 @@ pub use self::types::{
     UBitwidth,
 };
 use self::types::{ConcreteArrayType, ConcreteStructType};
-use crate::typed::types::{ConcreteGenericsAssignment, IntoType};
+use crate::typed::types::IntoType;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
 use std::marker::PhantomData;
@@ -353,19 +353,8 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
         writeln!(f)?;
 
-        let mut tab = 0;
-
         for s in &self.statements {
-            if let TypedStatement::PopCallLog = s {
-                tab -= 1;
-            };
-
-            s.fmt_indented(f, 1 + tab)?;
-            writeln!(f)?;
-
-            if let TypedStatement::PushCallLog(..) = s {
-                tab += 1;
-            };
+            writeln!(f, "{}", s)?;
         }
 
         writeln!(f, "}}")?;
@@ -695,12 +684,6 @@ pub enum TypedStatement<'ast, T> {
         Vec<TypedStatement<'ast, T>>,
     ),
     Log(FormatString, Vec<TypedExpression<'ast, T>>),
-    // Aux
-    PushCallLog(
-        DeclarationFunctionKey<'ast, T>,
-        ConcreteGenericsAssignment<'ast>,
-    ),
-    PopCallLog,
     Assembly(Vec<TypedAssemblyStatement<'ast, T>>),
 }
 
@@ -711,31 +694,6 @@ impl<'ast, T> TypedStatement<'ast, T> {
 
     pub fn embed_call_definition(a: TypedAssignee<'ast, T>, c: EmbedCall<'ast, T>) -> Self {
         Self::Definition(a, c.into())
-    }
-}
-
-impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
-    fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
-        match self {
-            TypedStatement::For(variable, from, to, statements) => {
-                write!(f, "{}", "\t".repeat(depth))?;
-                writeln!(f, "for {} in {}..{} {{", variable, from, to)?;
-                for s in statements {
-                    s.fmt_indented(f, depth + 1)?;
-                    writeln!(f)?;
-                }
-                write!(f, "{}}}", "\t".repeat(depth))
-            }
-            TypedStatement::Assembly(statements) => {
-                write!(f, "{}", "\t".repeat(depth))?;
-                writeln!(f, "asm {{")?;
-                for s in statements {
-                    writeln!(f, "{}{}", "\t".repeat(depth + 1), s)?;
-                }
-                write!(f, "{}}}", "\t".repeat(depth))
-            }
-            s => write!(f, "{}{}", "\t".repeat(depth), s),
-        }
     }
 }
 
@@ -773,14 +731,6 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            TypedStatement::PushCallLog(ref key, ref generics) => write!(
-                f,
-                "// PUSH CALL TO {}/{}::<{}>",
-                key.module.display(),
-                key.id,
-                generics,
-            ),
-            TypedStatement::PopCallLog => write!(f, "// POP CALL",),
             TypedStatement::Assembly(ref statements) => {
                 writeln!(f, "asm {{")?;
                 for s in statements {

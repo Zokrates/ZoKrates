@@ -135,7 +135,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         }
     };
 
-    let decl = get_canonical_function(&k, program);
+    let decl = get_canonical_function(k, program);
 
     // get an assignment of generics for this call site
     let assignment: ConcreteGenericsAssignment<'ast> = k
@@ -190,7 +190,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         .into_iter()
         .zip(inferred_signature.inputs.clone())
         .map(|(p, t)| ConcreteVariable::new(p.id.id, t, false))
-        .map(|v| Variable::from(v))
+        .map(Variable::from)
         .collect();
 
     let (statements, mut returns): (Vec<_>, Vec<_>) = f

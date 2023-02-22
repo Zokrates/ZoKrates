@@ -24,6 +24,21 @@ impl<'ast> fmt::Display for CoreIdentifier<'ast> {
     }
 }
 
+impl<'ast> FrameIdentifier<'ast> {
+    pub fn in_frame(self, frame: usize) -> FrameIdentifier<'ast> {
+        FrameIdentifier { frame, ..self }
+    }
+}
+
+impl<'ast> Identifier<'ast> {
+    pub fn in_frame(self, frame: usize) -> Identifier<'ast> {
+        Identifier {
+            id: self.id.in_frame(frame),
+            ..self
+        }
+    }
+}
+
 impl<'ast> CoreIdentifier<'ast> {
     pub fn in_frame(self, frame: usize) -> FrameIdentifier<'ast> {
         FrameIdentifier { id: self, frame }

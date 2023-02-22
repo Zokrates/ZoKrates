@@ -629,8 +629,6 @@ fn fold_statement<'ast, T: Field>(
                 })
                 .collect(),
         )],
-        typed::TypedStatement::PushCallLog(..) => vec![],
-        typed::TypedStatement::PopCallLog => vec![],
         typed::TypedStatement::For(..) => unreachable!(),
     };
 

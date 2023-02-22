@@ -3,13 +3,14 @@
 // - free of function calls (except for low level calls) thanks to inlining
 // - free of for-loops thanks to unrolling
 
-// The process happens in two steps
-// 1. Shallow SSA for the `main` function
-// We turn the `main` function into SSA form, but ignoring function calls and for loops
-// 2. Unroll and inline
-// We go through the shallow-SSA program and
-// - unroll loops
-// - inline function calls. This includes applying shallow-ssa on the target function
+// The process happens in a greedy way, starting from the main function
+// For each statement:
+// * put it in ssa form
+// * propagate it
+// * inline it (calling this process recursively)
+// * propagate again
+
+// if at any time a generic parameter or loop bound is not constant, error out, because it should have been propagated to a constant by the greedy approach
 
 mod constants_reader;
 mod constants_writer;
@@ -21,7 +22,6 @@ use std::collections::HashMap;
 use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::DeclarationParameter;
 use zokrates_ast::typed::Folder;
-use zokrates_ast::typed::TypedAssemblyStatement;
 use zokrates_ast::typed::TypedAssignee;
 use zokrates_ast::typed::{
     ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
@@ -46,23 +46,6 @@ const MAX_FOR_LOOP_SIZE: u128 = 2u128.pow(20);
 // A map to register the canonical value of all constants. The values must be literals.
 pub type ConstantDefinitions<'ast, T> =
     HashMap<CanonicalConstantIdentifier<'ast>, TypedExpression<'ast, T>>;
-
-// An SSA version map, giving access to the latest version number for each identifier
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Versions<'ast> {
-    map: HashMap<usize, HashMap<CoreIdentifier<'ast>, usize>>,
-}
-
-impl<'ast> Versions<'ast> {
-    fn insert_in_frame(
-        &mut self,
-        id: CoreIdentifier<'ast>,
-        version: usize,
-        frame: usize,
-    ) -> Option<usize> {
-        self.map.entry(frame).or_default().insert(id, version)
-    }
-}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -125,10 +108,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         &mut self,
         p: DeclarationParameter<'ast, T>,
     ) -> Result<DeclarationParameter<'ast, T>, Self::Error> {
-        // this is only used on the entry point
-        let id = p.id.id.id.id.clone();
-        assert!(self.ssa.versions.insert_in_frame(id, 0, 0).is_none());
-        Ok(p)
+        Ok(self.ssa.fold_parameter(p))
     }
 
     fn fold_function_call_expression<
@@ -138,34 +118,42 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         ty: &E::Ty,
         e: FunctionCallExpression<'ast, T, E>,
     ) -> Result<FunctionCallOrExpression<'ast, T, E>, Self::Error> {
+        // generics are already in ssa form
+
         let generics = e
             .generics
             .into_iter()
             .map(|g| {
                 g.map(|g| {
-                    let g = self.ssa.fold_uint_expression(g);
                     let g = self.propagator.fold_uint_expression(g)?;
+                    let g = self.fold_uint_expression(g)?;
 
-                    self.fold_uint_expression(g)
+                    self.propagator
+                        .fold_uint_expression(g)
+                        .map_err(Self::Error::from)
                 })
                 .transpose()
             })
             .collect::<Result<_, _>>()?;
 
+        // arguments are already in ssa form
+
         let arguments = e
             .arguments
             .into_iter()
             .map(|e| {
-                let e = self.ssa.fold_expression(e);
                 let e = self.propagator.fold_expression(e)?;
+                let e = self.fold_expression(e)?;
 
-                self.fold_expression(e)
+                self.propagator
+                    .fold_expression(e)
+                    .map_err(Self::Error::from)
             })
             .collect::<Result<_, _>>()?;
 
         self.ssa.push_call_frame();
 
-        let res = inline_call::<_, E>(&e.function_key, generics, arguments, ty, &self.program);
+        let res = inline_call::<_, E>(&e.function_key, generics, arguments, ty, self.program);
 
         let res = match res {
             Ok((input_variables, arguments, generics_bindings, statements, expression)) => {
@@ -183,7 +171,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                 self.statement_buffer.extend(generics_bindings);
 
-                // the lhs is from the inner call frame, the rhs is from the outer one, so only fld the lhs
+                // the lhs is from the inner call frame, the rhs is from the outer one, so only fold the lhs
                 let input_bindings: Vec<_> = input_variables
                     .into_iter()
                     .zip(arguments)
@@ -274,27 +262,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         })
     }
 
-    fn fold_assembly_statement(
-        &mut self,
-        s: TypedAssemblyStatement<'ast, T>,
-    ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
-        Ok(match s {
-            TypedAssemblyStatement::Assignment(a, e) => {
-                vec![TypedAssemblyStatement::Assignment(
-                    self.fold_assignee(a)?,
-                    self.fold_expression(e)?,
-                )]
-            }
-            TypedAssemblyStatement::Constraint(lhs, rhs, metadata) => {
-                vec![TypedAssemblyStatement::Constraint(
-                    self.fold_field_expression(lhs)?,
-                    self.fold_field_expression(rhs)?,
-                    metadata,
-                )]
-            }
-        })
-    }
-
     fn fold_canonical_constant_identifier(
         &mut self,
         _: CanonicalConstantIdentifier<'ast>,
@@ -307,28 +274,16 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
         let res = match s {
-            TypedStatement::Definition(a, rhs) => {
-                // usually we transform and then propagate
-                // for definitions we need special treatment: we transform and propagate the rhs (which can contain function calls)
-                // then we reduce the rhs to remove the function calls
-                // only then we transform and propagate the assignee
-
-                let rhs = self.ssa.fold_definition_rhs(rhs);
-                let rhs = self.propagator.fold_definition_rhs(rhs)?;
-                let rhs = self.fold_definition_rhs(rhs)?;
-
-                let a = self.ssa.fold_assignee(a);
-
-                self.propagator
-                    .fold_statement(TypedStatement::Definition(a, rhs))?
-            }
             TypedStatement::For(v, from, to, statements) => {
                 let from = self.ssa.fold_uint_expression(from);
                 let from = self.propagator.fold_uint_expression(from)?;
                 let from = self.fold_uint_expression(from)?;
+                let from = self.propagator.fold_uint_expression(from)?;
+
                 let to = self.ssa.fold_uint_expression(to);
                 let to = self.propagator.fold_uint_expression(to)?;
                 let to = self.fold_uint_expression(to)?;
+                let to = self.propagator.fold_uint_expression(to)?;
 
                 match (from.as_inner(), to.as_inner()) {
                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => Ok((*from
@@ -345,40 +300,37 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         .collect::<Result<Vec<_>, _>>()?
                         .into_iter()
                         .flatten()
-                        .collect()),
+                        .collect::<Vec<_>>()),
                     _ => Err(Error::NonConstant(format!(
                         "Expected loop bounds to be constant, found {}..{}",
                         from, to
                     ))),
                 }?
             }
-            TypedStatement::Return(e) => {
-                let e = self.ssa.fold_expression(e);
-                let e = self.propagator.fold_expression(e)?;
-                vec![TypedStatement::Return(self.fold_expression(e)?)]
-            }
-            TypedStatement::Assertion(e, error) => {
-                let e = self.ssa.fold_boolean_expression(e);
-                let e = self.propagator.fold_boolean_expression(e)?;
+            s => {
+                let statements = self.ssa.fold_statement(s);
 
-                vec![TypedStatement::Assertion(
-                    self.fold_boolean_expression(e)?,
-                    error,
-                )]
+                let statements = statements
+                    .into_iter()
+                    .map(|s| self.propagator.fold_statement(s))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .flatten();
+
+                let statements = statements
+                    .map(|s| fold_statement(self, s))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .flatten();
+
+                let statements = statements
+                    .map(|s| self.propagator.fold_statement(s))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .flatten();
+
+                statements.collect()
             }
-            s => self
-                .ssa
-                .fold_statement(s)
-                .into_iter()
-                .map(|s| self.propagator.fold_statement(s))
-                .collect::<Result<Vec<_>, _>>()?
-                .into_iter()
-                .flatten()
-                .map(|s| fold_statement(self, s))
-                .collect::<Result<Vec<_>, _>>()?
-                .into_iter()
-                .flatten()
-                .collect(),
         };
 
         Ok(self.statement_buffer.drain(..).chain(res).collect())
@@ -394,12 +346,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 let array = self.ssa.fold_array_expression(array);
                 let array = self.propagator.fold_array_expression(array)?;
                 let array = self.fold_array_expression(array)?;
+                let array = self.propagator.fold_array_expression(array)?;
+
                 let from = self.ssa.fold_uint_expression(from);
                 let from = self.propagator.fold_uint_expression(from)?;
                 let from = self.fold_uint_expression(from)?;
+                let from = self.propagator.fold_uint_expression(from)?;
+
                 let to = self.ssa.fold_uint_expression(to);
                 let to = self.propagator.fold_uint_expression(to)?;
                 let to = self.fold_uint_expression(to)?;
+                let to = self.propagator.fold_uint_expression(to)?;
 
                 match (from.as_inner(), to.as_inner()) {
                     (UExpressionInner::Value(..), UExpressionInner::Value(..)) => {
@@ -503,14 +460,11 @@ mod tests {
         // }
 
         // expected:
-        // def main(field a_0) -> field {
-        //     a_1 = a_0;
-        //     # PUSH CALL to foo
-        //         a_3 := a_1; // input binding
-        //         #RETURN_AT_INDEX_0_0 := a_3;
-        //     # POP CALL
-        //     a_2 = #RETURN_AT_INDEX_0_0;
-        //     return a_2;
+        // def main(field a_f0_v0) -> field {
+        //     a_f0_v1 = a_f0_v0; // redef
+        //     a_f1_v0 = a_f0_v1; // input binding
+        //     a_f0_v2 = a_f1_v0; // output binding
+        //     return a_f0_v2;
         // }
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
@@ -606,30 +560,13 @@ mod tests {
                     Variable::field_element(Identifier::from("a").version(1)).into(),
                     FieldElementExpression::identifier("a".into()).into(),
                 ),
-                TypedStatement::PushCallLog(
-                    DeclarationFunctionKey::with_location("main", "foo").signature(
-                        DeclarationSignature::new()
-                            .inputs(vec![DeclarationType::FieldElement])
-                            .output(DeclarationType::FieldElement),
-                    ),
-                    GGenericsAssignment::default(),
-                ),
                 TypedStatement::definition(
-                    Variable::field_element(Identifier::from("a").version(3)).into(),
+                    Variable::field_element(Identifier::from("a").in_frame(1)).into(),
                     FieldElementExpression::identifier(Identifier::from("a").version(1)).into(),
                 ),
                 TypedStatement::definition(
-                    Variable::field_element(Identifier::from(CoreIdentifier::Call(0)).version(0))
-                        .into(),
-                    FieldElementExpression::identifier(Identifier::from("a").version(3)).into(),
-                ),
-                TypedStatement::PopCallLog,
-                TypedStatement::definition(
                     Variable::field_element(Identifier::from("a").version(2)).into(),
-                    FieldElementExpression::identifier(
-                        Identifier::from(CoreIdentifier::Call(0)).version(0),
-                    )
-                    .into(),
+                    FieldElementExpression::identifier(Identifier::from("a").in_frame(1)).into(),
                 ),
                 TypedStatement::Return(
                     FieldElementExpression::identifier(Identifier::from("a").version(2)).into(),
@@ -678,14 +615,11 @@ mod tests {
         // }
 
         // expected:
-        // def main(field a_0) -> field {
-        //     field[1] b_0 = [42];
-        //     # PUSH CALL to foo::<1>
-        //         a_0 = b_0;
-        //         #RETURN_AT_INDEX_0_0 := a_0;
-        //     # POP CALL
-        //     b_1 = #RETURN_AT_INDEX_0_0;
-        //     return a_2 + b_1[0];
+        // def main(field a_f0_v0) -> field {
+        //     field[1] b_f0_v0 = [a_f0_v0];
+        //     a_f1_v0 = b_f0_v0;
+        //     b_f0_v1 = a_f1_v0;
+        //     return a_f0_v0 + b_f0_v1[0];
         // }
 
         let foo_signature = DeclarationSignature::new()
@@ -812,42 +746,19 @@ mod tests {
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
-                TypedStatement::PushCallLog(
-                    DeclarationFunctionKey::with_location("main", "foo")
-                        .signature(foo_signature.clone()),
-                    GGenericsAssignment(
-                        vec![(GenericIdentifier::with_name("K").with_index(0), 1)]
-                            .into_iter()
-                            .collect(),
-                    ),
-                ),
                 TypedStatement::definition(
-                    Variable::array(Identifier::from("a").version(1), Type::FieldElement, 1u32)
+                    Variable::array(Identifier::from("a").in_frame(1), Type::FieldElement, 1u32)
                         .into(),
                     ArrayExpression::identifier("b".into())
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                 ),
                 TypedStatement::definition(
-                    Variable::array(
-                        Identifier::from(CoreIdentifier::Call(0)).version(0),
-                        Type::FieldElement,
-                        1u32,
-                    )
-                    .into(),
-                    ArrayExpression::identifier(Identifier::from("a").version(1))
-                        .annotate(Type::FieldElement, 1u32)
-                        .into(),
-                ),
-                TypedStatement::PopCallLog,
-                TypedStatement::definition(
                     Variable::array(Identifier::from("b").version(1), Type::FieldElement, 1u32)
                         .into(),
-                    ArrayExpression::identifier(
-                        Identifier::from(CoreIdentifier::Call(0)).version(0),
-                    )
-                    .annotate(Type::FieldElement, 1u32)
-                    .into(),
+                    ArrayExpression::identifier(Identifier::from("a").in_frame(1))
+                        .annotate(Type::FieldElement, 1u32)
+                        .into(),
                 ),
                 TypedStatement::Return(
                     (FieldElementExpression::identifier("a".into())
@@ -902,14 +813,11 @@ mod tests {
         // }
 
         // expected:
-        // def main(field a_0) -> field {
-        //     field[1] b_0 = [42];
-        //     # PUSH CALL to foo::<1>
-        //         a_0 = b_0;
-        //         #RETURN_AT_INDEX_0_0 := a_0;
-        //     # POP CALL
-        //     b_1 = #RETURN_AT_INDEX_0_0;
-        //     return a_2 + b_1[0];
+        // def main(field a) -> field {
+        //     field[1] b = [a];
+        //     a_f1 = b;
+        //     b_1 = a_f1;
+        //     return a + b_1[0];
         // }
 
         let foo_signature = DeclarationSignature::new()
@@ -1040,47 +948,25 @@ mod tests {
                 TypedStatement::definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
                     ArrayExpressionInner::Value(
-                        vec![FieldElementExpression::identifier("a".into()).into()].into(),
+                        vec![FieldElementExpression::identifier(Identifier::from("a")).into()]
+                            .into(),
                     )
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
-                TypedStatement::PushCallLog(
-                    DeclarationFunctionKey::with_location("main", "foo")
-                        .signature(foo_signature.clone()),
-                    GGenericsAssignment(
-                        vec![(GenericIdentifier::with_name("K").with_index(0), 1)]
-                            .into_iter()
-                            .collect(),
-                    ),
-                ),
                 TypedStatement::definition(
-                    Variable::array(Identifier::from("a").version(1), Type::FieldElement, 1u32)
+                    Variable::array(Identifier::from("a").in_frame(1), Type::FieldElement, 1u32)
                         .into(),
                     ArrayExpression::identifier("b".into())
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                 ),
                 TypedStatement::definition(
-                    Variable::array(
-                        Identifier::from(CoreIdentifier::Call(0)).version(0),
-                        Type::FieldElement,
-                        1u32,
-                    )
-                    .into(),
-                    ArrayExpression::identifier(Identifier::from("a").version(1))
-                        .annotate(Type::FieldElement, 1u32)
-                        .into(),
-                ),
-                TypedStatement::PopCallLog,
-                TypedStatement::definition(
                     Variable::array(Identifier::from("b").version(1), Type::FieldElement, 1u32)
                         .into(),
-                    ArrayExpression::identifier(
-                        Identifier::from(CoreIdentifier::Call(0)).version(0),
-                    )
-                    .annotate(Type::FieldElement, 1u32)
-                    .into(),
+                    ArrayExpression::identifier(Identifier::from("a").in_frame(1))
+                        .annotate(Type::FieldElement, 1u32)
+                        .into(),
                 ),
                 TypedStatement::Return(
                     (FieldElementExpression::identifier("a".into())
@@ -1306,33 +1192,11 @@ mod tests {
 
         let expected_main = TypedFunction {
             arguments: vec![],
-            statements: vec![
-                TypedStatement::PushCallLog(
-                    DeclarationFunctionKey::with_location("main", "foo")
-                        .signature(foo_signature.clone()),
-                    GGenericsAssignment(
-                        vec![(GenericIdentifier::with_name("K").with_index(0), 1)]
-                            .into_iter()
-                            .collect(),
-                    ),
-                ),
-                TypedStatement::PushCallLog(
-                    DeclarationFunctionKey::with_location("main", "bar")
-                        .signature(foo_signature.clone()),
-                    GGenericsAssignment(
-                        vec![(GenericIdentifier::with_name("K").with_index(0), 2)]
-                            .into_iter()
-                            .collect(),
-                    ),
-                ),
-                TypedStatement::PopCallLog,
-                TypedStatement::PopCallLog,
-                TypedStatement::Return(
-                    TupleExpressionInner::Value(vec![])
-                        .annotate(TupleType::new(vec![]))
-                        .into(),
-                ),
-            ],
+            statements: vec![TypedStatement::Return(
+                TupleExpressionInner::Value(vec![])
+                    .annotate(TupleType::new(vec![]))
+                    .into(),
+            )],
             signature: DeclarationSignature::new(),
         };
 

@@ -532,10 +532,8 @@ pub fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
 ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, F::Error> {
     Ok(match s {
         TypedAssemblyStatement::Assignment(a, e) => {
-            vec![TypedAssemblyStatement::Assignment(
-                f.fold_assignee(a)?,
-                f.fold_expression(e)?,
-            )]
+            let e = f.fold_expression(e)?;
+            vec![TypedAssemblyStatement::Assignment(f.fold_assignee(a)?, e)]
         }
         TypedAssemblyStatement::Constraint(lhs, rhs, metadata) => {
             vec![TypedAssemblyStatement::Constraint(
@@ -554,7 +552,8 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     let res = match s {
         TypedStatement::Return(e) => TypedStatement::Return(f.fold_expression(e)?),
         TypedStatement::Definition(a, e) => {
-            TypedStatement::Definition(f.fold_assignee(a)?, f.fold_definition_rhs(e)?)
+            let rhs = f.fold_definition_rhs(e)?;
+            TypedStatement::Definition(f.fold_assignee(a)?, rhs)
         }
         TypedStatement::Assertion(e, error) => {
             TypedStatement::Assertion(f.fold_boolean_expression(e)?, error)
@@ -586,7 +585,6 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 .flatten()
                 .collect(),
         ),
-        s => s,
     };
     Ok(vec![res])
 }
