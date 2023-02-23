@@ -286,6 +286,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 let to = self.propagator.fold_uint_expression(to)?;
 
                 match (from.as_inner(), to.as_inner()) {
+                    (UExpressionInner::Value(from), UExpressionInner::Value(to))
+                        if to - from > MAX_FOR_LOOP_SIZE =>
+                    {
+                        Err(Error::LoopTooLarge(to.saturating_sub(*from)))
+                    }
                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => Ok((*from
                         ..*to)
                         .flat_map(|index| {
