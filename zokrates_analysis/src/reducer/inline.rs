@@ -42,18 +42,8 @@ use zokrates_field::Field;
 
 pub enum InlineError<'ast, T> {
     Generic(DeclarationFunctionKey<'ast, T>, ConcreteFunctionKey<'ast>),
-    Flat(
-        FlatEmbed,
-        Vec<u32>,
-        Vec<TypedExpression<'ast, T>>,
-        Type<'ast, T>,
-    ),
-    NonConstant(
-        DeclarationFunctionKey<'ast, T>,
-        Vec<Option<UExpression<'ast, T>>>,
-        Vec<TypedExpression<'ast, T>>,
-        Type<'ast, T>,
-    ),
+    Flat(FlatEmbed, Vec<u32>, Type<'ast, T>),
+    NonConstant,
 }
 
 fn get_canonical_function<'ast, T: Field>(
@@ -74,26 +64,26 @@ fn get_canonical_function<'ast, T: Field>(
     }
 }
 
-type InlineResult<'ast, T> = Result<
-    (
-        Vec<Variable<'ast, T>>,
-        Vec<TypedExpression<'ast, T>>,
-        Vec<TypedStatement<'ast, T>>,
-        Vec<TypedStatement<'ast, T>>,
-        TypedExpression<'ast, T>,
-    ),
-    InlineError<'ast, T>,
->;
+pub struct InlineValue<'ast, T> {
+    /// the pre-SSA input variables to assign the arguments to
+    pub input_variables: Vec<Variable<'ast, T>>,
+    /// the pre-SSA statements for this call, including definition of the generic parameters
+    pub statements: Vec<TypedStatement<'ast, T>>,
+    /// the pre-SSA return value for this call
+    pub return_value: TypedExpression<'ast, T>,
+}
+
+type InlineResult<'ast, T> = Result<InlineValue<'ast, T>, InlineError<'ast, T>>;
 
 pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     k: &DeclarationFunctionKey<'ast, T>,
-    generics: Vec<Option<UExpression<'ast, T>>>,
-    arguments: Vec<TypedExpression<'ast, T>>,
-    output: &E::Ty,
+    generics: &[Option<UExpression<'ast, T>>],
+    arguments: &[TypedExpression<'ast, T>],
+    output_ty: &E::Ty,
     program: &TypedProgram<'ast, T>,
 ) -> InlineResult<'ast, T> {
     use zokrates_ast::typed::Typed;
-    let output_type = output.clone().into_type();
+    let output_type = output_ty.clone().into_type();
 
     // we try to get concrete values for explicit generics
     let generics_values: Vec<Option<u32>> = generics
@@ -107,32 +97,19 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
                 .transpose()
         })
         .collect::<Result<_, _>>()
-        .map_err(|_| {
-            InlineError::NonConstant(
-                k.clone(),
-                generics.clone(),
-                arguments.clone(),
-                output_type.clone(),
-            )
-        })?;
+        .map_err(|_| InlineError::NonConstant)?;
 
     // we infer a signature based on inputs and outputs
-    // this is where we could handle explicit annotations
     let inferred_signature = Signature::new()
-        .generics(generics.clone())
+        .generics(generics.to_vec().clone())
         .inputs(arguments.iter().map(|a| a.get_type()).collect())
         .output(output_type.clone());
 
-    // we try to get concrete values for the whole signature. if this fails we should propagate again
+    // we try to get concrete values for the whole signature
     let inferred_signature = match ConcreteSignature::try_from(inferred_signature) {
         Ok(s) => s,
         Err(_) => {
-            return Err(InlineError::NonConstant(
-                k.clone(),
-                generics,
-                arguments,
-                output_type,
-            ));
+            return Err(InlineError::NonConstant);
         }
     };
 
@@ -158,7 +135,6 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         TypedFunctionSymbol::Flat(e) => Err(InlineError::Flat(
             e,
             e.generics::<T>(&assignment),
-            arguments.clone(),
             output_type,
         )),
         _ => unreachable!(),
@@ -166,19 +142,15 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
 
     assert_eq!(f.arguments.len(), arguments.len());
 
-    let generics_bindings: Vec<_> = assignment
-        .0
-        .into_iter()
-        .map(|(identifier, value)| {
-            TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::uint(
-                    CoreIdentifier::from(identifier),
-                    UBitwidth::B32,
-                )),
-                TypedExpression::from(UExpression::from(value)).into(),
-            )
-        })
-        .collect();
+    let generic_bindings = assignment.0.into_iter().map(|(identifier, value)| {
+        TypedStatement::Definition(
+            TypedAssignee::Identifier(Variable::uint(
+                CoreIdentifier::from(identifier),
+                UBitwidth::B32,
+            )),
+            TypedExpression::from(UExpression::from(value)).into(),
+        )
+    });
 
     let input_variables: Vec<Variable<'ast, T>> = f
         .arguments
@@ -188,23 +160,20 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         .map(Variable::from)
         .collect();
 
-    let (statements, mut returns): (Vec<_>, Vec<_>) = f
-        .statements
-        .into_iter()
+    let (statements, mut returns): (Vec<_>, Vec<_>) = generic_bindings
+        .chain(f.statements)
         .partition(|s| !matches!(s, TypedStatement::Return(..)));
 
     assert_eq!(returns.len(), 1);
 
-    let return_expression = match returns.pop().unwrap() {
+    let return_value = match returns.pop().unwrap() {
         TypedStatement::Return(e) => e,
         _ => unreachable!(),
     };
 
-    Ok((
+    Ok(InlineValue {
         input_variables,
-        arguments,
-        generics_bindings,
         statements,
-        return_expression,
-    ))
+        return_value,
+    })
 }

@@ -17,6 +17,7 @@ mod constants_writer;
 mod inline;
 mod shallow_ssa;
 
+use self::inline::InlineValue;
 use self::inline::{inline_call, InlineError};
 use std::collections::HashMap;
 use zokrates_ast::typed::result_folder::*;
@@ -120,7 +121,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     ) -> Result<FunctionCallOrExpression<'ast, T, E>, Self::Error> {
         // generics are already in ssa form
 
-        let generics = e
+        let generics: Vec<_> = e
             .generics
             .into_iter()
             .map(|g| {
@@ -138,7 +139,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
         // arguments are already in ssa form
 
-        let arguments = e
+        let arguments: Vec<_> = e
             .arguments
             .into_iter()
             .map(|e| {
@@ -153,24 +154,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
         self.ssa.push_call_frame();
 
-        let res = inline_call::<_, E>(&e.function_key, generics, arguments, ty, self.program);
+        let res = inline_call::<_, E>(&e.function_key, &generics, &arguments, ty, self.program);
 
         let res = match res {
-            Ok((input_variables, arguments, generics_bindings, statements, expression)) => {
-                let generics_bindings = generics_bindings
-                    .into_iter()
-                    .flat_map(|s| self.ssa.fold_statement(s))
-                    .map(|s| self.propagator.fold_statement(s))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter()
-                    .flatten()
-                    .map(|s| self.fold_statement(s))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter()
-                    .flatten();
-
-                self.statement_buffer.extend(generics_bindings);
-
+            Ok(InlineValue {
+                input_variables,
+                statements,
+                return_value,
+            }) => {
                 // the lhs is from the inner call frame, the rhs is from the outer one, so only fold the lhs
                 let input_bindings: Vec<_> = input_variables
                     .into_iter()
@@ -196,27 +187,25 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                 self.statement_buffer.extend(statements);
 
-                let expression = self.ssa.fold_expression(expression);
+                let return_value = self.ssa.fold_expression(return_value);
 
-                let expression = self.propagator.fold_expression(expression)?;
+                let return_value = self.propagator.fold_expression(return_value)?;
 
-                let expression = self.fold_expression(expression)?;
+                let return_value = self.fold_expression(return_value)?;
 
                 Ok(FunctionCallOrExpression::Expression(
-                    E::from(expression).into_inner(),
+                    E::from(return_value).into_inner(),
                 ))
             }
             Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                 "Call site `{}` incompatible with declaration `{}`",
                 conc, decl
             ))),
-            Err(InlineError::NonConstant(key, generics, arguments, _)) => {
-                Err(Error::NonConstant(format!(
-                    "Generic parameters must be compile-time constants, found {}",
-                    FunctionCallExpression::<_, E>::new(key, generics, arguments)
-                )))
-            }
-            Err(InlineError::Flat(embed, generics, arguments, output_type)) => {
+            Err(InlineError::NonConstant) => Err(Error::NonConstant(format!(
+                "Generic parameters must be compile-time constants, found {}",
+                FunctionCallExpression::<_, E>::new(e.function_key, generics, arguments)
+            ))),
+            Err(InlineError::Flat(embed, generics, output_type)) => {
                 let identifier = self.ssa.issue_next_identifier(CoreIdentifier::Call(0));
 
                 let var = Variable::immutable(identifier.clone(), output_type);
