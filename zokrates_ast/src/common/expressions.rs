@@ -208,6 +208,7 @@ pub enum IdentifierOrExpression<V, E, I> {
 #[derivative(PartialOrd, PartialEq, Hash)]
 #[derive(Clone, Debug, Eq, Ord)]
 pub struct DefinitionStatement<A, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub assignee: A,
     pub rhs: E,
@@ -252,6 +253,7 @@ impl<A: fmt::Display, E: fmt::Display> fmt::Display for DefinitionStatement<A, E
 #[derivative(PartialOrd, PartialEq, Hash)]
 #[derive(Clone, Debug, Eq, Ord)]
 pub struct AssertionStatement<B, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub expression: B,
     pub error: E,
@@ -281,6 +283,7 @@ impl<B, E> WithSpan for AssertionStatement<B, E> {
 #[derivative(PartialOrd, PartialEq, Hash)]
 #[derive(Clone, Debug, Eq, Ord)]
 pub struct ReturnStatement<E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub inner: E,
 }

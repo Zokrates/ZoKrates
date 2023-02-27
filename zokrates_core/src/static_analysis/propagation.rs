@@ -539,11 +539,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
         let e_str = s.expression.to_string();
         let expr = self.fold_boolean_expression(s.expression)?;
+
         match expr {
-            BooleanExpression::Value(v) if v.value => {
+            BooleanExpression::Value(v) if !v.value => {
                 Err(Error::AssertionFailed(format!("{}: ({})", s.error, e_str)))
             }
-            BooleanExpression::Value(v) if !v.value => Ok(vec![]),
+            BooleanExpression::Value(v) if v.value => Ok(vec![]),
             _ => Ok(vec![TypedStatement::assertion(expr, s.error)]),
         }
     }

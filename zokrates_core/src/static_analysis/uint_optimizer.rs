@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::ops::{BitAnd, Mul, Shl, Shr};
-use zokrates_ast::common::{FlatEmbed, Fold};
+use zokrates_ast::common::{FlatEmbed, Fold, WithSpan};
 use zokrates_ast::zir::folder::*;
 use zokrates_ast::zir::*;
 use zokrates_field::Field;
@@ -103,6 +103,8 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
     }
 
     fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+        let span = e.get_span();
+
         if e.metadata.is_some() {
             return e;
         }
@@ -399,7 +401,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
         assert!(res.metadata.is_some());
 
-        res
+        res.span(span)
     }
 
     fn fold_return_statement(&mut self, s: ReturnStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {

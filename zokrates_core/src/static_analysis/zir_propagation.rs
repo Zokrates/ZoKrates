@@ -181,8 +181,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 let right = self.fold_field_expression(*e.right)?;
 
                 Ok(match (left, right) {
-                    (FieldElementExpression::Number(n), e)
-                    | (e, FieldElementExpression::Number(n))
+                    (e, FieldElementExpression::Number(n))
                         if n.value == T::from(0) =>
                     {
                         e

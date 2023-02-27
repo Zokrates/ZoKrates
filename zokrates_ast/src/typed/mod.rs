@@ -1967,7 +1967,7 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Rem(ref e) => write!(f, "{}", e),
             UExpressionInner::RightShift(ref e) => write!(f, "{}", e),
             UExpressionInner::LeftShift(ref e) => write!(f, "{}", e),
-            UExpressionInner::Not(ref e) => write!(f, "!{}", e),
+            UExpressionInner::Not(ref e) => write!(f, "{}", e),
             UExpressionInner::Neg(ref e) => write!(f, "{}", e),
             UExpressionInner::Pos(ref e) => write!(f, "{}", e),
             UExpressionInner::Select(ref select) => write!(f, "{}", select),

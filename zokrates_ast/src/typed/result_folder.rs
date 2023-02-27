@@ -220,7 +220,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         L: Expr<'ast, T> + PartialEq + ResultFold<Self, Self::Error>,
         R: Expr<'ast, T> + PartialEq + ResultFold<Self, Self::Error>,
         E: Expr<'ast, T> + PartialEq + ResultFold<Self, Self::Error>,
-        Op,
+        Op: OperatorStr,
     >(
         &mut self,
         ty: &E::Ty,
@@ -1162,7 +1162,7 @@ pub fn fold_binary_expression<
     R: Expr<'ast, T> + PartialEq + ResultFold<F, F::Error> + From<TypedExpression<'ast, T>>,
     E: Expr<'ast, T> + PartialEq + ResultFold<F, F::Error> + From<TypedExpression<'ast, T>>,
     F: ResultFolder<'ast, T>,
-    Op,
+    Op: OperatorStr,
 >(
     f: &mut F,
     _: &E::Ty,
@@ -1318,6 +1318,8 @@ pub fn fold_boolean_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
 ) -> Result<BooleanExpression<'ast, T>, F::Error> {
     use BooleanExpression::*;
 
+    let e_backup = e.clone();
+
     let e = match e {
         Identifier(id) => match f.fold_identifier_expression(&Type::Boolean, id)? {
             IdentifierOrExpression::Identifier(i) => Identifier(i),
@@ -1400,6 +1402,7 @@ pub fn fold_boolean_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
             ElementOrExpression::Expression(u) => u,
         },
     };
+
     Ok(e)
 }
 
@@ -1428,6 +1431,8 @@ pub fn fold_uint_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     e: UExpressionInner<'ast, T>,
 ) -> Result<UExpressionInner<'ast, T>, F::Error> {
     use UExpressionInner::*;
+
+    let e_backup = e.clone();
 
     let e = match e {
         Identifier(id) => match f.fold_identifier_expression(&ty, id)? {
@@ -1515,6 +1520,7 @@ pub fn fold_uint_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
             ElementOrExpression::Expression(u) => u,
         },
     };
+
     Ok(e)
 }
 

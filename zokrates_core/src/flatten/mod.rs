@@ -9,7 +9,10 @@ mod utils;
 
 use self::utils::flat_expression_from_bits;
 use zokrates_ast::{
-    common::{expressions::BinaryExpression, Span},
+    common::{
+        expressions::{BinaryExpression, UnaryExpression, ValueExpression},
+        Span,
+    },
     zir::{
         ConditionalExpression, Expr, SelectExpression, ShouldReduce, UMetadata, ZirExpressionList,
         ZirProgram,
@@ -71,7 +74,7 @@ impl<T> IntoIterator for FlatStatements<T> {
     type IntoIter = std::collections::vec_deque::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        todo!()
+        self.buffer.into_iter()
     }
 }
 
@@ -575,53 +578,60 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements: FlatStatements<T>,
         condition: FlatExpression<T>,
     ) -> FlatStatements<T> {
-        unimplemented!()
-        // statements
-        //     .into_iter()
-        //     .flat_map(|s| match s {
-        //         FlatStatement::Condition(s) => {
-        //             let mut output = FlatStatements::default();
+        statements
+            .into_iter()
+            .flat_map(|s| match s {
+                FlatStatement::Condition(s) => {
 
-        //             // we transform (x == 0) into (c => (x == 0)) which is (!c || (x == 0))
+                    let span = s.get_span();
 
-        //             // let's introduce new variables to make sure everything is linear
-        //             let name_expression = self.define(s.expression, &mut output);
+                    let mut output = FlatStatements::default();
 
-        //             // let's introduce an expression which is 1 iff `a == b`
-        //             let y = FlatExpression::add(name_expression.into(), T::one().into());
-        //             // let's introduce !c
-        //             let x = FlatExpression::sub(T::one().into(), condition.clone());
+                    output.set_span(span);
 
-        //             assert!(x.is_linear() && y.is_linear());
-        //             let name_x_or_y = self.use_sym();
-        //             output.push_back(FlatStatement::directive(
-        //                 vec![name_x_or_y],
-        //                 Solver::Or,
-        //                 vec![x.clone(), y.clone()],
-        //             ));
-        //             output.push_back(FlatStatement::condition(
-        //                 FlatExpression::add(
-        //                     x.clone(),
-        //                     FlatExpression::sub(y.clone(), name_x_or_y.into()),
-        //                 ),
-        //                 FlatExpression::mul(x.clone(), y.clone()),
-        //                 RuntimeError::BranchIsolation,
-        //             ));
-        //             output.push_back(FlatStatement::condition(
-        //                 name_x_or_y.into(),
-        //                 T::one().into(),
-        //                 s.error,
-        //             ));
+                    // we transform (x == 0) into (c => (x == 0)) which is (!c || (x == 0))
 
-        //             output
-        //         }
-        //         s => {
-        //             let mut v = FlatStatements::default();
-        //             v.push_back(s);
-        //             v
-        //         },
-        //     })
-        //     .collect()
+                    // let's introduce new variables to make sure everything is linear
+                    let name_expression = self.define(s.expression, &mut output);
+
+                    // let's introduce an expression which is 1 iff `a == b`
+                    let y = FlatExpression::add(name_expression.into(), T::one().into()).span(span);
+                    // let's introduce !c
+                    let x = FlatExpression::sub(T::one().into(), condition.clone()).span(span);
+
+                    assert!(x.is_linear() && y.is_linear());
+                    let name_x_or_y = self.use_sym();
+                    output.push_back(FlatStatement::directive(
+                        vec![name_x_or_y],
+                        Solver::Or,
+                        vec![x.clone(), y.clone()],
+                    ));
+                    output.push_back(FlatStatement::condition(
+                        FlatExpression::add(
+                            x.clone(),
+                            FlatExpression::sub(y.clone(), name_x_or_y.into()),
+                        ),
+                        FlatExpression::mul(x.clone(), y.clone()),
+                        RuntimeError::BranchIsolation,
+                    ));
+                    output.push_back(FlatStatement::condition(
+                        name_x_or_y.into(),
+                        T::one().into(),
+                        s.error,
+                    ));
+
+                    output
+                }
+                s => {
+                    let mut v = FlatStatements::default();
+                    v.push_back(s);
+                    v
+                },
+            })
+            .fold(FlatStatements::default(), |mut acc, s| {
+                acc.push_back(s);
+                acc
+            })
     }
 
     /// Flatten an if/else expression
@@ -2553,79 +2563,113 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         )
                     }
                     // `!(x == 0)` can be asserted by giving the inverse of `x`
-                    // BooleanExpression::Not(box BooleanExpression::UintEq(
-                    //     box UExpression {
-                    //         inner: UExpressionInner::Value(0),
-                    //         ..
-                    //     },
-                    //     box x,
-                    // ))
-                    // | BooleanExpression::Not(box BooleanExpression::UintEq(
-                    //     box x,
-                    //     box UExpression {
-                    //         inner: UExpressionInner::Value(0),
-                    //         ..
-                    //     },
-                    // )) => {
-                    //     let x = self
-                    //         .flatten_uint_expression(statements_flattened, x)
-                    //         .get_field_unchecked();
+                    BooleanExpression::Not(UnaryExpression {
+                        inner:
+                            box BooleanExpression::UintEq(BinaryExpression {
+                                left:
+                                    box UExpression {
+                                        inner:
+                                            UExpressionInner::Value(ValueExpression {
+                                                value: 0, ..
+                                            }),
+                                        ..
+                                    },
+                                right: box x,
+                                ..
+                            }),
+                        ..
+                    })
+                    | BooleanExpression::Not(UnaryExpression {
+                        inner:
+                            box BooleanExpression::UintEq(BinaryExpression {
+                                right:
+                                    box UExpression {
+                                        inner:
+                                            UExpressionInner::Value(ValueExpression {
+                                                value: 0, ..
+                                            }),
+                                        ..
+                                    },
+                                left: box x,
+                                ..
+                            }),
+                        ..
+                    }) => {
+                        let x = self
+                            .flatten_uint_expression(statements_flattened, x)
+                            .get_field_unchecked();
 
-                    //     // introduce intermediate variable
-                    //     let x_id = self.define(x, statements_flattened);
+                        // introduce intermediate variable
+                        let x_id = self.define(x, statements_flattened);
 
-                    //     // check that `x` is not 0 by giving its inverse
-                    //     let invx = self.use_sym();
+                        // check that `x` is not 0 by giving its inverse
+                        let invx = self.use_sym();
 
-                    //     // # invx = 1/x
-                    //     statements_flattened.push_back(FlatStatement::Directive(
-                    //         FlatDirective::new(
-                    //             vec![invx],
-                    //             Solver::Div,
-                    //             vec![FlatExpression::number(T::one()), x_id.into()],
-                    //         ),
-                    //     ));
+                        // # invx = 1/x
+                        statements_flattened.push_back(FlatStatement::Directive(
+                            FlatDirective::new(
+                                vec![invx],
+                                Solver::Div,
+                                vec![FlatExpression::number(T::one()), x_id.into()],
+                            ),
+                        ));
 
-                    //     // assert(invx * x == 1)
-                    //     statements_flattened.push_back(FlatStatement::condition(
-                    //         FlatExpression::number(T::one()),
-                    //         FlatExpression::mul(invx.into(), x_id.into()),
-                    //         RuntimeError::Inverse,
-                    //     ));
-                    // }
-                    // // `!(x == 0)` can be asserted by giving the inverse of `x`
-                    // BooleanExpression::Not(box BooleanExpression::FieldEq(
-                    //     box FieldElementExpression::Number(zero),
-                    //     box x,
-                    // ))
-                    // | BooleanExpression::Not(box BooleanExpression::FieldEq(
-                    //     box x,
-                    //     box FieldElementExpression::Number(zero),
-                    // )) if zero.value == T::from(0) => {
-                    //     let x = self.flatten_field_expression(statements_flattened, x);
+                        // assert(invx * x == 1)
+                        statements_flattened.push_back(FlatStatement::condition(
+                            FlatExpression::number(T::one()),
+                            FlatExpression::mul(invx.into(), x_id.into()),
+                            RuntimeError::Inverse,
+                        ));
+                    }
+                    // `!(x == 0)` can be asserted by giving the inverse of `x`
+                    BooleanExpression::Not(UnaryExpression {
+                        inner:
+                            box BooleanExpression::FieldEq(
+                                BinaryExpression {
+                                    left: box FieldElementExpression::Number(zero),
+                                    right: box x,
+                                    ..
+                                },
+                                ..,
+                            ),
+                        ..
+                    })
+                    | BooleanExpression::Not(UnaryExpression {
+                        inner:
+                            box BooleanExpression::FieldEq(
+                                BinaryExpression {
+                                    left: box x,
+                                    right: box FieldElementExpression::Number(zero),
+                                    ..
+                                },
+                                ..,
+                            ),
+                        ..
+                    }) if zero.value == T::from(0) => {
+                        let x = self.flatten_field_expression(statements_flattened, x);
 
-                    //     // introduce intermediate variable
-                    //     let x_id = self.define(x, statements_flattened);
+                        // introduce intermediate variable
+                        let x_id = self.define(x, statements_flattened);
 
-                    //     // check that `x` is not 0 by giving its inverse
-                    //     let invx = self.use_sym();
+                        // check that `x` is not 0 by giving its inverse
+                        let invx = self.use_sym();
 
-                    //     // # invx = 1/x
-                    //     statements_flattened.push_back(FlatStatement::Directive(
-                    //         FlatDirective::new(
-                    //             vec![invx],
-                    //             Solver::Div,
-                    //             vec![FlatExpression::number(T::one()), x_id.into()],
-                    //         ),
-                    //     ));
+                        // # invx = 1/x
+                        statements_flattened.push_back(FlatStatement::Directive(
+                            FlatDirective::new(
+                                vec![invx],
+                                Solver::Div,
+                                vec![FlatExpression::number(T::one()), x_id.into()],
+                            ),
+                        ));
 
-                    //     // assert(invx * x == 1)
-                    //     statements_flattened.push_back(FlatStatement::condition(
-                    //         FlatExpression::number(T::one()),
-                    //         FlatExpression::mul(invx.into(), x_id.into()),
-                    //         RuntimeError::Inverse,
-                    //     ));
-                    // }
+                        // assert(invx * x == 1)
+                        statements_flattened.push_back(FlatStatement::condition(
+                            FlatExpression::number(T::one()),
+                            FlatExpression::mul(invx.into(), x_id.into()),
+                            RuntimeError::Inverse,
+                        ));
+                    }
                     e => {
                         // naive approach: flatten the boolean to a single field element and constrain it to 1
                         let e = self.flatten_boolean_expression(statements_flattened, e);

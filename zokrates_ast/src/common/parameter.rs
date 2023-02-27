@@ -1,9 +1,14 @@
 use std::fmt;
 
+use derivative::Derivative;
+
 use super::{Span, WithSpan};
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Hash, Eq)]
+#[derive(Clone)]
 pub struct Parameter<V> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub id: V,
     pub private: bool,

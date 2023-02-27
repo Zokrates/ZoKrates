@@ -124,7 +124,7 @@ impl fmt::Debug for Position {
 
 impl fmt::Display for Span {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({},{})", self.from, self.to)
+        write!(f, "{}", self.from)
     }
 }
 impl fmt::Debug for Span {

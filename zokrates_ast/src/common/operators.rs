@@ -34,7 +34,7 @@ impl OperatorStr for OpMul {
 pub struct OpDiv;
 
 impl OperatorStr for OpDiv {
-    const STR: &'static str = "*";
+    const STR: &'static str = "/";
 }
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]

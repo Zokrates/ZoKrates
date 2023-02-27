@@ -159,12 +159,15 @@ impl<'ast, T> IfElseStatement<'ast, T> {
 }
 
 impl<'ast, T> WithSpan for IfElseStatement<'ast, T> {
-    fn span(self, _: Option<Span>) -> Self {
-        todo!()
+    fn span(self, span: Option<Span>) -> Self {
+        Self {
+            span,
+            ..self
+        }
     }
 
     fn get_span(&self) -> Option<Span> {
-        todo!()
+        self.span
     }
 }
 
