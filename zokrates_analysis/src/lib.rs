@@ -161,10 +161,6 @@ pub fn analyse<'ast, T: Field>(
     let r = reduce_program(r).map_err(Error::from)?;
     log::trace!("\n{}", r);
 
-    log::debug!("Static analyser: Propagate");
-    let r = Propagator::propagate(r)?;
-    log::trace!("\n{}", r);
-
     log::debug!("Static analyser: Concretize structs");
     let r = StructConcretizer::concretize(r);
     log::trace!("\n{}", r);

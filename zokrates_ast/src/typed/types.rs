@@ -241,13 +241,14 @@ impl<'ast, T: Field> From<DeclarationConstant<'ast, T>> for UExpression<'ast, T>
     fn from(c: DeclarationConstant<'ast, T>) -> Self {
         match c {
             DeclarationConstant::Generic(g) => {
-                UExpression::identifier(CoreIdentifier::from(g).into()).annotate(UBitwidth::B32)
+                UExpression::identifier(Identifier::from(CoreIdentifier::from(g)))
+                    .annotate(UBitwidth::B32)
             }
             DeclarationConstant::Concrete(v) => {
                 UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Constant(v) => {
-                UExpression::identifier(CoreIdentifier::from(v).into()).annotate(UBitwidth::B32)
+                UExpression::identifier(FrameIdentifier::from(v).into()).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Expression(e) => e.try_into().unwrap(),
         }
@@ -1144,8 +1145,7 @@ pub fn check_type<'ast, T, S: Clone + PartialEq + PartialEq<u32>>(
 
 impl<'ast, T: Field> From<CanonicalConstantIdentifier<'ast>> for UExpression<'ast, T> {
     fn from(c: CanonicalConstantIdentifier<'ast>) -> Self {
-        UExpression::identifier(Identifier::from(CoreIdentifier::Constant(c)))
-            .annotate(UBitwidth::B32)
+        UExpression::identifier(Identifier::from(FrameIdentifier::from(c))).annotate(UBitwidth::B32)
     }
 }
 
@@ -1230,6 +1230,7 @@ pub use self::signature::{
     try_from_g_signature, ConcreteSignature, DeclarationSignature, GSignature, Signature,
 };
 
+use super::identifier::FrameIdentifier;
 use super::{Id, ShadowedIdentifier};
 
 pub mod signature {

@@ -1170,7 +1170,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     let id = arg.id.value.id;
                     let info = IdentifierInfo {
-                        id: decl_v.id.id.clone(),
+                        id: decl_v.id.id.id.clone(),
                         ty,
                         is_mutable,
                     };
