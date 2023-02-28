@@ -1,7 +1,7 @@
 use zokrates_ast::typed::{
-    folder::*, ArrayExpression, BooleanExpression, ConditionalExpression,
-    ConditionalKind, Expr, FieldElementExpression, SelectExpression, Type, TypedExpression,
-    TypedProgram, UExpressionInner,
+    folder::*, ArrayExpression, BooleanExpression, ConditionalExpression, ConditionalKind, Expr,
+    FieldElementExpression, SelectExpression, Type, TypedExpression, TypedProgram,
+    UExpressionInner,
 };
 
 use std::ops::*;
@@ -109,7 +109,10 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
 
 #[cfg(test)]
 mod tests {
-    use zokrates_ast::typed::{BooleanExpression, Type};
+    use zokrates_ast::{
+        common::expressions::BinaryExpression,
+        typed::{BooleanExpression, Type},
+    };
     use zokrates_field::DummyCurveField;
 
     use zokrates_ast::typed::utils::{a, a_id, conditional, f, select, u_32};

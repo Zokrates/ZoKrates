@@ -2,9 +2,8 @@ use std::fmt;
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::result_folder::fold_uint_expression_cases;
 use zokrates_ast::typed::{
-    result_folder::ResultFolder,
-    result_folder::fold_definition_statement,
-    Constant, EmbedCall, TypedStatement, UBitwidth, UExpressionInner,
+    result_folder::fold_definition_statement, result_folder::ResultFolder, Constant, EmbedCall,
+    TypedStatement, UBitwidth, UExpressionInner,
 };
 use zokrates_ast::typed::{DefinitionRhs, DefinitionStatement, TypedProgram, UExpression};
 use zokrates_field::Field;

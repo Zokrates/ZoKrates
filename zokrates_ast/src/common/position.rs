@@ -44,7 +44,7 @@ pub struct Span {
     pub to: Position,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct ResolvedSpan {
     pub module: OwnedModuleId,
     pub from: Position,
@@ -57,6 +57,14 @@ impl Span {
             module: map.modules.get(&self.module).cloned().unwrap(),
             from: self.from,
             to: self.to,
+        }
+    }
+
+    pub fn mock() -> Self {
+        Self {
+            module: hash(&OwnedModuleId::default()),
+            from: Position::mock(),
+            to: Position::mock(),
         }
     }
 }

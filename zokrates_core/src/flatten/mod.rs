@@ -35,8 +35,7 @@ use zokrates_ast::ir::Solver;
 use zokrates_ast::zir::types::{Type, UBitwidth};
 use zokrates_ast::zir::{
     BooleanExpression, Conditional, FieldElementExpression, Identifier, Parameter as ZirParameter,
-    UExpression, UExpressionInner, Variable as ZirVariable, ZirExpression,
-    ZirStatement,
+    UExpression, UExpressionInner, Variable as ZirVariable, ZirExpression, ZirStatement,
 };
 use zokrates_field::Field;
 
@@ -377,7 +376,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // init size_unknown = true
         statements_flattened.push_back(FlatStatement::definition(
             size_unknown[0],
-            FlatExpression::number(T::from(1)),
+            FlatExpression::from_value(T::from(1)),
         ));
 
         let mut res = vec![];
@@ -407,10 +406,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     );
                 }
 
-                let or_left =
-                    FlatExpression::sub(FlatExpression::number(T::from(1)), size_unknown[i].into());
+                let or_left = FlatExpression::sub(
+                    FlatExpression::from_value(T::from(1)),
+                    size_unknown[i].into(),
+                );
                 let or_right: FlatExpression<_> =
-                    FlatExpression::sub(FlatExpression::number(T::from(1)), a[i].clone());
+                    FlatExpression::sub(FlatExpression::from_value(T::from(1)), a[i].clone());
 
                 let and_name = self.use_sym();
                 let and = FlatExpression::mul(or_left.clone(), or_right.clone());
@@ -468,12 +469,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         ));
 
         let res = FlatExpression::sub(
-            FlatExpression::number(T::one()),
+            FlatExpression::from_value(T::one()),
             FlatExpression::identifier(name_y),
         );
 
         statements_flattened.push_back(FlatStatement::condition(
-            FlatExpression::number(T::zero()),
+            FlatExpression::from_value(T::zero()),
             FlatExpression::mul(res.clone(), x),
             RuntimeError::Equal,
         ));
@@ -505,7 +506,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatExpression::add(acc, e)
             });
         statements_flattened.push_back(FlatStatement::condition(
-            FlatExpression::number(T::from(0)),
+            FlatExpression::from_value(T::from(0)),
             FlatExpression::sub(conditions_sum, T::from(conditions_count).into()),
             error,
         ));
@@ -673,7 +674,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 self.make_conditional(consequence_statements, condition_id.into());
             let alternative_statements = self.make_conditional(
                 alternative_statements,
-                FlatExpression::sub(FlatExpression::number(T::one()), condition_id.into()),
+                FlatExpression::sub(FlatExpression::from_value(T::one()), condition_id.into()),
             );
 
             statements_flattened.extend(consequence_statements);
@@ -706,7 +707,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened.push_back(FlatStatement::definition(
             term1_id,
             FlatExpression::mul(
-                FlatExpression::sub(FlatExpression::number(T::one()), condition_id.into()),
+                FlatExpression::sub(FlatExpression::from_value(T::one()), condition_id.into()),
                 FlatExpression::from(alternative_id),
             ),
         ));
@@ -792,7 +793,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             T::from(conditions.len()).into(),
             conditions
                 .into_iter()
-                .fold(FlatExpression::number(T::zero()), |acc, e| {
+                .fold(FlatExpression::from_value(T::zero()), |acc, e| {
                     FlatExpression::add(acc, e)
                 }),
         )
@@ -845,7 +846,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 // shifted_sub := 2**safe_width + lhs - rhs
                 let shifted_sub = FlatExpression::add(
-                    FlatExpression::number(T::from(2).pow(bit_width)),
+                    FlatExpression::from_value(T::from(2).pow(bit_width)),
                     FlatExpression::sub(
                         FlatExpression::identifier(lhs_id),
                         FlatExpression::identifier(rhs_id),
@@ -863,7 +864,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 );
 
                 FlatExpression::sub(
-                    FlatExpression::number(T::one()),
+                    FlatExpression::from_value(T::one()),
                     shifted_sub_bits_be[0].clone(),
                 )
             }
@@ -942,7 +943,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ));
 
                 FlatExpression::sub(
-                    FlatExpression::number(T::one()),
+                    FlatExpression::from_value(T::one()),
                     FlatExpression::identifier(name_x_mult_x),
                 )
             }
@@ -1051,9 +1052,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             }
             BooleanExpression::Not(e) => {
                 let x = self.flatten_boolean_expression(statements_flattened, *e.inner);
-                FlatExpression::sub(FlatExpression::number(T::one()), x)
+                FlatExpression::sub(FlatExpression::from_value(T::one()), x)
             }
-            BooleanExpression::Value(b) => FlatExpression::number(match b.value {
+            BooleanExpression::Value(b) => FlatExpression::from_value(match b.value {
                 true => T::from(1),
                 false => T::from(0),
             }),
@@ -1172,7 +1173,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         T::from(conditions.len()).into(),
                         conditions
                             .into_iter()
-                            .fold(FlatExpression::number(T::zero()), |acc, e| {
+                            .fold(FlatExpression::from_value(T::zero()), |acc, e| {
                                 FlatExpression::add(acc, e)
                             }),
                     ),
@@ -1319,7 +1320,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         self.define(e, statements_flattened).into()
                     } else if n.value == T::from(1) {
                         self.define(
-                            FlatExpression::sub(FlatExpression::number(T::from(1)), e),
+                            FlatExpression::sub(FlatExpression::from_value(T::from(1)), e),
                             statements_flattened,
                         )
                         .into()
@@ -1416,7 +1417,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let _ = self.get_bits_unchecked(
             &FlatUExpression::with_field(FlatExpression::add(
                 FlatExpression::sub(r.into(), d.clone()),
-                FlatExpression::number(T::from(2_u128.pow(target_bitwidth as u32))),
+                FlatExpression::from_value(T::from(2_u128.pow(target_bitwidth as u32))),
             )),
             target_bitwidth,
             target_bitwidth,
@@ -1466,7 +1467,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let res = match expr.into_inner() {
             UExpressionInner::Value(x) => {
-                FlatUExpression::with_field(FlatExpression::number(T::from(x.value)))
+                FlatUExpression::with_field(FlatExpression::from_value(T::from(x.value)))
             } // force to be a field element
             UExpressionInner::Identifier(x) => {
                 let field = FlatExpression::identifier(*self.layout.get(&x.id).unwrap());
@@ -1488,7 +1489,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .into_iter()
                     .map(|bit| {
                         self.define(
-                            FlatExpression::sub(FlatExpression::number(T::from(1)), bit),
+                            FlatExpression::sub(FlatExpression::from_value(T::from(1)), bit),
                             statements_flattened,
                         )
                         .into()
@@ -1525,7 +1526,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             }
             UExpressionInner::Sub(e) => {
                 // see uint optimizer for the reasoning here
-                let offset = FlatExpression::number(T::from(2).pow(std::cmp::max(
+                let offset = FlatExpression::from_value(T::from(2).pow(std::cmp::max(
                     e.right.metadata.as_ref().unwrap().bitwidth() as usize,
                     target_bitwidth as usize,
                 )));
@@ -1576,7 +1577,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         .skip(by as usize)
                         .chain(
                             (0..std::cmp::min(by as usize, target_bitwidth.to_usize()))
-                                .map(|_| FlatExpression::number(T::from(0))),
+                                .map(|_| FlatExpression::from_value(T::from(0))),
                         )
                         .collect::<Vec<_>>(),
                 )
@@ -1597,7 +1598,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 FlatUExpression::with_bits(
                     (0..std::cmp::min(by as usize, target_bitwidth.to_usize()))
-                        .map(|_| FlatExpression::number(T::from(0)))
+                        .map(|_| FlatExpression::from_value(T::from(0)))
                         .chain(e_bits.into_iter().take(
                             target_bitwidth.to_usize()
                                 - std::cmp::min(by as usize, target_bitwidth.to_usize()),
@@ -1831,7 +1832,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .map(|(x, y)| match (x, y) {
                         (FlatExpression::Number(n), e) | (e, FlatExpression::Number(n)) => {
                             if n.value == T::from(0) {
-                                FlatExpression::number(T::from(0))
+                                FlatExpression::from_value(T::from(0))
                             } else if n.value == T::from(1) {
                                 e
                             } else {
@@ -1867,7 +1868,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             if n.value == T::from(0) {
                                 self.define(e, statements_flattened).into()
                             } else if n.value == T::from(1) {
-                                FlatExpression::number(T::from(1))
+                                FlatExpression::from_value(T::from(1))
                             } else {
                                 unreachable!()
                             }
@@ -1912,12 +1913,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let field = if actual_bitwidth > target_bitwidth.to_usize() {
                     bits.iter().enumerate().fold(
-                        FlatExpression::number(T::from(0)),
+                        FlatExpression::from_value(T::from(0)),
                         |acc, (index, bit)| {
                             FlatExpression::add(
                                 acc,
                                 FlatExpression::mul(
-                                    FlatExpression::number(
+                                    FlatExpression::from_value(
                                         T::from(2).pow(target_bitwidth.to_usize() - index - 1),
                                     ),
                                     bit.clone(),
@@ -1968,7 +1969,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             let bits: Vec<_> = Interpreter::execute_solver(&Solver::bits(to), &[x.value.clone()])
                 .unwrap()
                 .into_iter()
-                .map(FlatExpression::number)
+                .map(FlatExpression::from_value)
                 .collect();
 
             assert_eq!(bits.len(), to);
@@ -1995,7 +1996,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         res
                     } else {
                         (0..to - res.len())
-                            .map(|_| FlatExpression::number(T::zero()))
+                            .map(|_| FlatExpression::from_value(T::zero()))
                             .chain(res)
                             .collect()
                     }
@@ -2082,8 +2083,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             .into_iter()
             .fold(
                 (
-                    FlatExpression::number(T::zero()),
-                    FlatExpression::number(T::zero()),
+                    FlatExpression::from_value(T::zero()),
+                    FlatExpression::from_value(T::zero()),
                 ),
                 |(mut range_check, mut result), (condition, element)| {
                     range_check = FlatExpression::add(range_check, condition.clone());
@@ -2101,7 +2102,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         statements_flattened.push_back(FlatStatement::condition(
             range_check,
-            FlatExpression::number(T::one()),
+            FlatExpression::from_value(T::one()),
             RuntimeError::SelectRangeCheck,
         ));
         FlatUExpression::with_field(result)
@@ -2282,7 +2283,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                         // construct the result iterating through the bits, multiplying by the associated power iff the bit is true
                         ebits_le.into_iter().zip(powers).fold(
-                            FlatExpression::number(T::from(1)), // initialise the result at 1. If we have no bits to itegrate through, we're computing x**0 == 1
+                            FlatExpression::from_value(T::from(1)), // initialise the result at 1. If we have no bits to itegrate through, we're computing x**0 == 1
                             |acc, (bit, power)| match bit {
                                 true => {
                                     // update the result by introducing a new variable
@@ -2368,7 +2369,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         self.make_conditional(consequence_statements, condition_id.into());
                     let alternative_statements = self.make_conditional(
                         alternative_statements,
-                        FlatExpression::sub(FlatExpression::number(T::one()), condition_id.into()),
+                        FlatExpression::sub(
+                            FlatExpression::from_value(T::one()),
+                            condition_id.into(),
+                        ),
                     );
 
                     statements_flattened.extend(consequence_statements);
@@ -2462,7 +2466,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 let e = self.lt_check(statements_flattened, lhs, rhs, safe_width);
                                 statements_flattened.push_back(FlatStatement::condition(
                                     e,
-                                    FlatExpression::number(T::one()),
+                                    FlatExpression::from_value(T::one()),
                                     error.into(),
                                 ));
                             }
@@ -2492,7 +2496,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 let e = self.le_check(statements_flattened, lhs, rhs, safe_width);
                                 statements_flattened.push_back(FlatStatement::condition(
                                     e,
-                                    FlatExpression::number(T::one()),
+                                    FlatExpression::from_value(T::one()),
                                     error.into(),
                                 ));
                             }
@@ -2526,7 +2530,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 let e = self.le_check(statements_flattened, lhs, rhs, safe_width);
                                 statements_flattened.push_back(FlatStatement::condition(
                                     e,
-                                    FlatExpression::number(T::one()),
+                                    FlatExpression::from_value(T::one()),
                                     error.into(),
                                 ));
                             }
@@ -2606,13 +2610,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             FlatDirective::new(
                                 vec![invx],
                                 Solver::Div,
-                                vec![FlatExpression::number(T::one()), x_id.into()],
+                                vec![FlatExpression::from_value(T::one()), x_id.into()],
                             ),
                         ));
 
                         // assert(invx * x == 1)
                         statements_flattened.push_back(FlatStatement::condition(
-                            FlatExpression::number(T::one()),
+                            FlatExpression::from_value(T::one()),
                             FlatExpression::mul(invx.into(), x_id.into()),
                             RuntimeError::Inverse,
                         ));
@@ -2655,13 +2659,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             FlatDirective::new(
                                 vec![invx],
                                 Solver::Div,
-                                vec![FlatExpression::number(T::one()), x_id.into()],
+                                vec![FlatExpression::from_value(T::one()), x_id.into()],
                             ),
                         ));
 
                         // assert(invx * x == 1)
                         statements_flattened.push_back(FlatStatement::condition(
-                            FlatExpression::number(T::one()),
+                            FlatExpression::from_value(T::one()),
                             FlatExpression::mul(invx.into(), x_id.into()),
                             RuntimeError::Inverse,
                         ));
@@ -2673,13 +2677,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         if e.is_linear() {
                             statements_flattened.push_back(FlatStatement::condition(
                                 e,
-                                FlatExpression::number(T::from(1)),
+                                FlatExpression::from_value(T::from(1)),
                                 error.into(),
                             ));
                         } else {
                             // swap so that left side is linear
                             statements_flattened.push_back(FlatStatement::condition(
-                                FlatExpression::number(T::from(1)),
+                                FlatExpression::from_value(T::from(1)),
                                 e,
                                 error.into(),
                             ));
@@ -2794,7 +2798,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 self.identify_expression(z, statements_flattened),
                 FlatExpression::mul(
                     self.identify_expression(x, statements_flattened),
-                    FlatExpression::number(T::from(1)),
+                    FlatExpression::from_value(T::from(1)),
                 ),
             ),
         };
@@ -2893,925 +2897,943 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use zokrates_ast::zir;
-//     use zokrates_ast::zir::types::Signature;
-//     use zokrates_ast::zir::types::Type;
-//     use zokrates_ast::zir::Id;
-//     use zokrates_field::Bn128Field;
-
-//     fn flatten_function<T: Field>(f: ZirFunction<T>) -> FlatProg<T> {
-//         from_function_and_config(f, CompileConfig::default()).collect()
-//     }
-
-//     #[test]
-//     fn assertion_bool_eq() {
-//         // def main() {
-//         //     bool x = true;
-//         //     bool y = true;
-//         //     assert(x == y);
-//         //     return;
-//         // }
-
-//         // def main() {
-//         //     _0 = 1;
-//         //     _1 = 1;
-//         //     _1 == (_0 * 1);
-//         // }
-//         let function = ZirFunction::<Bn128Field> {
-//             arguments: vec![],
-//             statements: vec![
-//                 ZirStatement::Definition(
-//                     zir::Variable::boolean("x".into()),
-//                     BooleanExpression::Value(true).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::boolean("y".into()),
-//                     BooleanExpression::Value(true).into(),
-//                 ),
-//                 ZirStatement::Assertion(
-//                     BooleanExpression::BoolEq(
-//                         box BooleanExpression::identifier("x".into()),
-//                         box BooleanExpression::identifier("y".into()),
-//                     ),
-//                     zir::RuntimeError::mock(),
-//                 ),
-//                 ZirStatement::Return(vec![]),
-//             ],
-//             signature: Signature {
-//                 inputs: vec![],
-//                 outputs: vec![],
-//             },
-//         };
-
-//         let flat = flatten_function(function);
-//         let expected = FlatFunction {
-//             arguments: vec![],
-//             return_count: 0,
-//             statements: vec![
-//                 FlatStatement::definition(
-//                     Variable::new(0),
-//                     FlatExpression::Number(Bn128Field::from(1)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(1),
-//                     FlatExpression::Number(Bn128Field::from(1)),
-//                 ),
-//                 FlatStatement::condition(
-//                     FlatExpression::identifier(Variable::new(1)),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(0)),
-//                         FlatExpression::Number(Bn128Field::from(1)),
-//                     ),
-//                     zir::RuntimeError::mock().into(),
-//                 ),
-//             ],
-//         };
-
-//         assert_eq!(flat.collect(), expected);
-//     }
-
-//     #[test]
-//     fn assertion_field_eq() {
-//         // def main() {
-//         //     field x = 1;
-//         //     field y = 2;
-//         //     assert(x + 1 == y);
-//         //     return;
-//         // }
-
-//         // def main() {
-//         //     _0 = 42;
-//         //     _1 = 42;
-//         //     _1 == ((_0 + 1) * 1);
-//         // }
-//         let function = ZirFunction {
-//             arguments: vec![],
-//             statements: vec![
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("x"),
-//                     FieldElementExpression::Number(Bn128Field::from(1)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("y"),
-//                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
-//                 ),
-//                 ZirStatement::Assertion(
-//                     BooleanExpression::FieldEq(
-//                         box FieldElementExpression::Add(
-//                             box FieldElementExpression::identifier("x".into()),
-//                             box FieldElementExpression::Number(Bn128Field::from(1)),
-//                         ),
-//                         box FieldElementExpression::identifier("y".into()),
-//                     ),
-//                     zir::RuntimeError::mock(),
-//                 ),
-//                 ZirStatement::Return(vec![]),
-//             ],
-//             signature: Signature {
-//                 inputs: vec![],
-//                 outputs: vec![],
-//             },
-//         };
-
-//         let flat = flatten_function(function);
-
-//         let expected = FlatFunction {
-//             arguments: vec![],
-//             return_count: 0,
-//             statements: vec![
-//                 FlatStatement::definition(
-//                     Variable::new(0),
-//                     FlatExpression::Number(Bn128Field::from(1)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(1),
-//                     FlatExpression::Number(Bn128Field::from(2)),
-//                 ),
-//                 FlatStatement::condition(
-//                     FlatExpression::Identifier(Variable::new(1)),
-//                     FlatExpression::mul(
-//                         FlatExpression::add(
-//                             FlatExpression::Identifier(Variable::new(0)),
-//                             FlatExpression::Number(Bn128Field::from(1)),
-//                         ),
-//                         FlatExpression::Number(Bn128Field::from(1)),
-//                     ),
-//                     zir::RuntimeError::mock().into(),
-//                 ),
-//             ],
-//         };
-
-//         assert_eq!(flat.collect(), expected);
-//     }
-
-//     #[test]
-//     fn assertion_uint_eq() {
-//         // def main() {
-//         //     u32 x = 42;
-//         //     assert(x == 42);
-//         //     return;
-//         // }
-
-//         // def main() {
-//         //     _0 = 42;
-//         //     42 == (_0 * 1);
-//         // }
-//         let metadata = UMetadata {
-//             max: 0xffffffff_u32.into(),
-//             should_reduce: ShouldReduce::True,
-//         };
-//         let function = ZirFunction::<Bn128Field> {
-//             arguments: vec![],
-//             statements: vec![
-//                 ZirStatement::Definition(
-//                     zir::Variable::uint("x".into(), 32),
-//                     ZirExpression::Uint(
-//                         UExpressionInner::Value(42)
-//                             .annotate(32)
-//                             .metadata(metadata.clone()),
-//                     ),
-//                 ),
-//                 ZirStatement::Assertion(
-//                     BooleanExpression::UintEq(
-//                         box UExpression::identifier("x".into())
-//                             .annotate(32)
-//                             .metadata(metadata.clone()),
-//                         box UExpressionInner::Value(42).annotate(32).metadata(metadata),
-//                     ),
-//                     zir::RuntimeError::mock(),
-//                 ),
-//                 ZirStatement::Return(vec![]),
-//             ],
-//             signature: Signature {
-//                 inputs: vec![],
-//                 outputs: vec![],
-//             },
-//         };
-
-//         let flat = flatten_function(function);
-
-//         let expected = FlatFunction {
-//             arguments: vec![],
-//             return_count: 0,
-//             statements: vec![
-//                 FlatStatement::definition(
-//                     Variable::new(0),
-//                     FlatExpression::Number(Bn128Field::from(42)),
-//                 ),
-//                 FlatStatement::condition(
-//                     FlatExpression::Number(Bn128Field::from(42)),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(0)),
-//                         FlatExpression::Number(Bn128Field::from(1)),
-//                     ),
-//                     zir::RuntimeError::mock().into(),
-//                 ),
-//             ],
-//         };
-
-//         assert_eq!(flat.collect(), expected);
-//     }
-
-//     #[test]
-//     fn assertion_ident_eq_ident() {
-//         // def main() {
-//         //     field x = 2;
-//         //     field y = 2;
-//         //     assert(x == y);
-//         //     return;
-//         // }
-
-//         // def main() {
-//         //     _0 = 2;
-//         //     _1 = 2;
-//         //     _1 == (_0 * 1);
-//         // }
-//         let function = ZirFunction {
-//             arguments: vec![],
-//             statements: vec![
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("x"),
-//                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("y"),
-//                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
-//                 ),
-//                 ZirStatement::Assertion(
-//                     BooleanExpression::FieldEq(
-//                         box FieldElementExpression::identifier("x".into()),
-//                         box FieldElementExpression::identifier("y".into()),
-//                     ),
-//                     zir::RuntimeError::mock(),
-//                 ),
-//                 ZirStatement::Return(vec![]),
-//             ],
-//             signature: Signature {
-//                 inputs: vec![],
-//                 outputs: vec![],
-//             },
-//         };
-
-//         let flat = flatten_function(function);
-
-//         let expected = FlatFunction {
-//             arguments: vec![],
-//             return_count: 0,
-//             statements: vec![
-//                 FlatStatement::definition(
-//                     Variable::new(0),
-//                     FlatExpression::Number(Bn128Field::from(2)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(1),
-//                     FlatExpression::Number(Bn128Field::from(2)),
-//                 ),
-//                 FlatStatement::condition(
-//                     FlatExpression::Identifier(Variable::new(1)),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(0)),
-//                         FlatExpression::Number(Bn128Field::from(1)),
-//                     ),
-//                     zir::RuntimeError::mock().into(),
-//                 ),
-//             ],
-//         };
-
-//         assert_eq!(flat.collect(), expected);
-//     }
-
-//     #[test]
-//     fn assertion_mult_eq_ident() {
-//         // def main() {
-//         //     field x = 2;
-//         //     field y = 2;
-//         //     field z = 4;
-//         //     assert(x * y == z);
-//         //     return;
-//         // }
-
-//         // def main() {
-//         //     _0 = 2;
-//         //     _1 = 2;
-//         //     _2 = 4;
-//         //     _2 == (_0 * _1);
-//         // }
-//         let function = ZirFunction {
-//             arguments: vec![],
-//             statements: vec![
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("x"),
-//                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("y"),
-//                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("z"),
-//                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
-//                 ),
-//                 ZirStatement::Assertion(
-//                     BooleanExpression::FieldEq(
-//                         box FieldElementExpression::Mult(
-//                             box FieldElementExpression::identifier("x".into()),
-//                             box FieldElementExpression::identifier("y".into()),
-//                         ),
-//                         box FieldElementExpression::identifier("z".into()),
-//                     ),
-//                     zir::RuntimeError::mock(),
-//                 ),
-//                 ZirStatement::Return(vec![]),
-//             ],
-//             signature: Signature {
-//                 inputs: vec![],
-//                 outputs: vec![],
-//             },
-//         };
-
-//         let flat = flatten_function(function);
-
-//         let expected = FlatFunction {
-//             arguments: vec![],
-//             return_count: 0,
-//             statements: vec![
-//                 FlatStatement::definition(
-//                     Variable::new(0),
-//                     FlatExpression::Number(Bn128Field::from(2)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(1),
-//                     FlatExpression::Number(Bn128Field::from(2)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(2),
-//                     FlatExpression::Number(Bn128Field::from(4)),
-//                 ),
-//                 FlatStatement::condition(
-//                     FlatExpression::Identifier(Variable::new(2)),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(0)),
-//                         FlatExpression::Identifier(Variable::new(1)),
-//                     ),
-//                     zir::RuntimeError::mock().into(),
-//                 ),
-//             ],
-//         };
-
-//         assert_eq!(flat.collect(), expected);
-//     }
-
-//     #[test]
-//     fn assertion_ident_eq_mult() {
-//         // def main() {
-//         //     field x = 2;
-//         //     field y = 2;
-//         //     field z = 4;
-//         //     assert(z == x * y);
-//         //     return;
-//         // }
-
-//         // def main() {
-//         //     _0 = 2;
-//         //     _1 = 2;
-//         //     _2 = 4;
-//         //     _2 == (_0 * _1);
-//         // }
-//         let function = ZirFunction {
-//             arguments: vec![],
-//             statements: vec![
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("x"),
-//                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("y"),
-//                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("z"),
-//                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
-//                 ),
-//                 ZirStatement::Assertion(
-//                     BooleanExpression::FieldEq(
-//                         box FieldElementExpression::identifier("z".into()),
-//                         box FieldElementExpression::Mult(
-//                             box FieldElementExpression::identifier("x".into()),
-//                             box FieldElementExpression::identifier("y".into()),
-//                         ),
-//                     ),
-//                     zir::RuntimeError::mock(),
-//                 ),
-//                 ZirStatement::Return(vec![]),
-//             ],
-//             signature: Signature {
-//                 inputs: vec![],
-//                 outputs: vec![],
-//             },
-//         };
-
-//         let flat = flatten_function(function);
-
-//         let expected = FlatFunction {
-//             arguments: vec![],
-//             return_count: 0,
-//             statements: vec![
-//                 FlatStatement::definition(
-//                     Variable::new(0),
-//                     FlatExpression::Number(Bn128Field::from(2)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(1),
-//                     FlatExpression::Number(Bn128Field::from(2)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(2),
-//                     FlatExpression::Number(Bn128Field::from(4)),
-//                 ),
-//                 FlatStatement::condition(
-//                     FlatExpression::Identifier(Variable::new(2)),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(0)),
-//                         FlatExpression::Identifier(Variable::new(1)),
-//                     ),
-//                     zir::RuntimeError::mock().into(),
-//                 ),
-//             ],
-//         };
-
-//         assert_eq!(flat.collect(), expected);
-//     }
-
-//     #[test]
-//     fn assertion_mult_eq_mult() {
-//         // def main() {
-//         //     field x = 4;
-//         //     field y = 4;
-//         //     field z = 8;
-//         //     field t = 2;
-//         //     assert(x * y == z * t);
-//         //     return;
-//         // }
-
-//         // def main() {
-//         //     _0 = 4;
-//         //     _1 = 4;
-//         //     _2 = 8;
-//         //     _3 = 2;
-//         //     _4 = (_2 * _3);
-//         //     _4 == (_0 * _1);
-//         // }
-//         let function = ZirFunction {
-//             arguments: vec![],
-//             statements: vec![
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("x"),
-//                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("y"),
-//                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("z"),
-//                     FieldElementExpression::Number(Bn128Field::from(8)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("t"),
-//                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
-//                 ),
-//                 ZirStatement::Assertion(
-//                     BooleanExpression::FieldEq(
-//                         box FieldElementExpression::Mult(
-//                             box FieldElementExpression::identifier("x".into()),
-//                             box FieldElementExpression::identifier("y".into()),
-//                         ),
-//                         box FieldElementExpression::Mult(
-//                             box FieldElementExpression::identifier("z".into()),
-//                             box FieldElementExpression::identifier("t".into()),
-//                         ),
-//                     ),
-//                     zir::RuntimeError::mock(),
-//                 ),
-//             ],
-//             signature: Signature {
-//                 inputs: vec![],
-//                 outputs: vec![],
-//             },
-//         };
-
-//         let flat = flatten_function(function);
-
-//         let expected = FlatFunction {
-//             arguments: vec![],
-//             return_count: 0,
-//             statements: vec![
-//                 FlatStatement::definition(
-//                     Variable::new(0),
-//                     FlatExpression::Number(Bn128Field::from(4)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(1),
-//                     FlatExpression::Number(Bn128Field::from(4)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(2),
-//                     FlatExpression::Number(Bn128Field::from(8)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(3),
-//                     FlatExpression::Number(Bn128Field::from(2)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(4),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(2)),
-//                         FlatExpression::Identifier(Variable::new(3)),
-//                     ),
-//                 ),
-//                 FlatStatement::condition(
-//                     FlatExpression::Identifier(Variable::new(4)),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(0)),
-//                         FlatExpression::Identifier(Variable::new(1)),
-//                     ),
-//                     zir::RuntimeError::mock().into(),
-//                 ),
-//             ],
-//         };
-
-//         assert_eq!(flat.collect(), expected);
-//     }
-
-//     #[test]
-//     fn powers_zero() {
-//         // def main() {
-//         //     field a = 7;
-//         //     field b = a**0;
-//         //     return b;
-//         // }
-
-//         // def main() {
-//         //     _0 = 7;
-//         //     _1 = 1;        // power flattening returns 1, definition introduces _7
-//         //     return _1;
-//         // }
-//         let function = ZirFunction {
-//             arguments: vec![],
-//             statements: vec![
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("a"),
-//                     FieldElementExpression::Number(Bn128Field::from(7)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("b"),
-//                     FieldElementExpression::Pow(
-//                         box FieldElementExpression::identifier("a".into()),
-//                         box 0u32.into(),
-//                     )
-//                     .into(),
-//                 ),
-//                 ZirStatement::Return(vec![FieldElementExpression::identifier("b".into()).into()]),
-//             ],
-//             signature: Signature {
-//                 inputs: vec![],
-//                 outputs: vec![Type::FieldElement],
-//             },
-//         };
-
-//         let expected = FlatFunction {
-//             arguments: vec![],
-//             return_count: 1,
-//             statements: vec![
-//                 FlatStatement::definition(
-//                     Variable::new(0),
-//                     FlatExpression::Number(Bn128Field::from(7)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(1),
-//                     FlatExpression::Number(Bn128Field::from(1)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::public(0),
-//                     FlatExpression::Identifier(Variable::new(1)),
-//                 ),
-//             ],
-//         };
-
-//         let flattened = flatten_function(function);
-
-//         assert_eq!(flattened, expected);
-//     }
-
-//     #[test]
-//     fn power_one() {
-//         // def main() {
-//         //     field a = 7;
-//         //     field b = a**1;
-//         //     return b;
-//         // }
-
-//         // def main() {
-//         //     _0 = 7;
-//         //     _1 = 1 * _0;     // x**1
-//         //     _2 = _1;         // power flattening returns _1, definition introduces _2
-//         //     return _2;
-//         // }
-//         let function = ZirFunction {
-//             arguments: vec![],
-//             statements: vec![
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("a"),
-//                     FieldElementExpression::Number(Bn128Field::from(7)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("b"),
-//                     FieldElementExpression::Pow(
-//                         box FieldElementExpression::identifier("a".into()),
-//                         box 1u32.into(),
-//                     )
-//                     .into(),
-//                 ),
-//                 ZirStatement::Return(vec![FieldElementExpression::identifier("b".into()).into()]),
-//             ],
-//             signature: Signature {
-//                 inputs: vec![],
-//                 outputs: vec![Type::FieldElement],
-//             },
-//         };
-
-//         let expected = FlatFunction {
-//             arguments: vec![],
-//             return_count: 1,
-//             statements: vec![
-//                 FlatStatement::definition(
-//                     Variable::new(0),
-//                     FlatExpression::Number(Bn128Field::from(7)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(1),
-//                     FlatExpression::mul(
-//                         FlatExpression::Number(Bn128Field::from(1)),
-//                         FlatExpression::Identifier(Variable::new(0)),
-//                     ),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::public(0),
-//                     FlatExpression::Identifier(Variable::new(1)),
-//                 ),
-//             ],
-//         };
-
-//         let flattened = flatten_function(function);
-
-//         assert_eq!(flattened, expected);
-//     }
-
-//     #[test]
-//     fn power_13() {
-//         // def main() {
-//         //     field a = 7;
-//         //     field b = a**13;
-//         //     return b;
-//         // }
-
-//         // we apply double and add
-//         // 13 == 0b1101
-//         // a ** 13 == a**(2**0 + 2**2 + 2**3) == a**1 * a**4 * a**8
-
-//         // a_0 = a * a      // a**2
-//         // a_1 = a_0 * a_0  // a**4
-//         // a_2 = a_1 * a_1  // a**8
-
-//         // a_3 = a * a_1    // a * a**4 == a**5
-//         // a_4 = a_3 * a_2  // a**5 * a**8 == a**13
-
-//         // def main() {
-//         //     _0 = 7;
-//         //     _1 = (_0 * _0);  // a**2
-//         //     _2 = (_1 * _1);  // a**4
-//         //     _3 = (_2 * _2);  // a**8
-//         //
-//         //     _4 = 1 * _0;     // a
-//         //     _5 = _4 * _2;    // a**5
-//         //     _6 = _5 * _3;    // a**13
-//         //     return _6;
-//         // }
-
-//         let function = ZirFunction {
-//             arguments: vec![],
-//             statements: vec![
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("a"),
-//                     FieldElementExpression::Number(Bn128Field::from(7)).into(),
-//                 ),
-//                 ZirStatement::Definition(
-//                     zir::Variable::field_element("b"),
-//                     FieldElementExpression::Pow(
-//                         box FieldElementExpression::identifier("a".into()),
-//                         box 13u32.into(),
-//                     )
-//                     .into(),
-//                 ),
-//                 ZirStatement::Return(vec![FieldElementExpression::identifier("b".into()).into()]),
-//             ],
-//             signature: Signature {
-//                 inputs: vec![],
-//                 outputs: vec![Type::FieldElement],
-//             },
-//         };
-
-//         let expected = FlatFunction {
-//             arguments: vec![],
-//             return_count: 1,
-//             statements: vec![
-//                 FlatStatement::definition(
-//                     Variable::new(0),
-//                     FlatExpression::Number(Bn128Field::from(7)),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(1),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(0)),
-//                         FlatExpression::Identifier(Variable::new(0)),
-//                     ),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(2),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(1)),
-//                         FlatExpression::Identifier(Variable::new(1)),
-//                     ),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(3),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(2)),
-//                         FlatExpression::Identifier(Variable::new(2)),
-//                     ),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(4),
-//                     FlatExpression::mul(
-//                         FlatExpression::Number(Bn128Field::from(1)),
-//                         FlatExpression::Identifier(Variable::new(0)),
-//                     ),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(5),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(4)),
-//                         FlatExpression::Identifier(Variable::new(2)),
-//                     ),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::new(6),
-//                     FlatExpression::mul(
-//                         FlatExpression::Identifier(Variable::new(5)),
-//                         FlatExpression::Identifier(Variable::new(3)),
-//                     ),
-//                 ),
-//                 FlatStatement::definition(
-//                     Variable::public(0),
-//                     FlatExpression::Identifier(Variable::new(6)),
-//                 ),
-//             ],
-//         };
-
-//         let flattened = flatten_function(function);
-
-//         assert_eq!(flattened, expected);
-//     }
-
-//     #[test]
-//     fn if_else() {
-//         let config = CompileConfig::default();
-//         let expression = FieldElementExpression::conditional(
-//             BooleanExpression::FieldEq(
-//                 box FieldElementExpression::Number(Bn128Field::from(32)),
-//                 box FieldElementExpression::Number(Bn128Field::from(4)),
-//             ),
-//             FieldElementExpression::Number(Bn128Field::from(12)),
-//             FieldElementExpression::Number(Bn128Field::from(51)),
-//         );
-
-//         let mut flattener = Flattener::new(config);
-
-//         flattener.flatten_field_expression(&mut FlatStatements::new(), expression);
-//     }
-
-//     #[test]
-//     fn geq_leq() {
-//         let config = CompileConfig::default();
-//         let mut flattener = Flattener::new(config);
-//         let expression_le = BooleanExpression::FieldLe(
-//             box FieldElementExpression::Number(Bn128Field::from(32)),
-//             box FieldElementExpression::Number(Bn128Field::from(4)),
-//         );
-//         flattener.flatten_boolean_expression(&mut FlatStatements::new(), expression_le);
-//     }
-
-//     #[test]
-//     fn bool_and() {
-//         let config = CompileConfig::default();
-//         let mut flattener = Flattener::new(config);
-
-//         let expression = FieldElementExpression::conditional(
-//             BooleanExpression::And(
-//                 box BooleanExpression::FieldEq(
-//                     box FieldElementExpression::Number(Bn128Field::from(4)),
-//                     box FieldElementExpression::Number(Bn128Field::from(4)),
-//                 ),
-//                 box BooleanExpression::FieldLt(
-//                     box FieldElementExpression::Number(Bn128Field::from(4)),
-//                     box FieldElementExpression::Number(Bn128Field::from(20)),
-//                 ),
-//             ),
-//             FieldElementExpression::Number(Bn128Field::from(12)),
-//             FieldElementExpression::Number(Bn128Field::from(51)),
-//         );
-
-//         flattener.flatten_field_expression(&mut FlatStatements::new(), expression);
-//     }
-
-//     #[test]
-//     fn div() {
-//         // a = 5 / b / b
-//         let config = CompileConfig::default();
-//         let mut flattener = Flattener::new(config);
-//         let mut statements_flattened = FlatStatements::new();
-
-//         let definition = ZirStatement::Definition(
-//             zir::Variable::field_element("b"),
-//             FieldElementExpression::Number(Bn128Field::from(42)).into(),
-//         );
-
-//         let statement = ZirStatement::Definition(
-//             zir::Variable::field_element("a"),
-//             FieldElementExpression::Div(
-//                 box FieldElementExpression::Div(
-//                     box FieldElementExpression::Number(Bn128Field::from(5)),
-//                     box FieldElementExpression::identifier("b".into()),
-//                 ),
-//                 box FieldElementExpression::identifier("b".into()),
-//             )
-//             .into(),
-//         );
-
-//         flattener.flatten_statement(&mut statements_flattened, definition);
-
-//         flattener.flatten_statement(&mut statements_flattened, statement);
-
-//         // define b
-//         let b = Variable::new(0);
-//         // define new wires for members of Div
-//         let five = Variable::new(1);
-//         let b0 = Variable::new(2);
-//         // Define inverse
-//         let sym_0 = Variable::new(3);
-//         // Define result, which is first member to next Div
-//         let sym_1 = Variable::new(4);
-//         // Define second member
-//         let b1 = Variable::new(5);
-//         // Define inverse
-//         let sym_2 = Variable::new(6);
-
-//         assert_eq!(
-//             statements_flattened,
-//             vec![
-//                 FlatStatement::definition(b, FlatExpression::Number(Bn128Field::from(42))),
-//                 // inputs to first div (5/b)
-//                 FlatStatement::definition(five, FlatExpression::Number(Bn128Field::from(5))),
-//                 FlatStatement::definition(b0, b.into()),
-//                 // execute div
-//                 FlatStatement::Directive(FlatDirective::new(
-//                     vec![sym_0],
-//                     Solver::Div,
-//                     vec![five, b0]
-//                 )),
-//                 FlatStatement::condition(
-//                     five.into(),
-//                     FlatExpression::mul(box b0.into(), box sym_0.into()),
-//                     RuntimeError::Division
-//                 ),
-//                 // inputs to second div (res/b)
-//                 FlatStatement::definition(sym_1, sym_0.into()),
-//                 FlatStatement::definition(b1, b.into()),
-//                 // execute div
-//                 FlatStatement::Directive(FlatDirective::new(
-//                     vec![sym_2],
-//                     Solver::Div,
-//                     vec![sym_1, b1]
-//                 )),
-//                 FlatStatement::condition(
-//                     sym_1.into(),
-//                     FlatExpression::mul(box b1.into(), box sym_2.into()),
-//                     RuntimeError::Division
-//                 ),
-//             ]
-//         );
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use zokrates_ast::zir;
+    use zokrates_ast::zir::types::Signature;
+    use zokrates_ast::zir::types::Type;
+    use zokrates_ast::zir::Id;
+    use zokrates_ast::zir::ZirFunction;
+    use zokrates_field::Bn128Field;
+
+    fn flatten_function<T: Field>(f: ZirFunction<T>) -> FlatProg<T> {
+        from_program_and_config(
+            ZirProgram {
+                main: f,
+                module_map: Default::default(),
+            },
+            CompileConfig::default(),
+        )
+        .collect()
+    }
+
+    #[test]
+    fn assertion_bool_eq() {
+        // def main() {
+        //     bool x = true;
+        //     bool y = true;
+        //     assert(x == y);
+        //     return;
+        // }
+
+        // def main() {
+        //     _0 = 1;
+        //     _1 = 1;
+        //     _1 == (_0 * 1);
+        // }
+        let function = ZirFunction::<Bn128Field> {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::definition(
+                    zir::Variable::boolean("x".into()),
+                    BooleanExpression::from_value(true).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::boolean("y".into()),
+                    BooleanExpression::from_value(true).into(),
+                ),
+                ZirStatement::assertion(
+                    BooleanExpression::bool_eq(
+                        BooleanExpression::identifier("x".into()),
+                        BooleanExpression::identifier("y".into()),
+                    ),
+                    zir::RuntimeError::mock(),
+                ),
+                ZirStatement::ret(vec![]),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        };
+
+        let flat = flatten_function(function);
+        let expected = FlatFunction {
+            module_map: Default::default(),
+            arguments: vec![],
+            return_count: 0,
+            statements: vec![
+                FlatStatement::definition(
+                    Variable::new(0),
+                    FlatExpression::from_value(Bn128Field::from(1)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(1),
+                    FlatExpression::from_value(Bn128Field::from(1)),
+                ),
+                FlatStatement::condition(
+                    FlatExpression::identifier(Variable::new(1)),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(0)),
+                        FlatExpression::from_value(Bn128Field::from(1)),
+                    ),
+                    zir::RuntimeError::mock().into(),
+                ),
+            ],
+        };
+
+        assert_eq!(flat.collect(), expected);
+    }
+
+    #[test]
+    fn assertion_field_eq() {
+        // def main() {
+        //     field x = 1;
+        //     field y = 2;
+        //     assert(x + 1 == y);
+        //     return;
+        // }
+
+        // def main() {
+        //     _0 = 42;
+        //     _1 = 42;
+        //     _1 == ((_0 + 1) * 1);
+        // }
+        let function = ZirFunction {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::definition(
+                    zir::Variable::field_element("x"),
+                    FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("y"),
+                    FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                ),
+                ZirStatement::assertion(
+                    BooleanExpression::field_eq(
+                        FieldElementExpression::add(
+                            FieldElementExpression::identifier("x".into()),
+                            FieldElementExpression::from_value(Bn128Field::from(1)),
+                        ),
+                        FieldElementExpression::identifier("y".into()),
+                    ),
+                    zir::RuntimeError::mock(),
+                ),
+                ZirStatement::ret(vec![]),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        };
+
+        let flat = flatten_function(function);
+
+        let expected = FlatFunction {
+            module_map: Default::default(),
+            arguments: vec![],
+            return_count: 0,
+            statements: vec![
+                FlatStatement::definition(
+                    Variable::new(0),
+                    FlatExpression::from_value(Bn128Field::from(1)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(1),
+                    FlatExpression::from_value(Bn128Field::from(2)),
+                ),
+                FlatStatement::condition(
+                    FlatExpression::identifier(Variable::new(1)),
+                    FlatExpression::mul(
+                        FlatExpression::add(
+                            FlatExpression::identifier(Variable::new(0)),
+                            FlatExpression::from_value(Bn128Field::from(1)),
+                        ),
+                        FlatExpression::from_value(Bn128Field::from(1)),
+                    ),
+                    zir::RuntimeError::mock().into(),
+                ),
+            ],
+        };
+
+        assert_eq!(flat.collect(), expected);
+    }
+
+    #[test]
+    fn assertion_uint_eq() {
+        // def main() {
+        //     u32 x = 42;
+        //     assert(x == 42);
+        //     return;
+        // }
+
+        // def main() {
+        //     _0 = 42;
+        //     42 == (_0 * 1);
+        // }
+        let metadata = UMetadata {
+            max: 0xffffffff_u32.into(),
+            should_reduce: ShouldReduce::True,
+        };
+        let function = ZirFunction::<Bn128Field> {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::definition(
+                    zir::Variable::uint("x".into(), 32),
+                    ZirExpression::Uint(
+                        UExpression::from_value(42)
+                            .annotate(32)
+                            .metadata(metadata.clone()),
+                    ),
+                ),
+                ZirStatement::assertion(
+                    BooleanExpression::uint_eq(
+                        UExpression::identifier("x".into())
+                            .annotate(32)
+                            .metadata(metadata.clone()),
+                        UExpression::from_value(42).annotate(32).metadata(metadata),
+                    ),
+                    zir::RuntimeError::mock(),
+                ),
+                ZirStatement::ret(vec![]),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        };
+
+        let flat = flatten_function(function);
+
+        let expected = FlatFunction {
+            module_map: Default::default(),
+            arguments: vec![],
+            return_count: 0,
+            statements: vec![
+                FlatStatement::definition(
+                    Variable::new(0),
+                    FlatExpression::from_value(Bn128Field::from(42)),
+                ),
+                FlatStatement::condition(
+                    FlatExpression::from_value(Bn128Field::from(42)),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(0)),
+                        FlatExpression::from_value(Bn128Field::from(1)),
+                    ),
+                    zir::RuntimeError::mock().into(),
+                ),
+            ],
+        };
+
+        assert_eq!(flat.collect(), expected);
+    }
+
+    #[test]
+    fn assertion_ident_eq_ident() {
+        // def main() {
+        //     field x = 2;
+        //     field y = 2;
+        //     assert(x == y);
+        //     return;
+        // }
+
+        // def main() {
+        //     _0 = 2;
+        //     _1 = 2;
+        //     _1 == (_0 * 1);
+        // }
+        let function = ZirFunction {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::definition(
+                    zir::Variable::field_element("x"),
+                    FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("y"),
+                    FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                ),
+                ZirStatement::assertion(
+                    BooleanExpression::field_eq(
+                        FieldElementExpression::identifier("x".into()),
+                        FieldElementExpression::identifier("y".into()),
+                    ),
+                    zir::RuntimeError::mock(),
+                ),
+                ZirStatement::ret(vec![]),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        };
+
+        let flat = flatten_function(function);
+
+        let expected = FlatFunction {
+            module_map: Default::default(),
+            arguments: vec![],
+            return_count: 0,
+            statements: vec![
+                FlatStatement::definition(
+                    Variable::new(0),
+                    FlatExpression::from_value(Bn128Field::from(2)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(1),
+                    FlatExpression::from_value(Bn128Field::from(2)),
+                ),
+                FlatStatement::condition(
+                    FlatExpression::identifier(Variable::new(1)),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(0)),
+                        FlatExpression::from_value(Bn128Field::from(1)),
+                    ),
+                    zir::RuntimeError::mock().into(),
+                ),
+            ],
+        };
+
+        assert_eq!(flat.collect(), expected);
+    }
+
+    #[test]
+    fn assertion_mult_eq_ident() {
+        // def main() {
+        //     field x = 2;
+        //     field y = 2;
+        //     field z = 4;
+        //     assert(x * y == z);
+        //     return;
+        // }
+
+        // def main() {
+        //     _0 = 2;
+        //     _1 = 2;
+        //     _2 = 4;
+        //     _2 == (_0 * _1);
+        // }
+        let function = ZirFunction {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::definition(
+                    zir::Variable::field_element("x"),
+                    FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("y"),
+                    FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("z"),
+                    FieldElementExpression::from_value(Bn128Field::from(4)).into(),
+                ),
+                ZirStatement::assertion(
+                    BooleanExpression::field_eq(
+                        FieldElementExpression::mul(
+                            FieldElementExpression::identifier("x".into()),
+                            FieldElementExpression::identifier("y".into()),
+                        ),
+                        FieldElementExpression::identifier("z".into()),
+                    ),
+                    zir::RuntimeError::mock(),
+                ),
+                ZirStatement::ret(vec![]),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        };
+
+        let flat = flatten_function(function);
+
+        let expected = FlatFunction {
+            module_map: Default::default(),
+            arguments: vec![],
+            return_count: 0,
+            statements: vec![
+                FlatStatement::definition(
+                    Variable::new(0),
+                    FlatExpression::from_value(Bn128Field::from(2)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(1),
+                    FlatExpression::from_value(Bn128Field::from(2)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(2),
+                    FlatExpression::from_value(Bn128Field::from(4)),
+                ),
+                FlatStatement::condition(
+                    FlatExpression::identifier(Variable::new(2)),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(0)),
+                        FlatExpression::identifier(Variable::new(1)),
+                    ),
+                    zir::RuntimeError::mock().into(),
+                ),
+            ],
+        };
+
+        assert_eq!(flat.collect(), expected);
+    }
+
+    #[test]
+    fn assertion_ident_eq_mult() {
+        // def main() {
+        //     field x = 2;
+        //     field y = 2;
+        //     field z = 4;
+        //     assert(z == x * y);
+        //     return;
+        // }
+
+        // def main() {
+        //     _0 = 2;
+        //     _1 = 2;
+        //     _2 = 4;
+        //     _2 == (_0 * _1);
+        // }
+        let function = ZirFunction {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::definition(
+                    zir::Variable::field_element("x"),
+                    FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("y"),
+                    FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("z"),
+                    FieldElementExpression::from_value(Bn128Field::from(4)).into(),
+                ),
+                ZirStatement::assertion(
+                    BooleanExpression::field_eq(
+                        FieldElementExpression::identifier("z".into()),
+                        FieldElementExpression::mul(
+                            FieldElementExpression::identifier("x".into()),
+                            FieldElementExpression::identifier("y".into()),
+                        ),
+                    ),
+                    zir::RuntimeError::mock(),
+                ),
+                ZirStatement::ret(vec![]),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        };
+
+        let flat = flatten_function(function);
+
+        let expected = FlatFunction {
+            module_map: Default::default(),
+            arguments: vec![],
+            return_count: 0,
+            statements: vec![
+                FlatStatement::definition(
+                    Variable::new(0),
+                    FlatExpression::from_value(Bn128Field::from(2)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(1),
+                    FlatExpression::from_value(Bn128Field::from(2)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(2),
+                    FlatExpression::from_value(Bn128Field::from(4)),
+                ),
+                FlatStatement::condition(
+                    FlatExpression::identifier(Variable::new(2)),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(0)),
+                        FlatExpression::identifier(Variable::new(1)),
+                    ),
+                    zir::RuntimeError::mock().into(),
+                ),
+            ],
+        };
+
+        assert_eq!(flat.collect(), expected);
+    }
+
+    #[test]
+    fn assertion_mult_eq_mult() {
+        // def main() {
+        //     field x = 4;
+        //     field y = 4;
+        //     field z = 8;
+        //     field t = 2;
+        //     assert(x * y == z * t);
+        //     return;
+        // }
+
+        // def main() {
+        //     _0 = 4;
+        //     _1 = 4;
+        //     _2 = 8;
+        //     _3 = 2;
+        //     _4 = (_2 * _3);
+        //     _4 == (_0 * _1);
+        // }
+        let function = ZirFunction {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::definition(
+                    zir::Variable::field_element("x"),
+                    FieldElementExpression::from_value(Bn128Field::from(4)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("y"),
+                    FieldElementExpression::from_value(Bn128Field::from(4)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("z"),
+                    FieldElementExpression::from_value(Bn128Field::from(8)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("t"),
+                    FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                ),
+                ZirStatement::assertion(
+                    BooleanExpression::field_eq(
+                        FieldElementExpression::mul(
+                            FieldElementExpression::identifier("x".into()),
+                            FieldElementExpression::identifier("y".into()),
+                        ),
+                        FieldElementExpression::mul(
+                            FieldElementExpression::identifier("z".into()),
+                            FieldElementExpression::identifier("t".into()),
+                        ),
+                    ),
+                    zir::RuntimeError::mock(),
+                ),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        };
+
+        let flat = flatten_function(function);
+
+        let expected = FlatFunction {
+            module_map: Default::default(),
+            arguments: vec![],
+            return_count: 0,
+            statements: vec![
+                FlatStatement::definition(
+                    Variable::new(0),
+                    FlatExpression::from_value(Bn128Field::from(4)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(1),
+                    FlatExpression::from_value(Bn128Field::from(4)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(2),
+                    FlatExpression::from_value(Bn128Field::from(8)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(3),
+                    FlatExpression::from_value(Bn128Field::from(2)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(4),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(2)),
+                        FlatExpression::identifier(Variable::new(3)),
+                    ),
+                ),
+                FlatStatement::condition(
+                    FlatExpression::identifier(Variable::new(4)),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(0)),
+                        FlatExpression::identifier(Variable::new(1)),
+                    ),
+                    zir::RuntimeError::mock().into(),
+                ),
+            ],
+        };
+
+        assert_eq!(flat.collect(), expected);
+    }
+
+    #[test]
+    fn powers_zero() {
+        // def main() {
+        //     field a = 7;
+        //     field b = a**0;
+        //     return b;
+        // }
+
+        // def main() {
+        //     _0 = 7;
+        //     _1 = 1;        // power flattening returns 1, definition introduces _7
+        //     return _1;
+        // }
+        let function = ZirFunction {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::definition(
+                    zir::Variable::field_element("a"),
+                    FieldElementExpression::from_value(Bn128Field::from(7)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("b"),
+                    FieldElementExpression::pow(
+                        FieldElementExpression::identifier("a".into()),
+                        0u32.into(),
+                    )
+                    .into(),
+                ),
+                ZirStatement::ret(vec![FieldElementExpression::identifier("b".into()).into()]),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        };
+
+        let expected = FlatFunction {
+            module_map: Default::default(),
+            arguments: vec![],
+            return_count: 1,
+            statements: vec![
+                FlatStatement::definition(
+                    Variable::new(0),
+                    FlatExpression::from_value(Bn128Field::from(7)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(1),
+                    FlatExpression::from_value(Bn128Field::from(1)),
+                ),
+                FlatStatement::definition(
+                    Variable::public(0),
+                    FlatExpression::identifier(Variable::new(1)),
+                ),
+            ],
+        };
+
+        let flattened = flatten_function(function);
+
+        assert_eq!(flattened, expected);
+    }
+
+    #[test]
+    fn power_one() {
+        // def main() {
+        //     field a = 7;
+        //     field b = a**1;
+        //     return b;
+        // }
+
+        // def main() {
+        //     _0 = 7;
+        //     _1 = 1 * _0;     // x**1
+        //     _2 = _1;         // power flattening returns _1, definition introduces _2
+        //     return _2;
+        // }
+        let function = ZirFunction {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::definition(
+                    zir::Variable::field_element("a"),
+                    FieldElementExpression::from_value(Bn128Field::from(7)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("b"),
+                    FieldElementExpression::pow(
+                        FieldElementExpression::identifier("a".into()),
+                        1u32.into(),
+                    )
+                    .into(),
+                ),
+                ZirStatement::ret(vec![FieldElementExpression::identifier("b".into()).into()]),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        };
+
+        let expected = FlatFunction {
+            module_map: Default::default(),
+            arguments: vec![],
+            return_count: 1,
+            statements: vec![
+                FlatStatement::definition(
+                    Variable::new(0),
+                    FlatExpression::from_value(Bn128Field::from(7)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(1),
+                    FlatExpression::mul(
+                        FlatExpression::from_value(Bn128Field::from(1)),
+                        FlatExpression::identifier(Variable::new(0)),
+                    ),
+                ),
+                FlatStatement::definition(
+                    Variable::public(0),
+                    FlatExpression::identifier(Variable::new(1)),
+                ),
+            ],
+        };
+
+        let flattened = flatten_function(function);
+
+        assert_eq!(flattened, expected);
+    }
+
+    #[test]
+    fn power_13() {
+        // def main() {
+        //     field a = 7;
+        //     field b = a**13;
+        //     return b;
+        // }
+
+        // we apply double and add
+        // 13 == 0b1101
+        // a ** 13 == a**(2**0 + 2**2 + 2**3) == a**1 * a**4 * a**8
+
+        // a_0 = a * a      // a**2
+        // a_1 = a_0 * a_0  // a**4
+        // a_2 = a_1 * a_1  // a**8
+
+        // a_3 = a * a_1    // a * a**4 == a**5
+        // a_4 = a_3 * a_2  // a**5 * a**8 == a**13
+
+        // def main() {
+        //     _0 = 7;
+        //     _1 = (_0 * _0);  // a**2
+        //     _2 = (_1 * _1);  // a**4
+        //     _3 = (_2 * _2);  // a**8
+        //
+        //     _4 = 1 * _0;     // a
+        //     _5 = _4 * _2;    // a**5
+        //     _6 = _5 * _3;    // a**13
+        //     return _6;
+        // }
+
+        let function = ZirFunction {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::definition(
+                    zir::Variable::field_element("a"),
+                    FieldElementExpression::from_value(Bn128Field::from(7)).into(),
+                ),
+                ZirStatement::definition(
+                    zir::Variable::field_element("b"),
+                    FieldElementExpression::pow(
+                        FieldElementExpression::identifier("a".into()),
+                        13u32.into(),
+                    )
+                    .into(),
+                ),
+                ZirStatement::ret(vec![FieldElementExpression::identifier("b".into()).into()]),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        };
+
+        let expected = FlatFunction {
+            module_map: Default::default(),
+            arguments: vec![],
+            return_count: 1,
+            statements: vec![
+                FlatStatement::definition(
+                    Variable::new(0),
+                    FlatExpression::from_value(Bn128Field::from(7)),
+                ),
+                FlatStatement::definition(
+                    Variable::new(1),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(0)),
+                        FlatExpression::identifier(Variable::new(0)),
+                    ),
+                ),
+                FlatStatement::definition(
+                    Variable::new(2),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(1)),
+                        FlatExpression::identifier(Variable::new(1)),
+                    ),
+                ),
+                FlatStatement::definition(
+                    Variable::new(3),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(2)),
+                        FlatExpression::identifier(Variable::new(2)),
+                    ),
+                ),
+                FlatStatement::definition(
+                    Variable::new(4),
+                    FlatExpression::mul(
+                        FlatExpression::from_value(Bn128Field::from(1)),
+                        FlatExpression::identifier(Variable::new(0)),
+                    ),
+                ),
+                FlatStatement::definition(
+                    Variable::new(5),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(4)),
+                        FlatExpression::identifier(Variable::new(2)),
+                    ),
+                ),
+                FlatStatement::definition(
+                    Variable::new(6),
+                    FlatExpression::mul(
+                        FlatExpression::identifier(Variable::new(5)),
+                        FlatExpression::identifier(Variable::new(3)),
+                    ),
+                ),
+                FlatStatement::definition(
+                    Variable::public(0),
+                    FlatExpression::identifier(Variable::new(6)),
+                ),
+            ],
+        };
+
+        let flattened = flatten_function(function);
+
+        assert_eq!(flattened, expected);
+    }
+
+    #[test]
+    fn if_else() {
+        let config = CompileConfig::default();
+        let expression = FieldElementExpression::conditional(
+            BooleanExpression::field_eq(
+                FieldElementExpression::from_value(Bn128Field::from(32)),
+                FieldElementExpression::from_value(Bn128Field::from(4)),
+            ),
+            FieldElementExpression::from_value(Bn128Field::from(12)),
+            FieldElementExpression::from_value(Bn128Field::from(51)),
+        );
+
+        let mut flattener = Flattener::new(config);
+
+        flattener.flatten_field_expression(&mut FlatStatements::default(), expression);
+    }
+
+    #[test]
+    fn geq_leq() {
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(config);
+        let expression_le = BooleanExpression::field_le(
+            FieldElementExpression::from_value(Bn128Field::from(32)),
+            FieldElementExpression::from_value(Bn128Field::from(4)),
+        );
+        flattener.flatten_boolean_expression(&mut FlatStatements::default(), expression_le);
+    }
+
+    #[test]
+    fn bool_and() {
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(config);
+
+        let expression = FieldElementExpression::conditional(
+            BooleanExpression::and(
+                BooleanExpression::field_eq(
+                    FieldElementExpression::from_value(Bn128Field::from(4)),
+                    FieldElementExpression::from_value(Bn128Field::from(4)),
+                ),
+                BooleanExpression::field_lt(
+                    FieldElementExpression::from_value(Bn128Field::from(4)),
+                    FieldElementExpression::from_value(Bn128Field::from(20)),
+                ),
+            ),
+            FieldElementExpression::from_value(Bn128Field::from(12)),
+            FieldElementExpression::from_value(Bn128Field::from(51)),
+        );
+
+        flattener.flatten_field_expression(&mut FlatStatements::default(), expression);
+    }
+
+    #[test]
+    fn div() {
+        // a = 5 / b / b
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(config);
+        let mut statements_flattened = FlatStatements::default();
+
+        let definition = ZirStatement::definition(
+            zir::Variable::field_element("b"),
+            FieldElementExpression::from_value(Bn128Field::from(42)).into(),
+        );
+
+        let statement = ZirStatement::definition(
+            zir::Variable::field_element("a"),
+            FieldElementExpression::div(
+                FieldElementExpression::div(
+                    FieldElementExpression::from_value(Bn128Field::from(5)),
+                    FieldElementExpression::identifier("b".into()),
+                ),
+                FieldElementExpression::identifier("b".into()),
+            )
+            .into(),
+        );
+
+        flattener.flatten_statement(&mut statements_flattened, definition);
+
+        flattener.flatten_statement(&mut statements_flattened, statement);
+
+        // define b
+        let b = Variable::new(0);
+        // define new wires for members of Div
+        let five = Variable::new(1);
+        let b0 = Variable::new(2);
+        // Define inverse
+        let sym_0 = Variable::new(3);
+        // Define result, which is first member to next Div
+        let sym_1 = Variable::new(4);
+        // Define second member
+        let b1 = Variable::new(5);
+        // Define inverse
+        let sym_2 = Variable::new(6);
+
+        assert_eq!(
+            statements_flattened.buffer,
+            vec![
+                FlatStatement::definition(b, FlatExpression::from_value(Bn128Field::from(42))),
+                // inputs to first div (5/b)
+                FlatStatement::definition(five, FlatExpression::from_value(Bn128Field::from(5))),
+                FlatStatement::definition(b0, b.into()),
+                // execute div
+                FlatStatement::Directive(FlatDirective::new(
+                    vec![sym_0],
+                    Solver::Div,
+                    vec![five.into(), b0.into()]
+                )),
+                FlatStatement::condition(
+                    five.into(),
+                    FlatExpression::mul(b0.into(), sym_0.into()),
+                    RuntimeError::Division
+                ),
+                // inputs to second div (res/b)
+                FlatStatement::definition(sym_1, sym_0.into()),
+                FlatStatement::definition(b1, b.into()),
+                // execute div
+                FlatStatement::Directive(FlatDirective::new(
+                    vec![sym_2],
+                    Solver::Div,
+                    vec![sym_1.into(), b1.into()]
+                )),
+                FlatStatement::condition(
+                    sym_1.into(),
+                    FlatExpression::mul(b1.into(), sym_2.into()),
+                    RuntimeError::Division
+                ),
+            ]
+        );
+    }
+}

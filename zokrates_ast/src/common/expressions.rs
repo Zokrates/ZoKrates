@@ -34,17 +34,7 @@ impl<Op: OperatorStr, L: fmt::Display, R: fmt::Display, Out: fmt::Display> fmt::
     for BinaryExpression<Op, L, R, Out>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "({} {} {}{})",
-            self.left,
-            Op::STR,
-            self.right,
-            self.span
-                .as_ref()
-                .map(|_| "".to_string())
-                .unwrap_or(" /* NONE */".to_string())
-        )
+        write!(f, "({} {} {})", self.left, Op::STR, self.right,)
     }
 }
 
@@ -129,15 +119,7 @@ impl<V> ValueExpression<V> {
 
 impl<V: fmt::Display> fmt::Display for ValueExpression<V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}{}",
-            self.value,
-            self.span
-                .as_ref()
-                .map(|_| "".to_string())
-                .unwrap_or(" /* NONE */".to_string())
-        )
+        write!(f, "{}", self.value,)
     }
 }
 
@@ -236,16 +218,7 @@ impl<A, E> WithSpan for DefinitionStatement<A, E> {
 
 impl<A: fmt::Display, E: fmt::Display> fmt::Display for DefinitionStatement<A, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} = {}; // {}",
-            self.assignee,
-            self.rhs,
-            self.span
-                .as_ref()
-                .map(|s| s.to_string())
-                .unwrap_or("".to_string())
-        )
+        write!(f, "{} = {};", self.assignee, self.rhs,)
     }
 }
 

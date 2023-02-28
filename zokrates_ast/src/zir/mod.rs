@@ -288,16 +288,6 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
     fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
         write!(f, "{}", "\t".repeat(depth))?;
 
-        let span = self.get_span();
-
-        write!(
-            f,
-            "{}",
-            span.as_ref()
-                .map(|_| "".to_string())
-                .unwrap_or(" /* NONE */".to_string())
-        )?;
-
         match self {
             ZirStatement::Return(ref s) => {
                 write!(
@@ -386,14 +376,8 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for ConditionalExpress
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{} ? {} : {}{}",
-            self.condition,
-            self.consequence,
-            self.alternative,
-            self.span
-                .as_ref()
-                .map(|_| "".to_string())
-                .unwrap_or(" /* NONE */".to_string())
+            "{} ? {} : {}",
+            self.condition, self.consequence, self.alternative,
         )
     }
 }
@@ -732,11 +716,15 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> BooleanExpression<'ast, T> {
-    pub fn not(self) -> Self {
+impl<'ast, T> std::ops::Not for BooleanExpression<'ast, T> {
+    type Output = Self;
+
+    fn not(self) -> Self {
         Self::Not(UnaryExpression::new(self))
     }
+}
 
+impl<'ast, T> BooleanExpression<'ast, T> {
     pub fn and(self, other: Self) -> Self {
         Self::And(BinaryExpression::new(self, other))
     }

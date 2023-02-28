@@ -807,15 +807,6 @@ impl<'ast, T> TypedStatement<'ast, T> {
 
 impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
     fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
-        let span = self.get_span();
-
-        write!(
-            f,
-            "/* {} : */ ",
-            span.map(|span| span.to_string())
-                .unwrap_or("NONE".to_string())
-        )?;
-
         match self {
             TypedStatement::For(s) => {
                 write!(f, "{}", "\t".repeat(depth))?;
@@ -1377,6 +1368,14 @@ impl<'ast, T: Field> std::ops::Div for FieldElementExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> std::ops::Neg for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        FieldElementExpression::Neg(UnaryExpression::new(self))
+    }
+}
+
 impl<'ast, T: Field> FieldElementExpression<'ast, T> {
     pub fn pow(self, other: UExpression<'ast, T>) -> Self {
         FieldElementExpression::Pow(BinaryExpression::new(self, other))
@@ -1384,10 +1383,6 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
 
     pub fn pos(self) -> Self {
         FieldElementExpression::Pos(UnaryExpression::new(self))
-    }
-
-    pub fn neg(self) -> Self {
-        FieldElementExpression::Neg(UnaryExpression::new(self))
     }
 }
 
@@ -1450,11 +1445,15 @@ impl<'ast, T> From<bool> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> BooleanExpression<'ast, T> {
-    pub fn not(self) -> Self {
+impl<'ast, T> std::ops::Not for BooleanExpression<'ast, T> {
+    type Output = Self;
+
+    fn not(self) -> Self {
         Self::Not(UnaryExpression::new(self))
     }
+}
 
+impl<'ast, T> BooleanExpression<'ast, T> {
     pub fn and(self, other: Self) -> Self {
         Self::And(BinaryExpression::new(self, other))
     }
@@ -1653,6 +1652,22 @@ impl<'ast, T: Clone> ArrayExpression<'ast, T> {
 
     pub fn size(&self) -> UExpression<'ast, T> {
         *self.ty.size.clone()
+    }
+
+    pub fn slice(
+        array: ArrayExpression<'ast, T>,
+        from: UExpression<'ast, T>,
+        to: UExpression<'ast, T>,
+    ) -> Self {
+        let inner = array.inner_type().clone();
+        let size = to.clone() - from.clone();
+        ArrayExpressionInner::Slice(SliceExpression::new(array, from, to)).annotate(inner, size)
+    }
+
+    pub fn repeat(e: TypedExpression<'ast, T>, count: UExpression<'ast, T>) -> Self {
+        let inner = e.get_type().clone();
+        let size = count.clone();
+        ArrayExpressionInner::Repeat(RepeatExpression::new(e, count)).annotate(inner, size)
     }
 }
 
@@ -1912,16 +1927,13 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for BlockExpression<'a
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{{\n{}\n}}{}",
+            "{{\n{}\n}}",
             self.statements
                 .iter()
                 .map(|s| s.to_string())
                 .chain(std::iter::once(self.value.to_string()))
                 .collect::<Vec<_>>()
                 .join("\n"),
-            self.span
-                .map(|_| "".to_string())
-                .unwrap_or(" /* NONE */".to_string())
         )
     }
 }

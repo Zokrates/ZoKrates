@@ -369,7 +369,7 @@ pub fn sha256_round<T: Field>(
     // define a binding of the first variable in the constraint system to one
     let one_binding_statement = FlatStatement::condition(
         Variable::new(0).into(),
-        FlatExpression::number(T::from(1)),
+        FlatExpression::from_value(T::from(1)),
         RuntimeError::BellmanOneBinding,
     );
     let input_binding_statements =
@@ -467,7 +467,7 @@ pub fn snark_verify_bls12_377<T: Field>(
 
     let one_binding_statement = FlatStatement::condition(
         FlatExpression::identifier(Variable::new(0)),
-        FlatExpression::number(T::from(1)),
+        FlatExpression::from_value(T::from(1)),
         RuntimeError::ArkOneBinding,
     );
 
@@ -610,7 +610,7 @@ pub fn unpack_to_bitwidth<T: Field>(
         lhs_sum,
         FlatExpression::mul(
             FlatExpression::identifier(Variable::new(0)),
-            FlatExpression::number(T::from(1)),
+            FlatExpression::from_value(T::from(1)),
         ),
         RuntimeError::Sum,
     ));
@@ -661,7 +661,7 @@ mod tests {
                         .map(|i| Variable::new(i + 1))
                         .collect(),
                     Solver::bits(Bn128Field::get_required_bits()),
-                    vec![Variable::new(0)]
+                    vec![Variable::new(0).into()]
                 ))
             );
             assert_eq!(
@@ -711,7 +711,7 @@ mod tests {
                 compiled.statements[1],
                 FlatStatement::condition(
                     Variable::new(0).into(),
-                    FlatExpression::Number(Bn128Field::from(1)),
+                    FlatExpression::from_value(Bn128Field::from(1)),
                     RuntimeError::BellmanOneBinding
                 )
             );

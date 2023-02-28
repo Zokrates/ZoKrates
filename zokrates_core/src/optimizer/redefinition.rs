@@ -209,283 +209,296 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use zokrates_ast::flat::Parameter;
-//     use zokrates_field::Bn128Field;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use zokrates_ast::flat::Parameter;
+    use zokrates_field::Bn128Field;
 
-//     #[test]
-//     fn remove_synonyms() {
-//         // def main(x):
-//         //    y = x
-//         //    z = y
-//         //    return z
+    #[test]
+    fn remove_synonyms() {
+        // def main(x):
+        //    y = x
+        //    z = y
+        //    return z
 
-//         let x = Parameter::public(Variable::new(0));
-//         let y = Variable::new(1);
-//         let out = Variable::public(0);
+        let x = Parameter::public(Variable::new(0));
+        let y = Variable::new(1);
+        let out = Variable::public(0);
 
-//         let p: Prog<Bn128Field> = Prog {
-//             arguments: vec![x],
-//             statements: vec![
-//                 Statement::definition(y, x.id),
-//                 Statement::definition(out, y),
-//             ],
-//             return_count: 1,
-//         };
+        let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![x],
+            statements: vec![
+                Statement::definition(y, x.id),
+                Statement::definition(out, y),
+            ],
+            return_count: 1,
+        };
 
-//         let optimized: Prog<Bn128Field> = Prog {
-//             arguments: vec![x],
-//             statements: vec![Statement::definition(out, x.id)],
-//             return_count: 1,
-//         };
+        let optimized: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![x],
+            statements: vec![Statement::definition(out, x.id)],
+            return_count: 1,
+        };
 
-//         let mut optimizer = RedefinitionOptimizer::init(&p);
-//         assert_eq!(optimizer.fold_program(p), optimized);
-//     }
+        let mut optimizer = RedefinitionOptimizer::init(&p);
+        assert_eq!(optimizer.fold_program(p), optimized);
+    }
 
-//     #[test]
-//     fn keep_one() {
-//         // def main(x):
-//         //    one = x
+    #[test]
+    fn keep_one() {
+        // def main(x):
+        //    one = x
 
-//         let one = Variable::one();
-//         let x = Parameter::public(Variable::new(0));
+        let one = Variable::one();
+        let x = Parameter::public(Variable::new(0));
 
-//         let p: Prog<Bn128Field> = Prog {
-//             arguments: vec![x],
-//             statements: vec![Statement::definition(one, x.id)],
-//             return_count: 1,
-//         };
+        let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![x],
+            statements: vec![Statement::definition(one, x.id)],
+            return_count: 1,
+        };
 
-//         let optimized = p.clone();
+        let optimized = p.clone();
 
-//         let mut optimizer = RedefinitionOptimizer::init(&p);
-//         assert_eq!(optimizer.fold_program(p), optimized);
-//     }
+        let mut optimizer = RedefinitionOptimizer::init(&p);
+        assert_eq!(optimizer.fold_program(p), optimized);
+    }
 
-//     #[test]
-//     fn remove_synonyms_in_condition() {
-//         // def main(x) -> (1):
-//         //    y = x
-//         //    z = y
-//         //    z == y
-//         //    ~out_0 = z
+    #[test]
+    fn remove_synonyms_in_condition() {
+        // def main(x) -> (1):
+        //    y = x
+        //    z = y
+        //    z == y
+        //    ~out_0 = z
 
-//         // ->
+        // ->
 
-//         // def main(x) -> (1)
-//         //    x == x // will be eliminated as a tautology
-//         //    return x
+        // def main(x) -> (1)
+        //    x == x // will be eliminated as a tautology
+        //    return x
 
-//         let x = Parameter::public(Variable::new(0));
-//         let y = Variable::new(1);
-//         let z = Variable::new(2);
-//         let out = Variable::public(0);
+        let x = Parameter::public(Variable::new(0));
+        let y = Variable::new(1);
+        let z = Variable::new(2);
+        let out = Variable::public(0);
 
-//         let p: Prog<Bn128Field> = Prog {
-//             arguments: vec![x],
-//             statements: vec![
-//                 Statement::definition(y, x.id),
-//                 Statement::definition(z, y),
-//                 Statement::constraint(z, y),
-//                 Statement::definition(out, z),
-//             ],
-//             return_count: 1,
-//         };
+        let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![x],
+            statements: vec![
+                Statement::definition(y, x.id),
+                Statement::definition(z, y),
+                Statement::constraint(z, y, None),
+                Statement::definition(out, z),
+            ],
+            return_count: 1,
+        };
 
-//         let optimized: Prog<Bn128Field> = Prog {
-//             arguments: vec![x],
-//             statements: vec![
-//                 Statement::constraint(x.id, x.id),
-//                 Statement::definition(out, x.id),
-//             ],
-//             return_count: 1,
-//         };
+        let optimized: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![x],
+            statements: vec![
+                Statement::constraint(x.id, x.id, None),
+                Statement::definition(out, x.id),
+            ],
+            return_count: 1,
+        };
 
-//         let mut optimizer = RedefinitionOptimizer::init(&p);
-//         assert_eq!(optimizer.fold_program(p), optimized);
-//     }
+        let mut optimizer = RedefinitionOptimizer::init(&p);
+        assert_eq!(optimizer.fold_program(p), optimized);
+    }
 
-//     #[test]
-//     fn remove_multiple_synonyms() {
-//         // def main(x) -> (2):
-//         //    y = x
-//         //    t = 1
-//         //    z = y
-//         //    w = t
-//         //    ~out_0 = z
-//         //    ~out_1 = w
+    #[test]
+    fn remove_multiple_synonyms() {
+        // def main(x) -> (2):
+        //    y = x
+        //    t = 1
+        //    z = y
+        //    w = t
+        //    ~out_0 = z
+        //    ~out_1 = w
 
-//         // ->
+        // ->
 
-//         // def main(x):
-//         //  return x, 1
+        // def main(x):
+        //  return x, 1
 
-//         let x = Parameter::public(Variable::new(0));
-//         let y = Variable::new(1);
-//         let z = Variable::new(2);
-//         let t = Variable::new(3);
-//         let w = Variable::new(4);
-//         let out_1 = Variable::public(0);
-//         let out_0 = Variable::public(1);
+        let x = Parameter::public(Variable::new(0));
+        let y = Variable::new(1);
+        let z = Variable::new(2);
+        let t = Variable::new(3);
+        let w = Variable::new(4);
+        let out_1 = Variable::public(0);
+        let out_0 = Variable::public(1);
 
-//         let p: Prog<Bn128Field> = Prog {
-//             arguments: vec![x],
-//             statements: vec![
-//                 Statement::definition(y, x.id),
-//                 Statement::definition(t, Bn128Field::from(1)),
-//                 Statement::definition(z, y),
-//                 Statement::definition(w, t),
-//                 Statement::definition(out_0, z),
-//                 Statement::definition(out_1, w),
-//             ],
-//             return_count: 2,
-//         };
+        let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![x],
+            statements: vec![
+                Statement::definition(y, x.id),
+                Statement::definition(t, Bn128Field::from(1)),
+                Statement::definition(z, y),
+                Statement::definition(w, t),
+                Statement::definition(out_0, z),
+                Statement::definition(out_1, w),
+            ],
+            return_count: 2,
+        };
 
-//         let optimized: Prog<Bn128Field> = Prog {
-//             arguments: vec![x],
-//             statements: vec![
-//                 Statement::definition(out_0, x.id),
-//                 Statement::definition(out_1, Bn128Field::from(1)),
-//             ],
-//             return_count: 2,
-//         };
+        let optimized: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![x],
+            statements: vec![
+                Statement::definition(out_0, x.id),
+                Statement::definition(out_1, Bn128Field::from(1)),
+            ],
+            return_count: 2,
+        };
 
-//         let mut optimizer = RedefinitionOptimizer::init(&p);
+        let mut optimizer = RedefinitionOptimizer::init(&p);
 
-//         assert_eq!(optimizer.fold_program(p), optimized);
-//     }
+        assert_eq!(optimizer.fold_program(p), optimized);
+    }
 
-//     #[test]
-//     fn substitute_lincomb() {
-//         // def main(x, y) -> (1):
-//         //     a = x + y
-//         //     b = a + x + y
-//         //     c = b + x + y
-//         //     2*c == 6*x + 6*y
-//         //     ~out_0 = a + b + c
+    #[test]
+    fn substitute_lincomb() {
+        // def main(x, y) -> (1):
+        //     a = x + y
+        //     b = a + x + y
+        //     c = b + x + y
+        //     2*c == 6*x + 6*y
+        //     ~out_0 = a + b + c
 
-//         // ->
+        // ->
 
-//         // def main(x, y) -> (1):
-//         //    1*x + 1*y + 2*x + 2*y + 3*x + 3*y == 6*x + 6*y // will be eliminated as a tautology
-//         //    ~out_0 = 6*x + 6*y
+        // def main(x, y) -> (1):
+        //    1*x + 1*y + 2*x + 2*y + 3*x + 3*y == 6*x + 6*y // will be eliminated as a tautology
+        //    ~out_0 = 6*x + 6*y
 
-//         let x = Parameter::public(Variable::new(0));
-//         let y = Parameter::public(Variable::new(1));
-//         let a = Variable::new(2);
-//         let b = Variable::new(3);
-//         let c = Variable::new(4);
-//         let r = Variable::public(0);
+        let x = Parameter::public(Variable::new(0));
+        let y = Parameter::public(Variable::new(1));
+        let a = Variable::new(2);
+        let b = Variable::new(3);
+        let c = Variable::new(4);
+        let r = Variable::public(0);
 
-//         let p: Prog<Bn128Field> = Prog {
-//             arguments: vec![x, y],
-//             statements: vec![
-//                 Statement::definition(a, LinComb::from(x.id) + LinComb::from(y.id)),
-//                 Statement::definition(
-//                     b,
-//                     LinComb::from(a) + LinComb::from(x.id) + LinComb::from(y.id),
-//                 ),
-//                 Statement::definition(
-//                     c,
-//                     LinComb::from(b) + LinComb::from(x.id) + LinComb::from(y.id),
-//                 ),
-//                 Statement::constraint(
-//                     LinComb::summand(2, c),
-//                     LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
-//                 ),
-//                 Statement::definition(r, LinComb::from(a) + LinComb::from(b) + LinComb::from(c)),
-//             ],
-//             return_count: 1,
-//         };
+        let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![x, y],
+            statements: vec![
+                Statement::definition(a, LinComb::from(x.id) + LinComb::from(y.id)),
+                Statement::definition(
+                    b,
+                    LinComb::from(a) + LinComb::from(x.id) + LinComb::from(y.id),
+                ),
+                Statement::definition(
+                    c,
+                    LinComb::from(b) + LinComb::from(x.id) + LinComb::from(y.id),
+                ),
+                Statement::constraint(
+                    LinComb::summand(2, c),
+                    LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
+                    None,
+                ),
+                Statement::definition(r, LinComb::from(a) + LinComb::from(b) + LinComb::from(c)),
+            ],
+            return_count: 1,
+        };
 
-//         let expected: Prog<Bn128Field> = Prog {
-//             arguments: vec![x, y],
-//             statements: vec![
-//                 Statement::constraint(
-//                     LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
-//                     LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
-//                 ),
-//                 Statement::definition(
-//                     r,
-//                     LinComb::summand(1, x.id)
-//                         + LinComb::summand(1, y.id)
-//                         + LinComb::summand(2, x.id)
-//                         + LinComb::summand(2, y.id)
-//                         + LinComb::summand(3, x.id)
-//                         + LinComb::summand(3, y.id),
-//                 ),
-//             ],
-//             return_count: 1,
-//         };
+        let expected: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![x, y],
+            statements: vec![
+                Statement::constraint(
+                    LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
+                    LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
+                    None,
+                ),
+                Statement::definition(
+                    r,
+                    LinComb::summand(1, x.id)
+                        + LinComb::summand(1, y.id)
+                        + LinComb::summand(2, x.id)
+                        + LinComb::summand(2, y.id)
+                        + LinComb::summand(3, x.id)
+                        + LinComb::summand(3, y.id),
+                ),
+            ],
+            return_count: 1,
+        };
 
-//         let mut optimizer = RedefinitionOptimizer::init(&p);
+        let mut optimizer = RedefinitionOptimizer::init(&p);
 
-//         let optimized = optimizer.fold_program(p);
+        let optimized = optimizer.fold_program(p);
 
-//         assert_eq!(optimized, expected);
-//     }
+        assert_eq!(optimized, expected);
+    }
 
-//     #[test]
-//     fn keep_existing_quadratic_variable() {
-//         // def main(x, y):
-//         //     z = x * y
-//         //     z = x
-//         //     return
+    #[test]
+    fn keep_existing_quadratic_variable() {
+        // def main(x, y):
+        //     z = x * y
+        //     z = x
+        //     return
 
-//         // ->
+        // ->
 
-//         // def main(x, y):
-//         //     z = x * y
-//         //     z = x
-//         //     return
+        // def main(x, y):
+        //     z = x * y
+        //     z = x
+        //     return
 
-//         let x = Parameter::public(Variable::new(0));
-//         let y = Parameter::public(Variable::new(1));
-//         let z = Variable::new(2);
+        let x = Parameter::public(Variable::new(0));
+        let y = Parameter::public(Variable::new(1));
+        let z = Variable::new(2);
 
-//         let p: Prog<Bn128Field> = Prog {
-//             arguments: vec![x, y],
-//             statements: vec![
-//                 Statement::definition(z, QuadComb::new(LinComb::from(x.id), LinComb::from(y.id))),
-//                 Statement::definition(z, LinComb::from(x.id)),
-//             ],
-//             return_count: 0,
-//         };
+        let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![x, y],
+            statements: vec![
+                Statement::definition(z, QuadComb::new(LinComb::from(x.id), LinComb::from(y.id))),
+                Statement::definition(z, LinComb::from(x.id)),
+            ],
+            return_count: 0,
+        };
 
-//         let optimized = p.clone();
+        let optimized = p.clone();
 
-//         let mut optimizer = RedefinitionOptimizer::init(&p);
-//         assert_eq!(optimizer.fold_program(p), optimized);
-//     }
+        let mut optimizer = RedefinitionOptimizer::init(&p);
+        assert_eq!(optimizer.fold_program(p), optimized);
+    }
 
-//     #[test]
-//     fn keep_existing_variable() {
-//         // def main(x) -> (1):
-//         //     x == 1
-//         //     x == 2
-//         //     return x
+    #[test]
+    fn keep_existing_variable() {
+        // def main(x) -> (1):
+        //     x == 1
+        //     x == 2
+        //     return x
 
-//         // ->
+        // ->
 
-//         // unchanged
+        // unchanged
 
-//         let x = Parameter::public(Variable::new(0));
+        let x = Parameter::public(Variable::new(0));
 
-//         let p: Prog<Bn128Field> = Prog {
-//             arguments: vec![x],
-//             statements: vec![
-//                 Statement::constraint(x.id, Bn128Field::from(1)),
-//                 Statement::constraint(x.id, Bn128Field::from(2)),
-//             ],
-//             return_count: 1,
-//         };
+        let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![x],
+            statements: vec![
+                Statement::constraint(x.id, Bn128Field::from(1), None),
+                Statement::constraint(x.id, Bn128Field::from(2), None),
+            ],
+            return_count: 1,
+        };
 
-//         let optimized = p.clone();
+        let optimized = p.clone();
 
-//         let mut optimizer = RedefinitionOptimizer::init(&p);
-//         assert_eq!(optimizer.fold_program(p), optimized);
-//     }
-// }
+        let mut optimizer = RedefinitionOptimizer::init(&p);
+        assert_eq!(optimizer.fold_program(p), optimized);
+    }
+}

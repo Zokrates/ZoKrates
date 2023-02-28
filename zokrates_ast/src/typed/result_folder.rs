@@ -1325,7 +1325,7 @@ pub fn fold_boolean_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
         },
         Block(block) => Block(f.fold_block_expression(block)?),
         Value(v) => Value(v),
-        FieldEq(e) => match f.fold_binary_expression(&Type::Boolean, e)? {
+        FieldEq(e) => match f.fold_eq_expression(e)? {
             BinaryOrExpression::Binary(e) => FieldEq(e),
             BinaryOrExpression::Expression(u) => u,
         },

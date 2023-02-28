@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn zero() {
         // 0
-        let zero = FlatExpression::Number(Bn128Field::from(0));
+        let zero = FlatExpression::from_value(Bn128Field::from(0));
         let expected: LinComb<Bn128Field> = LinComb::zero();
         assert_eq!(LinComb::from(zero), expected);
     }
@@ -119,7 +119,7 @@ mod tests {
     #[test]
     fn one() {
         // 1
-        let one = FlatExpression::Number(Bn128Field::from(1));
+        let one = FlatExpression::from_value(Bn128Field::from(1));
         let expected: LinComb<Bn128Field> = Variable::one().into();
         assert_eq!(LinComb::from(one), expected);
     }
@@ -127,7 +127,7 @@ mod tests {
     #[test]
     fn forty_two() {
         // 42
-        let one = FlatExpression::Number(Bn128Field::from(42));
+        let one = FlatExpression::from_value(Bn128Field::from(42));
         let expected: LinComb<Bn128Field> = LinComb::summand(42, Variable::one());
         assert_eq!(LinComb::from(one), expected);
     }
@@ -135,9 +135,9 @@ mod tests {
     #[test]
     fn add() {
         // x + y
-        let add = FlatExpression::Add(
-            box FlatExpression::Identifier(Variable::new(42)),
-            box FlatExpression::Identifier(Variable::new(21)),
+        let add = FlatExpression::add(
+            FlatExpression::identifier(Variable::new(42)),
+            FlatExpression::identifier(Variable::new(21)),
         );
         let expected: LinComb<Bn128Field> =
             LinComb::summand(1, Variable::new(42)) + LinComb::summand(1, Variable::new(21));
@@ -147,14 +147,14 @@ mod tests {
     #[test]
     fn linear_combination() {
         // 42*x + 21*y
-        let add = FlatExpression::Add(
-            box FlatExpression::Mult(
-                box FlatExpression::Number(Bn128Field::from(42)),
-                box FlatExpression::Identifier(Variable::new(42)),
+        let add = FlatExpression::add(
+            FlatExpression::mul(
+                FlatExpression::from_value(Bn128Field::from(42)),
+                FlatExpression::identifier(Variable::new(42)),
             ),
-            box FlatExpression::Mult(
-                box FlatExpression::Number(Bn128Field::from(21)),
-                box FlatExpression::Identifier(Variable::new(21)),
+            FlatExpression::mul(
+                FlatExpression::from_value(Bn128Field::from(21)),
+                FlatExpression::identifier(Variable::new(21)),
             ),
         );
         let expected: LinComb<Bn128Field> =
@@ -165,14 +165,14 @@ mod tests {
     #[test]
     fn linear_combination_inverted() {
         // x*42 + y*21
-        let add = FlatExpression::Add(
-            box FlatExpression::Mult(
-                box FlatExpression::Identifier(Variable::new(42)),
-                box FlatExpression::Number(Bn128Field::from(42)),
+        let add = FlatExpression::add(
+            FlatExpression::mul(
+                FlatExpression::identifier(Variable::new(42)),
+                FlatExpression::from_value(Bn128Field::from(42)),
             ),
-            box FlatExpression::Mult(
-                box FlatExpression::Identifier(Variable::new(21)),
-                box FlatExpression::Number(Bn128Field::from(21)),
+            FlatExpression::mul(
+                FlatExpression::identifier(Variable::new(21)),
+                FlatExpression::from_value(Bn128Field::from(21)),
             ),
         );
         let expected: LinComb<Bn128Field> =

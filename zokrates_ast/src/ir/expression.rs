@@ -61,16 +61,7 @@ impl<T: Field, U: Into<LinComb<T>>> From<U> for QuadComb<T> {
 
 impl<T: Field> fmt::Display for QuadComb<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "({}) * ({}){}",
-            self.left,
-            self.right,
-            self.span
-                .as_ref()
-                .map(|_| "".to_string())
-                .unwrap_or(" /* NONE */".to_string())
-        )
+        write!(f, "({}) * ({})", self.left, self.right,)
     }
 }
 
@@ -407,7 +398,7 @@ mod tests {
                 (Variable::new(42), Bn128Field::from(1)),
             ];
 
-            assert_eq!(c, LinComb(expected_vec));
+            assert_eq!(c, LinComb::new(expected_vec));
         }
         #[test]
         fn sub() {
@@ -420,7 +411,7 @@ mod tests {
                 (Variable::new(42), Bn128Field::from(-1)),
             ];
 
-            assert_eq!(c, LinComb(expected_vec));
+            assert_eq!(c, LinComb::new(expected_vec));
         }
 
         #[test]
@@ -439,35 +430,26 @@ mod tests {
         fn from_linear() {
             let a: LinComb<Bn128Field> =
                 LinComb::summand(3, Variable::new(42)) + LinComb::summand(4, Variable::new(33));
-            let expected = QuadComb {
-                left: LinComb::one(),
-                right: a.clone(),
-            };
+            let expected = QuadComb::new(LinComb::one(), a.clone());
             assert_eq!(QuadComb::from(a), expected);
         }
 
         #[test]
         fn zero() {
             let a: LinComb<Bn128Field> = LinComb::zero();
-            let expected: QuadComb<Bn128Field> = QuadComb {
-                left: LinComb::one(),
-                right: LinComb::zero(),
-            };
+            let expected: QuadComb<Bn128Field> = QuadComb::new(LinComb::one(), LinComb::zero());
             assert_eq!(QuadComb::from(a), expected);
         }
 
         #[test]
         fn display() {
-            let a: QuadComb<Bn128Field> = QuadComb {
-                left: LinComb::summand(3, Variable::new(42))
-                    + LinComb::summand(4, Variable::new(33)),
-                right: LinComb::summand(1, Variable::new(21)),
-            };
+            let a: QuadComb<Bn128Field> = QuadComb::new(
+                LinComb::summand(3, Variable::new(42)) + LinComb::summand(4, Variable::new(33)),
+                LinComb::summand(1, Variable::new(21)),
+            );
             assert_eq!(&a.to_string(), "(3 * _42 + 4 * _33) * (1 * _21)");
-            let a: QuadComb<Bn128Field> = QuadComb {
-                left: LinComb::zero(),
-                right: LinComb::summand(1, Variable::new(21)),
-            };
+            let a: QuadComb<Bn128Field> =
+                QuadComb::new(LinComb::zero(), LinComb::summand(1, Variable::new(21)));
             assert_eq!(&a.to_string(), "(0) * (1 * _21)");
         }
     }
@@ -477,7 +459,7 @@ mod tests {
 
         #[test]
         fn try_summand() {
-            let summand = LinComb(vec![
+            let summand = LinComb::new(vec![
                 (Variable::new(42), Bn128Field::from(1)),
                 (Variable::new(42), Bn128Field::from(2)),
                 (Variable::new(42), Bn128Field::from(3)),
@@ -487,14 +469,14 @@ mod tests {
                 Ok((Variable::new(42), Bn128Field::from(6)))
             );
 
-            let not_summand = LinComb(vec![
+            let not_summand = LinComb::new(vec![
                 (Variable::new(41), Bn128Field::from(1)),
                 (Variable::new(42), Bn128Field::from(2)),
                 (Variable::new(42), Bn128Field::from(3)),
             ]);
             assert!(not_summand.try_summand().is_err());
 
-            let empty: LinComb<Bn128Field> = LinComb(vec![]);
+            let empty: LinComb<Bn128Field> = LinComb::new(vec![]);
             assert!(empty.try_summand().is_err());
         }
     }

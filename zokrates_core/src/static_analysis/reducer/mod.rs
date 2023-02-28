@@ -29,10 +29,10 @@ use zokrates_ast::typed::SliceOrExpression;
 use zokrates_ast::typed::{CanonicalConstantIdentifier, EmbedCall, Variable};
 
 use zokrates_ast::typed::{
-    BlockExpression, CoreIdentifier, Expr, ForStatement,
-    FunctionCall, FunctionCallExpression, FunctionCallOrExpression, Id, Identifier,
-    TypedExpression, TypedFunction, TypedFunctionSymbol, TypedFunctionSymbolDeclaration,
-    TypedModule, TypedProgram, TypedStatement, UExpression, UExpressionInner,
+    BlockExpression, CoreIdentifier, Expr, ForStatement, FunctionCall, FunctionCallExpression,
+    FunctionCallOrExpression, Id, Identifier, TypedExpression, TypedFunction, TypedFunctionSymbol,
+    TypedFunctionSymbolDeclaration, TypedModule, TypedProgram, TypedStatement, UExpression,
+    UExpressionInner,
 };
 
 use zokrates_ast::untyped::OwnedModuleId;
@@ -576,17 +576,16 @@ mod tests {
     use zokrates_ast::typed::types::DeclarationSignature;
     use zokrates_ast::typed::types::{DeclarationConstant, GTupleType};
     use zokrates_ast::typed::{
-        ArrayExpression, ArrayExpressionInner, DeclarationFunctionKey, DeclarationType,
-        DeclarationVariable, FieldElementExpression, GenericIdentifier, Identifier,
-        OwnedTypedModuleId, Select, TupleExpressionInner, TupleType, Type, TypedExpression,
-        TypedExpressionOrSpread, UBitwidth, UExpressionInner, Variable,
+        ArrayExpression, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
+        FieldElementExpression, GenericIdentifier, Identifier, Select, TupleExpression, TupleType,
+        Type, TypedExpression, TypedExpressionOrSpread, UBitwidth, Variable,
     };
     use zokrates_field::Bn128Field;
 
     use lazy_static::lazy_static;
 
     lazy_static! {
-        static ref MAIN_MODULE_ID: OwnedTypedModuleId = OwnedTypedModuleId::from("main");
+        static ref MAIN_MODULE_ID: OwnedModuleId = OwnedModuleId::from("main");
     }
 
     #[test]
@@ -616,7 +615,7 @@ mod tests {
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![DeclarationVariable::field_element("a").into()],
-            statements: vec![TypedStatement::Return(
+            statements: vec![TypedStatement::ret(
                 FieldElementExpression::identifier("a".into()).into(),
             )],
             signature: DeclarationSignature::new()
@@ -660,7 +659,7 @@ mod tests {
                         .annotate(UBitwidth::B32)
                         .into(),
                 ),
-                TypedStatement::Return(FieldElementExpression::identifier("a".into()).into()),
+                TypedStatement::ret(FieldElementExpression::identifier("a".into()).into()),
             ],
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
@@ -668,6 +667,7 @@ mod tests {
         };
 
         let p = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -732,7 +732,7 @@ mod tests {
                     )
                     .into(),
                 ),
-                TypedStatement::Return(
+                TypedStatement::ret(
                     FieldElementExpression::identifier(Identifier::from("a").version(2)).into(),
                 ),
             ],
@@ -742,6 +742,7 @@ mod tests {
         };
 
         let expected: TypedProgram<Bn128Field> = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -809,7 +810,7 @@ mod tests {
                 GenericIdentifier::with_name("K").with_index(0),
             )
             .into()],
-            statements: vec![TypedStatement::Return(
+            statements: vec![TypedStatement::ret(
                 ArrayExpression::identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
@@ -832,7 +833,7 @@ mod tests {
                 ),
                 TypedStatement::definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
-                    ArrayExpressionInner::Value(
+                    ArrayExpression::from_value(
                         vec![FieldElementExpression::identifier("a".into()).into()].into(),
                     )
                     .annotate(Type::FieldElement, 1u32)
@@ -857,7 +858,7 @@ mod tests {
                         .annotate(UBitwidth::B32)
                         .into(),
                 ),
-                TypedStatement::Return(
+                TypedStatement::ret(
                     (FieldElementExpression::identifier("a".into())
                         + FieldElementExpression::select(
                             ArrayExpression::identifier("b".into())
@@ -873,6 +874,7 @@ mod tests {
         };
 
         let p = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -907,7 +909,7 @@ mod tests {
             statements: vec![
                 TypedStatement::definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
-                    ArrayExpressionInner::Value(
+                    ArrayExpression::from_value(
                         vec![FieldElementExpression::identifier("a".into()).into()].into(),
                     )
                     .annotate(Type::FieldElement, 1u32)
@@ -950,7 +952,7 @@ mod tests {
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
-                TypedStatement::Return(
+                TypedStatement::ret(
                     (FieldElementExpression::identifier("a".into())
                         + FieldElementExpression::select(
                             ArrayExpression::identifier(Identifier::from("b").version(1))
@@ -966,6 +968,7 @@ mod tests {
         };
 
         let expected = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -1033,13 +1036,15 @@ mod tests {
                 GenericIdentifier::with_name("K").with_index(0),
             )
             .into()],
-            statements: vec![TypedStatement::Return(
+            statements: vec![TypedStatement::ret(
                 ArrayExpression::identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
             )],
             signature: foo_signature.clone(),
         };
+
+        use std::ops::Sub;
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![DeclarationVariable::field_element("a").into()],
@@ -1058,14 +1063,13 @@ mod tests {
                     Variable::array(
                         "b",
                         Type::FieldElement,
-                        UExpressionInner::Sub(
-                            box UExpression::identifier("n".into()).annotate(UBitwidth::B32),
-                            box 1u32.into(),
-                        )
-                        .annotate(UBitwidth::B32),
+                        UExpression::sub(
+                            UExpression::identifier("n".into()).annotate(UBitwidth::B32),
+                            1u32.into(),
+                        ),
                     )
                     .into(),
-                    ArrayExpressionInner::Value(
+                    ArrayExpression::from_value(
                         vec![FieldElementExpression::identifier("a".into()).into()].into(),
                     )
                     .annotate(Type::FieldElement, 1u32)
@@ -1090,7 +1094,7 @@ mod tests {
                         .annotate(UBitwidth::B32)
                         .into(),
                 ),
-                TypedStatement::Return(
+                TypedStatement::ret(
                     (FieldElementExpression::identifier("a".into())
                         + FieldElementExpression::select(
                             ArrayExpression::identifier("b".into())
@@ -1106,6 +1110,7 @@ mod tests {
         };
 
         let p = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -1140,7 +1145,7 @@ mod tests {
             statements: vec![
                 TypedStatement::definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
-                    ArrayExpressionInner::Value(
+                    ArrayExpression::from_value(
                         vec![FieldElementExpression::identifier("a".into()).into()].into(),
                     )
                     .annotate(Type::FieldElement, 1u32)
@@ -1183,7 +1188,7 @@ mod tests {
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
-                TypedStatement::Return(
+                TypedStatement::ret(
                     (FieldElementExpression::identifier("a".into())
                         + FieldElementExpression::select(
                             ArrayExpression::identifier(Identifier::from("b").version(1))
@@ -1199,6 +1204,7 @@ mod tests {
         };
 
         let expected = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -1277,19 +1283,19 @@ mod tests {
                         UExpression::identifier("K".into()).annotate(UBitwidth::B32),
                     )
                     .into(),
-                    ArrayExpressionInner::Slice(
-                        box ArrayExpression::function_call(
+                    ArrayExpression::slice(
+                        ArrayExpression::function_call(
                             DeclarationFunctionKey::with_location("main", "bar")
                                 .signature(foo_signature.clone()),
                             vec![None],
-                            vec![ArrayExpressionInner::Value(
+                            vec![ArrayExpression::from_value(
                                 vec![
                                     TypedExpressionOrSpread::Spread(
                                         ArrayExpression::identifier("a".into())
                                             .annotate(Type::FieldElement, 1u32)
                                             .into(),
                                     ),
-                                    FieldElementExpression::Number(Bn128Field::from(0)).into(),
+                                    FieldElementExpression::from_value(Bn128Field::from(0)).into(),
                                 ]
                                 .into(),
                             )
@@ -1305,16 +1311,12 @@ mod tests {
                             UExpression::identifier("K".into()).annotate(UBitwidth::B32)
                                 + 1u32.into(),
                         ),
-                        box 0u32.into(),
-                        box UExpression::identifier("K".into()).annotate(UBitwidth::B32),
-                    )
-                    .annotate(
-                        Type::FieldElement,
+                        0u32.into(),
                         UExpression::identifier("K".into()).annotate(UBitwidth::B32),
                     )
                     .into(),
                 ),
-                TypedStatement::Return(
+                TypedStatement::ret(
                     ArrayExpression::identifier("ret".into())
                         .annotate(
                             Type::FieldElement,
@@ -1335,7 +1337,7 @@ mod tests {
                 DeclarationConstant::Generic(GenericIdentifier::with_name("K").with_index(0)),
             )
             .into()],
-            statements: vec![TypedStatement::Return(
+            statements: vec![TypedStatement::ret(
                 ArrayExpression::identifier("a".into())
                     .annotate(
                         Type::FieldElement,
@@ -1355,8 +1357,9 @@ mod tests {
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
-                        vec![ArrayExpressionInner::Value(
-                            vec![FieldElementExpression::Number(Bn128Field::from(1)).into()].into(),
+                        vec![ArrayExpression::from_value(
+                            vec![FieldElementExpression::from_value(Bn128Field::from(1)).into()]
+                                .into(),
                         )
                         .annotate(Type::FieldElement, 1u32)
                         .into()],
@@ -1364,8 +1367,8 @@ mod tests {
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
-                TypedStatement::Return(
-                    TupleExpressionInner::Value(vec![])
+                TypedStatement::ret(
+                    TupleExpression::from_value(vec![])
                         .annotate(TupleType::new(vec![]))
                         .into(),
                 ),
@@ -1401,6 +1404,7 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+            module_map: Default::default(),
         };
 
         let reduced = reduce_program(p);
@@ -1428,8 +1432,8 @@ mod tests {
                 ),
                 TypedStatement::PopCallLog,
                 TypedStatement::PopCallLog,
-                TypedStatement::Return(
-                    TupleExpressionInner::Value(vec![])
+                TypedStatement::ret(
+                    TupleExpression::from_value(vec![])
                         .annotate(TupleType::new(vec![]))
                         .into(),
                 ),
@@ -1438,6 +1442,7 @@ mod tests {
         };
 
         let expected = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -1490,7 +1495,7 @@ mod tests {
                 GenericIdentifier::with_name("K").with_index(0),
             )
             .into()],
-            statements: vec![TypedStatement::Return(
+            statements: vec![TypedStatement::ret(
                 ArrayExpression::identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
@@ -1507,15 +1512,15 @@ mod tests {
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
-                        vec![ArrayExpressionInner::Value(vec![].into())
+                        vec![ArrayExpression::from_value(vec![].into())
                             .annotate(Type::FieldElement, 0u32)
                             .into()],
                     )
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
-                TypedStatement::Return(
-                    TupleExpressionInner::Value(vec![])
+                TypedStatement::ret(
+                    TupleExpression::from_value(vec![])
                         .annotate(TupleType::new(vec![]))
                         .into(),
                 ),
@@ -1551,6 +1556,7 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+            module_map: Default::default(),
         };
 
         let reduced = reduce_program(p);

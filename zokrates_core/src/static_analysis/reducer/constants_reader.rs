@@ -2,9 +2,9 @@
 
 use crate::static_analysis::reducer::ConstantDefinitions;
 use zokrates_ast::typed::{
-    folder::*, CoreIdentifier,
-    DeclarationConstant, Expr, Id, Identifier, IdentifierExpression,
-    IdentifierOrExpression, TypedExpression, TypedProgram, TypedSymbolDeclaration, UExpression, UExpressionInner,
+    folder::*, CoreIdentifier, DeclarationConstant, Expr, Id, Identifier, IdentifierExpression,
+    IdentifierOrExpression, TypedExpression, TypedProgram, TypedSymbolDeclaration, UExpression,
+    UExpressionInner,
 };
 use zokrates_field::Field;
 

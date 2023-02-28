@@ -27,5 +27,5 @@ impl<T: Field> Folder<T> for TautologyOptimizer {
     }
 }
 
-// #[cfg(test)]
-// mod tests {}
+#[cfg(test)]
+mod tests {}

@@ -73,6 +73,7 @@ mod tests {
         let typed_ast: TypedProgram<Bn128Field> = TypedProgram {
             main: "main".into(),
             modules,
+            module_map: Default::default(),
         };
 
         let abi: Abi = typed_ast.abi();

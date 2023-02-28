@@ -3663,7 +3663,7 @@ mod tests {
     use zokrates_field::Bn128Field;
 
     lazy_static! {
-        static ref MODULE_ID: OwnedModuleId = OwnedModuleId::from("");
+        static ref MODULE_ID: OwnedModuleId = OwnedModuleId::default();
     }
     mod constants {
         use super::*;
@@ -3904,7 +3904,7 @@ mod tests {
             let mut checker: Checker<Bn128Field> = Checker::default();
 
             assert_eq!(
-                checker.check_module(&OwnedTypedModuleId::from("bar"), &mut state),
+                checker.check_module(&OwnedModuleId::from("bar"), &mut state),
                 Ok(())
             );
             assert_eq!(
@@ -4412,7 +4412,7 @@ mod tests {
             assert_eq!(
                 Checker::<Bn128Field>::default().check_signature(signature, &*MODULE_ID, &state),
                 Err(vec![ErrorInner {
-                    span: Some((Position::mock(), Position::mock())),
+                    span: Some(Span::mock()),
                     message: "Undeclared symbol `K`".to_string()
                 }])
             );
@@ -4484,7 +4484,7 @@ mod tests {
         assert_eq!(
             checker.check_statement(statement, &*MODULE_ID, &TypeMap::new()),
             Err(vec![ErrorInner {
-                span: Some((Position::mock(), Position::mock())),
+                span: Some(Span::mock()),
                 message: "Identifier \"b\" is undefined".into()
             }])
         );
@@ -4585,7 +4585,7 @@ mod tests {
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![Error {
                 inner: ErrorInner {
-                    span: Some((Position::mock(), Position::mock())),
+                    span: Some(Span::mock()),
                     message: "Identifier \"a\" is undefined".into()
                 },
                 module_id: (*MODULE_ID).clone()
@@ -4714,7 +4714,7 @@ mod tests {
         assert_eq!(
             checker.check_function("foo", foo, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                span: Some((Position::mock(), Position::mock())),
+                span: Some(Span::mock()),
                 message: "Identifier \"i\" is undefined".into()
             }])
         );
@@ -4761,7 +4761,7 @@ mod tests {
         )];
 
         let foo_statements_checked = vec![
-            TypedStatement::For(
+            TypedStatement::for_(
                 typed::Variable::uint(
                     CoreIdentifier::Source(ShadowedIdentifier::shadow("i", 1)),
                     UBitwidth::B32,
@@ -4770,7 +4770,7 @@ mod tests {
                 10u32.into(),
                 for_statements_checked,
             ),
-            TypedStatement::Return(TypedExpression::empty_tuple()),
+            TypedStatement::ret(TypedExpression::empty_tuple()),
         ];
 
         let foo = Function {
@@ -4840,7 +4840,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                span: Some((Position::mock(), Position::mock())),
+                span: Some(Span::mock()),
                 message:
                     "Function definition for function foo with signature () -> field not found."
                         .into()
@@ -4879,7 +4879,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                span: Some((Position::mock(), Position::mock())),
+                span: Some(Span::mock()),
 
                 message:
                     "Function definition for function foo with signature () -> field not found."
@@ -4955,7 +4955,7 @@ mod tests {
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![Error {
                 inner: ErrorInner {
-                    span: Some((Position::mock(), Position::mock())),
+                    span: Some(Span::mock()),
                     message: "Variable `a` is undeclared".into()
                 },
                 module_id: (*MODULE_ID).clone()
@@ -5092,7 +5092,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                span: Some((Position::mock(), Position::mock())),
+                span: Some(Span::mock()),
 
                 message: "Function definition for function foo with signature () -> _ not found."
                     .into()
@@ -5125,7 +5125,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                span: Some((Position::mock(), Position::mock())),
+                span: Some(Span::mock()),
                 message: "Identifier \"a\" is undefined".into()
             }])
         );
@@ -5375,9 +5375,9 @@ mod tests {
                         true,
                     )
                     .into(),
-                    FieldElementExpression::Number(2.into()).into(),
+                    FieldElementExpression::from_value(2.into()).into(),
                 ),
-                TypedStatement::For(
+                TypedStatement::for_(
                     typed::Variable::new(
                         CoreIdentifier::from(ShadowedIdentifier::shadow("i", 1)),
                         Type::Uint(UBitwidth::B32),
@@ -5393,7 +5393,7 @@ mod tests {
                                 true,
                             )
                             .into(),
-                            FieldElementExpression::Number(3.into()).into(),
+                            FieldElementExpression::from_value(3.into()).into(),
                         ),
                         TypedStatement::definition(
                             typed::Variable::new(
@@ -5402,7 +5402,7 @@ mod tests {
                                 false,
                             )
                             .into(),
-                            FieldElementExpression::Number(4.into()).into(),
+                            FieldElementExpression::from_value(4.into()).into(),
                         ),
                     ],
                 ),
@@ -5413,7 +5413,7 @@ mod tests {
                         true,
                     )
                     .into(),
-                    FieldElementExpression::Number(5.into()).into(),
+                    FieldElementExpression::from_value(5.into()).into(),
                 ),
             ];
 
@@ -5854,7 +5854,7 @@ mod tests {
                         &state.types
                     ),
                     Ok(FieldElementExpression::member(
-                        StructExpressionInner::Value(vec![FieldElementExpression::Number(
+                        StructExpression::from_value(vec![FieldElementExpression::from_value(
                             Bn128Field::from(42u32)
                         )
                         .into()])
@@ -5978,9 +5978,9 @@ mod tests {
                         &*MODULE_ID,
                         &state.types
                     ),
-                    Ok(StructExpressionInner::Value(vec![
-                        FieldElementExpression::Number(Bn128Field::from(42u32)).into(),
-                        BooleanExpression::Value(true).into()
+                    Ok(StructExpression::from_value(vec![
+                        FieldElementExpression::from_value(Bn128Field::from(42u32)).into(),
+                        BooleanExpression::from_value(true).into()
                     ])
                     .annotate(StructType::new(
                         "".into(),
@@ -6031,9 +6031,9 @@ mod tests {
                         &*MODULE_ID,
                         &state.types
                     ),
-                    Ok(StructExpressionInner::Value(vec![
-                        FieldElementExpression::Number(Bn128Field::from(42u32)).into(),
-                        BooleanExpression::Value(true).into()
+                    Ok(StructExpression::from_value(vec![
+                        FieldElementExpression::from_value(Bn128Field::from(42u32)).into(),
+                        BooleanExpression::from_value(true).into()
                     ])
                     .annotate(StructType::new(
                         "".into(),

@@ -59,6 +59,7 @@ mod tests {
     #[test]
     fn identity() {
         let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             statements: vec![
                 Statement::constraint(
                     QuadComb::new(
@@ -66,6 +67,7 @@ mod tests {
                         LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::one(),
+                    None,
                 ),
                 Statement::constraint(
                     QuadComb::new(
@@ -73,6 +75,7 @@ mod tests {
                         LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::zero(),
+                    None,
                 ),
             ],
             return_count: 0,
@@ -95,9 +98,11 @@ mod tests {
                 LinComb::summand(3, Variable::new(3)),
             ),
             LinComb::one(),
+            None,
         );
 
         let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             statements: vec![
                 constraint.clone(),
                 constraint.clone(),
@@ -107,6 +112,7 @@ mod tests {
                         LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::zero(),
+                    None,
                 ),
                 constraint.clone(),
                 constraint.clone(),
@@ -116,6 +122,7 @@ mod tests {
         };
 
         let expected = Prog {
+            module_map: Default::default(),
             statements: vec![
                 constraint,
                 Statement::constraint(
@@ -124,6 +131,7 @@ mod tests {
                         LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::zero(),
+                    None,
                 ),
             ],
             return_count: 0,

@@ -902,10 +902,11 @@ mod tests {
     fn field_from_int() {
         let n: IntExpression<Bn128Field> = BigUint::from(42usize).into();
         let n_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![n.clone().into()].into()).annotate(Type::Int, 1u32);
+            ArrayExpressionInner::Value(ValueExpression::new(vec![n.clone().into()].into()))
+                .annotate(Type::Int, 1u32);
         let t: FieldElementExpression<Bn128Field> = Bn128Field::from(42).into();
         let t_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![t.clone().into()].into())
+            ArrayExpressionInner::Value(ValueExpression::new(vec![t.clone().into()].into()))
                 .annotate(Type::FieldElement, 1u32);
         let i: UExpression<Bn128Field> = 42u32.into();
         let c: BooleanExpression<Bn128Field> = true.into();
@@ -967,10 +968,11 @@ mod tests {
     fn uint_from_int() {
         let n: IntExpression<Bn128Field> = BigUint::from(42usize).into();
         let n_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![n.clone().into()].into()).annotate(Type::Int, 1u32);
+            ArrayExpressionInner::Value(ValueExpression::new(vec![n.clone().into()].into()))
+                .annotate(Type::Int, 1u32);
         let t: UExpression<Bn128Field> = 42u32.into();
         let t_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![t.clone().into()].into())
+            ArrayExpressionInner::Value(ValueExpression::new(vec![t.clone().into()].into()))
                 .annotate(Type::Uint(UBitwidth::B32), 1u32);
         let i: UExpression<Bn128Field> = 0u32.into();
         let c: BooleanExpression<Bn128Field> = true.into();

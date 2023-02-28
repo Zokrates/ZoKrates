@@ -193,6 +193,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ops::*;
     use zokrates_ast::typed::types::DeclarationSignature;
     use zokrates_field::Bn128Field;
     mod normal {
@@ -200,7 +201,7 @@ mod tests {
 
         #[test]
         fn detect_non_constant_bound() {
-            let loops: Vec<TypedStatement<Bn128Field>> = vec![TypedStatement::For(
+            let loops: Vec<TypedStatement<Bn128Field>> = vec![TypedStatement::for_(
                 Variable::new("i", Type::Uint(UBitwidth::B32), false),
                 UExpression::identifier("i".into()).annotate(UBitwidth::B32),
                 2u32.into(),
@@ -243,7 +244,7 @@ mod tests {
 
             let s = TypedStatement::definition(
                 TypedAssignee::Identifier(Variable::field_element("a")),
-                FieldElementExpression::Number(Bn128Field::from(5)).into(),
+                FieldElementExpression::from_value(Bn128Field::from(5)).into(),
             );
             assert_eq!(
                 u.fold_statement(s),
@@ -251,13 +252,13 @@ mod tests {
                     TypedAssignee::Identifier(Variable::field_element(
                         Identifier::from("a").version(0)
                     )),
-                    FieldElementExpression::Number(Bn128Field::from(5)).into()
+                    FieldElementExpression::from_value(Bn128Field::from(5)).into()
                 )]
             );
 
             let s = TypedStatement::definition(
                 TypedAssignee::Identifier(Variable::field_element("a")),
-                FieldElementExpression::Number(Bn128Field::from(6)).into(),
+                FieldElementExpression::from_value(Bn128Field::from(6)).into(),
             );
             assert_eq!(
                 u.fold_statement(s),
@@ -265,7 +266,7 @@ mod tests {
                     TypedAssignee::Identifier(Variable::field_element(
                         Identifier::from("a").version(1)
                     )),
-                    FieldElementExpression::Number(Bn128Field::from(6)).into()
+                    FieldElementExpression::from_value(Bn128Field::from(6)).into()
                 )]
             );
 
@@ -293,7 +294,7 @@ mod tests {
 
             let s = TypedStatement::definition(
                 TypedAssignee::Identifier(Variable::field_element("a")),
-                FieldElementExpression::Number(Bn128Field::from(5)).into(),
+                FieldElementExpression::from_value(Bn128Field::from(5)).into(),
             );
             assert_eq!(
                 u.fold_statement(s),
@@ -301,15 +302,15 @@ mod tests {
                     TypedAssignee::Identifier(Variable::field_element(
                         Identifier::from("a").version(0)
                     )),
-                    FieldElementExpression::Number(Bn128Field::from(5)).into()
+                    FieldElementExpression::from_value(Bn128Field::from(5)).into()
                 )]
             );
 
             let s = TypedStatement::definition(
                 TypedAssignee::Identifier(Variable::field_element("a")),
-                FieldElementExpression::Add(
-                    box FieldElementExpression::identifier("a".into()),
-                    box FieldElementExpression::Number(Bn128Field::from(1)),
+                FieldElementExpression::add(
+                    FieldElementExpression::identifier("a".into()),
+                    FieldElementExpression::from_value(Bn128Field::from(1)),
                 )
                 .into(),
             );
@@ -319,9 +320,9 @@ mod tests {
                     TypedAssignee::Identifier(Variable::field_element(
                         Identifier::from("a").version(1)
                     )),
-                    FieldElementExpression::Add(
-                        box FieldElementExpression::identifier(Identifier::from("a").version(0)),
-                        box FieldElementExpression::Number(Bn128Field::from(1))
+                    FieldElementExpression::add(
+                        FieldElementExpression::identifier(Identifier::from("a").version(0)),
+                        FieldElementExpression::from_value(Bn128Field::from(1))
                     )
                     .into()
                 )]
@@ -344,7 +345,7 @@ mod tests {
 
             let s = TypedStatement::definition(
                 TypedAssignee::Identifier(Variable::field_element("a")),
-                FieldElementExpression::Number(Bn128Field::from(2)).into(),
+                FieldElementExpression::from_value(Bn128Field::from(2)).into(),
             );
             assert_eq!(
                 u.fold_statement(s),
@@ -352,7 +353,7 @@ mod tests {
                     TypedAssignee::Identifier(Variable::field_element(
                         Identifier::from("a").version(0)
                     )),
-                    FieldElementExpression::Number(Bn128Field::from(2)).into()
+                    FieldElementExpression::from_value(Bn128Field::from(2)).into()
                 )]
             );
 
@@ -405,10 +406,10 @@ mod tests {
 
             let s = TypedStatement::definition(
                 TypedAssignee::Identifier(Variable::array("a", Type::FieldElement, 2u32)),
-                ArrayExpressionInner::Value(
+                ArrayExpression::from_value(
                     vec![
-                        FieldElementExpression::Number(Bn128Field::from(1)).into(),
-                        FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                        FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                        FieldElementExpression::from_value(Bn128Field::from(1)).into(),
                     ]
                     .into(),
                 )
@@ -424,10 +425,10 @@ mod tests {
                         Type::FieldElement,
                         2u32
                     )),
-                    ArrayExpressionInner::Value(
+                    ArrayExpression::from_value(
                         vec![
-                            FieldElementExpression::Number(Bn128Field::from(1)).into(),
-                            FieldElementExpression::Number(Bn128Field::from(1)).into()
+                            FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                            FieldElementExpression::from_value(Bn128Field::from(1)).into()
                         ]
                         .into()
                     )
@@ -441,7 +442,7 @@ mod tests {
                     box TypedAssignee::Identifier(Variable::array("a", Type::FieldElement, 2u32)),
                     box UExpression::from(1u32),
                 ),
-                FieldElementExpression::Number(Bn128Field::from(2)).into(),
+                FieldElementExpression::from_value(Bn128Field::from(2)).into(),
             );
 
             assert_eq!(u.fold_statement(s.clone()), vec![s]);
@@ -464,21 +465,21 @@ mod tests {
 
             let s = TypedStatement::definition(
                 TypedAssignee::Identifier(Variable::new("a", array_of_array_ty.clone(), true)),
-                ArrayExpressionInner::Value(
+                ArrayExpression::from_value(
                     vec![
-                        ArrayExpressionInner::Value(
+                        ArrayExpression::from_value(
                             vec![
-                                FieldElementExpression::Number(Bn128Field::from(0)).into(),
-                                FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                                FieldElementExpression::from_value(Bn128Field::from(0)).into(),
+                                FieldElementExpression::from_value(Bn128Field::from(1)).into(),
                             ]
                             .into(),
                         )
                         .annotate(Type::FieldElement, 2u32)
                         .into(),
-                        ArrayExpressionInner::Value(
+                        ArrayExpression::from_value(
                             vec![
-                                FieldElementExpression::Number(Bn128Field::from(2)).into(),
-                                FieldElementExpression::Number(Bn128Field::from(3)).into(),
+                                FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                                FieldElementExpression::from_value(Bn128Field::from(3)).into(),
                             ]
                             .into(),
                         )
@@ -499,21 +500,21 @@ mod tests {
                         array_of_array_ty.clone(),
                         true,
                     )),
-                    ArrayExpressionInner::Value(
+                    ArrayExpression::from_value(
                         vec![
-                            ArrayExpressionInner::Value(
+                            ArrayExpression::from_value(
                                 vec![
-                                    FieldElementExpression::Number(Bn128Field::from(0)).into(),
-                                    FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                                    FieldElementExpression::from_value(Bn128Field::from(0)).into(),
+                                    FieldElementExpression::from_value(Bn128Field::from(1)).into(),
                                 ]
                                 .into()
                             )
                             .annotate(Type::FieldElement, 2u32)
                             .into(),
-                            ArrayExpressionInner::Value(
+                            ArrayExpression::from_value(
                                 vec![
-                                    FieldElementExpression::Number(Bn128Field::from(2)).into(),
-                                    FieldElementExpression::Number(Bn128Field::from(3)).into(),
+                                    FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                                    FieldElementExpression::from_value(Bn128Field::from(3)).into(),
                                 ]
                                 .into()
                             )
@@ -536,10 +537,10 @@ mod tests {
                     )),
                     box UExpression::from(1u32),
                 ),
-                ArrayExpressionInner::Value(
+                ArrayExpression::from_value(
                     vec![
-                        FieldElementExpression::Number(Bn128Field::from(4)).into(),
-                        FieldElementExpression::Number(Bn128Field::from(5)).into(),
+                        FieldElementExpression::from_value(Bn128Field::from(4)).into(),
+                        FieldElementExpression::from_value(Bn128Field::from(5)).into(),
                     ]
                     .into(),
                 )
@@ -607,7 +608,7 @@ mod tests {
                         Variable::field_element("a").into(),
                         FieldElementExpression::identifier("a".into()).into(),
                     ),
-                    TypedStatement::For(
+                    TypedStatement::for_(
                         Variable::uint("i", UBitwidth::B32),
                         UExpression::identifier("n".into()).annotate(UBitwidth::B32),
                         UExpression::identifier("n".into()).annotate(UBitwidth::B32)
@@ -621,7 +622,7 @@ mod tests {
                         Variable::field_element("a").into(),
                         FieldElementExpression::identifier("a".into()).into(),
                     ),
-                    TypedStatement::For(
+                    TypedStatement::for_(
                         Variable::uint("i", UBitwidth::B32),
                         UExpression::identifier("n".into()).annotate(UBitwidth::B32),
                         UExpression::identifier("n".into()).annotate(UBitwidth::B32)
@@ -635,7 +636,7 @@ mod tests {
                         Variable::field_element("a").into(),
                         FieldElementExpression::identifier("a".into()).into(),
                     ),
-                    TypedStatement::Return(FieldElementExpression::identifier("a".into()).into()),
+                    TypedStatement::ret(FieldElementExpression::identifier("a".into()).into()),
                 ],
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
@@ -678,7 +679,7 @@ mod tests {
                         Variable::field_element(Identifier::from("a").version(1)).into(),
                         FieldElementExpression::identifier("a".into()).into(),
                     ),
-                    TypedStatement::For(
+                    TypedStatement::for_(
                         Variable::uint("i", UBitwidth::B32),
                         UExpression::identifier(Identifier::from("n").version(1))
                             .annotate(UBitwidth::B32),
@@ -695,7 +696,7 @@ mod tests {
                         Variable::field_element(Identifier::from("a").version(3)).into(),
                         FieldElementExpression::identifier(Identifier::from("a").version(2)).into(),
                     ),
-                    TypedStatement::For(
+                    TypedStatement::for_(
                         Variable::uint("i", UBitwidth::B32),
                         UExpression::identifier(Identifier::from("n").version(2))
                             .annotate(UBitwidth::B32),
@@ -712,7 +713,7 @@ mod tests {
                         Variable::field_element(Identifier::from("a").version(5)).into(),
                         FieldElementExpression::identifier(Identifier::from("a").version(4)).into(),
                     ),
-                    TypedStatement::Return(
+                    TypedStatement::ret(
                         FieldElementExpression::identifier(Identifier::from("a").version(5)).into(),
                     ),
                 ],
@@ -777,10 +778,10 @@ mod tests {
                     ),
                     TypedStatement::definition(
                         Variable::boolean("a").into(),
-                        BooleanExpression::Value(true).into(),
+                        BooleanExpression::from_value(true).into(),
                     ),
-                    TypedStatement::Return(
-                        TupleExpressionInner::Value(vec![])
+                    TypedStatement::ret(
+                        TupleExpression::from_value(vec![])
                             .annotate(TupleType::new(vec![]))
                             .into(),
                     ),
@@ -799,10 +800,10 @@ mod tests {
                     ),
                     TypedStatement::definition(
                         Variable::boolean(Identifier::from("a").version(2)).into(),
-                        BooleanExpression::Value(true).into(),
+                        BooleanExpression::from_value(true).into(),
                     ),
-                    TypedStatement::Return(
-                        TupleExpressionInner::Value(vec![])
+                    TypedStatement::ret(
+                        TupleExpression::from_value(vec![])
                             .annotate(TupleType::new(vec![]))
                             .into(),
                     ),
@@ -844,7 +845,7 @@ mod tests {
             let f: TypedFunction<Bn128Field> = TypedFunction {
                 arguments: vec![DeclarationVariable::field_element("a").into()],
                 statements: vec![
-                    TypedStatement::For(
+                    TypedStatement::for_(
                         Variable::uint("i", UBitwidth::B32),
                         0u32.into(),
                         1u32.into(),
@@ -855,12 +856,12 @@ mod tests {
                             ),
                             TypedStatement::definition(
                                 Variable::field_element(Identifier::from("a")).into(),
-                                FieldElementExpression::Number(42usize.into()).into(),
+                                FieldElementExpression::from_value(42usize.into()).into(),
                             ),
                         ],
                     ),
-                    TypedStatement::Return(
-                        TupleExpressionInner::Value(vec![FieldElementExpression::identifier(
+                    TypedStatement::ret(
+                        TupleExpression::from_value(vec![FieldElementExpression::identifier(
                             "a".into(),
                         )
                         .into()])
@@ -877,7 +878,7 @@ mod tests {
             let expected: TypedFunction<Bn128Field> = TypedFunction {
                 arguments: vec![DeclarationVariable::field_element("a").into()],
                 statements: vec![
-                    TypedStatement::For(
+                    TypedStatement::for_(
                         Variable::uint("i", UBitwidth::B32),
                         0u32.into(),
                         1u32.into(),
@@ -888,12 +889,12 @@ mod tests {
                             ),
                             TypedStatement::definition(
                                 Variable::field_element(Identifier::from("a")).into(),
-                                FieldElementExpression::Number(42usize.into()).into(),
+                                FieldElementExpression::from_value(42usize.into()).into(),
                             ),
                         ],
                     ),
-                    TypedStatement::Return(
-                        TupleExpressionInner::Value(vec![FieldElementExpression::identifier(
+                    TypedStatement::ret(
+                        TupleExpression::from_value(vec![FieldElementExpression::identifier(
                             Identifier::from("a").version(1),
                         )
                         .into()])
@@ -993,7 +994,7 @@ mod tests {
                             ))
                         .into(),
                     ),
-                    TypedStatement::Return(FieldElementExpression::identifier("a".into()).into()),
+                    TypedStatement::ret(FieldElementExpression::identifier("a".into()).into()),
                 ],
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
@@ -1073,7 +1074,7 @@ mod tests {
                             ))
                         .into(),
                     ),
-                    TypedStatement::Return(
+                    TypedStatement::ret(
                         FieldElementExpression::identifier(Identifier::from("a").version(3)).into(),
                     ),
                 ],

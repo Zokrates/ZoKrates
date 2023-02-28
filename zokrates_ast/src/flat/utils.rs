@@ -8,10 +8,10 @@ pub fn flat_expression_from_expression_summands<T: Field, U: Clone + Into<FlatEx
     v: &[(T, U)],
 ) -> FlatExpression<T> {
     match v.len() {
-        0 => FlatExpression::number(T::zero()),
+        0 => FlatExpression::from_value(T::zero()),
         1 => {
             let (val, var) = v[0].clone();
-            FlatExpression::mul(FlatExpression::number(val), var.into())
+            FlatExpression::mul(FlatExpression::from_value(val), var.into())
         }
         n => {
             let (u, v) = v.split_at(n / 2);
@@ -35,11 +35,11 @@ pub fn flat_expression_from_bits<T: Field>(v: Vec<FlatExpression<T>>) -> FlatExp
 
 pub fn flat_expression_from_variable_summands<T: Field>(v: &[(T, usize)]) -> FlatExpression<T> {
     match v.len() {
-        0 => FlatExpression::number(T::zero()),
+        0 => FlatExpression::from_value(T::zero()),
         1 => {
             let (val, var) = v[0].clone();
             FlatExpression::mul(
-                FlatExpression::number(val),
+                FlatExpression::from_value(val),
                 FlatExpression::identifier(Variable::new(var)),
             )
         }

@@ -292,7 +292,7 @@ impl<T> std::ops::Mul for FlatExpression<T> {
 
 impl<T> From<T> for FlatExpression<T> {
     fn from(other: T) -> Self {
-        Self::number(other)
+        Self::from_value(other)
     }
 }
 
@@ -318,7 +318,7 @@ impl<T> FlatExpression<T> {
         Self::Identifier(IdentifierExpression::new(v))
     }
 
-    pub fn number(t: T) -> Self {
+    pub fn from_value(t: T) -> Self {
         Self::Number(ValueExpression::new(t))
     }
 

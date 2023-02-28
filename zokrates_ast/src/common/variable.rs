@@ -77,24 +77,24 @@ impl fmt::Debug for Variable {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[test]
-//     fn one() {
-//         assert_eq!(format!("{}", Variable::one()), "~one");
-//     }
+    #[test]
+    fn one() {
+        assert_eq!(format!("{}", Variable::one()), "~one");
+    }
 
-//     #[test]
-//     fn public() {
-//         assert_eq!(format!("{}", Variable::public(0)), "~out_0");
-//         assert_eq!(format!("{}", Variable::public(42)), "~out_42");
-//     }
+    #[test]
+    fn public() {
+        assert_eq!(format!("{}", Variable::public(0)), "~out_0");
+        assert_eq!(format!("{}", Variable::public(42)), "~out_42");
+    }
 
-//     #[test]
-//     fn private() {
-//         assert_eq!(format!("{}", Variable::new(0)), "_0");
-//         assert_eq!(format!("{}", Variable::new(42)), "_42");
-//     }
-// }
+    #[test]
+    fn private() {
+        assert_eq!(format!("{}", Variable::new(0)), "_0");
+        assert_eq!(format!("{}", Variable::new(42)), "_42");
+    }
+}

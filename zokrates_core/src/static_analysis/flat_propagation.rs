@@ -36,7 +36,7 @@ impl<T: Field> Folder<T> for Propagator<T> {
         e: zokrates_ast::common::expressions::IdentifierExpression<Variable, FlatExpression<T>>,
     ) -> IdentifierOrExpression<Variable, FlatExpression<T>, FlatExpression<T>> {
         match self.constants.get(&e.id) {
-            Some(c) => IdentifierOrExpression::Expression(FlatExpression::number(c.clone())),
+            Some(c) => IdentifierOrExpression::Expression(FlatExpression::from_value(c.clone())),
             None => IdentifierOrExpression::Identifier(e),
         }
     }
@@ -49,7 +49,7 @@ impl<T: Field> Folder<T> for Propagator<T> {
                 self.fold_expression(*e.right),
             ) {
                 (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                    FlatExpression::number(n1.value + n2.value)
+                    FlatExpression::from_value(n1.value + n2.value)
                 }
                 (e1, e2) => FlatExpression::add(e1, e2),
             }
@@ -59,7 +59,7 @@ impl<T: Field> Folder<T> for Propagator<T> {
                 self.fold_expression(*e.right),
             ) {
                 (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                    FlatExpression::number(n1.value - n2.value)
+                    FlatExpression::from_value(n1.value - n2.value)
                 }
                 (e1, e2) => FlatExpression::sub(e1, e2),
             }
@@ -69,7 +69,7 @@ impl<T: Field> Folder<T> for Propagator<T> {
                 self.fold_expression(*e.right),
             ) {
                 (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                    FlatExpression::number(n1.value * n2.value)
+                    FlatExpression::from_value(n1.value * n2.value)
                 }
                 (e1, e2) => FlatExpression::mul(e1, e2),
             }
@@ -96,14 +96,14 @@ mod tests {
             fn add() {
                 let mut propagator = Propagator::default();
 
-                let e = FlatExpression::Add(
-                    box FlatExpression::Number(Bn128Field::from(2)),
-                    box FlatExpression::Number(Bn128Field::from(3)),
+                let e = FlatExpression::add(
+                    FlatExpression::from_value(Bn128Field::from(2)),
+                    FlatExpression::from_value(Bn128Field::from(3)),
                 );
 
                 assert_eq!(
                     propagator.fold_expression(e),
-                    FlatExpression::Number(Bn128Field::from(5))
+                    FlatExpression::from_value(Bn128Field::from(5))
                 );
             }
 
@@ -111,14 +111,14 @@ mod tests {
             fn sub() {
                 let mut propagator = Propagator::default();
 
-                let e = FlatExpression::Sub(
-                    box FlatExpression::Number(Bn128Field::from(3)),
-                    box FlatExpression::Number(Bn128Field::from(2)),
+                let e = FlatExpression::sub(
+                    FlatExpression::from_value(Bn128Field::from(3)),
+                    FlatExpression::from_value(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
                     propagator.fold_expression(e),
-                    FlatExpression::Number(Bn128Field::from(1))
+                    FlatExpression::from_value(Bn128Field::from(1))
                 );
             }
 
@@ -126,14 +126,14 @@ mod tests {
             fn mult() {
                 let mut propagator = Propagator::default();
 
-                let e = FlatExpression::Mult(
-                    box FlatExpression::Number(Bn128Field::from(3)),
-                    box FlatExpression::Number(Bn128Field::from(2)),
+                let e = FlatExpression::mul(
+                    FlatExpression::from_value(Bn128Field::from(3)),
+                    FlatExpression::from_value(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
                     propagator.fold_expression(e),
-                    FlatExpression::Number(Bn128Field::from(6))
+                    FlatExpression::from_value(Bn128Field::from(6))
                 );
             }
         }

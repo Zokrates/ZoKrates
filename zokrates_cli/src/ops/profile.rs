@@ -2,7 +2,7 @@ use crate::cli_constants::FLATTENED_CODE_DEFAULT_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::BufReader;
-use std::path::{Path};
+use std::path::Path;
 use zokrates_ast::ir::{self, ProgEnum};
 use zokrates_field::Field;
 use zokrates_profiler::profile;

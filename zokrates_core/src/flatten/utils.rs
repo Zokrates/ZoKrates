@@ -7,10 +7,10 @@ pub fn flat_expression_from_bits<T: Field>(v: Vec<FlatExpression<T>>) -> FlatExp
         v: Vec<(T, FlatExpression<T>)>,
     ) -> FlatExpression<T> {
         match v.len() {
-            0 => FlatExpression::number(T::zero()),
+            0 => FlatExpression::from_value(T::zero()),
             1 => {
                 let (coeff, var) = v[0].clone();
-                FlatExpression::mul(FlatExpression::number(coeff), var)
+                FlatExpression::mul(FlatExpression::from_value(coeff), var)
             }
             n => {
                 let (u, v) = v.split_at(n / 2);

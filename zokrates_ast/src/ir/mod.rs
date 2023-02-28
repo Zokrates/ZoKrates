@@ -268,9 +268,9 @@ mod tests {
 
         #[test]
         fn print_constraint() {
-            let c: Statement<Bn128Field> = Statement::Constraint(
+            let c: Statement<Bn128Field> = Statement::constraint(
                 QuadComb::new(Variable::new(42).into(), Variable::new(42).into()),
-                Variable::new(42).into(),
+                Variable::new(42),
                 None,
             );
             assert_eq!(format!("{}", c), "(1 * _42) * (1 * _42) == 1 * _42")

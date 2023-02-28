@@ -869,395 +869,395 @@ impl<'ast> From<pest::Type<'ast>> for untyped::UnresolvedTypeNode<'ast> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::untyped::types::{UnresolvedSignature, UnresolvedType};
-//     use crate::untyped::NodeValue;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::untyped::types::{UnresolvedSignature, UnresolvedType};
+    use crate::untyped::NodeValue;
 
-//     #[test]
-//     fn return_forty_two() {
-//         let source = "def main() -> field { return 42; }";
-//         let ast = pest::generate_ast(source).unwrap();
-//         let expected: untyped::Module = untyped::Module {
-//             symbols: vec![untyped::SymbolDeclaration {
-//                 id: &source[4..8],
-//                 symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Function(
-//                     untyped::Function {
-//                         arguments: vec![],
-//                         statements: vec![untyped::Statement::Return(Some(
-//                             untyped::Expression::IntConstant(42usize.into()).into(),
-//                         ))
-//                         .into()],
-//                         signature: UnresolvedSignature::new()
-//                             .inputs(vec![])
-//                             .output(UnresolvedType::FieldElement.mock()),
-//                     }
-//                     .into(),
-//                 )),
-//             }
-//             .into()],
-//         };
-//         assert_eq!(untyped::Module::from(ast), expected);
-//     }
+    #[test]
+    fn return_forty_two() {
+        let source = "def main() -> field { return 42; }";
+        let ast = pest::generate_ast(source).unwrap();
+        let expected: untyped::Module = untyped::Module {
+            symbols: vec![untyped::SymbolDeclaration {
+                id: &source[4..8],
+                symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Function(
+                    untyped::Function {
+                        arguments: vec![],
+                        statements: vec![untyped::Statement::Return(Some(
+                            untyped::Expression::IntConstant(42usize.into()).into(),
+                        ))
+                        .into()],
+                        signature: UnresolvedSignature::new()
+                            .inputs(vec![])
+                            .output(UnresolvedType::FieldElement.mock()),
+                    }
+                    .into(),
+                )),
+            }
+            .into()],
+        };
+        assert_eq!(untyped::Module::from(ast), expected);
+    }
 
-//     #[test]
-//     fn return_true() {
-//         let source = "def main() -> bool { return true; }";
-//         let ast = pest::generate_ast(source).unwrap();
-//         let expected: untyped::Module = untyped::Module {
-//             symbols: vec![untyped::SymbolDeclaration {
-//                 id: &source[4..8],
-//                 symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Function(
-//                     untyped::Function {
-//                         arguments: vec![],
-//                         statements: vec![untyped::Statement::Return(Some(
-//                             untyped::Expression::BooleanConstant(true).into(),
-//                         ))
-//                         .into()],
-//                         signature: UnresolvedSignature::new()
-//                             .inputs(vec![])
-//                             .output(UnresolvedType::Boolean.mock()),
-//                     }
-//                     .into(),
-//                 )),
-//             }
-//             .into()],
-//         };
-//         assert_eq!(untyped::Module::from(ast), expected);
-//     }
+    #[test]
+    fn return_true() {
+        let source = "def main() -> bool { return true; }";
+        let ast = pest::generate_ast(source).unwrap();
+        let expected: untyped::Module = untyped::Module {
+            symbols: vec![untyped::SymbolDeclaration {
+                id: &source[4..8],
+                symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Function(
+                    untyped::Function {
+                        arguments: vec![],
+                        statements: vec![untyped::Statement::Return(Some(
+                            untyped::Expression::BooleanConstant(true).into(),
+                        ))
+                        .into()],
+                        signature: UnresolvedSignature::new()
+                            .inputs(vec![])
+                            .output(UnresolvedType::Boolean.mock()),
+                    }
+                    .into(),
+                )),
+            }
+            .into()],
+        };
+        assert_eq!(untyped::Module::from(ast), expected);
+    }
 
-//     #[test]
-//     fn arguments() {
-//         let source = "def main(private field a, bool mut b) -> field { return 42; }";
-//         let ast = pest::generate_ast(source).unwrap();
+    #[test]
+    fn arguments() {
+        let source = "def main(private field a, bool mut b) -> field { return 42; }";
+        let ast = pest::generate_ast(source).unwrap();
 
-//         let expected: untyped::Module = untyped::Module {
-//             symbols: vec![untyped::SymbolDeclaration {
-//                 id: &source[4..8],
-//                 symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Function(
-//                     untyped::Function {
-//                         arguments: vec![
-//                             untyped::Parameter::private(
-//                                 untyped::Variable::immutable(
-//                                     "a",
-//                                     UnresolvedType::FieldElement.mock(),
-//                                 )
-//                                 .into(),
-//                             )
-//                             .into(),
-//                             untyped::Parameter::new(
-//                                 untyped::Variable::mutable("b", UnresolvedType::Boolean.mock())
-//                                     .mock(),
-//                                 None,
-//                             )
-//                             .into(),
-//                         ],
-//                         statements: vec![untyped::Statement::Return(Some(
-//                             untyped::Expression::IntConstant(42usize.into()).into(),
-//                         ))
-//                         .into()],
-//                         signature: UnresolvedSignature::new()
-//                             .inputs(vec![
-//                                 UnresolvedType::FieldElement.mock(),
-//                                 UnresolvedType::Boolean.mock(),
-//                             ])
-//                             .output(UnresolvedType::FieldElement.mock()),
-//                     }
-//                     .into(),
-//                 )),
-//             }
-//             .into()],
-//         };
+        let expected: untyped::Module = untyped::Module {
+            symbols: vec![untyped::SymbolDeclaration {
+                id: &source[4..8],
+                symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Function(
+                    untyped::Function {
+                        arguments: vec![
+                            untyped::Parameter::private(
+                                untyped::Variable::immutable(
+                                    "a",
+                                    UnresolvedType::FieldElement.mock(),
+                                )
+                                .into(),
+                            )
+                            .into(),
+                            untyped::Parameter::new(
+                                untyped::Variable::mutable("b", UnresolvedType::Boolean.mock())
+                                    .mock(),
+                                None,
+                            )
+                            .into(),
+                        ],
+                        statements: vec![untyped::Statement::Return(Some(
+                            untyped::Expression::IntConstant(42usize.into()).into(),
+                        ))
+                        .into()],
+                        signature: UnresolvedSignature::new()
+                            .inputs(vec![
+                                UnresolvedType::FieldElement.mock(),
+                                UnresolvedType::Boolean.mock(),
+                            ])
+                            .output(UnresolvedType::FieldElement.mock()),
+                    }
+                    .into(),
+                )),
+            }
+            .into()],
+        };
 
-//         assert_eq!(untyped::Module::from(ast), expected);
-//     }
+        assert_eq!(untyped::Module::from(ast), expected);
+    }
 
-//     mod types {
-//         use super::*;
+    mod types {
+        use super::*;
 
-//         /// Helper method to generate the ast for `def main(private {ty} a) { return; }` which we use to check ty
-//         fn wrap(ty: UnresolvedType<'static>) -> untyped::Module<'static> {
-//             untyped::Module {
-//                 symbols: vec![untyped::SymbolDeclaration {
-//                     id: "main",
-//                     symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Function(
-//                         untyped::Function {
-//                             arguments: vec![untyped::Parameter::private(
-//                                 untyped::Variable::new("a", ty.clone().mock(), false).into(),
-//                             )
-//                             .into()],
-//                             statements: vec![untyped::Statement::Return(None).into()],
-//                             signature: UnresolvedSignature::new().inputs(vec![ty.mock()]),
-//                         }
-//                         .into(),
-//                     )),
-//                 }
-//                 .into()],
-//             }
-//         }
+        /// Helper method to generate the ast for `def main(private {ty} a) { return; }` which we use to check ty
+        fn wrap(ty: UnresolvedType<'static>) -> untyped::Module<'static> {
+            untyped::Module {
+                symbols: vec![untyped::SymbolDeclaration {
+                    id: "main",
+                    symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Function(
+                        untyped::Function {
+                            arguments: vec![untyped::Parameter::private(
+                                untyped::Variable::new("a", ty.clone().mock(), false).into(),
+                            )
+                            .into()],
+                            statements: vec![untyped::Statement::Return(None).into()],
+                            signature: UnresolvedSignature::new().inputs(vec![ty.mock()]),
+                        }
+                        .into(),
+                    )),
+                }
+                .into()],
+            }
+        }
 
-//         #[test]
-//         fn array() {
-//             let vectors = vec![
-//                 ("field", UnresolvedType::FieldElement),
-//                 ("bool", UnresolvedType::Boolean),
-//                 (
-//                     "field[2]",
-//                     untyped::UnresolvedType::Array(
-//                         box untyped::UnresolvedType::FieldElement.mock(),
-//                         untyped::Expression::IntConstant(2usize.into()).mock(),
-//                     ),
-//                 ),
-//                 (
-//                     "field[2][3]",
-//                     untyped::UnresolvedType::Array(
-//                         box untyped::UnresolvedType::Array(
-//                             box untyped::UnresolvedType::FieldElement.mock(),
-//                             untyped::Expression::IntConstant(3usize.into()).mock(),
-//                         )
-//                         .mock(),
-//                         untyped::Expression::IntConstant(2usize.into()).mock(),
-//                     ),
-//                 ),
-//                 (
-//                     "bool[2][3u32]",
-//                     untyped::UnresolvedType::Array(
-//                         box untyped::UnresolvedType::Array(
-//                             box untyped::UnresolvedType::Boolean.mock(),
-//                             untyped::Expression::U32Constant(3u32).mock(),
-//                         )
-//                         .mock(),
-//                         untyped::Expression::IntConstant(2usize.into()).mock(),
-//                     ),
-//                 ),
-//             ];
+        #[test]
+        fn array() {
+            let vectors = vec![
+                ("field", UnresolvedType::FieldElement),
+                ("bool", UnresolvedType::Boolean),
+                (
+                    "field[2]",
+                    untyped::UnresolvedType::Array(
+                        box untyped::UnresolvedType::FieldElement.mock(),
+                        untyped::Expression::IntConstant(2usize.into()).mock(),
+                    ),
+                ),
+                (
+                    "field[2][3]",
+                    untyped::UnresolvedType::Array(
+                        box untyped::UnresolvedType::Array(
+                            box untyped::UnresolvedType::FieldElement.mock(),
+                            untyped::Expression::IntConstant(3usize.into()).mock(),
+                        )
+                        .mock(),
+                        untyped::Expression::IntConstant(2usize.into()).mock(),
+                    ),
+                ),
+                (
+                    "bool[2][3u32]",
+                    untyped::UnresolvedType::Array(
+                        box untyped::UnresolvedType::Array(
+                            box untyped::UnresolvedType::Boolean.mock(),
+                            untyped::Expression::U32Constant(3u32).mock(),
+                        )
+                        .mock(),
+                        untyped::Expression::IntConstant(2usize.into()).mock(),
+                    ),
+                ),
+            ];
 
-//             for (ty, expected) in vectors {
-//                 let source = format!("def main(private {} a) {{ return; }}", ty);
-//                 let expected = wrap(expected);
-//                 let ast = pest::generate_ast(&source).unwrap();
-//                 assert_eq!(untyped::Module::from(ast), expected);
-//             }
-//         }
-//     }
+            for (ty, expected) in vectors {
+                let source = format!("def main(private {} a) {{ return; }}", ty);
+                let expected = wrap(expected);
+                let ast = pest::generate_ast(&source).unwrap();
+                assert_eq!(untyped::Module::from(ast), expected);
+            }
+        }
+    }
 
-//     mod postfix {
-//         use super::*;
-//         fn wrap(expression: untyped::Expression<'static>) -> untyped::Module {
-//             untyped::Module {
-//                 symbols: vec![untyped::SymbolDeclaration {
-//                     id: "main",
-//                     symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Function(
-//                         untyped::Function {
-//                             arguments: vec![],
-//                             statements: vec![
-//                                 untyped::Statement::Return(Some(expression.into())).into()
-//                             ],
-//                             signature: UnresolvedSignature::new(),
-//                         }
-//                         .into(),
-//                     )),
-//                 }
-//                 .into()],
-//             }
-//         }
+    mod postfix {
+        use super::*;
+        fn wrap(expression: untyped::Expression<'static>) -> untyped::Module {
+            untyped::Module {
+                symbols: vec![untyped::SymbolDeclaration {
+                    id: "main",
+                    symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Function(
+                        untyped::Function {
+                            arguments: vec![],
+                            statements: vec![
+                                untyped::Statement::Return(Some(expression.into())).into()
+                            ],
+                            signature: UnresolvedSignature::new(),
+                        }
+                        .into(),
+                    )),
+                }
+                .into()],
+            }
+        }
 
-//         #[test]
-//         fn success() {
-//             // we basically accept `()?[]*` : an optional call at first, then only array accesses
+        #[test]
+        fn success() {
+            // we basically accept `()?[]*` : an optional call at first, then only array accesses
 
-//             let vectors = vec![
-//                 ("a", untyped::Expression::Identifier("a")),
-//                 (
-//                     "a[3]",
-//                     untyped::Expression::Select(
-//                         box untyped::Expression::Identifier("a").into(),
-//                         box untyped::RangeOrExpression::Expression(
-//                             untyped::Expression::IntConstant(3usize.into()).into(),
-//                         ),
-//                     ),
-//                 ),
-//                 (
-//                     "a[3][4]",
-//                     untyped::Expression::Select(
-//                         box untyped::Expression::Select(
-//                             box untyped::Expression::Identifier("a").into(),
-//                             box untyped::RangeOrExpression::Expression(
-//                                 untyped::Expression::IntConstant(3usize.into()).into(),
-//                             ),
-//                         )
-//                         .into(),
-//                         box untyped::RangeOrExpression::Expression(
-//                             untyped::Expression::IntConstant(4usize.into()).into(),
-//                         ),
-//                     ),
-//                 ),
-//                 (
-//                     "a(3)[4]",
-//                     untyped::Expression::Select(
-//                         box untyped::Expression::FunctionCall(
-//                             box untyped::Expression::Identifier("a").mock(),
-//                             None,
-//                             vec![untyped::Expression::IntConstant(3usize.into()).into()],
-//                         )
-//                         .into(),
-//                         box untyped::RangeOrExpression::Expression(
-//                             untyped::Expression::IntConstant(4usize.into()).into(),
-//                         ),
-//                     ),
-//                 ),
-//                 (
-//                     "a(3)[4][5]",
-//                     untyped::Expression::Select(
-//                         box untyped::Expression::Select(
-//                             box untyped::Expression::FunctionCall(
-//                                 box untyped::Expression::Identifier("a").mock(),
-//                                 None,
-//                                 vec![untyped::Expression::IntConstant(3usize.into()).into()],
-//                             )
-//                             .into(),
-//                             box untyped::RangeOrExpression::Expression(
-//                                 untyped::Expression::IntConstant(4usize.into()).into(),
-//                             ),
-//                         )
-//                         .into(),
-//                         box untyped::RangeOrExpression::Expression(
-//                             untyped::Expression::IntConstant(5usize.into()).into(),
-//                         ),
-//                     ),
-//                 ),
-//             ];
+            let vectors = vec![
+                ("a", untyped::Expression::Identifier("a")),
+                (
+                    "a[3]",
+                    untyped::Expression::Select(
+                        box untyped::Expression::Identifier("a").into(),
+                        box untyped::RangeOrExpression::Expression(
+                            untyped::Expression::IntConstant(3usize.into()).into(),
+                        ),
+                    ),
+                ),
+                (
+                    "a[3][4]",
+                    untyped::Expression::Select(
+                        box untyped::Expression::Select(
+                            box untyped::Expression::Identifier("a").into(),
+                            box untyped::RangeOrExpression::Expression(
+                                untyped::Expression::IntConstant(3usize.into()).into(),
+                            ),
+                        )
+                        .into(),
+                        box untyped::RangeOrExpression::Expression(
+                            untyped::Expression::IntConstant(4usize.into()).into(),
+                        ),
+                    ),
+                ),
+                (
+                    "a(3)[4]",
+                    untyped::Expression::Select(
+                        box untyped::Expression::FunctionCall(
+                            box untyped::Expression::Identifier("a").mock(),
+                            None,
+                            vec![untyped::Expression::IntConstant(3usize.into()).into()],
+                        )
+                        .into(),
+                        box untyped::RangeOrExpression::Expression(
+                            untyped::Expression::IntConstant(4usize.into()).into(),
+                        ),
+                    ),
+                ),
+                (
+                    "a(3)[4][5]",
+                    untyped::Expression::Select(
+                        box untyped::Expression::Select(
+                            box untyped::Expression::FunctionCall(
+                                box untyped::Expression::Identifier("a").mock(),
+                                None,
+                                vec![untyped::Expression::IntConstant(3usize.into()).into()],
+                            )
+                            .into(),
+                            box untyped::RangeOrExpression::Expression(
+                                untyped::Expression::IntConstant(4usize.into()).into(),
+                            ),
+                        )
+                        .into(),
+                        box untyped::RangeOrExpression::Expression(
+                            untyped::Expression::IntConstant(5usize.into()).into(),
+                        ),
+                    ),
+                ),
+            ];
 
-//             for (source, expected) in vectors {
-//                 let source = format!("def main() {{ return {}; }}", source);
-//                 let expected = wrap(expected);
-//                 let ast = pest::generate_ast(&source).unwrap();
-//                 assert_eq!(untyped::Module::from(ast), expected);
-//             }
-//         }
+            for (source, expected) in vectors {
+                let source = format!("def main() {{ return {}; }}", source);
+                let expected = wrap(expected);
+                let ast = pest::generate_ast(&source).unwrap();
+                assert_eq!(untyped::Module::from(ast), expected);
+            }
+        }
 
-//         #[test]
-//         fn call_array_element() {
-//             // a call after an array access should be accepted
-//             let source = "def main() { return a[2](3); }";
-//             let ast = pest::generate_ast(source).unwrap();
-//             assert_eq!(
-//                 untyped::Module::from(ast),
-//                 wrap(untyped::Expression::FunctionCall(
-//                     box untyped::Expression::Select(
-//                         box untyped::Expression::Identifier("a").mock(),
-//                         box untyped::RangeOrExpression::Expression(
-//                             untyped::Expression::IntConstant(2u32.into()).mock()
-//                         )
-//                     )
-//                     .mock(),
-//                     None,
-//                     vec![untyped::Expression::IntConstant(3u32.into()).mock()],
-//                 ))
-//             );
-//         }
+        #[test]
+        fn call_array_element() {
+            // a call after an array access should be accepted
+            let source = "def main() { return a[2](3); }";
+            let ast = pest::generate_ast(source).unwrap();
+            assert_eq!(
+                untyped::Module::from(ast),
+                wrap(untyped::Expression::FunctionCall(
+                    box untyped::Expression::Select(
+                        box untyped::Expression::Identifier("a").mock(),
+                        box untyped::RangeOrExpression::Expression(
+                            untyped::Expression::IntConstant(2u32.into()).mock()
+                        )
+                    )
+                    .mock(),
+                    None,
+                    vec![untyped::Expression::IntConstant(3u32.into()).mock()],
+                ))
+            );
+        }
 
-//         #[test]
-//         fn call_call_result() {
-//             // a call after a call should be accepted
-//             let source = "def main() { return a(2)(3); }";
+        #[test]
+        fn call_call_result() {
+            // a call after a call should be accepted
+            let source = "def main() { return a(2)(3); }";
 
-//             let ast = pest::generate_ast(source).unwrap();
-//             assert_eq!(
-//                 untyped::Module::from(ast),
-//                 wrap(untyped::Expression::FunctionCall(
-//                     box untyped::Expression::FunctionCall(
-//                         box untyped::Expression::Identifier("a").mock(),
-//                         None,
-//                         vec![untyped::Expression::IntConstant(2u32.into()).mock()]
-//                     )
-//                     .mock(),
-//                     None,
-//                     vec![untyped::Expression::IntConstant(3u32.into()).mock()],
-//                 ))
-//             );
-//         }
-//     }
-//     #[test]
-//     fn declarations() {
-//         use self::pest::Span;
+            let ast = pest::generate_ast(source).unwrap();
+            assert_eq!(
+                untyped::Module::from(ast),
+                wrap(untyped::Expression::FunctionCall(
+                    box untyped::Expression::FunctionCall(
+                        box untyped::Expression::Identifier("a").mock(),
+                        None,
+                        vec![untyped::Expression::IntConstant(2u32.into()).mock()]
+                    )
+                    .mock(),
+                    None,
+                    vec![untyped::Expression::IntConstant(3u32.into()).mock()],
+                ))
+            );
+        }
+    }
+    #[test]
+    fn declarations() {
+        use self::pest::Span;
 
-//         let span = Span::new("", 0, 0).unwrap();
+        let span = Span::new("", 0, 0).unwrap();
 
-//         // Case 1: `id = expr`
-//         // A simple assignment to an already defined variable
+        // Case 1: `id = expr`
+        // A simple assignment to an already defined variable
 
-//         let definition = pest::DefinitionStatement {
-//             lhs: pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
-//                 id: pest::IdentifierExpression {
-//                     value: String::from("a"),
-//                     span: span.clone(),
-//                 },
-//                 accesses: vec![],
-//                 span: span.clone(),
-//             }),
-//             expression: pest::Expression::Literal(pest::LiteralExpression::DecimalLiteral(
-//                 pest::DecimalLiteralExpression {
-//                     value: pest::DecimalNumber {
-//                         span: Span::new("1", 0, 1).unwrap(),
-//                     },
-//                     suffix: None,
-//                     span: span.clone(),
-//                 },
-//             )),
-//             span: span.clone(),
-//         };
+        let definition = pest::DefinitionStatement {
+            lhs: pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
+                id: pest::IdentifierExpression {
+                    value: String::from("a"),
+                    span: span.clone(),
+                },
+                accesses: vec![],
+                span: span.clone(),
+            }),
+            expression: pest::Expression::Literal(pest::LiteralExpression::DecimalLiteral(
+                pest::DecimalLiteralExpression {
+                    value: pest::DecimalNumber {
+                        span: Span::new("1", 0, 1).unwrap(),
+                    },
+                    suffix: None,
+                    span: span.clone(),
+                },
+            )),
+            span: span.clone(),
+        };
 
-//         let statement = untyped::StatementNode::from(definition);
+        let statement = untyped::StatementNode::from(definition);
 
-//         match statement.value {
-//             untyped::Statement::Assignment(..) => {}
-//             s => {
-//                 panic!("should be an Assignment, found {}", s);
-//             }
-//         };
+        match statement.value {
+            untyped::Statement::Assignment(..) => {}
+            s => {
+                panic!("should be an Assignment, found {}", s);
+            }
+        };
 
-//         // Case 2: `type id = expr`
-//         // A definition statement is generated
+        // Case 2: `type id = expr`
+        // A definition statement is generated
 
-//         let definition = pest::DefinitionStatement {
-//             lhs: pest::TypedIdentifierOrAssignee::TypedIdentifier(pest::TypedIdentifier {
-//                 ty: pest::Type::Basic(pest::BasicType::Field(pest::FieldType {
-//                     span: span.clone(),
-//                 })),
-//                 identifier: pest::IdentifierExpression {
-//                     value: String::from("a"),
-//                     span: span.clone(),
-//                 },
-//                 mutable: None,
-//                 span: span.clone(),
-//             }),
-//             expression: pest::Expression::Postfix(pest::PostfixExpression {
-//                 base: box pest::Expression::Identifier(pest::IdentifierExpression {
-//                     value: String::from("foo"),
-//                     span: span.clone(),
-//                 }),
-//                 accesses: vec![pest::Access::Call(pest::CallAccess {
-//                     explicit_generics: None,
-//                     arguments: pest::Arguments {
-//                         expressions: vec![],
-//                         span: span.clone(),
-//                     },
-//                     span: span.clone(),
-//                 })],
-//                 span: span.clone(),
-//             }),
-//             span: span.clone(),
-//         };
+        let definition = pest::DefinitionStatement {
+            lhs: pest::TypedIdentifierOrAssignee::TypedIdentifier(pest::TypedIdentifier {
+                ty: pest::Type::Basic(pest::BasicType::Field(pest::FieldType {
+                    span: span.clone(),
+                })),
+                identifier: pest::IdentifierExpression {
+                    value: String::from("a"),
+                    span: span.clone(),
+                },
+                mutable: None,
+                span: span.clone(),
+            }),
+            expression: pest::Expression::Postfix(pest::PostfixExpression {
+                base: box pest::Expression::Identifier(pest::IdentifierExpression {
+                    value: String::from("foo"),
+                    span: span.clone(),
+                }),
+                accesses: vec![pest::Access::Call(pest::CallAccess {
+                    explicit_generics: None,
+                    arguments: pest::Arguments {
+                        expressions: vec![],
+                        span: span.clone(),
+                    },
+                    span: span.clone(),
+                })],
+                span: span.clone(),
+            }),
+            span: span.clone(),
+        };
 
-//         let statement = untyped::StatementNode::from(definition);
+        let statement = untyped::StatementNode::from(definition);
 
-//         match statement.value {
-//             untyped::Statement::Definition(..) => {}
-//             s => {
-//                 panic!("should be a Definition, found {}", s);
-//             }
-//         };
-//     }
-// }
+        match statement.value {
+            untyped::Statement::Definition(..) => {}
+            s => {
+                panic!("should be a Definition, found {}", s);
+            }
+        };
+    }
+}

@@ -98,16 +98,6 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         UExpressionInner::Pos(UnaryExpression::new(self)).annotate(bitwidth)
     }
 
-    pub fn neg(self) -> UExpression<'ast, T> {
-        let bitwidth = self.bitwidth;
-        UExpressionInner::Neg(UnaryExpression::new(self)).annotate(bitwidth)
-    }
-
-    pub fn not(self) -> UExpression<'ast, T> {
-        let bitwidth = self.bitwidth;
-        UExpressionInner::Not(UnaryExpression::new(self)).annotate(bitwidth)
-    }
-
     pub fn left_shift(self, by: UExpression<'ast, T>) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(by.bitwidth, UBitwidth::B32);

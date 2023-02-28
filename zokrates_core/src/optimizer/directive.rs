@@ -55,5 +55,5 @@ impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {}
+#[cfg(test)]
+mod tests {}
