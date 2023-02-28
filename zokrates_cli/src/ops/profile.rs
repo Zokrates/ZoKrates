@@ -1,8 +1,8 @@
 use crate::cli_constants::FLATTENED_CODE_DEFAULT_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::io::BufReader;
+use std::path::{Path};
 use zokrates_ast::ir::{self, ProgEnum};
 use zokrates_field::Field;
 use zokrates_profiler::profile;
@@ -40,7 +40,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
 fn cli_profile<T: Field, I: Iterator<Item = ir::Statement<T>>>(
     ir_prog: ir::ProgIterator<T, I>,
-    sub_matches: &ArgMatches,
+    _: &ArgMatches,
 ) -> Result<(), String> {
     let module_map = ir_prog.module_map.clone();
 

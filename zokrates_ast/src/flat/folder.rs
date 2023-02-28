@@ -74,8 +74,9 @@ pub fn fold_statement<T: Field, F: Folder<T>>(
     s: FlatStatement<T>,
 ) -> Vec<FlatStatement<T>> {
     match s {
-        FlatStatement::Condition(s) => vec![FlatStatement::assertion(
-            f.fold_expression(s.expression),
+        FlatStatement::Condition(s) => vec![FlatStatement::condition(
+            f.fold_expression(s.quad),
+            f.fold_expression(s.lin),
             s.error,
         )],
         FlatStatement::Definition(s) => vec![FlatStatement::definition(

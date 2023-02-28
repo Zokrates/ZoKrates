@@ -39,7 +39,6 @@ use crate::typed::types::{ConcreteGenericsAssignment, IntoType};
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
 use std::marker::PhantomData;
 use std::ops::Deref;
-use std::path::{Path, PathBuf};
 
 pub use crate::typed::integer::IntExpression;
 pub use crate::typed::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
@@ -692,8 +691,8 @@ pub type ReturnStatement<'ast, T> = common::statements::ReturnStatement<TypedExp
 pub type LogStatement<'ast, T> = common::statements::LogStatement<TypedExpression<'ast, T>>;
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct ForStatement<'ast, T> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -1033,8 +1032,8 @@ impl<'ast, T: Clone> Typed<'ast, T> for BooleanExpression<'ast, T> {
 }
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct BlockExpression<'ast, T, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -1053,8 +1052,8 @@ impl<'ast, T, E> BlockExpression<'ast, T, E> {
 }
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct SliceExpression<'ast, T> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -1095,8 +1094,8 @@ impl<'ast, T: fmt::Display> fmt::Display for SliceExpression<'ast, T> {
 }
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct RepeatExpression<'ast, T> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -1133,8 +1132,8 @@ impl<'ast, T: fmt::Display> fmt::Display for RepeatExpression<'ast, T> {
 pub type IdentifierExpression<'ast, E> = expressions::IdentifierExpression<Identifier<'ast>, E>;
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct MemberExpression<'ast, T, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -1161,8 +1160,8 @@ impl<'ast, T: fmt::Display, E> fmt::Display for MemberExpression<'ast, T, E> {
 }
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct SelectExpression<'ast, T, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -1189,8 +1188,8 @@ impl<'ast, T: fmt::Display, E> fmt::Display for SelectExpression<'ast, T, E> {
 }
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct ElementExpression<'ast, T, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -1223,8 +1222,8 @@ pub enum ConditionalKind {
 }
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct ConditionalExpression<'ast, T, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -1271,8 +1270,8 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for ConditionalExpress
 }
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct FunctionCallExpression<'ast, T, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -1913,13 +1912,16 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for BlockExpression<'a
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{{\n{}\n}}",
+            "{{\n{}\n}}{}",
             self.statements
                 .iter()
                 .map(|s| s.to_string())
                 .chain(std::iter::once(self.value.to_string()))
                 .collect::<Vec<_>>()
-                .join("\n")
+                .join("\n"),
+            self.span
+                .map(|_| "".to_string())
+                .unwrap_or(" /* NONE */".to_string())
         )
     }
 }

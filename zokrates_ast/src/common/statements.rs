@@ -1,18 +1,15 @@
 use derivative::Derivative;
-use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 
 use crate::Solver;
 
-use super::operators::OpEq;
 use super::FormatString;
-use super::{operators::OperatorStr, Span, Value, WithSpan};
+use super::{Span, WithSpan};
 use std::fmt;
-use std::marker::PhantomData;
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct DefinitionStatement<A, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -47,8 +44,8 @@ impl<A: fmt::Display, E: fmt::Display> fmt::Display for DefinitionStatement<A, E
 }
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct AssertionStatement<B, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -77,8 +74,8 @@ impl<B, E> WithSpan for AssertionStatement<B, E> {
 }
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
 pub struct ReturnStatement<E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -111,8 +108,8 @@ impl<E: fmt::Display> fmt::Display for ReturnStatement<E> {
 }
 
 #[derive(Derivative)]
-#[derivative(PartialOrd, PartialEq, Hash)]
-#[derive(Clone, Debug, Eq, Ord, Serialize, Deserialize)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LogStatement<E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,

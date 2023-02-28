@@ -5,7 +5,6 @@
 //! @date 2018
 
 use std::collections::HashSet;
-use zokrates_ast::common::expressions::BinaryExpression;
 use zokrates_ast::typed::folder::*;
 use zokrates_ast::typed::types::{MemberId, Type};
 use zokrates_ast::typed::*;

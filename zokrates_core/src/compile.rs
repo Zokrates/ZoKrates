@@ -206,27 +206,17 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     let (typed_ast, abi): (zokrates_ast::zir::ZirProgram<'_, T>, _) =
         check_with_arena(source, location, resolver, &config, arena)?;
 
-    // log::trace!("{:#?}", typed_ast);
-
     // flatten input program
     log::debug!("Flatten");
     let program_flattened = from_program_and_config(typed_ast, config);
-
-    let program_flattened = program_flattened.collect();
-    // log::trace!("{:#?}", program_flattened);
 
     // convert to ir
     log::debug!("Convert to IR");
     let ir_prog = from_flat(program_flattened);
 
-    let ir_prog = ir_prog.collect();
-    // log::trace!("{:#?}", ir_prog);
-
     // optimize
     log::debug!("Optimise IR");
     let optimized_ir_prog = optimize(ir_prog);
-    let optimized_ir_prog = optimized_ir_prog.collect();
-    // log::trace!("{:#?}", optimized_ir_prog);
 
     Ok(CompilationArtifacts {
         prog: optimized_ir_prog,

@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt;
 
 // A variable in a constraint system
@@ -75,16 +74,6 @@ impl fmt::Debug for Variable {
             i if i > 0 => write!(f, "_{}", i - 1),
             i => write!(f, "~out_{}", -(i + 1)),
         }
-    }
-}
-
-impl Variable {
-    pub fn apply_substitution(self, substitution: &HashMap<Variable, Variable>) -> &Self {
-        substitution.get(&self).unwrap()
-    }
-
-    pub fn is_output(&self) -> bool {
-        self.id < 0
     }
 }
 

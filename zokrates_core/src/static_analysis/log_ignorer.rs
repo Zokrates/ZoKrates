@@ -11,7 +11,7 @@ impl LogIgnorer {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for LogIgnorer {
-    fn fold_log_statement(&mut self, s: LogStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+    fn fold_log_statement(&mut self, _: LogStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         vec![]
     }
 }

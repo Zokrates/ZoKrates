@@ -834,6 +834,9 @@ fn fold_conditional_expression<'ast, T: Field, E: Flatten<'ast, T>>(
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     c: typed::ConditionalExpression<'ast, T, E>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
+    let span = c.get_span();
+    let condition_span = c.condition.get_span();
+
     let mut consequence_statements = vec![];
     let mut alternative_statements = vec![];
 
@@ -845,7 +848,7 @@ fn fold_conditional_expression<'ast, T: Field, E: Flatten<'ast, T>>(
 
     if !consequence_statements.is_empty() || !alternative_statements.is_empty() {
         statements_buffer.push(zir::ZirStatement::if_else(
-            condition.clone(),
+            condition.clone().span(condition_span),
             consequence_statements,
             alternative_statements,
         ));
@@ -858,13 +861,19 @@ fn fold_conditional_expression<'ast, T: Field, E: Flatten<'ast, T>>(
         .zip(alternative.into_iter())
         .map(|(c, a)| match (c, a) {
             (zir::ZirExpression::FieldElement(c), zir::ZirExpression::FieldElement(a)) => {
-                zir::FieldElementExpression::conditional(condition.clone(), c, a).into()
+                zir::FieldElementExpression::conditional(condition.clone(), c, a)
+                    .span(span)
+                    .into()
             }
             (zir::ZirExpression::Boolean(c), zir::ZirExpression::Boolean(a)) => {
-                zir::BooleanExpression::conditional(condition.clone(), c, a).into()
+                zir::BooleanExpression::conditional(condition.clone(), c, a)
+                    .span(span)
+                    .into()
             }
             (zir::ZirExpression::Uint(c), zir::ZirExpression::Uint(a)) => {
-                zir::UExpression::conditional(condition.clone(), c, a).into()
+                zir::UExpression::conditional(condition.clone(), c, a)
+                    .span(span)
+                    .into()
             }
             _ => unreachable!(),
         })

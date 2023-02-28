@@ -53,11 +53,11 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
             .collect()
     }
 
-    fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
+    fn fold_statement_cases(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
         match s {
             ZirStatement::IfElse(s) => self.fold_if_else_statement(s),
             s => {
-                let s = fold_statement(self, s);
+                let s = fold_statement_cases(self, s);
                 self.panic_buffer.drain(..).chain(s).collect()
             }
         }
@@ -99,6 +99,8 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
         _: &E::Ty,
         e: ConditionalExpression<'ast, T, E>,
     ) -> ConditionalOrExpression<'ast, T, E> {
+        let span = e.get_span();
+
         let condition = self.fold_boolean_expression(*e.condition);
         let mut consequence_extractor = Self::default();
         let consequence = e.consequence.fold(&mut consequence_extractor);
@@ -117,11 +119,9 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 )));
         }
 
-        ConditionalOrExpression::Conditional(ConditionalExpression::new(
-            condition,
-            consequence,
-            alternative,
-        ))
+        ConditionalOrExpression::Conditional(
+            ConditionalExpression::new(condition, consequence, alternative).span(span),
+        )
     }
 
     fn fold_uint_expression_cases(

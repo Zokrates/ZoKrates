@@ -18,7 +18,7 @@ pub use self::variable::{Variable, VariableNode};
 use crate::common::FlatEmbed;
 pub use crate::common::Position;
 pub use crate::common::{ModuleId, OwnedModuleId};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use std::fmt;
 

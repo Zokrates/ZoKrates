@@ -4,7 +4,6 @@ use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
-use std::hash::Hash;
 use zokrates_field::Field;
 
 mod check;
@@ -89,7 +88,7 @@ pub enum Statement<T> {
 pub type PublicInputs = BTreeSet<Variable>;
 
 impl<T> WithSpan for Statement<T> {
-    fn span(mut self, span: Option<Span>) -> Self {
+    fn span(self, span: Option<Span>) -> Self {
         match self {
             Statement::Constraint(c) => Statement::Constraint(c.span(span)),
             Statement::Directive(c) => Statement::Directive(c.span(span)),

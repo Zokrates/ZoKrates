@@ -1,5 +1,5 @@
 use zokrates_ast::{
-    common::Fold,
+    common::{Fold, WithSpan},
     typed::{
         folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
         ConditionalOrExpression, CoreIdentifier, Expr, Id, Identifier, Type, TypedExpression,
@@ -21,9 +21,9 @@ impl<'ast, T: Field> ConditionRedefiner<'ast, T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
-    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+    fn fold_statement_cases(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         assert!(self.buffer.is_empty());
-        let s = fold_statement(self, s);
+        let s = fold_statement_cases(self, s);
         let buffer = std::mem::take(&mut self.buffer);
         buffer.into_iter().chain(s).collect()
     }
@@ -63,19 +63,24 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
         e: ConditionalExpression<'ast, T, E>,
     ) -> ConditionalOrExpression<'ast, T, E> {
         let condition = self.fold_boolean_expression(*e.condition);
+        let condition_span = condition.get_span();
         let condition = match condition {
             condition @ BooleanExpression::Value(_)
             | condition @ BooleanExpression::Identifier(_) => condition,
             condition => {
                 let condition_id = Identifier::from(CoreIdentifier::Condition(self.index));
-                self.buffer.push(TypedStatement::definition(
-                    Variable::immutable(condition_id.clone(), Type::Boolean).into(),
-                    TypedExpression::from(condition),
-                ));
+                self.buffer.push(
+                    TypedStatement::definition(
+                        Variable::immutable(condition_id.clone(), Type::Boolean).into(),
+                        TypedExpression::from(condition),
+                    )
+                    .span(condition_span),
+                );
                 self.index += 1;
                 BooleanExpression::identifier(condition_id)
             }
-        };
+        }
+        .span(condition_span);
 
         let consequence = e.consequence.fold(self);
         let alternative = e.alternative.fold(self);

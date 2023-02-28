@@ -21,6 +21,7 @@ use crate::common::{
 };
 use crate::common::{Span, WithSpan};
 
+use derivative::Derivative;
 pub use utils::{
     flat_expression_from_bits, flat_expression_from_expression_summands,
     flat_expression_from_variable_summands,
@@ -83,12 +84,44 @@ impl<T: Field> fmt::Display for FlatFunction<T> {
 
 pub type DefinitionStatement<T> =
     common::expressions::DefinitionStatement<Variable, FlatExpression<T>>;
-pub type AssertionStatement<T> =
-    common::expressions::AssertionStatement<FlatExpression<T>, RuntimeError>;
 pub type LogStatement<T> = common::statements::LogStatement<(ConcreteType, Vec<FlatExpression<T>>)>;
 pub type FlatDirective<T> = common::statements::DirectiveStatement<FlatExpression<T>, Variable>;
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug)]
+pub struct AssertionStatement<T> {
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    pub span: Option<Span>,
+    pub quad: FlatExpression<T>,
+    pub lin: FlatExpression<T>,
+    pub error: RuntimeError,
+}
+
+impl<T> AssertionStatement<T> {
+    pub fn new(lin: FlatExpression<T>, quad: FlatExpression<T>, error: RuntimeError) -> Self {
+        AssertionStatement {
+            span: None,
+            quad,
+            lin,
+            error,
+        }
+    }
+}
+
+impl<T> WithSpan for AssertionStatement<T> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self { span, ..self }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug)]
 pub enum FlatStatement<T> {
     Condition(AssertionStatement<T>),
     Definition(DefinitionStatement<T>),
@@ -101,16 +134,8 @@ impl<T> FlatStatement<T> {
         Self::Definition(DefinitionStatement::new(assignee, rhs))
     }
 
-    pub fn assertion(expression: FlatExpression<T>, error: RuntimeError) -> Self {
-        Self::Condition(AssertionStatement::new(expression, error))
-    }
-
-    pub fn condition(
-        left: FlatExpression<T>,
-        right: FlatExpression<T>,
-        error: RuntimeError,
-    ) -> Self {
-        Self::assertion(left - right, error)
+    pub fn condition(lin: FlatExpression<T>, quad: FlatExpression<T>, error: RuntimeError) -> Self {
+        Self::Condition(AssertionStatement::new(lin, quad, error))
     }
 
     pub fn log(
@@ -158,7 +183,7 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
         match *self {
             FlatStatement::Definition(ref e) => write!(f, "{}", e),
             FlatStatement::Condition(ref s) => {
-                write!(f, "{} == 0 // {}", s.expression, s.error)
+                write!(f, "{} == {} // {}", s.quad, s.lin, s.error)
             }
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
             FlatStatement::Log(ref s) => write!(
@@ -191,9 +216,11 @@ impl<T: Field> FlatStatement<T> {
                 *s.assignee.apply_substitution(substitution),
                 s.rhs.apply_substitution(substitution),
             ),
-            FlatStatement::Condition(s) => {
-                FlatStatement::assertion(s.expression.apply_substitution(substitution), s.error)
-            }
+            FlatStatement::Condition(s) => FlatStatement::condition(
+                s.quad.apply_substitution(substitution),
+                s.lin.apply_substitution(substitution),
+                s.error,
+            ),
             FlatStatement::Directive(d) => {
                 let outputs = d
                     .outputs

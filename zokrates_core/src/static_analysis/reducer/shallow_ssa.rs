@@ -26,7 +26,6 @@
 // 	   return b_3; // we leave versions b_1 and b_2 to make b accessible and modifiable inside the for-loop
 // }
 
-use zokrates_ast::common::WithSpan;
 use zokrates_ast::typed::folder::*;
 use zokrates_ast::typed::types::ConcreteGenericsAssignment;
 use zokrates_ast::typed::types::Type;

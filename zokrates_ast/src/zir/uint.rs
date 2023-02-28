@@ -1,6 +1,7 @@
 use crate::common::expressions::{UValueExpression, UnaryExpression, ValueExpression};
 use crate::zir::IdentifierExpression;
 use crate::{common::expressions::BinaryExpression, common::operators::*, zir::types::UBitwidth};
+use derivative::Derivative;
 use zokrates_field::Field;
 
 use super::{ConditionalExpression, SelectExpression};
@@ -163,14 +164,18 @@ impl<T: Field> UMetadata<T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug)]
 pub struct UExpression<'ast, T> {
     pub bitwidth: UBitwidth,
     pub metadata: Option<UMetadata<T>>,
     pub inner: UExpressionInner<'ast, T>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug)]
 pub enum UExpressionInner<'ast, T> {
     Value(UValueExpression),
     Identifier(IdentifierExpression<'ast, UExpression<'ast, T>>),

@@ -25,10 +25,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Isolator {
         _: &E::Ty,
         e: ConditionalExpression<'ast, T, E>,
     ) -> ConditionalOrExpression<'ast, T, E> {
+        let consequence_span = e.consequence.get_span();
+        let alternative_span = e.alternative.get_span();
+
         ConditionalOrExpression::Conditional(ConditionalExpression::new(
             self.fold_boolean_expression(*e.condition),
-            E::block(vec![], e.consequence.fold(self)),
-            E::block(vec![], e.alternative.fold(self)),
+            E::block(vec![], e.consequence.fold(self)).span(consequence_span),
+            E::block(vec![], e.alternative.fold(self)).span(alternative_span),
             e.kind,
         ))
     }

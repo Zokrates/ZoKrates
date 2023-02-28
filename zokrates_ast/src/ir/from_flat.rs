@@ -59,20 +59,13 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
         let span = flat_statement.get_span();
 
         match flat_statement {
-            FlatStatement::Condition(s) => match s.expression {
-                FlatExpression::Sub(e) => {
-                    let quadratic = *e.right;
-                    let linear = *e.left;
-                    match quadratic {
-                        FlatExpression::Mult(e) => Statement::constraint(
-                            QuadComb::new((*e.left).into(), (*e.right).into()).span(e.span),
-                            LinComb::from(linear),
-                            Some(s.error),
-                        ),
-                        e => Statement::constraint(LinComb::from(e), linear, Some(s.error)),
-                    }
-                }
-                _ => unreachable!(),
+            FlatStatement::Condition(s) => match s.quad {
+                FlatExpression::Mult(e) => Statement::constraint(
+                    QuadComb::new((*e.left).into(), (*e.right).into()).span(e.span),
+                    LinComb::from(s.lin),
+                    Some(s.error),
+                ),
+                e => Statement::constraint(LinComb::from(e), s.lin, Some(s.error)),
             },
             FlatStatement::Definition(s) => match s.rhs {
                 FlatExpression::Mult(e) => Statement::constraint(

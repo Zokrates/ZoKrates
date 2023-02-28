@@ -1,5 +1,5 @@
 use zokrates_ast::typed::{
-    folder::*, ArrayExpression, ArrayExpressionInner, BooleanExpression, ConditionalExpression,
+    folder::*, ArrayExpression, BooleanExpression, ConditionalExpression,
     ConditionalKind, Expr, FieldElementExpression, SelectExpression, Type, TypedExpression,
     TypedProgram, UExpressionInner,
 };

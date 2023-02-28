@@ -2,15 +2,13 @@
 
 use crate::static_analysis::reducer::ConstantDefinitions;
 use zokrates_ast::typed::{
-    folder::*, ArrayExpression, ArrayExpressionInner, ArrayType, BooleanExpression, CoreIdentifier,
-    DeclarationConstant, Expr, FieldElementExpression, Id, Identifier, IdentifierExpression,
-    IdentifierOrExpression, StructExpression, StructExpressionInner, StructType, TupleExpression,
-    TupleExpressionInner, TupleType, TypedExpression, TypedProgram, TypedSymbolDeclaration,
-    UBitwidth, UExpression, UExpressionInner,
+    folder::*, CoreIdentifier,
+    DeclarationConstant, Expr, Id, Identifier, IdentifierExpression,
+    IdentifierOrExpression, TypedExpression, TypedProgram, TypedSymbolDeclaration, UExpression, UExpressionInner,
 };
 use zokrates_field::Field;
 
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 
 pub struct ConstantsReader<'a, 'ast, T> {
     constants: &'a ConstantDefinitions<'ast, T>,

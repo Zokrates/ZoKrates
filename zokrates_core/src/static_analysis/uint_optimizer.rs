@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::ops::{BitAnd, Mul, Shl, Shr};
+use std::ops::{BitAnd, Shl, Shr};
 use zokrates_ast::common::{FlatEmbed, Fold, WithSpan};
 use zokrates_ast::zir::folder::*;
 use zokrates_ast::zir::*;
@@ -534,9 +534,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     }
                 }
             }
-            rhs => vec![ZirStatement::MultipleDefinition(
-                MultipleDefinitionStatement::new(lhs, self.fold_expression_list(rhs)),
-            )],
         }
     }
 

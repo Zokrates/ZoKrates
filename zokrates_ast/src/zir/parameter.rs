@@ -1,7 +1,11 @@
+use derivative::Derivative;
+
 use crate::zir::Variable;
 use std::fmt;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone)]
 pub struct Parameter<'ast> {
     pub id: Variable<'ast>,
     pub private: bool,

@@ -11,7 +11,7 @@ pub use self::parameter::Parameter;
 pub use self::types::{Type, UBitwidth};
 pub use self::variable::Variable;
 use crate::common::expressions::{BooleanValueExpression, UnaryExpression};
-use crate::common::{self, FlatEmbed, FormatString, ModuleMap, Span, Value, WithSpan};
+use crate::common::{self, FlatEmbed, ModuleMap, Span, Value, WithSpan};
 use crate::common::{
     expressions::{self, BinaryExpression, ValueExpression},
     operators::*,
@@ -29,7 +29,9 @@ pub use self::folder::Folder;
 pub use self::identifier::{Identifier, SourceIdentifier};
 
 /// A typed program as a collection of modules, one of them being the main
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug)]
 pub struct ZirProgram<'ast, T> {
     pub main: ZirFunction<'ast, T>,
     pub module_map: ModuleMap,
@@ -41,7 +43,9 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
     }
 }
 /// A typed function
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone)]
 pub struct ZirFunction<'ast, T> {
     /// Arguments of the function
     pub arguments: Vec<Parameter<'ast>>,
@@ -134,7 +138,7 @@ pub type LogStatement<'ast, T> =
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug)]
 pub struct IfElseStatement<'ast, T> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -160,10 +164,7 @@ impl<'ast, T> IfElseStatement<'ast, T> {
 
 impl<'ast, T> WithSpan for IfElseStatement<'ast, T> {
     fn span(self, span: Option<Span>) -> Self {
-        Self {
-            span,
-            ..self
-        }
+        Self { span, ..self }
     }
 
     fn get_span(&self) -> Option<Span> {
@@ -173,7 +174,7 @@ impl<'ast, T> WithSpan for IfElseStatement<'ast, T> {
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug)]
 pub struct MultipleDefinitionStatement<'ast, T> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -215,7 +216,9 @@ impl<'ast, T: fmt::Display> fmt::Display for MultipleDefinitionStatement<'ast, T
 }
 
 /// A statement in a `ZirFunction`
-#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug)]
 pub enum ZirStatement<'ast, T> {
     Return(ReturnStatement<'ast, T>),
     Definition(DefinitionStatement<'ast, T>),
@@ -359,7 +362,7 @@ pub trait Typed {
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug)]
 pub struct ConditionalExpression<'ast, T, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -383,8 +386,14 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for ConditionalExpress
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{} ? {} : {}",
-            self.condition, self.consequence, self.alternative
+            "{} ? {} : {}{}",
+            self.condition,
+            self.consequence,
+            self.alternative,
+            self.span
+                .as_ref()
+                .map(|_| "".to_string())
+                .unwrap_or(" /* NONE */".to_string())
         )
     }
 }
@@ -402,7 +411,7 @@ impl<'ast, T, E> WithSpan for ConditionalExpression<'ast, T, E> {
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug)]
 pub struct SelectExpression<'ast, T, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -447,7 +456,9 @@ impl<'ast, T, E> WithSpan for SelectExpression<'ast, T, E> {
 }
 
 /// A typed expression
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone)]
 pub enum ZirExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
@@ -524,7 +535,9 @@ pub trait MultiTyped {
     fn get_types(&self) -> &Vec<Type>;
 }
 
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone)]
 pub enum ZirExpressionList<'ast, T> {
     EmbedCall(FlatEmbed, Vec<u32>, Vec<ZirExpression<'ast, T>>),
 }
@@ -532,7 +545,9 @@ pub enum ZirExpressionList<'ast, T> {
 pub type IdentifierExpression<'ast, E> = expressions::IdentifierExpression<Identifier<'ast>, E>;
 
 /// An expression of type `field`
-#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug)]
 pub enum FieldElementExpression<'ast, T> {
     Number(ValueExpression<T>),
     Identifier(IdentifierExpression<'ast, Self>),
@@ -556,7 +571,9 @@ impl<'ast, T> FieldElementExpression<'ast, T> {
 }
 
 /// An expression of type `bool`
-#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug)]
 pub enum BooleanExpression<'ast, T> {
     Value(BooleanValueExpression),
     Identifier(IdentifierExpression<'ast, Self>),

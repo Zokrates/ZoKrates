@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt;
 
 use zokrates_ast::{
     common::{ModuleMap, Span},

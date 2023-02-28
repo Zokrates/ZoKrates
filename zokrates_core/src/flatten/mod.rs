@@ -35,7 +35,7 @@ use zokrates_ast::ir::Solver;
 use zokrates_ast::zir::types::{Type, UBitwidth};
 use zokrates_ast::zir::{
     BooleanExpression, Conditional, FieldElementExpression, Identifier, Parameter as ZirParameter,
-    UExpression, UExpressionInner, Variable as ZirVariable, ZirExpression, ZirFunction,
+    UExpression, UExpressionInner, Variable as ZirVariable, ZirExpression,
     ZirStatement,
 };
 use zokrates_field::Field;
@@ -582,23 +582,24 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             .into_iter()
             .flat_map(|s| match s {
                 FlatStatement::Condition(s) => {
-
                     let span = s.get_span();
 
                     let mut output = FlatStatements::default();
 
                     output.set_span(span);
 
-                    // we transform (x == 0) into (c => (x == 0)) which is (!c || (x == 0))
+                    // we transform (a == b) into (c => (a == b)) which is (!c || (a == b))
 
                     // let's introduce new variables to make sure everything is linear
-                    let name_expression = self.define(s.expression, &mut output);
+                    let name_quad = self.define(s.quad, &mut output);
+                    let name_lin = self.define(s.lin, &mut output);
 
                     // let's introduce an expression which is 1 iff `a == b`
-                    let y = FlatExpression::add(name_expression.into(), T::one().into()).span(span);
-                    // let's introduce !c
-                    let x = FlatExpression::sub(T::one().into(), condition.clone()).span(span);
-
+                    let y = FlatExpression::add(
+                        FlatExpression::sub(name_quad.into(), name_lin.into()),
+                        T::one().into(),
+                    ); // let's introduce !c
+                    let x = FlatExpression::sub(T::one().into(), condition.clone());
                     assert!(x.is_linear() && y.is_linear());
                     let name_x_or_y = self.use_sym();
                     output.push_back(FlatStatement::directive(
@@ -626,7 +627,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     let mut v = FlatStatements::default();
                     v.push_back(s);
                     v
-                },
+                }
             })
             .fold(FlatStatements::default(), |mut acc, s| {
                 acc.push_back(s);
@@ -649,7 +650,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut FlatStatements<T>,
         e: ConditionalExpression<'ast, T, U>,
     ) -> FlatUExpression<T> {
-        let span = e.get_span();
         let condition = *e.condition;
         let consequence = *e.consequence;
         let alternative = *e.alternative;
@@ -1229,8 +1229,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatStatement::definition(new_var, new_rhs)
             }
             FlatStatement::Condition(s) => {
-                let new_e = s.expression.apply_substitution(&replacement_map);
-                FlatStatement::assertion(new_e, s.error)
+                let new_quad = s.quad.apply_substitution(&replacement_map);
+                let new_lin = s.lin.apply_substitution(&replacement_map);
+                FlatStatement::condition(new_lin, new_quad, s.error)
             }
             FlatStatement::Directive(d) => {
                 let new_outputs = d
@@ -1669,7 +1670,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         let aa = *ee.left;
                         let c = *ee.right;
 
-                        if aa == UExpression::not(a.clone()) {
+                        if aa.as_inner() == UExpression::not(a.clone()).as_inner() {
                             let a_flattened = self.flatten_uint_expression(statements_flattened, a);
                             let b_flattened = self.flatten_uint_expression(statements_flattened, b);
                             let c_flattened = self.flatten_uint_expression(statements_flattened, c);
@@ -1707,8 +1708,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         } else {
                             self.default_xor(
                                 statements_flattened,
-                                UExpression::add(a, b).metadata(left_metadata),
-                                UExpression::add(aa, c).metadata(right_metadata),
+                                UExpression::and(a, b).metadata(left_metadata),
+                                UExpression::and(aa, c).metadata(right_metadata),
                             )
                         }
                     }
@@ -2053,8 +2054,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut FlatStatements<T>,
         e: SelectExpression<'ast, T, U>,
     ) -> FlatUExpression<T> {
-        let span = e.get_span();
-
         let array = e.array;
         let index = *e.index;
 
@@ -2352,9 +2351,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let condition_flat =
                     self.flatten_boolean_expression(statements_flattened, s.condition.clone());
 
-                let condition_id = self.use_sym();
-                statements_flattened
-                    .push_back(FlatStatement::definition(condition_id, condition_flat));
+                let condition_id = self.define(condition_flat, statements_flattened);
 
                 if self.config.isolate_branches {
                     let mut consequence_statements = FlatStatements::default();
@@ -2420,7 +2417,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             ZirStatement::Assertion(s) => {
                 let e = s.expression;
                 let error = s.error;
-                let span = s.span;
 
                 match e {
                     BooleanExpression::And(..) => {

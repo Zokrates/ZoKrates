@@ -3,7 +3,7 @@
 use crate::static_analysis::reducer::{
     constants_reader::ConstantsReader, reduce_function, ConstantDefinitions, Error,
 };
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use zokrates_ast::typed::{
     result_folder::*, types::ConcreteGenericsAssignment, Constant, ModuleId, OwnedModuleId, Typed,
     TypedConstant, TypedConstantSymbol, TypedConstantSymbolDeclaration, TypedProgram,

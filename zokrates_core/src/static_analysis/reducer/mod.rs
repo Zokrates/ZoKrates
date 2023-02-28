@@ -29,7 +29,7 @@ use zokrates_ast::typed::SliceOrExpression;
 use zokrates_ast::typed::{CanonicalConstantIdentifier, EmbedCall, Variable};
 
 use zokrates_ast::typed::{
-    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, ForStatement,
+    BlockExpression, CoreIdentifier, Expr, ForStatement,
     FunctionCall, FunctionCallExpression, FunctionCallOrExpression, Id, Identifier,
     TypedExpression, TypedFunction, TypedFunctionSymbol, TypedFunctionSymbolDeclaration,
     TypedModule, TypedProgram, TypedStatement, UExpression, UExpressionInner,
@@ -333,8 +333,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         &mut self,
         s: ForStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
-        let span = s.get_span();
-
         let versions_before = self.for_loop_versions.pop().unwrap();
 
         match (s.from.as_inner(), s.to.as_inner()) {
@@ -488,10 +486,6 @@ fn reduce_function<'ast, T: Field>(
     generics: ConcreteGenericsAssignment<'ast>,
     program: &TypedProgram<'ast, T>,
 ) -> Result<TypedFunction<'ast, T>, Error> {
-    println!("reduce");
-
-    println!("{}", program);
-
     let mut versions = Versions::default();
 
     let mut constants = Constants::default();

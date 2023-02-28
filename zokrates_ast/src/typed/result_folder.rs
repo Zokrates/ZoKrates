@@ -1,7 +1,7 @@
 // Generic walk through a typed AST. Not mutating in place
 
 use crate::common::expressions::{
-    self, BinaryOrExpression, EqExpression, UnaryOrExpression, ValueOrExpression,
+    BinaryOrExpression, EqExpression, UnaryOrExpression, ValueOrExpression,
 };
 use crate::common::ResultFold;
 use crate::typed::types::*;
@@ -1318,8 +1318,6 @@ pub fn fold_boolean_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
 ) -> Result<BooleanExpression<'ast, T>, F::Error> {
     use BooleanExpression::*;
 
-    let e_backup = e.clone();
-
     let e = match e {
         Identifier(id) => match f.fold_identifier_expression(&Type::Boolean, id)? {
             IdentifierOrExpression::Identifier(i) => Identifier(i),
@@ -1431,8 +1429,6 @@ pub fn fold_uint_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     e: UExpressionInner<'ast, T>,
 ) -> Result<UExpressionInner<'ast, T>, F::Error> {
     use UExpressionInner::*;
-
-    let e_backup = e.clone();
 
     let e = match e {
         Identifier(id) => match f.fold_identifier_expression(&ty, id)? {
