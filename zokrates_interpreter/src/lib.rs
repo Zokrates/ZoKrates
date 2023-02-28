@@ -443,6 +443,7 @@ mod tests {
                     .iter()
                     .map(|&i| Bn128Field::from(i))
                     .collect::<Vec<_>>(),
+                &[],
             )
             .unwrap();
             let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
@@ -459,6 +460,7 @@ mod tests {
                     .iter()
                     .map(|&i| Bn128Field::from(i))
                     .collect::<Vec<_>>(),
+                &[],
             )
             .unwrap();
             let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
@@ -469,9 +471,12 @@ mod tests {
     #[test]
     fn bits_of_one() {
         let inputs = vec![Bn128Field::from(1)];
-        let res =
-            Interpreter::execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
-                .unwrap();
+        let res = Interpreter::execute_solver(
+            &Solver::Bits(Bn128Field::get_required_bits()),
+            &inputs,
+            &[],
+        )
+        .unwrap();
         assert_eq!(res[253], Bn128Field::from(1));
         for r in &res[0..253] {
             assert_eq!(*r, Bn128Field::from(0));
@@ -481,9 +486,12 @@ mod tests {
     #[test]
     fn bits_of_42() {
         let inputs = vec![Bn128Field::from(42)];
-        let res =
-            Interpreter::execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
-                .unwrap();
+        let res = Interpreter::execute_solver(
+            &Solver::Bits(Bn128Field::get_required_bits()),
+            &inputs,
+            &[],
+        )
+        .unwrap();
         assert_eq!(res[253], Bn128Field::from(0));
         assert_eq!(res[252], Bn128Field::from(1));
         assert_eq!(res[251], Bn128Field::from(0));
@@ -496,7 +504,7 @@ mod tests {
     #[test]
     fn five_hundred_bits_of_1() {
         let inputs = vec![Bn128Field::from(1)];
-        let res = Interpreter::execute_solver(&Solver::Bits(500), &inputs).unwrap();
+        let res = Interpreter::execute_solver(&Solver::Bits(500), &inputs, &[]).unwrap();
 
         let mut expected = vec![Bn128Field::from(0); 500];
         expected[499] = Bn128Field::from(1);

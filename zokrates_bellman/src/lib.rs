@@ -276,6 +276,7 @@ mod tests {
                 arguments: vec![Parameter::private(Variable::new(0))],
                 return_count: 1,
                 statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -297,6 +298,7 @@ mod tests {
                 arguments: vec![Parameter::public(Variable::new(0))],
                 return_count: 1,
                 statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -318,6 +320,7 @@ mod tests {
                 arguments: vec![],
                 return_count: 1,
                 statements: vec![Statement::constraint(Variable::one(), Variable::public(0))],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -350,6 +353,7 @@ mod tests {
                         Variable::public(1),
                     ),
                 ],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -373,6 +377,7 @@ mod tests {
                     LinComb::from(Variable::new(42)) + LinComb::one(),
                     Variable::public(0),
                 )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -400,6 +405,7 @@ mod tests {
                     LinComb::from(Variable::new(42)) + LinComb::from(Variable::new(51)),
                     Variable::public(0),
                 )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();

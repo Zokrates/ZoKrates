@@ -214,6 +214,7 @@ mod tests {
             arguments: vec![Parameter::public(Variable::new(0))],
             return_count: 1,
             statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+            solvers: vec![],
         };
 
         let rng = &mut StdRng::from_entropy();

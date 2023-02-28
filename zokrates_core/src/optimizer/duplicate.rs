@@ -81,6 +81,7 @@ mod tests {
             ],
             return_count: 0,
             arguments: vec![],
+            solvers: vec![],
         };
 
         let expected = p.clone();
@@ -117,6 +118,7 @@ mod tests {
             ],
             return_count: 0,
             arguments: vec![],
+            solvers: vec![],
         };
 
         let expected = Prog {
@@ -132,6 +134,7 @@ mod tests {
             ],
             return_count: 0,
             arguments: vec![],
+            solvers: vec![],
         };
 
         assert_eq!(

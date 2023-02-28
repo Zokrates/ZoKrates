@@ -2959,6 +2959,7 @@ name = "zokrates_ast"
 version = "0.1.4"
 dependencies = [
  "ark-bls12-377",
+ "byteorder",
  "cfg-if 0.1.10",
  "csv",
  "derivative",
