@@ -1,5 +1,6 @@
 use derivative::Derivative;
 use num_bigint::BigUint;
+use serde::{Deserialize, Serialize};
 
 use super::operators::OpEq;
 use super::{operators::OperatorStr, Span, WithSpan};
@@ -8,7 +9,7 @@ use std::marker::PhantomData;
 
 #[derive(Derivative)]
 #[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BinaryExpression<Op, L, R, Out> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -58,7 +59,7 @@ pub type EqExpression<E, B> = BinaryExpression<OpEq, E, E, B>;
 
 #[derive(Derivative)]
 #[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UnaryExpression<Op, In, Out> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -104,7 +105,7 @@ pub enum UnaryOrExpression<Op, In, E, I> {
 
 #[derive(Derivative)]
 #[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValueExpression<V> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -138,7 +139,7 @@ pub enum ValueOrExpression<V, I> {
 
 #[derive(Derivative)]
 #[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentifierExpression<I, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -158,15 +159,7 @@ impl<I, E> IdentifierExpression<I, E> {
 
 impl<I: fmt::Display, E> fmt::Display for IdentifierExpression<I, E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.id,
-            // self.span
-            //     .as_ref()
-            //     .map(|_| "".to_string())
-            //     .unwrap_or(" /* NONE */".to_string())
-        )
+        write!(f, "{}", self.id,)
     }
 }
 
@@ -188,7 +181,7 @@ pub enum IdentifierOrExpression<V, E, I> {
 
 #[derive(Derivative)]
 #[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DefinitionStatement<A, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -224,7 +217,7 @@ impl<A: fmt::Display, E: fmt::Display> fmt::Display for DefinitionStatement<A, E
 
 #[derive(Derivative)]
 #[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AssertionStatement<B, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -254,7 +247,7 @@ impl<B, E> WithSpan for AssertionStatement<B, E> {
 
 #[derive(Derivative)]
 #[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReturnStatement<E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,

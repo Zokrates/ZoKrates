@@ -8,6 +8,8 @@ use crate::typed::types::*;
 use crate::typed::*;
 use zokrates_field::Field;
 
+use super::identifier::FrameIdentifier;
+
 impl<'ast, T: Field, F: ResultFolder<'ast, T>> ResultFold<F, F::Error>
     for FieldElementExpression<'ast, T>
 {
@@ -166,11 +168,12 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     }
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Result<Identifier<'ast>, Self::Error> {
-        let id = match n.id {
-            CoreIdentifier::Constant(c) => {
-                CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c)?)
-            }
-            id => id,
+        let id = match n.id.id.clone() {
+            CoreIdentifier::Constant(c) => FrameIdentifier {
+                id: CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c)?),
+                frame: 0,
+            },
+            _ => n.id,
         };
 
         Ok(Identifier { id, ..n })
@@ -440,6 +443,20 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_assignee(self, a)
     }
 
+    fn fold_assembly_block(
+        &mut self,
+        s: AssemblyBlockStatement<'ast, T>,
+    ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        fold_assembly_block(self, s)
+    }
+
+    fn fold_assembly_statement(
+        &mut self,
+        s: TypedAssemblyStatement<'ast, T>,
+    ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
+        fold_assembly_statement(self, s)
+    }
+
     fn fold_statement(
         &mut self,
         s: TypedStatement<'ast, T>,
@@ -706,6 +723,40 @@ pub fn fold_statement_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
         TypedStatement::Log(s) => f.fold_log_statement(s),
         s => Ok(vec![s]),
     }
+}
+
+pub fn fold_assembly_block<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: AssemblyBlockStatement<'ast, T>,
+) -> Result<Vec<TypedStatement<'ast, T>>, F::Error> {
+    Ok(vec![TypedStatement::Assembly(AssemblyBlockStatement::new(
+        s.inner
+            .into_iter()
+            .map(|s| f.fold_assembly_statement(s))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
+            .collect(),
+    ))])
+}
+
+pub fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: TypedAssemblyStatement<'ast, T>,
+) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, F::Error> {
+    Ok(match s {
+        TypedAssemblyStatement::Assignment(a, e) => {
+            let e = f.fold_expression(e)?;
+            vec![TypedAssemblyStatement::Assignment(f.fold_assignee(a)?, e)]
+        }
+        TypedAssemblyStatement::Constraint(lhs, rhs, metadata) => {
+            vec![TypedAssemblyStatement::Constraint(
+                f.fold_field_expression(lhs)?,
+                f.fold_field_expression(rhs)?,
+                metadata,
+            )]
+        }
+    })
 }
 
 pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
@@ -1064,6 +1115,26 @@ pub fn fold_field_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
         },
         Pow(e) => match f.fold_binary_expression(&Type::FieldElement, e)? {
             BinaryOrExpression::Binary(e) => Pow(e),
+            BinaryOrExpression::Expression(u) => u,
+        },
+        And(e) => match f.fold_binary_expression(&Type::FieldElement, e)? {
+            BinaryOrExpression::Binary(e) => And(e),
+            BinaryOrExpression::Expression(u) => u,
+        },
+        Or(e) => match f.fold_binary_expression(&Type::FieldElement, e)? {
+            BinaryOrExpression::Binary(e) => Or(e),
+            BinaryOrExpression::Expression(u) => u,
+        },
+        Xor(e) => match f.fold_binary_expression(&Type::FieldElement, e)? {
+            BinaryOrExpression::Binary(e) => Xor(e),
+            BinaryOrExpression::Expression(u) => u,
+        },
+        LeftShift(e) => match f.fold_binary_expression(&Type::FieldElement, e)? {
+            BinaryOrExpression::Binary(e) => LeftShift(e),
+            BinaryOrExpression::Expression(u) => u,
+        },
+        RightShift(e) => match f.fold_binary_expression(&Type::FieldElement, e)? {
+            BinaryOrExpression::Binary(e) => RightShift(e),
             BinaryOrExpression::Expression(u) => u,
         },
         Neg(e) => match f.fold_unary_expression(&Type::FieldElement, e)? {

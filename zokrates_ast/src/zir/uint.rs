@@ -2,6 +2,7 @@ use crate::common::expressions::{UValueExpression, UnaryExpression, ValueExpress
 use crate::zir::IdentifierExpression;
 use crate::{common::expressions::BinaryExpression, common::operators::*, zir::types::UBitwidth};
 use derivative::Derivative;
+use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
 use super::{ConditionalExpression, SelectExpression};
@@ -93,7 +94,7 @@ impl<'ast, T> From<u32> for UExpression<'ast, T> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
 pub enum ShouldReduce {
     Unknown,
     True,
@@ -137,7 +138,7 @@ impl ShouldReduce {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UMetadata<T> {
     pub max: T,
     pub should_reduce: ShouldReduce,
@@ -166,18 +167,20 @@ impl<T: Field> UMetadata<T> {
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UExpression<'ast, T> {
     pub bitwidth: UBitwidth,
     pub metadata: Option<UMetadata<T>>,
+    #[serde(borrow)]
     pub inner: UExpressionInner<'ast, T>,
 }
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UExpressionInner<'ast, T> {
     Value(UValueExpression),
+    #[serde(borrow)]
     Identifier(IdentifierExpression<'ast, UExpression<'ast, T>>),
     Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
     Add(BinaryExpression<OpAdd, UExpression<'ast, T>, UExpression<'ast, T>, UExpression<'ast, T>>),

@@ -34,7 +34,7 @@ use crate::common::expressions::{
 };
 use crate::common::{self, ModuleMap, Span, Value, WithSpan};
 pub use crate::common::{ModuleId, OwnedModuleId};
-use crate::typed::types::{ConcreteGenericsAssignment, IntoType};
+use crate::typed::types::IntoType;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
 use std::marker::PhantomData;
@@ -43,7 +43,7 @@ use std::ops::Deref;
 pub use crate::typed::integer::IntExpression;
 pub use crate::typed::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 
-use crate::common::{operators::*, FlatEmbed, FormatString};
+use crate::common::{operators::*, FlatEmbed, FormatString, SourceMetadata};
 
 use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
@@ -361,19 +361,8 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
         writeln!(f)?;
 
-        let mut tab = 0;
-
         for s in &self.statements {
-            if let TypedStatement::PopCallLog = s {
-                tab -= 1;
-            };
-
-            s.fmt_indented(f, 1 + tab)?;
-            writeln!(f)?;
-
-            if let TypedStatement::PushCallLog(..) = s {
-                tab += 1;
-            };
+            writeln!(f, "{}", s)?;
         }
 
         writeln!(f, "}}")?;
@@ -594,7 +583,7 @@ impl fmt::Display for AssertionMetadata {
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub enum RuntimeError {
-    SourceAssertion(AssertionMetadata),
+    SourceAssertion(SourceMetadata),
     SelectRangeCheck,
     DivisionByZero,
 }
@@ -729,6 +718,54 @@ impl<'ast, T> WithSpan for ForStatement<'ast, T> {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(PartialOrd, PartialEq, Eq, Hash, Ord)]
+#[derive(Clone, Debug)]
+pub struct AssemblyBlockStatement<'ast, T> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
+    pub span: Option<Span>,
+    pub inner: Vec<TypedAssemblyStatement<'ast, T>>,
+}
+
+impl<'ast, T> AssemblyBlockStatement<'ast, T> {
+    pub fn new(inner: Vec<TypedAssemblyStatement<'ast, T>>) -> Self {
+        Self { span: None, inner }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+pub enum TypedAssemblyStatement<'ast, T> {
+    Assignment(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
+    Constraint(
+        FieldElementExpression<'ast, T>,
+        FieldElementExpression<'ast, T>,
+        SourceMetadata,
+    ),
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedAssemblyStatement<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            TypedAssemblyStatement::Assignment(ref lhs, ref rhs) => {
+                write!(f, "{} <-- {};", lhs, rhs)
+            }
+            TypedAssemblyStatement::Constraint(ref lhs, ref rhs, _) => {
+                write!(f, "{} === {};", lhs, rhs)
+            }
+        }
+    }
+}
+
+impl<'ast, T> WithSpan for AssemblyBlockStatement<'ast, T> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self { span, ..self }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
 /// A statement in a `TypedFunction`
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
@@ -738,12 +775,7 @@ pub enum TypedStatement<'ast, T> {
     Assertion(AssertionStatement<'ast, T>),
     For(ForStatement<'ast, T>),
     Log(LogStatement<'ast, T>),
-    // Aux
-    PushCallLog(
-        DeclarationFunctionKey<'ast, T>,
-        ConcreteGenericsAssignment<'ast>,
-    ),
-    PopCallLog,
+    Assembly(AssemblyBlockStatement<'ast, T>),
 }
 
 impl<'ast, T> WithSpan for TypedStatement<'ast, T> {
@@ -756,7 +788,7 @@ impl<'ast, T> WithSpan for TypedStatement<'ast, T> {
             Assertion(e) => Assertion(e.span(span)),
             For(e) => For(e.span(span)),
             Log(e) => Log(e.span(span)),
-            s @ PushCallLog(_, _) | s @ PopCallLog => s,
+            Assembly(e) => Assembly(e.span(span)),
         }
     }
 
@@ -769,7 +801,7 @@ impl<'ast, T> WithSpan for TypedStatement<'ast, T> {
             Assertion(e) => e.get_span(),
             For(e) => e.get_span(),
             Log(e) => e.get_span(),
-            PushCallLog(_, _) | PopCallLog => None,
+            Assembly(e) => e.get_span(),
         }
     }
 }
@@ -847,14 +879,13 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                 write!(f, "\t}}")
             }
             TypedStatement::Log(ref s) => write!(f, "{}", s),
-            TypedStatement::PushCallLog(ref key, ref generics) => write!(
-                f,
-                "// PUSH CALL TO {}/{}::<{}>",
-                key.module.display(),
-                key.id,
-                generics,
-            ),
-            TypedStatement::PopCallLog => write!(f, "// POP CALL",),
+            TypedStatement::Assembly(ref s) => {
+                writeln!(f, "asm {{")?;
+                for s in &s.inner {
+                    writeln!(f, "\t\t{}", s)?;
+                }
+                write!(f, "\t}}")
+            }
         }
     }
 }
@@ -1328,6 +1359,11 @@ pub enum FieldElementExpression<'ast, T> {
     Mult(BinaryExpression<OpMul, Self, Self, Self>),
     Div(BinaryExpression<OpDiv, Self, Self, Self>),
     Pow(BinaryExpression<OpPow, Self, UExpression<'ast, T>, Self>),
+    And(BinaryExpression<OpAnd, Self, Self, Self>),
+    Or(BinaryExpression<OpOr, Self, Self, Self>),
+    Xor(BinaryExpression<OpXor, Self, Self, Self>),
+    LeftShift(BinaryExpression<OpLsh, Self, UExpression<'ast, T>, Self>),
+    RightShift(BinaryExpression<OpRsh, Self, UExpression<'ast, T>, Self>),
     Conditional(ConditionalExpression<'ast, T, Self>),
     Neg(UnaryExpression<OpNeg, Self, Self>),
     Pos(UnaryExpression<OpPos, Self, Self>),
@@ -1336,7 +1372,74 @@ pub enum FieldElementExpression<'ast, T> {
     Select(SelectExpression<'ast, T, Self>),
     Element(ElementExpression<'ast, T, Self>),
 }
-impl<'ast, T: Field> std::ops::Add for FieldElementExpression<'ast, T> {
+
+impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for TupleExpression<'ast, T> {
+    fn from(assignee: TypedAssignee<'ast, T>) -> Self {
+        match assignee {
+            TypedAssignee::Identifier(v) => {
+                let inner = TupleExpression::identifier(v.id);
+                match v._type {
+                    GType::Tuple(tuple_ty) => inner.annotate(tuple_ty),
+                    _ => unreachable!(),
+                }
+            }
+            TypedAssignee::Select(box a, box index) => TupleExpression::select(a.into(), index),
+            TypedAssignee::Member(box a, id) => TupleExpression::member(a.into(), id),
+            TypedAssignee::Element(box a, index) => TupleExpression::element(a.into(), index),
+        }
+    }
+}
+
+impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for StructExpression<'ast, T> {
+    fn from(assignee: TypedAssignee<'ast, T>) -> Self {
+        match assignee {
+            TypedAssignee::Identifier(v) => {
+                let inner = StructExpression::identifier(v.id);
+                match v._type {
+                    GType::Struct(struct_ty) => inner.annotate(struct_ty),
+                    _ => unreachable!(),
+                }
+            }
+            TypedAssignee::Select(box a, box index) => StructExpression::select(a.into(), index),
+            TypedAssignee::Member(box a, id) => StructExpression::member(a.into(), id),
+            TypedAssignee::Element(box a, index) => StructExpression::element(a.into(), index),
+        }
+    }
+}
+
+impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for ArrayExpression<'ast, T> {
+    fn from(assignee: TypedAssignee<'ast, T>) -> Self {
+        match assignee {
+            TypedAssignee::Identifier(v) => {
+                let inner = ArrayExpression::identifier(v.id);
+                match v._type {
+                    GType::Array(array_ty) => inner.annotate(*array_ty.ty, *array_ty.size),
+                    _ => unreachable!(),
+                }
+            }
+            TypedAssignee::Select(box a, box index) => ArrayExpression::select(a.into(), index),
+            TypedAssignee::Member(box a, id) => ArrayExpression::member(a.into(), id),
+            TypedAssignee::Element(box a, index) => ArrayExpression::element(a.into(), index),
+        }
+    }
+}
+
+impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for FieldElementExpression<'ast, T> {
+    fn from(assignee: TypedAssignee<'ast, T>) -> Self {
+        match assignee {
+            TypedAssignee::Identifier(v) => FieldElementExpression::identifier(v.id),
+            TypedAssignee::Element(box a, index) => {
+                FieldElementExpression::element(a.into(), index)
+            }
+            TypedAssignee::Member(box a, id) => FieldElementExpression::member(a.into(), id),
+            TypedAssignee::Select(box a, box index) => {
+                FieldElementExpression::select(a.into(), index)
+            }
+        }
+    }
+}
+
+impl<'ast, T> std::ops::Add for FieldElementExpression<'ast, T> {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
@@ -1368,6 +1471,30 @@ impl<'ast, T: Field> std::ops::Div for FieldElementExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> std::ops::BitAnd for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn bitand(self, other: Self) -> Self {
+        FieldElementExpression::And(BinaryExpression::new(self, other))
+    }
+}
+
+impl<'ast, T: Field> std::ops::BitOr for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn bitor(self, other: Self) -> Self {
+        FieldElementExpression::Or(BinaryExpression::new(self, other))
+    }
+}
+
+impl<'ast, T: Field> std::ops::BitXor for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn bitxor(self, other: Self) -> Self {
+        FieldElementExpression::Xor(BinaryExpression::new(self, other))
+    }
+}
+
 impl<'ast, T> std::ops::Neg for FieldElementExpression<'ast, T> {
     type Output = Self;
 
@@ -1383,6 +1510,14 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
 
     pub fn pos(self) -> Self {
         FieldElementExpression::Pos(UnaryExpression::new(self))
+    }
+
+    pub fn left_shift(self, by: UExpression<'ast, T>) -> Self {
+        FieldElementExpression::LeftShift(BinaryExpression::new(self, by))
+    }
+
+    pub fn right_shift(self, by: UExpression<'ast, T>) -> Self {
+        FieldElementExpression::RightShift(BinaryExpression::new(self, by))
     }
 }
 
@@ -1952,6 +2087,11 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Neg(ref e) => write!(f, "{}", e),
             FieldElementExpression::Pos(ref e) => write!(f, "{}", e),
             FieldElementExpression::Conditional(ref c) => write!(f, "{}", c),
+            FieldElementExpression::And(ref e) => write!(f, "{}", e),
+            FieldElementExpression::Or(ref e) => write!(f, "{}", e),
+            FieldElementExpression::Xor(ref e) => write!(f, "{}", e),
+            FieldElementExpression::LeftShift(ref e) => write!(f, "{}", e),
+            FieldElementExpression::RightShift(ref e) => write!(f, "{}", e),
             FieldElementExpression::FunctionCall(ref function_call) => {
                 write!(f, "{}", function_call)
             }
@@ -2113,6 +2253,11 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Div(e) => Div(e.span(span)),
             Pos(e) => Pos(e.span(span)),
             Neg(e) => Neg(e.span(span)),
+            And(e) => And(e.span(span)),
+            Or(e) => Or(e.span(span)),
+            Xor(e) => Xor(e.span(span)),
+            LeftShift(e) => LeftShift(e.span(span)),
+            RightShift(e) => RightShift(e.span(span)),
         }
     }
 
@@ -2134,6 +2279,11 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Pow(e) => e.get_span(),
             Neg(e) => e.get_span(),
             Pos(e) => e.get_span(),
+            And(e) => e.get_span(),
+            Or(e) => e.get_span(),
+            Xor(e) => e.get_span(),
+            LeftShift(e) => e.get_span(),
+            RightShift(e) => e.get_span(),
         }
     }
 }
@@ -3357,7 +3507,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
             e: TypedExpressionOrSpread<T>,
         ) -> Vec<TypedExpression<T>> {
             match e {
-                TypedExpressionOrSpread::Expression(e) => vec![e],
+                TypedExpressionOrSpread::Expression(e) => vec![e.into_canonical_constant()],
                 TypedExpressionOrSpread::Spread(s) => match s.array.into_inner() {
                     ArrayExpressionInner::Value(v) => v
                         .into_iter()
@@ -3391,7 +3541,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                             _ => unreachable!(),
                         };
 
-                        vec![*e.e; count.value as usize]
+                        vec![e.e.into_canonical_constant(); count.value as usize]
                     }
                     a => unreachable!("{}", a),
                 },

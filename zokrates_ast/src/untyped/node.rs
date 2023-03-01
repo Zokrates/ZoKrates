@@ -86,6 +86,7 @@ use super::*;
 impl<'ast> NodeValue for Expression<'ast> {}
 impl<'ast> NodeValue for Assignee<'ast> {}
 impl<'ast> NodeValue for Statement<'ast> {}
+impl<'ast> NodeValue for AssemblyStatement<'ast> {}
 impl<'ast> NodeValue for SymbolDeclaration<'ast> {}
 impl<'ast> NodeValue for UnresolvedType<'ast> {}
 impl<'ast> NodeValue for StructDefinition<'ast> {}

@@ -38,8 +38,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_profile<T: Field, I: Iterator<Item = ir::Statement<T>>>(
-    ir_prog: ir::ProgIterator<T, I>,
+fn cli_profile<'ast, T: Field, I: Iterator<Item = ir::Statement<'ast, T>>>(
+    ir_prog: ir::ProgIterator<'ast, T, I>,
     _: &ArgMatches,
 ) -> Result<(), String> {
     let module_map = ir_prog.module_map.clone();

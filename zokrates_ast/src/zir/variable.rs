@@ -1,9 +1,11 @@
 use crate::zir::types::{Type, UBitwidth};
 use crate::zir::Identifier;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub struct Variable<'ast> {
+    #[serde(borrow)]
     pub id: Identifier<'ast>,
     pub _type: Type,
 }

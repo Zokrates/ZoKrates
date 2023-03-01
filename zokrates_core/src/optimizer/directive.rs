@@ -14,19 +14,24 @@ use zokrates_ast::ir::folder::*;
 use zokrates_ast::ir::*;
 use zokrates_field::Field;
 
+type SolverCall<'ast, T> = (Solver<'ast, T>, Vec<QuadComb<T>>);
+
 #[derive(Debug, Default)]
-pub struct DirectiveOptimizer<T> {
-    calls: HashMap<(Solver, Vec<QuadComb<T>>), Vec<Variable>>,
+pub struct DirectiveOptimizer<'ast, T> {
+    calls: HashMap<SolverCall<'ast, T>, Vec<Variable>>,
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<Variable, Variable>,
 }
 
-impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
+impl<'ast, T: Field> Folder<'ast, T> for DirectiveOptimizer<'ast, T> {
     fn fold_variable(&mut self, v: Variable) -> Variable {
         *self.substitution.get(&v).unwrap_or(&v)
     }
 
-    fn fold_directive_statement(&mut self, d: DirectiveStatement<T>) -> Vec<Statement<T>> {
+    fn fold_directive_statement(
+        &mut self,
+        d: DirectiveStatement<'ast, T>,
+    ) -> Vec<Statement<'ast, T>> {
         let d = DirectiveStatement {
             inputs: d
                 .inputs

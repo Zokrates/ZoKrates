@@ -1,6 +1,7 @@
 pub mod folder;
 mod from_typed;
 mod identifier;
+pub mod lqc;
 mod parameter;
 pub mod result_folder;
 pub mod types;
@@ -11,6 +12,7 @@ pub use self::parameter::Parameter;
 pub use self::types::{Type, UBitwidth};
 pub use self::variable::Variable;
 use crate::common::expressions::{BooleanValueExpression, UnaryExpression};
+use crate::common::SourceMetadata;
 use crate::common::{self, FlatEmbed, ModuleMap, Span, Value, WithSpan};
 use crate::common::{
     expressions::{self, BinaryExpression, ValueExpression},
@@ -27,6 +29,7 @@ use zokrates_field::Field;
 
 pub use self::folder::Folder;
 pub use self::identifier::{Identifier, SourceIdentifier};
+use serde::{Deserialize, Serialize};
 
 /// A typed program as a collection of modules, one of them being the main
 #[derive(Derivative)]
@@ -44,12 +47,14 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
 }
 /// A typed function
 #[derive(Derivative)]
-#[derivative(PartialEq, Hash)]
-#[derive(Clone)]
+#[derivative(PartialEq, Hash, Eq)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ZirFunction<'ast, T> {
     /// Arguments of the function
+    #[serde(borrow)]
     pub arguments: Vec<Parameter<'ast>>,
     /// Vector of statements that are executed when running the function
+    #[serde(borrow)]
     pub statements: Vec<ZirStatement<'ast, T>>,
     /// function signature
     pub signature: Signature,
@@ -81,7 +86,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
             writeln!(f)?;
         }
 
-        writeln!(f, "}}")
+        write!(f, "}}")
     }
 }
 
@@ -102,9 +107,9 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirFunction<'ast, T> {
 
 pub type ZirAssignee<'ast> = Variable<'ast>;
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub enum RuntimeError {
-    SourceAssertion(String),
+    SourceAssertion(SourceMetadata),
     SelectRangeCheck,
     DivisionByZero,
     IncompleteDynamicRange,
@@ -113,7 +118,7 @@ pub enum RuntimeError {
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RuntimeError::SourceAssertion(message) => write!(f, "{}", message),
+            RuntimeError::SourceAssertion(metadata) => write!(f, "{}", metadata),
             RuntimeError::SelectRangeCheck => write!(f, "Range check on array access"),
             RuntimeError::DivisionByZero => write!(f, "Division by zero"),
             RuntimeError::IncompleteDynamicRange => write!(f, "Dynamic comparison is incomplete"),
@@ -123,7 +128,51 @@ impl fmt::Display for RuntimeError {
 
 impl RuntimeError {
     pub fn mock() -> Self {
-        RuntimeError::SourceAssertion(String::default())
+        RuntimeError::SourceAssertion(SourceMetadata::default())
+    }
+}
+
+#[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
+pub enum ZirAssemblyStatement<'ast, T> {
+    Assignment(
+        #[serde(borrow)] Vec<ZirAssignee<'ast>>,
+        ZirFunction<'ast, T>,
+    ),
+    Constraint(
+        FieldElementExpression<'ast, T>,
+        FieldElementExpression<'ast, T>,
+        SourceMetadata,
+    ),
+}
+
+impl<'ast, T> WithSpan for ZirAssemblyStatement<'ast, T> {
+    fn span(self, _: Option<Span>) -> Self {
+        todo!()
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        todo!()
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ZirAssemblyStatement::Assignment(ref lhs, ref rhs) => {
+                write!(
+                    f,
+                    "{} <-- {};",
+                    lhs.iter()
+                        .map(|a| a.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    rhs
+                )
+            }
+            ZirAssemblyStatement::Constraint(ref lhs, ref rhs, _) => {
+                write!(f, "{} === {};", lhs, rhs)
+            }
+        }
     }
 }
 
@@ -138,10 +187,11 @@ pub type LogStatement<'ast, T> =
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IfElseStatement<'ast, T> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
+    #[serde(borrow)]
     pub condition: BooleanExpression<'ast, T>,
     pub consequence: Vec<ZirStatement<'ast, T>>,
     pub alternative: Vec<ZirStatement<'ast, T>>,
@@ -174,10 +224,11 @@ impl<'ast, T> WithSpan for IfElseStatement<'ast, T> {
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MultipleDefinitionStatement<'ast, T> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
+    #[serde(borrow)]
     pub assignees: Vec<ZirAssignee<'ast>>,
     pub rhs: ZirExpressionList<'ast, T>,
 }
@@ -215,10 +266,37 @@ impl<'ast, T: fmt::Display> fmt::Display for MultipleDefinitionStatement<'ast, T
     }
 }
 
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AssemblyStatement<'ast, T> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
+    pub span: Option<Span>,
+    #[serde(borrow)]
+    pub inner: Vec<ZirAssemblyStatement<'ast, T>>,
+}
+
+impl<'ast, T> AssemblyStatement<'ast, T> {
+    pub fn new(inner: Vec<ZirAssemblyStatement<'ast, T>>) -> Self {
+        Self { span: None, inner }
+    }
+}
+
+impl<'ast, T> WithSpan for AssemblyStatement<'ast, T> {
+    fn span(mut self, span: Option<Span>) -> Self {
+        self.span = span;
+        self
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
 /// A statement in a `ZirFunction`
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ZirStatement<'ast, T> {
     Return(ReturnStatement<'ast, T>),
     Definition(DefinitionStatement<'ast, T>),
@@ -226,11 +304,20 @@ pub enum ZirStatement<'ast, T> {
     Assertion(AssertionStatement<'ast, T>),
     MultipleDefinition(MultipleDefinitionStatement<'ast, T>),
     Log(LogStatement<'ast, T>),
+    #[serde(borrow)]
+    Assembly(AssemblyStatement<'ast, T>),
 }
 
 impl<'ast, T> ZirStatement<'ast, T> {
     pub fn definition(a: ZirAssignee<'ast>, e: ZirExpression<'ast, T>) -> Self {
         Self::Definition(DefinitionStatement::new(a, e))
+    }
+
+    pub fn multiple_definition(
+        assignees: Vec<ZirAssignee<'ast>>,
+        e: ZirExpressionList<'ast, T>,
+    ) -> Self {
+        Self::MultipleDefinition(MultipleDefinitionStatement::new(assignees, e))
     }
 
     pub fn assertion(e: BooleanExpression<'ast, T>, error: RuntimeError) -> Self {
@@ -239,6 +326,10 @@ impl<'ast, T> ZirStatement<'ast, T> {
 
     pub fn ret(e: Vec<ZirExpression<'ast, T>>) -> Self {
         Self::Return(ReturnStatement::new(e))
+    }
+
+    pub fn assembly(s: Vec<ZirAssemblyStatement<'ast, T>>) -> Self {
+        Self::Assembly(AssemblyStatement::new(s))
     }
 
     pub fn if_else(
@@ -261,6 +352,7 @@ impl<'ast, T> WithSpan for ZirStatement<'ast, T> {
             IfElse(e) => IfElse(e.span(span)),
             MultipleDefinition(e) => MultipleDefinition(e.span(span)),
             Log(e) => Log(e.span(span)),
+            Assembly(e) => Assembly(e.span(span)),
         }
     }
 
@@ -274,6 +366,7 @@ impl<'ast, T> WithSpan for ZirStatement<'ast, T> {
             IfElse(e) => e.get_span(),
             MultipleDefinition(e) => e.get_span(),
             Log(e) => e.get_span(),
+            Assembly(e) => e.get_span(),
         }
     }
 }
@@ -290,15 +383,19 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
 
         match self {
             ZirStatement::Return(ref s) => {
-                write!(
-                    f,
-                    "return {};",
-                    s.inner
-                        .iter()
-                        .map(|e| e.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
+                write!(f, "return")?;
+                if !s.inner.is_empty() {
+                    write!(
+                        f,
+                        " {}",
+                        s.inner
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )?;
+                }
+                write!(f, ";")
             }
             ZirStatement::Definition(ref s) => {
                 write!(f, "{}", s)
@@ -314,7 +411,7 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                     s.fmt_indented(f, depth + 1)?;
                     writeln!(f)?;
                 }
-                write!(f, "{}}};", "\t".repeat(depth))
+                write!(f, "{}}}", "\t".repeat(depth))
             }
             ZirStatement::Assertion(ref s) => {
                 write!(f, "assert({}", s.expression)?;
@@ -342,6 +439,13 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            ZirStatement::Assembly(s) => {
+                writeln!(f, "asm {{")?;
+                for s in &s.inner {
+                    writeln!(f, "{}{}", "\t".repeat(depth + 1), s)?;
+                }
+                write!(f, "{}}}", "\t".repeat(depth))
+            }
         }
     }
 }
@@ -352,10 +456,11 @@ pub trait Typed {
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConditionalExpression<'ast, T, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
+    #[serde(borrow)]
     pub condition: Box<BooleanExpression<'ast, T>>,
     pub consequence: Box<E>,
     pub alternative: Box<E>,
@@ -395,11 +500,12 @@ impl<'ast, T, E> WithSpan for ConditionalExpression<'ast, T, E> {
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SelectExpression<'ast, T, E> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     pub array: Vec<E>,
+    #[serde(borrow)]
     pub index: Box<UExpression<'ast, T>>,
 }
 
@@ -442,11 +548,11 @@ impl<'ast, T, E> WithSpan for SelectExpression<'ast, T, E> {
 /// A typed expression
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum ZirExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
-    Uint(UExpression<'ast, T>),
+    Uint(#[serde(borrow)] UExpression<'ast, T>),
 }
 
 impl<'ast, T: Field> From<BooleanExpression<'ast, T>> for ZirExpression<'ast, T> {
@@ -521,19 +627,24 @@ pub trait MultiTyped {
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum ZirExpressionList<'ast, T> {
-    EmbedCall(FlatEmbed, Vec<u32>, Vec<ZirExpression<'ast, T>>),
+    EmbedCall(
+        FlatEmbed,
+        Vec<u32>,
+        #[serde(borrow)] Vec<ZirExpression<'ast, T>>,
+    ),
 }
 
 pub type IdentifierExpression<'ast, E> = expressions::IdentifierExpression<Identifier<'ast>, E>;
 
 /// An expression of type `field`
 #[derive(Derivative)]
-#[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug)]
+#[derivative(PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum FieldElementExpression<'ast, T> {
     Number(ValueExpression<T>),
+    #[serde(borrow)]
     Identifier(IdentifierExpression<'ast, Self>),
     Select(SelectExpression<'ast, T, Self>),
     Add(BinaryExpression<OpAdd, Self, Self, Self>),
@@ -541,6 +652,11 @@ pub enum FieldElementExpression<'ast, T> {
     Mult(BinaryExpression<OpMul, Self, Self, Self>),
     Div(BinaryExpression<OpDiv, Self, Self, Self>),
     Pow(BinaryExpression<OpPow, Self, UExpression<'ast, T>, Self>),
+    And(BinaryExpression<OpAnd, Self, Self, Self>),
+    Or(BinaryExpression<OpOr, Self, Self, Self>),
+    Xor(BinaryExpression<OpXor, Self, Self, Self>),
+    LeftShift(BinaryExpression<OpLsh, Self, UExpression<'ast, T>, Self>),
+    RightShift(BinaryExpression<OpRsh, Self, UExpression<'ast, T>, Self>),
     Conditional(ConditionalExpression<'ast, T, FieldElementExpression<'ast, T>>),
 }
 
@@ -552,14 +668,61 @@ impl<'ast, T> FieldElementExpression<'ast, T> {
     pub fn pow(self, right: UExpression<'ast, T>) -> Self {
         Self::Pow(BinaryExpression::new(self, right))
     }
+
+    pub fn is_linear(&self) -> bool {
+        match self {
+            FieldElementExpression::Number(_) => true,
+            FieldElementExpression::Identifier(_) => true,
+            FieldElementExpression::Add(e) => e.left.is_linear() && e.right.is_linear(),
+            FieldElementExpression::Sub(e) => e.left.is_linear() && e.right.is_linear(),
+            FieldElementExpression::Mult(e) => matches!(
+                (&*e.left, &*e.right),
+                (FieldElementExpression::Number(_), _) | (_, FieldElementExpression::Number(_))
+            ),
+            _ => false,
+        }
+    }
+
+    pub fn left_shift(self, by: UExpression<'ast, T>) -> Self {
+        FieldElementExpression::LeftShift(BinaryExpression::new(self, by))
+    }
+
+    pub fn right_shift(self, by: UExpression<'ast, T>) -> Self {
+        FieldElementExpression::RightShift(BinaryExpression::new(self, by))
+    }
+}
+
+impl<'ast, T: Field> std::ops::BitAnd for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn bitand(self, other: Self) -> Self {
+        FieldElementExpression::And(BinaryExpression::new(self, other))
+    }
+}
+
+impl<'ast, T: Field> std::ops::BitOr for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn bitor(self, other: Self) -> Self {
+        FieldElementExpression::Or(BinaryExpression::new(self, other))
+    }
+}
+
+impl<'ast, T: Field> std::ops::BitXor for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn bitxor(self, other: Self) -> Self {
+        FieldElementExpression::Xor(BinaryExpression::new(self, other))
+    }
 }
 
 /// An expression of type `bool`
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BooleanExpression<'ast, T> {
     Value(BooleanValueExpression),
+    #[serde(borrow)]
     Identifier(IdentifierExpression<'ast, Self>),
     Select(SelectExpression<'ast, T, Self>),
     FieldLt(
@@ -662,6 +825,11 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Mult(ref e) => write!(f, "{}", e),
             FieldElementExpression::Div(ref e) => write!(f, "{}", e),
             FieldElementExpression::Pow(ref e) => write!(f, "{}", e),
+            FieldElementExpression::And(ref e) => write!(f, "{}", e),
+            FieldElementExpression::Or(ref e) => write!(f, "{}", e),
+            FieldElementExpression::Xor(ref e) => write!(f, "{}", e),
+            FieldElementExpression::LeftShift(ref e) => write!(f, "{}", e),
+            FieldElementExpression::RightShift(ref e) => write!(f, "{}", e),
             FieldElementExpression::Conditional(ref c) => {
                 write!(f, "{}", c)
             }
@@ -1078,6 +1246,21 @@ impl IntoType for UBitwidth {
     }
 }
 
+pub trait Constant: Sized {
+    // return whether this is constant
+    fn is_constant(&self) -> bool;
+}
+
+impl<'ast, T: Field> Constant for ZirExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        match self {
+            ZirExpression::FieldElement(e) => e.is_constant(),
+            ZirExpression::Boolean(e) => e.is_constant(),
+            ZirExpression::Uint(e) => e.is_constant(),
+        }
+    }
+}
+
 impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
     fn span(self, span: Option<Span>) -> Self {
         use FieldElementExpression::*;
@@ -1091,6 +1274,11 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Mult(e) => Mult(e.span(span)),
             Div(e) => Div(e.span(span)),
             Pow(e) => Pow(e.span(span)),
+            And(e) => And(e.span(span)),
+            Or(e) => Or(e.span(span)),
+            Xor(e) => Xor(e.span(span)),
+            LeftShift(e) => LeftShift(e.span(span)),
+            RightShift(e) => RightShift(e.span(span)),
         }
     }
 
@@ -1106,6 +1294,11 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Mult(e) => e.get_span(),
             Div(e) => e.get_span(),
             Pow(e) => e.get_span(),
+            And(e) => e.get_span(),
+            Or(e) => e.get_span(),
+            Xor(e) => e.get_span(),
+            LeftShift(e) => e.get_span(),
+            RightShift(e) => e.get_span(),
         }
     }
 }
@@ -1206,5 +1399,23 @@ impl<'ast, T> WithSpan for UExpressionInner<'ast, T> {
             RightShift(e) => e.get_span(),
             Not(e) => e.get_span(),
         }
+    }
+}
+
+impl<'ast, T: Field> Constant for FieldElementExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, FieldElementExpression::Number(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for BooleanExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, BooleanExpression::Value(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for UExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self.as_inner(), UExpressionInner::Value(..))
     }
 }

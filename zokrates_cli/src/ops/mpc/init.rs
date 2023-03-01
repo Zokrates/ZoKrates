@@ -24,8 +24,8 @@ pub fn subcommand() -> App<'static, 'static> {
         .arg(
             Arg::with_name("radix-path")
                 .short("r")
-                .long("radix-dir")
-                .help("Path of the directory containing parameters for various 2^m circuit depths (phase1radix2m{0..=m})")
+                .long("radix-path")
+                .help("Path of the phase1radix2m{n} file")
                 .value_name("PATH")
                 .takes_value(true)
                 .required(true),
@@ -58,12 +58,13 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 }
 
 fn cli_mpc_init<
+    'a,
     T: Field + BellmanFieldExtensions,
-    I: Iterator<Item = ir::Statement<T>>,
+    I: Iterator<Item = ir::Statement<'a, T>>,
     S: MpcScheme<T>,
     B: MpcBackend<T, S>,
 >(
-    program: ir::ProgIterator<T, I>,
+    program: ir::ProgIterator<'a, T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Initializing MPC...");

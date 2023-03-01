@@ -16,7 +16,7 @@ use crate::common::{operators::*, WithSpan};
 use num_bigint::BigUint;
 use std::convert::TryFrom;
 use std::fmt;
-use std::ops::{Add, Div, Mul, Neg, Not, Rem, Sub};
+use std::ops::*;
 use zokrates_field::Field;
 
 use crate::common::expressions::*;
@@ -534,6 +534,24 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                 Self::try_from_int(*e.left)?,
                 Self::try_from_int(*e.right)?,
             )),
+            IntExpression::And(e) => Ok(Self::bitand(
+                Self::try_from_int(*e.left)?,
+                Self::try_from_int(*e.right)?,
+            )),
+            IntExpression::Or(e) => Ok(Self::bitor(
+                Self::try_from_int(*e.left)?,
+                Self::try_from_int(*e.right)?,
+            )),
+            IntExpression::Xor(e) => Ok(Self::bitxor(
+                Self::try_from_int(*e.left)?,
+                Self::try_from_int(*e.right)?,
+            )),
+            IntExpression::LeftShift(e) => {
+                Ok(Self::left_shift(Self::try_from_int(*e.left)?, *e.right))
+            }
+            IntExpression::RightShift(e) => {
+                Ok(Self::right_shift(Self::try_from_int(*e.left)?, *e.right))
+            }
             IntExpression::Pos(e) => Ok(Self::pos(Self::try_from_int(*e.inner)?)),
             IntExpression::Neg(e) => Ok(Self::neg(Self::try_from_int(*e.inner)?)),
             IntExpression::Conditional(c) => Ok(Self::Conditional(ConditionalExpression::new(
@@ -948,11 +966,6 @@ mod tests {
 
         let should_error = vec![
             BigUint::parse_bytes(b"99999999999999999999999999999999999999999999999999999999999999999999999999999999999", 10).unwrap().into(),
-            IntExpression::xor(n.clone(), n.clone()),
-            IntExpression::or(n.clone(), n.clone()),
-            IntExpression::and(n.clone(), n.clone()),
-            IntExpression::left_shift(n.clone(), i.clone()),
-            IntExpression::right_shift(n.clone(), i.clone()),
             IntExpression::not(n.clone()),
         ];
 

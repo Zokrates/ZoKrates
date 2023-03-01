@@ -1,10 +1,12 @@
 use crate::typed::CanonicalConstantIdentifier;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-pub type SourceIdentifier<'ast> = &'ast str;
+pub type SourceIdentifier<'ast> = std::borrow::Cow<'ast, str>;
 
-#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum CoreIdentifier<'ast> {
+    #[serde(borrow)]
     Source(ShadowedIdentifier<'ast>),
     Call(usize),
     Constant(CanonicalConstantIdentifier<'ast>),
@@ -22,23 +24,56 @@ impl<'ast> fmt::Display for CoreIdentifier<'ast> {
     }
 }
 
-impl<'ast> From<CanonicalConstantIdentifier<'ast>> for CoreIdentifier<'ast> {
-    fn from(s: CanonicalConstantIdentifier<'ast>) -> CoreIdentifier<'ast> {
-        CoreIdentifier::Constant(s)
+impl<'ast> FrameIdentifier<'ast> {
+    pub fn in_frame(self, frame: usize) -> FrameIdentifier<'ast> {
+        FrameIdentifier { frame, ..self }
     }
 }
 
+impl<'ast> Identifier<'ast> {
+    pub fn in_frame(self, frame: usize) -> Identifier<'ast> {
+        Identifier {
+            id: self.id.in_frame(frame),
+            ..self
+        }
+    }
+}
+
+impl<'ast> CoreIdentifier<'ast> {
+    pub fn in_frame(self, frame: usize) -> FrameIdentifier<'ast> {
+        FrameIdentifier { id: self, frame }
+    }
+}
+
+impl<'ast> From<CanonicalConstantIdentifier<'ast>> for FrameIdentifier<'ast> {
+    fn from(s: CanonicalConstantIdentifier<'ast>) -> FrameIdentifier<'ast> {
+        FrameIdentifier::from(CoreIdentifier::Constant(s))
+    }
+}
+
+/// A identifier for a variable in a given call frame
+#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct FrameIdentifier<'ast> {
+    /// the id of the variable
+    #[serde(borrow)]
+    pub id: CoreIdentifier<'ast>,
+    /// the frame of the variable
+    pub frame: usize,
+}
+
 /// A identifier for a variable
-#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Identifier<'ast> {
     /// the id of the variable
-    pub id: CoreIdentifier<'ast>,
+    #[serde(borrow)]
+    pub id: FrameIdentifier<'ast>,
     /// the version of the variable, used after SSA transformation
     pub version: usize,
 }
 
-#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ShadowedIdentifier<'ast> {
+    #[serde(borrow)]
     pub id: SourceIdentifier<'ast>,
     pub shadow: usize,
 }
@@ -54,7 +89,7 @@ impl<'ast> fmt::Display for ShadowedIdentifier<'ast> {
         if self.shadow == 0 {
             write!(f, "{}", self.id)
         } else {
-            write!(f, "{}_{}", self.id, self.shadow)
+            write!(f, "{}_s{}", self.id, self.shadow)
         }
     }
 }
@@ -64,20 +99,45 @@ impl<'ast> fmt::Display for Identifier<'ast> {
         if self.version == 0 {
             write!(f, "{}", self.id)
         } else {
-            write!(f, "{}_{}", self.id, self.version)
+            write!(f, "{}_v{}", self.id, self.version)
+        }
+    }
+}
+
+impl<'ast> fmt::Display for FrameIdentifier<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.frame == 0 {
+            write!(f, "{}", self.id)
+        } else {
+            write!(f, "{}_f{}", self.id, self.frame)
         }
     }
 }
 
 impl<'ast> From<CanonicalConstantIdentifier<'ast>> for Identifier<'ast> {
     fn from(id: CanonicalConstantIdentifier<'ast>) -> Identifier<'ast> {
-        Identifier::from(CoreIdentifier::Constant(id))
+        Identifier::from(FrameIdentifier::from(CoreIdentifier::Constant(id)))
+    }
+}
+
+impl<'ast> From<FrameIdentifier<'ast>> for Identifier<'ast> {
+    fn from(id: FrameIdentifier<'ast>) -> Identifier<'ast> {
+        Identifier { id, version: 0 }
     }
 }
 
 impl<'ast> From<CoreIdentifier<'ast>> for Identifier<'ast> {
     fn from(id: CoreIdentifier<'ast>) -> Identifier<'ast> {
-        Identifier { id, version: 0 }
+        Identifier {
+            id: FrameIdentifier::from(id),
+            version: 0,
+        }
+    }
+}
+
+impl<'ast> From<CoreIdentifier<'ast>> for FrameIdentifier<'ast> {
+    fn from(id: CoreIdentifier<'ast>) -> FrameIdentifier<'ast> {
+        FrameIdentifier { id, frame: 0 }
     }
 }
 
@@ -97,12 +157,12 @@ impl<'ast> Identifier<'ast> {
 // these two From implementations are only used in tests but somehow cfg(test) doesn't work
 impl<'ast> From<&'ast str> for CoreIdentifier<'ast> {
     fn from(s: &str) -> CoreIdentifier {
-        CoreIdentifier::Source(ShadowedIdentifier::shadow(s, 0))
+        CoreIdentifier::Source(ShadowedIdentifier::shadow(std::borrow::Cow::Borrowed(s), 0))
     }
 }
 
 impl<'ast> From<&'ast str> for Identifier<'ast> {
     fn from(id: &'ast str) -> Identifier<'ast> {
-        Identifier::from(CoreIdentifier::from(id))
+        Identifier::from(FrameIdentifier::from(CoreIdentifier::from(id)))
     }
 }

@@ -36,7 +36,9 @@ impl HeatMap {
     }
 }
 
-pub fn profile<T, I: IntoIterator<Item = Statement<T>>>(prog: ProgIterator<T, I>) -> HeatMap {
+pub fn profile<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>>(
+    prog: ProgIterator<'ast, T, I>,
+) -> HeatMap {
     prog.statements
         .into_iter()
         .fold(HeatMap::default(), |mut heat_map, s| match s {

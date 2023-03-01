@@ -1,6 +1,6 @@
 # Performing a trusted setup using a multi-party computation protocol (MPC)
 
-The zk-SNARK schemes supported by ZoKrates require a trusted setup. This procedure must be run to generate the proving and verification keys. This procedure generates some data often refered to as "toxic waste" which can be used to create fake proofs which will be accepted by the verifier. The entity running the trusted setup is trusted to delete this toxic waste. 
+The zk-SNARK schemes supported by ZoKrates require a trusted setup. This procedure must be run to generate the proving and verification keys. This procedure generates some data often referred to as "toxic waste" which can be used to create fake proofs which will be accepted by the verifier. The entity running the trusted setup is trusted to delete this toxic waste.
 Using an MPC protocol, we can run the trusted setup in a decentralized way, so that this responsibility is shared among all participants of the setup. If at least one participant is honest and deletes their part of the toxic waste, then no fake proofs can be created by anyone.
 This section of the book describes the steps to perform a trusted setup for the Groth16 scheme.
 
@@ -14,7 +14,7 @@ We will start this tutorial by using ZoKrates to compile a basic program.
 First, we create a new file named `program.zok` with the following content:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/mpc_tutorial/circuit.zok}}
+{{#include ../../../zokrates_cli/examples/book/mpc_tutorial/program.zok}}
 ```
 
 We compile the program using the `compile` command.
@@ -35,7 +35,7 @@ Parameters written to `mpc.params`
 ```
 
 Using the `-r` flag, we pass a path to the file which contains the parameters for our circuit with depth `2^n` (`phase1radix2m{n}`).
-The parameters for various circuit depths can be computed using the [phase2-bn254](https://github.com/kobigurk/phase2-bn254) utility 
+The parameters for various circuit depths can be computed using the [phase2-bn254](https://github.com/kobigurk/phase2-bn254) utility
 by picking the latest response from the [Perpetual Powers of Tau](https://github.com/weijiekoh/perpetualpowersoftau) and following the instructions in the mentioned repositories.
 
 ## Making a contribution
@@ -126,9 +126,9 @@ Your contribution has been written to `final.params`
 ```
 
 The random beacon is the `2^n` iteration of `SHA256` over the hash evaluated on
-some high entropy and publicly available data. Possible sources of data could be: 
+some high entropy and publicly available data. Possible sources of data could be:
 * The closing value of the stock market on a certain date
-* The output of a selected set of national lotteries 
+* The output of a selected set of national lotteries
 * The value of a block at a particular height in one or more blockchains
 * [League of Entropy](https://www.cloudflare.com/leagueofentropy/) (drand)
 
@@ -163,5 +163,5 @@ Once the ceremony is finalized, we can export the keys and use them to generate 
 The secure generation of parameters for zk-SNARKs is a crucial step in the trustworthiness of the resulting proof system.
 The security of the ceremony relies entirely on the fact that at least one participant needs to securely delete their "toxic waste" for the resulting parameters to be generated honestly.
 Opening the ceremony to a large number of participants reduces the probability that the resulting parameters are dishonest.
-Once the ceremony is finalized, we can generate a verifier smart contract by using the keys we obtained through the trusted setup ceremony. 
+Once the ceremony is finalized, we can generate a verifier smart contract by using the keys we obtained through the trusted setup ceremony.
 At this point, we can safely deploy the contract and verify proofs on-chain.

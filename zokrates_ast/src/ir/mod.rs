@@ -7,6 +7,7 @@ use std::fmt;
 use zokrates_field::Field;
 
 mod check;
+mod clean;
 mod expression;
 pub mod folder;
 pub mod from_flat;
@@ -26,8 +27,8 @@ pub use crate::common::Solver;
 pub use self::witness::Witness;
 
 pub type LogStatement<T> = crate::common::statements::LogStatement<(ConcreteType, Vec<LinComb<T>>)>;
-pub type DirectiveStatement<T> =
-    crate::common::statements::DirectiveStatement<QuadComb<T>, Variable>;
+pub type DirectiveStatement<'ast, T> =
+    crate::common::statements::DirectiveStatement<QuadComb<T>, Variable, Solver<'ast, T>>;
 
 #[derive(Derivative, Clone, Debug, Serialize, Deserialize)]
 #[derivative(Hash, PartialEq, Eq)]
@@ -77,22 +78,62 @@ impl<T: Field> fmt::Display for ConstraintStatement<T> {
     }
 }
 
+#[derive(Derivative, Clone, Debug, Serialize, Deserialize)]
+#[derivative(Hash, PartialEq, Eq)]
+pub struct BlockStatement<'ast, T> {
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    pub span: Option<Span>,
+    #[serde(borrow)]
+    pub inner: Vec<Statement<'ast, T>>,
+}
+
+impl<'ast, T> BlockStatement<'ast, T> {
+    pub fn new(inner: Vec<Statement<'ast, T>>) -> Self {
+        Self { span: None, inner }
+    }
+}
+
+impl<'ast, T> WithSpan for BlockStatement<'ast, T> {
+    fn span(mut self, span: Option<Span>) -> Self {
+        self.span = span;
+        self
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+impl<'ast, T: Field> fmt::Display for BlockStatement<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "{{")?;
+        for s in &self.inner {
+            writeln!(f, "{}", s)?;
+        }
+        write!(f, "}}")
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Derivative)]
 #[derivative(Hash, PartialEq, Eq)]
-pub enum Statement<T> {
+pub enum Statement<'ast, T> {
+    #[serde(skip)]
+    Block(BlockStatement<'ast, T>),
     Constraint(ConstraintStatement<T>),
-    Directive(DirectiveStatement<T>),
+    #[serde(borrow)]
+    Directive(DirectiveStatement<'ast, T>),
     Log(LogStatement<T>),
 }
 
 pub type PublicInputs = BTreeSet<Variable>;
 
-impl<T> WithSpan for Statement<T> {
+impl<'ast, T> WithSpan for Statement<'ast, T> {
     fn span(self, span: Option<Span>) -> Self {
         match self {
             Statement::Constraint(c) => Statement::Constraint(c.span(span)),
             Statement::Directive(c) => Statement::Directive(c.span(span)),
             Statement::Log(c) => Statement::Log(c.span(span)),
+            Statement::Block(c) => Statement::Block(c.span(span)),
         }
     }
 
@@ -101,11 +142,12 @@ impl<T> WithSpan for Statement<T> {
             Statement::Constraint(c) => c.get_span(),
             Statement::Directive(c) => c.get_span(),
             Statement::Log(c) => c.get_span(),
+            Statement::Block(c) => c.get_span(),
         }
     }
 }
 
-impl<T: Field> Statement<T> {
+impl<'ast, T: Field> Statement<'ast, T> {
     pub fn definition<U: Into<QuadComb<T>>>(v: Variable, e: U) -> Self {
         Statement::constraint(e, v, None)
     }
@@ -124,12 +166,17 @@ impl<T: Field> Statement<T> {
     ) -> Self {
         Statement::Log(LogStatement::new(format_string, expressions))
     }
+
+    pub fn block(inner: Vec<Statement<'ast, T>>) -> Self {
+        Statement::Block(BlockStatement::new(inner))
+    }
 }
 
-impl<T: Field> fmt::Display for Statement<T> {
+impl<'ast, T: Field> fmt::Display for Statement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Constraint(ref s) => write!(f, "{}", s),
+            Statement::Block(ref s) => write!(f, "{}", s),
             Statement::Directive(ref s) => write!(f, "{}", s),
             Statement::Log(ref s) => write!(
                 f,
@@ -151,17 +198,17 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-pub type Prog<T> = ProgIterator<T, Vec<Statement<T>>>;
+pub type Prog<'ast, T> = ProgIterator<'ast, T, Vec<Statement<'ast, T>>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
-pub struct ProgIterator<T, I: IntoIterator<Item = Statement<T>>> {
+pub struct ProgIterator<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> {
     pub module_map: ModuleMap,
     pub arguments: Vec<Parameter>,
     pub return_count: usize,
     pub statements: I,
 }
 
-impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+impl<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, I> {
     pub fn new(
         arguments: Vec<Parameter>,
         statements: I,
@@ -176,7 +223,7 @@ impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
         }
     }
 
-    pub fn collect(self) -> ProgIterator<T, Vec<Statement<T>>> {
+    pub fn collect(self) -> ProgIterator<'ast, T, Vec<Statement<'ast, T>>> {
         ProgIterator {
             statements: self.statements.into_iter().collect::<Vec<_>>(),
             arguments: self.arguments,
@@ -202,7 +249,7 @@ impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     }
 }
 
-impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, I> {
     pub fn public_inputs_values(&self, witness: &Witness<T>) -> Vec<T> {
         self.arguments
             .iter()
@@ -213,7 +260,7 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     }
 }
 
-impl<T> Prog<T> {
+impl<'ast, T> Prog<'ast, T> {
     pub fn constraint_count(&self) -> usize {
         self.statements
             .iter()
@@ -221,7 +268,9 @@ impl<T> Prog<T> {
             .count()
     }
 
-    pub fn into_prog_iter(self) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
+    pub fn into_prog_iter(
+        self,
+    ) -> ProgIterator<'ast, T, impl IntoIterator<Item = Statement<'ast, T>>> {
         ProgIterator {
             statements: self.statements.into_iter(),
             arguments: self.arguments,
@@ -231,7 +280,7 @@ impl<T> Prog<T> {
     }
 }
 
-impl<T: Field> fmt::Display for Prog<T> {
+impl<'ast, T: Field> fmt::Display for Prog<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let returns = (0..self.return_count)
             .map(Variable::public)

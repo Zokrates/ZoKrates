@@ -19,9 +19,9 @@ use self::tautology::TautologyOptimizer;
 use zokrates_ast::ir::{ProgIterator, Statement};
 use zokrates_field::Field;
 
-pub fn optimize<T: Field, I: IntoIterator<Item = Statement<T>>>(
-    p: ProgIterator<T, I>,
-) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
+pub fn optimize<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>>(
+    p: ProgIterator<'ast, T, I>,
+) -> ProgIterator<'ast, T, impl IntoIterator<Item = Statement<'ast, T>>> {
     // remove redefinitions
     log::debug!("Optimizer: Remove redefinitions and tautologies and directives and duplicates");
 

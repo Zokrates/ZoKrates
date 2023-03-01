@@ -3,35 +3,34 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use crate::flatten::from_program_and_config;
 use crate::imports::{self, Importer};
 use crate::macros;
 use crate::optimizer::optimize;
 use crate::semantics::{self, Checker};
-use crate::static_analysis::{self, analyse};
 use macros::process_macros;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 use typed_arena::Arena;
+use zokrates_analysis::{self, analyse};
 use zokrates_ast::ir::{self, from_flat::from_flat};
 use zokrates_ast::typed::abi::Abi;
 use zokrates_ast::untyped::{Module, OwnedModuleId, Program};
 use zokrates_ast::zir::ZirProgram;
-use zokrates_common::Resolver;
+use zokrates_codegen::from_program_and_config;
+use zokrates_common::{CompileConfig, Resolver};
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
-pub struct CompilationArtifacts<T, I: IntoIterator<Item = ir::Statement<T>>> {
-    prog: ir::ProgIterator<T, I>,
+pub struct CompilationArtifacts<'ast, T, I: IntoIterator<Item = ir::Statement<'ast, T>>> {
+    prog: ir::ProgIterator<'ast, T, I>,
     abi: Abi,
 }
 
-impl<T, I: IntoIterator<Item = ir::Statement<T>>> CompilationArtifacts<T, I> {
-    pub fn prog(self) -> ir::ProgIterator<T, I> {
+impl<'ast, T, I: IntoIterator<Item = ir::Statement<'ast, T>>> CompilationArtifacts<'ast, T, I> {
+    pub fn prog(self) -> ir::ProgIterator<'ast, T, I> {
         self.prog
     }
 
@@ -39,11 +38,11 @@ impl<T, I: IntoIterator<Item = ir::Statement<T>>> CompilationArtifacts<T, I> {
         &self.abi
     }
 
-    pub fn into_inner(self) -> (ir::ProgIterator<T, I>, Abi) {
+    pub fn into_inner(self) -> (ir::ProgIterator<'ast, T, I>, Abi) {
         (self.prog, self.abi)
     }
 
-    pub fn collect(self) -> CompilationArtifacts<T, Vec<ir::Statement<T>>> {
+    pub fn collect(self) -> CompilationArtifacts<'ast, T, Vec<ir::Statement<'ast, T>>> {
         CompilationArtifacts {
             prog: self.prog.collect(),
             abi: self.abi,
@@ -67,7 +66,7 @@ pub enum CompileErrorInner {
     MacroError(macros::Error),
     SemanticError(semantics::ErrorInner),
     ReadError(io::Error),
-    AnalysisError(static_analysis::Error),
+    AnalysisError(zokrates_analysis::Error),
 }
 
 impl CompileErrorInner {
@@ -142,8 +141,8 @@ impl From<semantics::Error> for CompileError {
     }
 }
 
-impl From<static_analysis::Error> for CompileErrorInner {
-    fn from(error: static_analysis::Error) -> Self {
+impl From<zokrates_analysis::Error> for CompileErrorInner {
+    fn from(error: zokrates_analysis::Error) -> Self {
         CompileErrorInner::AnalysisError(error)
     }
 }
@@ -173,26 +172,6 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
-pub struct CompileConfig {
-    #[serde(default)]
-    pub isolate_branches: bool,
-    #[serde(default)]
-    pub debug: bool,
-}
-
-impl CompileConfig {
-    pub fn isolate_branches(mut self, flag: bool) -> Self {
-        self.isolate_branches = flag;
-        self
-    }
-
-    pub fn debug(mut self, debug: bool) -> Self {
-        self.debug = debug;
-        self
-    }
-}
-
 type FilePath = PathBuf;
 
 pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
@@ -201,8 +180,10 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     resolver: Option<&dyn Resolver<E>>,
     config: CompileConfig,
     arena: &'ast Arena<String>,
-) -> Result<CompilationArtifacts<T, impl IntoIterator<Item = ir::Statement<T>> + 'ast>, CompileErrors>
-{
+) -> Result<
+    CompilationArtifacts<'ast, T, impl IntoIterator<Item = ir::Statement<'ast, T>> + 'ast>,
+    CompileErrors,
+> {
     let (typed_ast, abi): (zokrates_ast::zir::ZirProgram<'_, T>, _) =
         check_with_arena(source, location, resolver, &config, arena)?;
 
@@ -218,8 +199,11 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     log::debug!("Optimise IR");
     let optimized_ir_prog = optimize(ir_prog);
 
+    // clean (remove blocks)
+    let clean_ir_prog = optimized_ir_prog.clean();
+
     Ok(CompilationArtifacts {
-        prog: optimized_ir_prog,
+        prog: clean_ir_prog,
         abi,
     })
 }

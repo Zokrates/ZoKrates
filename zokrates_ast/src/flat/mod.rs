@@ -33,14 +33,14 @@ use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
 
-pub type FlatProg<T> = FlatFunction<T>;
+pub type FlatProg<'ast, T> = FlatFunction<'ast, T>;
 
-pub type FlatFunction<T> = FlatFunctionIterator<T, Vec<FlatStatement<T>>>;
+pub type FlatFunction<'ast, T> = FlatFunctionIterator<'ast, T, Vec<FlatStatement<'ast, T>>>;
 
-pub type FlatProgIterator<T, I> = FlatFunctionIterator<T, I>;
+pub type FlatProgIterator<'ast, T, I> = FlatFunctionIterator<'ast, T, I>;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct FlatFunctionIterator<T, I: IntoIterator<Item = FlatStatement<T>>> {
+pub struct FlatFunctionIterator<'ast, T, I: IntoIterator<Item = FlatStatement<'ast, T>>> {
     /// The map of the modules for sourcemaps
     pub module_map: ModuleMap,
     /// Arguments of the function
@@ -51,8 +51,8 @@ pub struct FlatFunctionIterator<T, I: IntoIterator<Item = FlatStatement<T>>> {
     pub return_count: usize,
 }
 
-impl<T, I: IntoIterator<Item = FlatStatement<T>>> FlatFunctionIterator<T, I> {
-    pub fn collect(self) -> FlatFunction<T> {
+impl<'ast, T, I: IntoIterator<Item = FlatStatement<'ast, T>>> FlatFunctionIterator<'ast, T, I> {
+    pub fn collect(self) -> FlatFunction<'ast, T> {
         FlatFunction {
             statements: self.statements.into_iter().collect(),
             arguments: self.arguments,
@@ -62,7 +62,7 @@ impl<T, I: IntoIterator<Item = FlatStatement<T>>> FlatFunctionIterator<T, I> {
     }
 }
 
-impl<T: Field> fmt::Display for FlatFunction<T> {
+impl<'ast, T: Field> fmt::Display for FlatFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -85,7 +85,33 @@ impl<T: Field> fmt::Display for FlatFunction<T> {
 pub type DefinitionStatement<T> =
     common::expressions::DefinitionStatement<Variable, FlatExpression<T>>;
 pub type LogStatement<T> = common::statements::LogStatement<(ConcreteType, Vec<FlatExpression<T>>)>;
-pub type FlatDirective<T> = common::statements::DirectiveStatement<FlatExpression<T>, Variable>;
+pub type FlatDirective<'ast, T> =
+    common::statements::DirectiveStatement<FlatExpression<T>, Variable, Solver<'ast, T>>;
+
+#[derive(Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug)]
+pub struct BlockStatement<'ast, T> {
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    pub span: Option<Span>,
+    pub inner: Vec<FlatStatement<'ast, T>>,
+}
+
+impl<'ast, T> BlockStatement<'ast, T> {
+    pub fn new(inner: Vec<FlatStatement<'ast, T>>) -> Self {
+        BlockStatement { span: None, inner }
+    }
+}
+
+impl<T> WithSpan for AssertionStatement<T> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self { span, ..self }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
@@ -109,7 +135,7 @@ impl<T> AssertionStatement<T> {
     }
 }
 
-impl<T> WithSpan for AssertionStatement<T> {
+impl<'ast, T> WithSpan for BlockStatement<'ast, T> {
     fn span(self, span: Option<Span>) -> Self {
         Self { span, ..self }
     }
@@ -122,14 +148,15 @@ impl<T> WithSpan for AssertionStatement<T> {
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
 #[derive(Clone, Debug)]
-pub enum FlatStatement<T> {
+pub enum FlatStatement<'ast, T> {
     Condition(AssertionStatement<T>),
     Definition(DefinitionStatement<T>),
-    Directive(FlatDirective<T>),
+    Directive(FlatDirective<'ast, T>),
     Log(LogStatement<T>),
+    Block(BlockStatement<'ast, T>),
 }
 
-impl<T> FlatStatement<T> {
+impl<'ast, T> FlatStatement<'ast, T> {
     pub fn definition(assignee: Variable, rhs: FlatExpression<T>) -> Self {
         Self::Definition(DefinitionStatement::new(assignee, rhs))
     }
@@ -147,14 +174,18 @@ impl<T> FlatStatement<T> {
 
     pub fn directive(
         outputs: Vec<Variable>,
-        solver: Solver,
+        solver: Solver<'ast, T>,
         inputs: Vec<FlatExpression<T>>,
     ) -> Self {
         Self::Directive(DirectiveStatement::new(outputs, solver, inputs))
     }
+
+    pub fn block(inner: Vec<FlatStatement<'ast, T>>) -> Self {
+        Self::Block(BlockStatement::new(inner))
+    }
 }
 
-impl<T> WithSpan for FlatStatement<T> {
+impl<'ast, T> WithSpan for FlatStatement<'ast, T> {
     fn span(self, span: Option<Span>) -> Self {
         use FlatStatement::*;
 
@@ -163,6 +194,7 @@ impl<T> WithSpan for FlatStatement<T> {
             Definition(e) => Definition(e.span(span)),
             Directive(e) => Directive(e.span(span)),
             Log(e) => Log(e.span(span)),
+            Block(e) => Block(e.span(span)),
         }
     }
 
@@ -174,16 +206,24 @@ impl<T> WithSpan for FlatStatement<T> {
             Definition(e) => e.get_span(),
             Directive(e) => e.get_span(),
             Log(e) => e.get_span(),
+            Block(e) => e.get_span(),
         }
     }
 }
 
-impl<T: Field> fmt::Display for FlatStatement<T> {
+impl<'ast, T: Field> fmt::Display for FlatStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FlatStatement::Definition(ref e) => write!(f, "{}", e),
             FlatStatement::Condition(ref s) => {
                 write!(f, "{} == {} // {}", s.quad, s.lin, s.error)
+            }
+            FlatStatement::Block(ref s) => {
+                writeln!(f, "{{")?;
+                for s in &s.inner {
+                    writeln!(f, "{}", s)?;
+                }
+                writeln!(f, "}}")
             }
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
             FlatStatement::Log(ref s) => write!(
@@ -206,15 +246,21 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
     }
 }
 
-impl<T: Field> FlatStatement<T> {
+impl<'ast, T: Field> FlatStatement<'ast, T> {
     pub fn apply_substitution(
         self,
-        substitution: &HashMap<Variable, Variable>,
+        substitution: &'ast HashMap<Variable, Variable>,
     ) -> FlatStatement<T> {
         match self {
             FlatStatement::Definition(s) => FlatStatement::definition(
                 *s.assignee.apply_substitution(substitution),
                 s.rhs.apply_substitution(substitution),
+            ),
+            FlatStatement::Block(s) => FlatStatement::block(
+                s.inner
+                    .into_iter()
+                    .map(|s| s.apply_substitution(substitution))
+                    .collect(),
             ),
             FlatStatement::Condition(s) => FlatStatement::condition(
                 s.quad.apply_substitution(substitution),

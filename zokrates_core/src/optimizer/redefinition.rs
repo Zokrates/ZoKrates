@@ -39,7 +39,7 @@
 use std::collections::{HashMap, HashSet};
 use zokrates_ast::common::WithSpan;
 use zokrates_ast::flat::Variable;
-use zokrates_ast::ir::folder::Folder;
+use zokrates_ast::ir::folder::{fold_statement, Folder};
 use zokrates_ast::ir::LinComb;
 use zokrates_ast::ir::*;
 use zokrates_field::Field;
@@ -53,8 +53,10 @@ pub struct RedefinitionOptimizer<T> {
     pub ignore: HashSet<Variable>,
 }
 
-impl<T> RedefinitionOptimizer<T> {
-    pub fn init<I: IntoIterator<Item = Statement<T>>>(p: &ProgIterator<T, I>) -> Self {
+impl<T: Field> RedefinitionOptimizer<T> {
+    pub fn init<'ast, I: IntoIterator<Item = Statement<'ast, T>>>(
+        p: &ProgIterator<'ast, T, I>,
+    ) -> Self {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
             ignore: vec![Variable::one()]
@@ -65,10 +67,23 @@ impl<T> RedefinitionOptimizer<T> {
                 .collect(),
         }
     }
-}
 
-impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
-    fn fold_constraint_statement(&mut self, s: ConstraintStatement<T>) -> Vec<Statement<T>> {
+    fn fold_statement<'ast>(
+        &mut self,
+        s: Statement<'ast, T>,
+        aggressive: bool,
+    ) -> Vec<Statement<'ast, T>> {
+        match s {
+            Statement::Constraint(s) => self.fold_constraint_statement(s, aggressive),
+            s => fold_statement(self, s),
+        }
+    }
+
+    fn fold_constraint_statement<'ast>(
+        &mut self,
+        s: ConstraintStatement<T>,
+        aggressive: bool,
+    ) -> Vec<Statement<'ast, T>> {
         let quad = self.fold_quadratic_combination(s.quad);
         let lin = self.fold_linear_combination(s.lin);
 
@@ -116,8 +131,13 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
             _ => vec![],
         }
     }
+}
 
-    fn fold_directive_statement(&mut self, d: DirectiveStatement<T>) -> Vec<Statement<T>> {
+impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<T> {
+    fn fold_directive_statement(
+        &mut self,
+        d: DirectiveStatement<'ast, T>,
+    ) -> Vec<Statement<'ast, T>> {
         let d = DirectiveStatement {
             inputs: d
                 .inputs
@@ -172,13 +192,41 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                         i.map(|v| LinComb::summand(v, Variable::one()).into())
                             .unwrap_or_else(|q| q)
                     })
-                    .collect();
-                // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
-                for o in d.outputs.iter().cloned() {
-                    self.ignore.insert(o);
-                }
-                vec![Statement::Directive(DirectiveStatement { inputs, ..d })]
+                    .collect::<Vec<QuadComb<T>>>();
+
+                vec![Statement::Directive(DirectiveStatement::new(
+                    d.outputs, d.solver, inputs,
+                ))]
             }
+        }
+    }
+
+    fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
+        match s {
+            Statement::Block(s) => {
+                #[allow(clippy::needless_collect)]
+                // optimize aggressively and clean up in a second pass (we need to collect here)
+                let statements: Vec<_> = s
+                    .inner
+                    .into_iter()
+                    .flat_map(|s| self.fold_statement(s, true))
+                    .collect();
+
+                // clean up
+                let statements = statements
+                    .into_iter()
+                    .filter(|s| match s {
+                        // we remove a directive iff it has a single output and this output is in the substitution map, meaning it was propagated
+                        Statement::Directive(d) => {
+                            d.outputs.len() > 1 || !self.substitution.contains_key(&d.outputs[0])
+                        }
+                        _ => true,
+                    })
+                    .collect();
+
+                vec![Statement::block(statements)]
+            }
+            s => self.fold_statement(s, false),
         }
     }
 

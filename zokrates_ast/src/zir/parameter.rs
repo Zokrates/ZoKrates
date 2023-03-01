@@ -1,12 +1,14 @@
 use derivative::Derivative;
 
 use crate::zir::Variable;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Parameter<'ast> {
+    #[serde(borrow)]
     pub id: Variable<'ast>,
     pub private: bool,
 }

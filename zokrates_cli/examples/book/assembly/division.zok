@@ -1,0 +1,11 @@
+def main(field a, field b) -> field {
+    field mut c = 0;
+    field mut invb = 0;
+    asm {
+        invb <-- b == 0 ? 0 : 1 / b;
+        invb * b === 1;
+        c <-- invb * a;
+        a === b * c;
+    }
+    return c;
+}

@@ -154,16 +154,16 @@ impl<E: fmt::Display> fmt::Display for LogStatement<E> {
 
 #[derive(Derivative, Clone, Debug, Serialize, Deserialize)]
 #[derivative(Hash, PartialEq, Eq)]
-pub struct DirectiveStatement<I, O> {
+pub struct DirectiveStatement<I, O, S> {
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
     pub span: Option<Span>,
     pub inputs: Vec<I>,
     pub outputs: Vec<O>,
-    pub solver: Solver,
+    pub solver: S,
 }
 
-impl<I, O> DirectiveStatement<I, O> {
-    pub fn new(outputs: Vec<O>, solver: Solver, inputs: Vec<I>) -> Self {
+impl<'ast, T, I, O> DirectiveStatement<I, O, Solver<'ast, T>> {
+    pub fn new(outputs: Vec<O>, solver: Solver<'ast, T>, inputs: Vec<I>) -> Self {
         let (in_len, out_len) = solver.get_signature();
         assert_eq!(in_len, inputs.len());
         assert_eq!(out_len, outputs.len());
@@ -176,7 +176,7 @@ impl<I, O> DirectiveStatement<I, O> {
     }
 }
 
-impl<I, O> WithSpan for DirectiveStatement<I, O> {
+impl<I, O, S> WithSpan for DirectiveStatement<I, O, S> {
     fn span(mut self, span: Option<Span>) -> Self {
         self.span = span;
         self
@@ -187,7 +187,9 @@ impl<I, O> WithSpan for DirectiveStatement<I, O> {
     }
 }
 
-impl<I: fmt::Display, O: fmt::Display> fmt::Display for DirectiveStatement<I, O> {
+impl<I: fmt::Display, O: fmt::Display, S: fmt::Display> fmt::Display
+    for DirectiveStatement<I, O, S>
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,

@@ -18,9 +18,9 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-pub fn from_flat<T: Field, I: IntoIterator<Item = FlatStatement<T>>>(
-    flat_prog_iterator: FlatProgIterator<T, I>,
-) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
+pub fn from_flat<'ast, T: Field, I: IntoIterator<Item = FlatStatement<'ast, T>>>(
+    flat_prog_iterator: FlatProgIterator<'ast, T, I>,
+) -> ProgIterator<T, impl IntoIterator<Item = Statement<'ast, T>>> {
     ProgIterator {
         statements: flat_prog_iterator.statements.into_iter().map(Into::into),
         arguments: flat_prog_iterator.arguments,
@@ -54,8 +54,8 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
     }
 }
 
-impl<T: Field> From<FlatStatement<T>> for Statement<T> {
-    fn from(flat_statement: FlatStatement<T>) -> Statement<T> {
+impl<'ast, T: Field> From<FlatStatement<'ast, T>> for Statement<'ast, T> {
+    fn from(flat_statement: FlatStatement<'ast, T>) -> Statement<'ast, T> {
         let span = flat_statement.get_span();
 
         match flat_statement {
@@ -67,6 +67,9 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
                 ),
                 e => Statement::constraint(LinComb::from(e), s.lin, Some(s.error)),
             },
+            FlatStatement::Block(statements) => {
+                Statement::block(statements.inner.into_iter().map(Statement::from).collect())
+            }
             FlatStatement::Definition(s) => match s.rhs {
                 FlatExpression::Mult(e) => Statement::constraint(
                     QuadComb::new((*e.left).into(), (*e.right).into()).span(e.span),
@@ -88,7 +91,7 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
     }
 }
 
-impl<T: Field> From<FlatDirective<T>> for DirectiveStatement<T> {
+impl<'ast, T: Field> From<FlatDirective<'ast, T>> for DirectiveStatement<'ast, T> {
     fn from(ds: FlatDirective<T>) -> DirectiveStatement<T> {
         DirectiveStatement {
             inputs: ds

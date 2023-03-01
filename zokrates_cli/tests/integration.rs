@@ -4,10 +4,10 @@ extern crate primitive_types;
 extern crate rand_0_4;
 extern crate rand_0_8;
 extern crate serde_json;
-extern crate zokrates_solidity_test;
 
 #[cfg(test)]
 mod integration {
+    use ethabi::Token;
     use fs_extra::copy_items;
     use fs_extra::dir::CopyOptions;
     use pretty_assertions::assert_eq;
@@ -15,16 +15,16 @@ mod integration {
     use serde_json::from_reader;
     use std::fs;
     use std::fs::File;
-    use std::io::{BufReader, Read};
+    use std::io::{BufReader, Read, Write};
     use std::panic;
     use std::path::Path;
+    use std::process::Command;
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
     use zokrates_ast::typed::abi::Abi;
     use zokrates_field::Bn128Field;
     use zokrates_proof_systems::{
         to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17,
-        SOLIDITY_G2_ADDITION_LIB,
     };
 
     macro_rules! map(
@@ -41,6 +41,7 @@ mod integration {
     #[test]
     #[ignore]
     fn test_compile_and_witness_dir() {
+        let forge = dirs::home_dir().unwrap().join(".foundry/bin/forge");
         let global_dir = TempDir::new("global").unwrap();
         let global_base = global_dir.path();
         let universal_setup_path = global_base.join("universal_setup.dat");
@@ -57,6 +58,38 @@ mod integration {
                 universal_setup_path.to_str().unwrap(),
             ])
             .succeeds()
+            .unwrap();
+
+        let solidity_test_path = global_base.join("zokrates_verifier");
+        std::fs::create_dir(&solidity_test_path).unwrap();
+
+        Command::new(&forge)
+            .output()
+            .expect("Could not run `forge`. Make sure foundry is installed to run this test");
+
+        let output = Command::new(&forge)
+            .current_dir(&solidity_test_path)
+            .arg("init")
+            .arg("--no-git")
+            .arg("--no-commit")
+            .arg(".")
+            .output()
+            .unwrap();
+
+        std::io::stdout().write_all(&output.stdout).unwrap();
+        std::io::stderr().write_all(&output.stderr).unwrap();
+
+        assert!(output.status.success());
+
+        Command::new("rm")
+            .current_dir(&solidity_test_path)
+            .arg("./src/*.sol")
+            .output()
+            .unwrap();
+        Command::new("rm")
+            .current_dir(&solidity_test_path)
+            .arg("./test/*.t.sol")
+            .output()
             .unwrap();
 
         let dir = Path::new("./tests/code");
@@ -80,6 +113,17 @@ mod integration {
                 );
             }
         }
+
+        let output = Command::new(&forge)
+            .current_dir(&solidity_test_path)
+            .arg("test")
+            .output()
+            .expect("failed to forge test");
+
+        std::io::stdout().write_all(&output.stdout).unwrap();
+        std::io::stderr().write_all(&output.stderr).unwrap();
+
+        assert!(output.status.success());
     }
 
     fn test_compile_and_witness(
@@ -106,6 +150,7 @@ mod integration {
             .join(program_name)
             .join("proving")
             .with_extension("key");
+        let solidity_test_path = global_path.join("zokrates_verifier");
         let verification_contract_path = tmp_base
             .join(program_name)
             .join("verifier")
@@ -241,7 +286,6 @@ mod integration {
 
         for (backend, schemes) in backends {
             for scheme in &schemes {
-                println!("test with {}, {}", backend, scheme);
                 // SETUP
                 let setup = assert_cli::Assert::main_binary()
                     .with_args(&[
@@ -324,7 +368,14 @@ mod integration {
                             )
                             .unwrap();
 
-                            test_solidity_verifier(contract_str, proof);
+                            test_solidity_verifier(
+                                program_name,
+                                backend,
+                                scheme,
+                                &solidity_test_path,
+                                &contract_str,
+                                proof,
+                            );
                         }
                         "g16" => {
                             // Get the proof
@@ -333,7 +384,14 @@ mod integration {
                             )
                             .unwrap();
 
-                            test_solidity_verifier(contract_str, proof);
+                            test_solidity_verifier(
+                                program_name,
+                                backend,
+                                scheme,
+                                &solidity_test_path,
+                                &contract_str,
+                                proof,
+                            );
                         }
                         "gm17" => {
                             // Get the proof
@@ -342,7 +400,14 @@ mod integration {
                             )
                             .unwrap();
 
-                            test_solidity_verifier(contract_str, proof);
+                            test_solidity_verifier(
+                                program_name,
+                                backend,
+                                scheme,
+                                &solidity_test_path,
+                                &contract_str,
+                                proof,
+                            );
                         }
                         _ => unreachable!(),
                     }
@@ -352,48 +417,13 @@ mod integration {
     }
 
     fn test_solidity_verifier<S: SolidityCompatibleScheme<Bn128Field> + ToToken<Bn128Field>>(
-        src: String,
+        program_name: &str,
+        backend: &str,
+        scheme: &str,
+        solidity_test_path: &Path,
+        contract_str: &str,
         proof: Proof<Bn128Field, S>,
     ) {
-        use ethabi::Token;
-        use rand_0_8::{rngs::StdRng, SeedableRng};
-        use zokrates_solidity_test::{address::*, contract::*, evm::*, to_be_bytes};
-
-        // Setup EVM
-        let mut rng = StdRng::from_seed([0; 32]);
-        let mut evm = Evm::default();
-        let deployer = Address::random(&mut rng);
-        evm.create_account(&deployer, 0);
-
-        // Compile lib
-        let g2_lib =
-            Contract::compile_from_src_string(SOLIDITY_G2_ADDITION_LIB, "BN256G2", true, &[])
-                .unwrap();
-
-        // Deploy lib
-        let create_result = evm
-            .deploy(g2_lib.encode_create_contract_bytes(&[]).unwrap(), &deployer)
-            .unwrap();
-        let lib_addr = create_result.addr;
-
-        // Compile contract
-        let contract = Contract::compile_from_src_string(
-            &src,
-            "Verifier",
-            true,
-            &[("BN256G2", lib_addr.as_token())],
-        )
-        .unwrap();
-
-        // Deploy contract
-        let create_result = evm
-            .deploy(
-                contract.encode_create_contract_bytes(&[]).unwrap(),
-                &deployer,
-            )
-            .unwrap();
-        let contract_addr = create_result.addr;
-
         // convert to the solidity proof format
         let solidity_proof = S::Proof::from(proof.proof);
 
@@ -412,40 +442,95 @@ mod integration {
                 .collect::<Vec<_>>(),
         );
 
-        let inputs = [proof_token, input_token.clone()];
-
-        // Call verify function on contract
-        let result = evm
-            .call(
-                contract
-                    .encode_call_contract_bytes("verifyTx", &inputs)
-                    .unwrap(),
-                &contract_addr,
-                &deployer,
-            )
-            .unwrap();
-
-        assert_eq!(&result.out, &to_be_bytes(&U256::from(1)));
+        let inputs = ethabi::encode(&[proof_token, input_token.clone()]);
 
         // modify the proof
         let modified_solidity_proof = S::modify(solidity_proof);
 
         let modified_proof_token = S::to_token(modified_solidity_proof);
 
-        let inputs = [modified_proof_token, input_token];
+        let modified_inputs = ethabi::encode(&[modified_proof_token, input_token]);
 
-        // Call verify function on contract
-        let result = evm
-            .call(
-                contract
-                    .encode_call_contract_bytes("verifyTx", &inputs)
-                    .unwrap(),
-                &contract_addr,
-                &deployer,
-            )
-            .unwrap();
+        let verifier_name = format!("Verifier_{}_{}_{}", program_name, scheme, backend);
 
-        assert_eq!(result.op_out, Return::InvalidOpcode);
+        let verifier_path = solidity_test_path
+            .join("src")
+            .join(&verifier_name)
+            .with_extension("sol");
+        let mut file = File::create(verifier_path).unwrap();
+        write!(file, "{}", contract_str).unwrap();
+
+        let test_path = solidity_test_path
+            .join("test")
+            .join(format!(
+                "Verifier_{}_{}_{}_Test",
+                program_name, scheme, backend
+            ))
+            .with_extension("t.sol");
+        let mut file = File::create(test_path).unwrap();
+        let test_content = format!(
+            r#"
+    
+        pragma solidity ^0.8.17;
+
+        import "forge-std/Test.sol";
+        import "../src/{}.sol";
+        
+        contract VerifierTest is Test {{
+            Verifier public verifier;
+        
+            constructor() {{
+                verifier = new Verifier();
+            }}
+        
+            function testValidProof() public {{
+                bytes4 selector = verifier.verifyTx.selector;
+                uint8[{}] memory b = [{}];
+                bytes memory data = new bytes(b.length + 4);
+                for(uint i; i < 4; i++) {{
+                    data[i] = selector[i];
+                }}
+                for(uint i; i < b.length; i++) {{
+                    data[i + 4] = bytes1(b[i]);
+                }}
+                (bool success, bytes memory returnData) = address(verifier).call(data);
+                assertEq(success, true);
+                bool res = abi.decode(returnData, (bool));
+                assertEq(res, true);
+            }}
+        
+            function testInvalidProof() public {{
+                bytes4 selector = verifier.verifyTx.selector;
+                uint8[{}] memory b = [{}];
+                bytes memory data = new bytes(b.length + 4);
+                for(uint i; i < 4; i++) {{
+                    data[i] = selector[i];
+                }}
+                for(uint i; i < b.length; i++) {{
+                    data[i + 4] = bytes1(b[i]);
+                }}
+                (bool success, ) = address(verifier).call(data);
+                assertEq(success, false);
+            }}
+        }}
+    
+    "#,
+            verifier_name,
+            inputs.len(),
+            inputs
+                .iter()
+                .map(|v| format!("{:#04X?}", v))
+                .collect::<Vec<_>>()
+                .join(", "),
+            modified_inputs.len(),
+            modified_inputs
+                .iter()
+                .map(|v| format!("{:#04X?}", v))
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+
+        write!(file, "{}", test_content).unwrap();
     }
 
     fn test_compile_and_smtlib2(

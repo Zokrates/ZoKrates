@@ -21,8 +21,8 @@ pub struct DuplicateOptimizer {
     seen: HashSet<Hash>,
 }
 
-impl<T: Field> Folder<T> for DuplicateOptimizer {
-    fn fold_program(&mut self, p: Prog<T>) -> Prog<T> {
+impl<'ast, T: Field> Folder<'ast, T> for DuplicateOptimizer {
+    fn fold_program(&mut self, p: Prog<'ast, T>) -> Prog<'ast, T> {
         // in order to correctly identify duplicates, we need to first canonicalize the statements
         let mut canonicalizer = Canonicalizer;
 
@@ -38,7 +38,7 @@ impl<T: Field> Folder<T> for DuplicateOptimizer {
         fold_program(self, p)
     }
 
-    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
+    fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
         let hashed = hash(&s);
         let result = match self.seen.get(&hashed) {
             Some(_) => vec![],

@@ -9,7 +9,7 @@ use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
 use zokrates_ast::common::expressions::ValueExpression;
-use zokrates_ast::common::{FormatString, ModuleMap, Span, WithSpan};
+use zokrates_ast::common::{FormatString, ModuleMap, SourceMetadata, Span, WithSpan};
 use zokrates_ast::typed::types::{GGenericsAssignment, GTupleType, GenericsAssignment};
 use zokrates_ast::typed::SourceIdentifier;
 use zokrates_ast::typed::*;
@@ -286,11 +286,12 @@ struct Scope<'ast, T> {
 
 impl<'ast, T: Field> Scope<'ast, T> {
     // insert into the scope and return whether we are shadowing an existing variable
-    fn insert(
+    fn insert<I: Into<SourceIdentifier<'ast>>>(
         &mut self,
-        id: SourceIdentifier<'ast>,
+        id: I,
         info: IdentifierInfo<'ast, T, CoreIdentifier<'ast>>,
     ) -> bool {
+        let id = id.into();
         let existed = self
             .map
             .get(&id)
@@ -302,12 +303,12 @@ impl<'ast, T: Field> Scope<'ast, T> {
     }
 
     /// get the current version of this variable
-    fn get(
+    fn get<I: Into<SourceIdentifier<'ast>>>(
         &self,
-        id: &SourceIdentifier<'ast>,
+        id: I,
     ) -> Option<IdentifierInfo<'ast, T, CoreIdentifier<'ast>>> {
         self.map
-            .get(id)
+            .get(&id.into())
             .and_then(|versions| versions.values().next_back().cloned())
     }
 
@@ -991,7 +992,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             _ => unreachable!(),
         };
 
-        // return if any errors occured
+        // return if any errors occurred
         if !errors.is_empty() {
             return Err(errors);
         }
@@ -1038,7 +1039,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         // insert into typed_modules if we checked anything
         if let Some(typed_module) = to_insert {
-            // there should be no checked module at that key just yet, if there is we have a colision or we checked something twice
+            // there should be no checked module at that key just yet, if there is we have a collision or we checked something twice
             assert!(state
                 .typed_modules
                 .insert(module_id.to_path_buf(), typed_module)
@@ -1088,14 +1089,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
         Ok(var)
     }
 
-    fn id_in_this_scope(&self, id: SourceIdentifier<'ast>) -> CoreIdentifier<'ast> {
+    fn id_in_this_scope<I: Into<SourceIdentifier<'ast>>>(&self, id: I) -> CoreIdentifier<'ast> {
         // in the semantic checker, 0 is top level, 1 is function level. For shadowing, we start with 0 at function level
         // hence the offset of 1
         assert!(
             self.scope.level > 0,
             "CoreIdentifier cannot be declared in the global scope"
         );
-        CoreIdentifier::from(ShadowedIdentifier::shadow(id, self.scope.level - 1))
+        CoreIdentifier::from(ShadowedIdentifier::shadow(id.into(), self.scope.level - 1))
     }
 
     fn check_function(
@@ -1173,7 +1174,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     let id = arg.id.value.id;
                     let info = IdentifierInfo {
-                        id: decl_v.id.id.clone(),
+                        id: decl_v.id.id.id.clone(),
                         ty,
                         is_mutable,
                     };
@@ -1787,6 +1788,83 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
     }
 
+    fn check_assembly_statement(
+        &mut self,
+        stat: AssemblyStatementNode<'ast>,
+        module_id: &ModuleId,
+        types: &TypeMap<'ast, T>,
+    ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, ErrorInner> {
+        let span = stat.span().in_module(module_id);
+
+        match stat.value {
+            AssemblyStatement::Assignment(assignee, expression, constrained) => {
+                let assignee = self.check_assignee(assignee, module_id, types)?;
+                let e = self.check_expression(expression, module_id, types)?;
+
+                let e = FieldElementExpression::try_from_typed(e).map_err(|e| ErrorInner {
+                    span: Some(span),
+                    message: format!(
+                        "Expected right hand side of an assembly assignment to be of type field, found {}",
+                        e.get_type(),
+                    ),
+                })?;
+
+                match constrained {
+                    true => {
+                        let e = FieldElementExpression::block(vec![], e);
+                        match assignee.get_type() {
+                            Type::FieldElement => Ok(vec![
+                                TypedAssemblyStatement::Assignment(
+                                    assignee.clone(),
+                                    e.clone().into(),
+                                ),
+                                TypedAssemblyStatement::Constraint(
+                                    assignee.into(),
+                                    e,
+                                    SourceMetadata::new(module_id.display().to_string(), span.from),
+                                ),
+                            ]),
+                            ty => Err(ErrorInner {
+                                span: Some(span),
+                                message: format!("Assignee must be of type field, found {}", ty),
+                            }),
+                        }
+                    }
+                    false => {
+                        let e = FieldElementExpression::block(vec![], e);
+                        Ok(vec![TypedAssemblyStatement::Assignment(assignee, e.into())])
+                    }
+                }
+            }
+            AssemblyStatement::Constraint(lhs, rhs) => {
+                let lhs = self.check_expression(lhs, module_id, types)?;
+                let rhs = self.check_expression(rhs, module_id, types)?;
+
+                let lhs = FieldElementExpression::try_from_typed(lhs).map_err(|e| ErrorInner {
+                    span: Some(span),
+                    message: format!(
+                        "Expected left hand side of a constraint to be of type field, found {}",
+                        e.get_type(),
+                    ),
+                })?;
+
+                let rhs = FieldElementExpression::try_from_typed(rhs).map_err(|e| ErrorInner {
+                    span: Some(span),
+                    message: format!(
+                        "Expected right hand side of a constraint to be of type field, found {}",
+                        e.get_type(),
+                    ),
+                })?;
+
+                Ok(vec![TypedAssemblyStatement::Constraint(
+                    lhs,
+                    rhs,
+                    SourceMetadata::new(module_id.display().to_string(), span.from),
+                )])
+            }
+        }
+    }
+
     fn check_statement(
         &mut self,
         stat: StatementNode<'ast>,
@@ -1796,6 +1874,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let span = stat.span().in_module(module_id);
 
         match stat.value {
+            Statement::Assembly(statements) => {
+                let mut checked_statements = vec![];
+                for s in statements {
+                    checked_statements.extend(
+                        self.check_assembly_statement(s, module_id, types)
+                            .map_err(|e| vec![e])?,
+                    );
+                }
+                Ok(TypedStatement::Assembly(AssemblyBlockStatement::new(
+                    checked_statements,
+                )))
+            }
             Statement::Log(l, expressions) => {
                 let l = FormatString::from(l);
 
@@ -2016,11 +2106,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match e {
                     TypedExpression::Boolean(e) => Ok(TypedStatement::assertion(
                         e,
-                        RuntimeError::SourceAssertion(AssertionMetadata {
-                            file: module_id.display().to_string(),
-                            span,
-                            message,
-                        }),
+                        RuntimeError::SourceAssertion(
+                            SourceMetadata::new(module_id.display().to_string(), span.from)
+                                .message(message),
+                        ),
                     )
                     .with_span(span)),
                     e => Err(ErrorInner {
@@ -2055,7 +2144,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let span = assignee.span().in_module(module_id);
         // check that the assignee is declared
         match assignee.value {
-            Assignee::Identifier(variable_name) => match self.scope.get(&variable_name) {
+            Assignee::Identifier(variable_name) => match self.scope.get(variable_name) {
                 Some(info) => match info.is_mutable {
                     false => Err(ErrorInner {
                         span: Some(assignee.span().in_module(module_id)),
@@ -2366,7 +2455,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::BooleanConstant(b) => Ok(BooleanExpression::from_value(b).with_span(span).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
-                match self.scope.get(&name) {
+                match self.scope.get(name) {
                     Some(info) => {
                         let id = info.id;
                         match info.ty.clone() {
@@ -3472,9 +3561,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match e1 {
                     TypedExpression::Int(e1) => Ok(IntExpression::left_shift(e1, e2).into()),
                     TypedExpression::Uint(e1) => Ok(UExpression::left_shift(e1, e2).into()),
+                    TypedExpression::FieldElement(e1) => {
+                        Ok(FieldElementExpression::left_shift(e1, e2).into())
+                    }
                     e1 => Err(ErrorInner {
                         span: Some(span),
-
                         message: format!(
                             "Cannot left-shift {} by {}",
                             e1.get_type(),
@@ -3501,9 +3592,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok(IntExpression::right_shift(e1, e2).into())
                     }
                     TypedExpression::Uint(e1) => Ok(UExpression::right_shift(e1, e2).into()),
+                    TypedExpression::FieldElement(e1) => {
+                        Ok(FieldElementExpression::right_shift(e1, e2).into())
+                    }
                     e1 => Err(ErrorInner {
                         span: Some(span),
-
                         message: format!(
                             "Cannot right-shift {} by {}",
                             e1.get_type(),
@@ -3528,6 +3621,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
                         Ok(IntExpression::or(e1, e2).into())
                     }
+                    (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
+                        Ok(FieldElementExpression::bitor(e1, e2).into())
+                    }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
                     {
@@ -3535,7 +3631,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     (e1, e2) => Err(ErrorInner {
                         span: Some(span),
-
                         message: format!(
                             "Cannot apply `|` to {}, {}",
                             e1.get_type(),
@@ -3560,6 +3655,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
                         Ok(IntExpression::and(e1, e2).into())
                     }
+                    (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
+                        Ok(FieldElementExpression::bitand(e1, e2).into())
+                    }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
                     {
@@ -3567,7 +3665,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     (e1, e2) => Err(ErrorInner {
                         span: Some(span),
-
                         message: format!(
                             "Cannot apply `&` to {}, {}",
                             e1.get_type(),
@@ -3592,6 +3689,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
                         Ok(IntExpression::xor(e1, e2).into())
                     }
+                    (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
+                        Ok(FieldElementExpression::bitxor(e1, e2).into())
+                    }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
                     {
@@ -3599,7 +3699,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     (e1, e2) => Err(ErrorInner {
                         span: Some(span),
-
                         message: format!(
                             "Cannot apply `^` to {}, {}",
                             e1.get_type(),
@@ -3623,14 +3722,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }.map(|e| e.with_span(span))
     }
 
-    fn insert_into_scope(
+    fn insert_into_scope<I: Clone + Into<SourceIdentifier<'ast>>>(
         &mut self,
-        id: SourceIdentifier<'ast>,
+        id: I,
         ty: Type<'ast, T>,
         is_mutable: bool,
     ) -> bool {
         let info = IdentifierInfo {
-            id: self.id_in_this_scope(id),
+            id: self.id_in_this_scope(id.clone()),
             ty,
             is_mutable,
         };
@@ -4749,12 +4848,12 @@ mod tests {
 
         let for_statements_checked = vec![TypedStatement::definition(
             typed::Variable::uint(
-                CoreIdentifier::Source(ShadowedIdentifier::shadow("a", 1)),
+                CoreIdentifier::Source(ShadowedIdentifier::shadow("a".into(), 1)),
                 UBitwidth::B32,
             )
             .into(),
             UExpression::identifier(
-                CoreIdentifier::Source(ShadowedIdentifier::shadow("i", 1)).into(),
+                CoreIdentifier::Source(ShadowedIdentifier::shadow("i".into(), 1)).into(),
             )
             .annotate(UBitwidth::B32)
             .into(),
@@ -4763,7 +4862,7 @@ mod tests {
         let foo_statements_checked = vec![
             TypedStatement::for_(
                 typed::Variable::uint(
-                    CoreIdentifier::Source(ShadowedIdentifier::shadow("i", 1)),
+                    CoreIdentifier::Source(ShadowedIdentifier::shadow("i".into(), 1)),
                     UBitwidth::B32,
                 ),
                 0u32.into(),
@@ -5309,10 +5408,7 @@ mod tests {
                     &TypeMap::new(),
                 );
             assert!(s2_checked.is_ok());
-            assert_eq!(
-                checker.scope.get(&"a").unwrap().ty,
-                DeclarationType::Boolean
-            );
+            assert_eq!(checker.scope.get("a").unwrap().ty, DeclarationType::Boolean);
         }
 
         #[test]
@@ -5368,54 +5464,70 @@ mod tests {
             ];
 
             let expected = vec![
-                TypedStatement::definition(
-                    typed::Variable::new(
-                        CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
-                        Type::FieldElement,
-                        true,
-                    )
-                    .into(),
-                    FieldElementExpression::from_value(2.into()).into(),
-                ),
-                TypedStatement::for_(
-                    typed::Variable::new(
-                        CoreIdentifier::from(ShadowedIdentifier::shadow("i", 1)),
-                        Type::Uint(UBitwidth::B32),
-                        false,
-                    ),
-                    0u32.into(),
-                    0u32.into(),
-                    vec![
-                        TypedStatement::definition(
-                            typed::Variable::new(
-                                CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
-                                Type::FieldElement,
-                                true,
-                            )
-                            .into(),
-                            FieldElementExpression::from_value(3.into()).into(),
-                        ),
-                        TypedStatement::definition(
-                            typed::Variable::new(
-                                CoreIdentifier::from(ShadowedIdentifier::shadow("a", 1)),
-                                Type::FieldElement,
-                                false,
-                            )
-                            .into(),
-                            FieldElementExpression::from_value(4.into()).into(),
-                        ),
-                    ],
-                ),
-                TypedStatement::definition(
-                    typed::Variable::new(
-                        CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
-                        Type::FieldElement,
-                        true,
-                    )
-                    .into(),
-                    FieldElementExpression::from_value(5.into()).into(),
-                ),
-            ];
+                            TypedStatement::definition(
+                                typed::Variable::new(
+                                    CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
+                                    Type::FieldElement,
+                                    true,
+                                )
+                                .into(),
+            <<<<<<< HEAD
+                                FieldElementExpression::from_value(2.into()).into(),
+            =======
+                                FieldElementExpression::Number(2u32.into()).into(),
+            >>>>>>> 8ca79372dfbf6b3c3a48c56153240480f1fc8af6
+                            ),
+                            TypedStatement::for_(
+                                typed::Variable::new(
+                                    CoreIdentifier::from(ShadowedIdentifier::shadow("i".into(), 1)),
+                                    Type::Uint(UBitwidth::B32),
+                                    false,
+                                ),
+                                0u32.into(),
+                                0u32.into(),
+                                vec![
+                                    TypedStatement::definition(
+                                        typed::Variable::new(
+                                            CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
+                                            Type::FieldElement,
+                                            true,
+                                        )
+                                        .into(),
+            <<<<<<< HEAD
+                                        FieldElementExpression::from_value(3.into()).into(),
+            =======
+                                        FieldElementExpression::Number(3u32.into()).into(),
+            >>>>>>> 8ca79372dfbf6b3c3a48c56153240480f1fc8af6
+                                    ),
+                                    TypedStatement::definition(
+                                        typed::Variable::new(
+                                            CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 1)),
+                                            Type::FieldElement,
+                                            false,
+                                        )
+                                        .into(),
+            <<<<<<< HEAD
+                                        FieldElementExpression::from_value(4.into()).into(),
+            =======
+                                        FieldElementExpression::Number(4u32.into()).into(),
+            >>>>>>> 8ca79372dfbf6b3c3a48c56153240480f1fc8af6
+                                    ),
+                                ],
+                            ),
+                            TypedStatement::definition(
+                                typed::Variable::new(
+                                    CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
+                                    Type::FieldElement,
+                                    true,
+                                )
+                                .into(),
+            <<<<<<< HEAD
+                                FieldElementExpression::from_value(5.into()).into(),
+            =======
+                                FieldElementExpression::Number(5u32.into()).into(),
+            >>>>>>> 8ca79372dfbf6b3c3a48c56153240480f1fc8af6
+                            ),
+                        ];
 
             checker.enter_scope();
             let checked: Vec<_> = statements
