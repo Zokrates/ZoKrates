@@ -24,13 +24,14 @@ mod tests {
     #[test]
     fn setup_and_prove() {
         let prog: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![
                 Parameter::private(Variable::new(0)),
                 Parameter::public(Variable::new(1)),
             ],
             return_count: 1,
             statements: vec![
-                Statement::Constraint(
+                Statement::constraint(
                     QuadComb::new(
                         LinComb::from(Variable::new(0)),
                         LinComb::from(Variable::new(0)),
@@ -38,9 +39,9 @@ mod tests {
                     LinComb::from(Variable::new(0)),
                     None,
                 ),
-                Statement::Constraint(
-                    (LinComb::from(Variable::new(0)) + LinComb::from(Variable::new(1))).into(),
-                    Variable::public(0).into(),
+                Statement::constraint(
+                    LinComb::from(Variable::new(0)) + LinComb::from(Variable::new(1)),
+                    Variable::public(0),
                     None,
                 ),
             ],

@@ -132,7 +132,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                                         })
                                         .fold(
                                             FieldElementExpression::from_value(T::from(0)),
-                                            |acc, e| FieldElementExpression::add(acc, e),
+                                            FieldElementExpression::add,
                                         ),
                                     FieldElementExpression::identifier(factor),
                                 )),
@@ -182,16 +182,16 @@ mod tests {
     fn quadratic() {
         // x === a * b;
         let lhs = FieldElementExpression::<Bn128Field>::identifier("x".into());
-        let rhs = FieldElementExpression::Mult(
-            box FieldElementExpression::identifier("a".into()),
-            box FieldElementExpression::identifier("b".into()),
+        let rhs = FieldElementExpression::mul(
+            FieldElementExpression::identifier("a".into()),
+            FieldElementExpression::identifier("b".into()),
         );
 
         let expected = vec![ZirAssemblyStatement::Constraint(
             FieldElementExpression::identifier("x".into()),
-            FieldElementExpression::Mult(
-                box FieldElementExpression::identifier("a".into()),
-                box FieldElementExpression::identifier("b".into()),
+            FieldElementExpression::mul(
+                FieldElementExpression::identifier("a".into()),
+                FieldElementExpression::identifier("b".into()),
             ),
             SourceMetadata::default(),
         )];
@@ -210,12 +210,12 @@ mod tests {
     fn non_quadratic() {
         // x === ((a * b) * c);
         let lhs = FieldElementExpression::<Bn128Field>::identifier("x".into());
-        let rhs = FieldElementExpression::Mult(
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::identifier("a".into()),
-                box FieldElementExpression::identifier("b".into()),
+        let rhs = FieldElementExpression::mul(
+            FieldElementExpression::mul(
+                FieldElementExpression::identifier("a".into()),
+                FieldElementExpression::identifier("b".into()),
             ),
-            box FieldElementExpression::identifier("c".into()),
+            FieldElementExpression::identifier("c".into()),
         );
 
         let result = AssemblyTransformer.fold_assembly_statement(ZirAssemblyStatement::Constraint(
@@ -231,25 +231,25 @@ mod tests {
     fn transform() {
         // x === 1 - a * b; --> (-1) + x === (((-1) * a) * b);
         let lhs = FieldElementExpression::identifier("x".into());
-        let rhs = FieldElementExpression::Sub(
-            box FieldElementExpression::Number(Bn128Field::from(1)),
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::identifier("a".into()),
-                box FieldElementExpression::identifier("b".into()),
+        let rhs = FieldElementExpression::sub(
+            FieldElementExpression::from_value(Bn128Field::from(1)),
+            FieldElementExpression::mul(
+                FieldElementExpression::identifier("a".into()),
+                FieldElementExpression::identifier("b".into()),
             ),
         );
 
         let expected = vec![ZirAssemblyStatement::Constraint(
-            FieldElementExpression::Add(
-                box FieldElementExpression::Number(Bn128Field::from(-1)),
-                box FieldElementExpression::identifier("x".into()),
+            FieldElementExpression::add(
+                FieldElementExpression::from_value(Bn128Field::from(-1)),
+                FieldElementExpression::identifier("x".into()),
             ),
-            FieldElementExpression::Mult(
-                box FieldElementExpression::Mult(
-                    box FieldElementExpression::Number(Bn128Field::from(-1)),
-                    box FieldElementExpression::identifier("a".into()),
+            FieldElementExpression::mul(
+                FieldElementExpression::mul(
+                    FieldElementExpression::from_value(Bn128Field::from(-1)),
+                    FieldElementExpression::identifier("a".into()),
                 ),
-                box FieldElementExpression::identifier("b".into()),
+                FieldElementExpression::identifier("b".into()),
             ),
             SourceMetadata::default(),
         )];
@@ -269,25 +269,25 @@ mod tests {
     fn factorize() {
         // x === (a * b) + (b * c);  -->  x === ((a + c) * b);
         let lhs = FieldElementExpression::<Bn128Field>::identifier("x".into());
-        let rhs = FieldElementExpression::Add(
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::identifier("a".into()),
-                box FieldElementExpression::identifier("b".into()),
+        let rhs = FieldElementExpression::add(
+            FieldElementExpression::mul(
+                FieldElementExpression::identifier("a".into()),
+                FieldElementExpression::identifier("b".into()),
             ),
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::identifier("b".into()),
-                box FieldElementExpression::identifier("c".into()),
+            FieldElementExpression::mul(
+                FieldElementExpression::identifier("b".into()),
+                FieldElementExpression::identifier("c".into()),
             ),
         );
 
         let expected = vec![ZirAssemblyStatement::Constraint(
             FieldElementExpression::identifier("x".into()),
-            FieldElementExpression::Mult(
-                box FieldElementExpression::Add(
-                    box FieldElementExpression::identifier("a".into()),
-                    box FieldElementExpression::identifier("c".into()),
+            FieldElementExpression::mul(
+                FieldElementExpression::add(
+                    FieldElementExpression::identifier("a".into()),
+                    FieldElementExpression::identifier("c".into()),
                 ),
-                box FieldElementExpression::identifier("b".into()),
+                FieldElementExpression::identifier("b".into()),
             ),
             SourceMetadata::default(),
         )];
@@ -309,91 +309,91 @@ mod tests {
         // -->
         // ((((x + ((-1)*a)) + ((-1)*b)) + ((-1)*c)) + (2*mid)) === (((((-2)*b) + ((-2)*c)) + (4*mid)) * a);
         let lhs = FieldElementExpression::<Bn128Field>::identifier("x".into());
-        let rhs = FieldElementExpression::Add(
-            box FieldElementExpression::Sub(
-                box FieldElementExpression::Sub(
-                    box FieldElementExpression::Sub(
-                        box FieldElementExpression::Add(
-                            box FieldElementExpression::Add(
-                                box FieldElementExpression::identifier("a".into()),
-                                box FieldElementExpression::identifier("b".into()),
+        let rhs = FieldElementExpression::add(
+            FieldElementExpression::sub(
+                FieldElementExpression::sub(
+                    FieldElementExpression::sub(
+                        FieldElementExpression::add(
+                            FieldElementExpression::add(
+                                FieldElementExpression::identifier("a".into()),
+                                FieldElementExpression::identifier("b".into()),
                             ),
-                            box FieldElementExpression::identifier("c".into()),
+                            FieldElementExpression::identifier("c".into()),
                         ),
-                        box FieldElementExpression::Mult(
-                            box FieldElementExpression::Mult(
-                                box FieldElementExpression::Number(Bn128Field::from(2)),
-                                box FieldElementExpression::identifier("a".into()),
+                        FieldElementExpression::mul(
+                            FieldElementExpression::mul(
+                                FieldElementExpression::from_value(Bn128Field::from(2)),
+                                FieldElementExpression::identifier("a".into()),
                             ),
-                            box FieldElementExpression::identifier("b".into()),
+                            FieldElementExpression::identifier("b".into()),
                         ),
                     ),
-                    box FieldElementExpression::Mult(
-                        box FieldElementExpression::Mult(
-                            box FieldElementExpression::Number(Bn128Field::from(2)),
-                            box FieldElementExpression::identifier("a".into()),
+                    FieldElementExpression::mul(
+                        FieldElementExpression::mul(
+                            FieldElementExpression::from_value(Bn128Field::from(2)),
+                            FieldElementExpression::identifier("a".into()),
                         ),
-                        box FieldElementExpression::identifier("c".into()),
+                        FieldElementExpression::identifier("c".into()),
                     ),
                 ),
-                box FieldElementExpression::Mult(
-                    box FieldElementExpression::Number(Bn128Field::from(2)),
-                    box FieldElementExpression::identifier("mid".into()),
+                FieldElementExpression::mul(
+                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::identifier("mid".into()),
                 ),
             ),
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::Mult(
-                    box FieldElementExpression::Number(Bn128Field::from(4)),
-                    box FieldElementExpression::identifier("a".into()),
+            FieldElementExpression::mul(
+                FieldElementExpression::mul(
+                    FieldElementExpression::from_value(Bn128Field::from(4)),
+                    FieldElementExpression::identifier("a".into()),
                 ),
-                box FieldElementExpression::identifier("mid".into()),
+                FieldElementExpression::identifier("mid".into()),
             ),
         );
 
-        let lhs_expected = FieldElementExpression::Add(
-            box FieldElementExpression::Add(
-                box FieldElementExpression::Add(
-                    box FieldElementExpression::Add(
-                        box FieldElementExpression::identifier("x".into()),
-                        box FieldElementExpression::Mult(
-                            box FieldElementExpression::Number(Bn128Field::from(-1)),
-                            box FieldElementExpression::identifier("a".into()),
+        let lhs_expected = FieldElementExpression::add(
+            FieldElementExpression::add(
+                FieldElementExpression::add(
+                    FieldElementExpression::add(
+                        FieldElementExpression::identifier("x".into()),
+                        FieldElementExpression::mul(
+                            FieldElementExpression::from_value(Bn128Field::from(-1)),
+                            FieldElementExpression::identifier("a".into()),
                         ),
                     ),
-                    box FieldElementExpression::Mult(
-                        box FieldElementExpression::Number(Bn128Field::from(-1)),
-                        box FieldElementExpression::identifier("b".into()),
+                    FieldElementExpression::mul(
+                        FieldElementExpression::from_value(Bn128Field::from(-1)),
+                        FieldElementExpression::identifier("b".into()),
                     ),
                 ),
-                box FieldElementExpression::Mult(
-                    box FieldElementExpression::Number(Bn128Field::from(-1)),
-                    box FieldElementExpression::identifier("c".into()),
+                FieldElementExpression::mul(
+                    FieldElementExpression::from_value(Bn128Field::from(-1)),
+                    FieldElementExpression::identifier("c".into()),
                 ),
             ),
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::Number(Bn128Field::from(2)),
-                box FieldElementExpression::identifier("mid".into()),
+            FieldElementExpression::mul(
+                FieldElementExpression::from_value(Bn128Field::from(2)),
+                FieldElementExpression::identifier("mid".into()),
             ),
         );
 
-        let rhs_expected = FieldElementExpression::Mult(
-            box FieldElementExpression::Add(
-                box FieldElementExpression::Add(
-                    box FieldElementExpression::Mult(
-                        box FieldElementExpression::Number(Bn128Field::from(-2)),
-                        box FieldElementExpression::identifier("b".into()),
+        let rhs_expected = FieldElementExpression::mul(
+            FieldElementExpression::add(
+                FieldElementExpression::add(
+                    FieldElementExpression::mul(
+                        FieldElementExpression::from_value(Bn128Field::from(-2)),
+                        FieldElementExpression::identifier("b".into()),
                     ),
-                    box FieldElementExpression::Mult(
-                        box FieldElementExpression::Number(Bn128Field::from(-2)),
-                        box FieldElementExpression::identifier("c".into()),
+                    FieldElementExpression::mul(
+                        FieldElementExpression::from_value(Bn128Field::from(-2)),
+                        FieldElementExpression::identifier("c".into()),
                     ),
                 ),
-                box FieldElementExpression::Mult(
-                    box FieldElementExpression::Number(Bn128Field::from(4)),
-                    box FieldElementExpression::identifier("mid".into()),
+                FieldElementExpression::mul(
+                    FieldElementExpression::from_value(Bn128Field::from(4)),
+                    FieldElementExpression::identifier("mid".into()),
                 ),
             ),
-            box FieldElementExpression::identifier("a".into()),
+            FieldElementExpression::identifier("a".into()),
         );
 
         let expected = vec![ZirAssemblyStatement::Constraint(

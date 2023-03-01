@@ -275,9 +275,14 @@ mod tests {
         #[test]
         fn identity() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![Parameter::private(Variable::new(0))],
                 return_count: 1,
-                statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+                statements: vec![Statement::constraint(
+                    Variable::new(0),
+                    Variable::public(0),
+                    None,
+                )],
             };
 
             let interpreter = Interpreter::default();
@@ -296,9 +301,14 @@ mod tests {
         #[test]
         fn public_identity() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![Parameter::public(Variable::new(0))],
                 return_count: 1,
-                statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+                statements: vec![Statement::constraint(
+                    Variable::new(0),
+                    Variable::public(0),
+                    None,
+                )],
             };
 
             let interpreter = Interpreter::default();
@@ -317,9 +327,14 @@ mod tests {
         #[test]
         fn no_arguments() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![],
                 return_count: 1,
-                statements: vec![Statement::constraint(Variable::one(), Variable::public(0))],
+                statements: vec![Statement::constraint(
+                    Variable::one(),
+                    Variable::public(0),
+                    None,
+                )],
             };
 
             let interpreter = Interpreter::default();
@@ -337,6 +352,7 @@ mod tests {
             // public variables must be ordered from 0
             // private variables can be unordered
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![
                     Parameter::private(Variable::new(42)),
                     Parameter::public(Variable::new(51)),
@@ -346,10 +362,12 @@ mod tests {
                     Statement::constraint(
                         LinComb::from(Variable::new(42)) + LinComb::from(Variable::new(51)),
                         Variable::public(0),
+                        None,
                     ),
                     Statement::constraint(
                         LinComb::from(Variable::one()) + LinComb::from(Variable::new(42)),
                         Variable::public(1),
+                        None,
                     ),
                 ],
             };
@@ -369,11 +387,13 @@ mod tests {
         #[test]
         fn one() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![Parameter::public(Variable::new(42))],
                 return_count: 1,
                 statements: vec![Statement::constraint(
                     LinComb::from(Variable::new(42)) + LinComb::one(),
                     Variable::public(0),
+                    None,
                 )],
             };
 
@@ -393,6 +413,7 @@ mod tests {
         #[test]
         fn with_directives() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![
                     Parameter::private(Variable::new(42)),
                     Parameter::public(Variable::new(51)),
@@ -401,6 +422,7 @@ mod tests {
                 statements: vec![Statement::constraint(
                     LinComb::from(Variable::new(42)) + LinComb::from(Variable::new(51)),
                     Variable::public(0),
+                    None,
                 )],
             };
 

@@ -22,6 +22,14 @@ impl<V> Parameter<V> {
             private,
         }
     }
+
+    pub fn public(v: V) -> Self {
+        Self::new(v, false)
+    }
+
+    pub fn private(v: V) -> Self {
+        Self::new(v, true)
+    }
 }
 
 impl<V> WithSpan for Parameter<V> {

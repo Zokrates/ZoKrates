@@ -82,7 +82,7 @@ impl<T: Field> RedefinitionOptimizer<T> {
     fn fold_constraint_statement<'ast>(
         &mut self,
         s: ConstraintStatement<T>,
-        aggressive: bool,
+        _aggressive: bool,
     ) -> Vec<Statement<'ast, T>> {
         let quad = self.fold_quadratic_combination(s.quad);
         let lin = self.fold_linear_combination(s.lin);

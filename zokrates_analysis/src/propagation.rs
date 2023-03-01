@@ -318,8 +318,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                                 // invalidate the cache for this identifier, and define the latest
                                 // version of the constant in the program, if any
                                 Some(c) => Ok(vec![
-                                    TypedStatement::definition(v.clone().into(), c.into()),
-                                    TypedStatement::definition(assignee, expr.into()),
+                                    TypedStatement::definition(v.clone().into(), c),
+                                    TypedStatement::definition(assignee, expr),
                                 ]),
                                 None => Ok(vec![TypedStatement::definition(assignee, expr)]),
                             },
@@ -611,7 +611,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
         Ok(fold_assembly_block(self, s)?
             .into_iter()
             .filter(|s| match s {
-                TypedStatement::Assembly(s) => s.inner.len() > 0,
+                TypedStatement::Assembly(s) => !s.inner.is_empty(),
                 _ => true,
             })
             .collect())
@@ -632,7 +632,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
         &mut self,
         s: AssertionStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
-        let e_str = s.expression.to_string();
+        let _e_str = s.expression.to_string();
         let expr = self.fold_boolean_expression(s.expression)?;
 
         match expr {
@@ -1446,7 +1446,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                     {
                         Ok(e)
                     }
-                    (e1, e2) => Ok(BooleanExpression::or(e1, e2)),
+                    (e1, e2) => Ok(BooleanExpression::bitor(e1, e2)),
                 }
             }
             BooleanExpression::And(e) => {
@@ -1470,7 +1470,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                     {
                         Ok(BooleanExpression::from_value(false))
                     }
-                    (e1, e2) => Ok(BooleanExpression::and(e1, e2)),
+                    (e1, e2) => Ok(BooleanExpression::bitand(e1, e2)),
                 }
             }
             BooleanExpression::Not(e) => {
@@ -1506,14 +1506,9 @@ mod tests {
                 );
 
                 assert_eq!(
-                <<<<<<< HEAD:zokrates_core/src/static_analysis/propagation.rs
-                                    Propagator::with_constants(&mut Constants::new()).fold_field_expression(e),
-                                    Ok(FieldElementExpression::from_value(Bn128Field::from(5)))
-                =======
-                                    Propagator::default().fold_field_expression(e),
-                                    Ok(FieldElementExpression::Number(Bn128Field::from(5)))
-                >>>>>>> 8ca79372dfbf6b3c3a48c56153240480f1fc8af6:zokrates_analysis/src/propagation.rs
-                                );
+                    Propagator::default().fold_field_expression(e),
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(5)))
+                );
             }
 
             #[test]
@@ -1564,7 +1559,7 @@ mod tests {
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(8)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(8)))
                 );
             }
 
@@ -1582,34 +1577,34 @@ mod tests {
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::left_shift(
-                        FieldElementExpression::Number(Bn128Field::from(2)),
+                        FieldElementExpression::from_value(Bn128Field::from(2)),
                         2u32.into(),
                     )),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(8)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(8)))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::left_shift(
-                        FieldElementExpression::Number(Bn128Field::from(1)),
+                        FieldElementExpression::from_value(Bn128Field::from(1)),
                         ((Bn128Field::get_required_bits() - 1) as u32).into(),
                     )),
-                    Ok(FieldElementExpression::Number(Bn128Field::try_from_dec_str("14474011154664524427946373126085988481658748083205070504932198000989141204992").unwrap()))
+                    Ok(FieldElementExpression::from_value(Bn128Field::try_from_dec_str("14474011154664524427946373126085988481658748083205070504932198000989141204992").unwrap()))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::left_shift(
-                        FieldElementExpression::Number(Bn128Field::from(3)),
+                        FieldElementExpression::from_value(Bn128Field::from(3)),
                         ((Bn128Field::get_required_bits() - 3) as u32).into(),
                     )),
-                    Ok(FieldElementExpression::Number(Bn128Field::try_from_dec_str("10855508365998393320959779844564491361244061062403802878699148500741855903744").unwrap()))
+                    Ok(FieldElementExpression::from_value(Bn128Field::try_from_dec_str("10855508365998393320959779844564491361244061062403802878699148500741855903744").unwrap()))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::left_shift(
-                        FieldElementExpression::Number(Bn128Field::from(1)),
+                        FieldElementExpression::from_value(Bn128Field::from(1)),
                         (Bn128Field::get_required_bits() as u32).into(),
                     )),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(0)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(0)))
                 );
             }
 
@@ -1630,46 +1625,46 @@ mod tests {
                         FieldElementExpression::identifier("a".into()),
                         (Bn128Field::get_required_bits() as u32).into(),
                     )),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(0)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(0)))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::right_shift(
-                        FieldElementExpression::Number(Bn128Field::from(3)),
+                        FieldElementExpression::from_value(Bn128Field::from(3)),
                         1u32.into(),
                     )),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(1)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(1)))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::right_shift(
-                        FieldElementExpression::Number(Bn128Field::from(2)),
+                        FieldElementExpression::from_value(Bn128Field::from(2)),
                         2u32.into(),
                     )),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(0)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(0)))
                 );
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::right_shift(
-                        FieldElementExpression::Number(Bn128Field::from(2)),
+                        FieldElementExpression::from_value(Bn128Field::from(2)),
                         4u32.into(),
                     )),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(0)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(0)))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::right_shift(
-                        FieldElementExpression::Number(Bn128Field::max_value()),
+                        FieldElementExpression::from_value(Bn128Field::max_value()),
                         ((Bn128Field::get_required_bits() - 1) as u32).into(),
                     )),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(1)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(1)))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::right_shift(
-                        FieldElementExpression::Number(Bn128Field::max_value()),
+                        FieldElementExpression::from_value(Bn128Field::max_value()),
                         (Bn128Field::get_required_bits() as u32).into(),
                     )),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(0)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(0)))
                 );
             }
 
@@ -1684,7 +1679,7 @@ mod tests {
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(2)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(2)))
                 );
             }
 
@@ -1699,7 +1694,7 @@ mod tests {
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(3)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(3)))
                 );
             }
 
@@ -1711,8 +1706,7 @@ mod tests {
                             FieldElementExpression::from_value(Bn128Field::from(1)).into(),
                             FieldElementExpression::from_value(Bn128Field::from(2)).into(),
                             FieldElementExpression::from_value(Bn128Field::from(3)).into(),
-                        ]
-                        .into(),
+                        ],
                     )
                     .annotate(Type::FieldElement, 3u32),
                     UExpression::add(1u32.into(), 1u32.into()),
@@ -1720,7 +1714,7 @@ mod tests {
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::Number(Bn128Field::from(3)))
+                    Ok(FieldElementExpression::from_value(Bn128Field::from(3)))
                 );
             }
         }
@@ -1845,15 +1839,13 @@ mod tests {
                     ArrayExpression::from_value(
                         vec![TypedExpressionOrSpread::Expression(
                             FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
-                        )]
-                        .into(),
+                        )],
                     )
                     .annotate(Type::FieldElement, 1u32),
                     ArrayExpression::from_value(
                         vec![TypedExpressionOrSpread::Expression(
                             FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
-                        )]
-                        .into(),
+                        )],
                     )
                     .annotate(Type::FieldElement, 1u32),
                 ));
@@ -1862,15 +1854,13 @@ mod tests {
                     ArrayExpression::from_value(
                         vec![TypedExpressionOrSpread::Expression(
                             FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
-                        )]
-                        .into(),
+                        )],
                     )
                     .annotate(Type::FieldElement, 1u32),
                     ArrayExpression::from_value(
                         vec![TypedExpressionOrSpread::Expression(
                             FieldElementExpression::from_value(Bn128Field::from(4usize)).into(),
-                        )]
-                        .into(),
+                        )],
                     )
                     .annotate(Type::FieldElement, 1u32),
                 ));
@@ -1894,20 +1884,17 @@ mod tests {
                                 vec![TypedExpressionOrSpread::Expression(
                                     FieldElementExpression::from_value(Bn128Field::from(2usize))
                                         .into(),
-                                )]
-                                .into(),
+                                )],
                             )
                             .annotate(Type::FieldElement, 1u32)
                             .into(),
-                        )]
-                        .into(),
+                        )],
                     )
                     .annotate(Type::FieldElement, 1u32),
                     ArrayExpression::from_value(
                         vec![TypedExpressionOrSpread::Expression(
                             FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
-                        )]
-                        .into(),
+                        )],
                     )
                     .annotate(Type::FieldElement, 1u32),
                 ));
@@ -1919,20 +1906,17 @@ mod tests {
                                 vec![TypedExpressionOrSpread::Expression(
                                     FieldElementExpression::from_value(Bn128Field::from(2usize))
                                         .into(),
-                                )]
-                                .into(),
+                                )],
                             )
                             .annotate(Type::FieldElement, 1u32)
                             .into(),
-                        )]
-                        .into(),
+                        )],
                     )
                     .annotate(Type::FieldElement, 1u32),
                     ArrayExpression::from_value(
                         vec![TypedExpressionOrSpread::Expression(
                             FieldElementExpression::from_value(Bn128Field::from(4usize)).into(),
-                        )]
-                        .into(),
+                        )],
                     )
                     .annotate(Type::FieldElement, 1u32),
                 ));

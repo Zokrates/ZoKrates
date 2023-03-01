@@ -615,7 +615,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             x.clone(),
                             FlatExpression::sub(y.clone(), name_x_or_y.into()),
                         ),
-                        FlatExpression::mul(x.clone(), y.clone()),
+                        FlatExpression::mul(x, y),
                         RuntimeError::BranchIsolation,
                     ));
                     output.push_back(FlatStatement::condition(
@@ -1700,7 +1700,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                             vec![a.clone(), b.clone(), c.clone()],
                                         ),
                                         FlatStatement::condition(
-                                            FlatExpression::sub(ch.into(), c.clone().into()),
+                                            FlatExpression::sub(ch.into(), c.clone()),
                                             a * (b - c),
                                             RuntimeError::ShaXor,
                                         ),
@@ -2294,7 +2294,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                     let id = self.use_sym();
                                     statements_flattened.push_back(FlatStatement::definition(
                                         id,
-                                        FlatExpression::mul(acc.clone(), power), // set the new result to the current result times the current power
+                                        FlatExpression::mul(acc, power), // set the new result to the current result times the current power
                                     ));
                                     FlatExpression::identifier(id)
                                 }
@@ -3796,7 +3796,7 @@ mod tests {
         let mut flattener = Flattener::new(config);
 
         let expression = FieldElementExpression::conditional(
-            BooleanExpression::and(
+            BooleanExpression::bitand(
                 BooleanExpression::field_eq(
                     FieldElementExpression::from_value(Bn128Field::from(4)),
                     FieldElementExpression::from_value(Bn128Field::from(4)),

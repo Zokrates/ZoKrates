@@ -2048,7 +2048,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         var_ty
                     ),
                 })
-                .map(|e| TypedStatement::definition(var.into(), e.into()).with_span(span))
+                .map(|e| TypedStatement::definition(var.into(), e).with_span(span))
                 .map_err(|e| vec![e])
             }
             Statement::Assignment(assignee, expr) => {
@@ -2095,7 +2095,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         assignee_ty
                     ),
                 })
-                .map(|e| TypedStatement::definition(assignee, e.into()).with_span(span))
+                .map(|e| TypedStatement::definition(assignee, e).with_span(span))
                 .map_err(|e| vec![e])
             }
             Statement::Assertion(e, message) => {
@@ -2791,7 +2791,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::FieldConstant(n) => Ok(FieldElementExpression::Number(
                 T::try_from(n)
                     .map(ValueExpression::new)
-                    .map(|v| v)
                     .map_err(|_| ErrorInner {
                         span: Some(span),
                         message: format!(
@@ -3331,7 +3330,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .unwrap_or_else(|| 0u32.into());
 
                 Ok(
-                    ArrayExpression::from_value(unwrapped_expressions_or_spreads.into())
+                    ArrayExpression::from_value(unwrapped_expressions_or_spreads)
                         .annotate(inferred_type, size)
                         .into(),
                 )
@@ -3515,7 +3514,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok(IntExpression::and(e1, e2).into())
                     }
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::and(e1, e2).into())
+                        Ok(BooleanExpression::bitand(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         span: Some(span),
@@ -3533,7 +3532,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e2_checked = self.check_expression(e2, module_id, types)?;
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::or(e1, e2).into())
+                        Ok(BooleanExpression::bitor(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         span: Some(span),
@@ -5464,70 +5463,54 @@ mod tests {
             ];
 
             let expected = vec![
-                            TypedStatement::definition(
-                                typed::Variable::new(
-                                    CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
-                                    Type::FieldElement,
-                                    true,
-                                )
-                                .into(),
-            <<<<<<< HEAD
-                                FieldElementExpression::from_value(2.into()).into(),
-            =======
-                                FieldElementExpression::Number(2u32.into()).into(),
-            >>>>>>> 8ca79372dfbf6b3c3a48c56153240480f1fc8af6
-                            ),
-                            TypedStatement::for_(
-                                typed::Variable::new(
-                                    CoreIdentifier::from(ShadowedIdentifier::shadow("i".into(), 1)),
-                                    Type::Uint(UBitwidth::B32),
-                                    false,
-                                ),
-                                0u32.into(),
-                                0u32.into(),
-                                vec![
-                                    TypedStatement::definition(
-                                        typed::Variable::new(
-                                            CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
-                                            Type::FieldElement,
-                                            true,
-                                        )
-                                        .into(),
-            <<<<<<< HEAD
-                                        FieldElementExpression::from_value(3.into()).into(),
-            =======
-                                        FieldElementExpression::Number(3u32.into()).into(),
-            >>>>>>> 8ca79372dfbf6b3c3a48c56153240480f1fc8af6
-                                    ),
-                                    TypedStatement::definition(
-                                        typed::Variable::new(
-                                            CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 1)),
-                                            Type::FieldElement,
-                                            false,
-                                        )
-                                        .into(),
-            <<<<<<< HEAD
-                                        FieldElementExpression::from_value(4.into()).into(),
-            =======
-                                        FieldElementExpression::Number(4u32.into()).into(),
-            >>>>>>> 8ca79372dfbf6b3c3a48c56153240480f1fc8af6
-                                    ),
-                                ],
-                            ),
-                            TypedStatement::definition(
-                                typed::Variable::new(
-                                    CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
-                                    Type::FieldElement,
-                                    true,
-                                )
-                                .into(),
-            <<<<<<< HEAD
-                                FieldElementExpression::from_value(5.into()).into(),
-            =======
-                                FieldElementExpression::Number(5u32.into()).into(),
-            >>>>>>> 8ca79372dfbf6b3c3a48c56153240480f1fc8af6
-                            ),
-                        ];
+                TypedStatement::definition(
+                    typed::Variable::new(
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
+                        Type::FieldElement,
+                        true,
+                    )
+                    .into(),
+                    FieldElementExpression::from_value(2u32.into()).into(),
+                ),
+                TypedStatement::for_(
+                    typed::Variable::new(
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("i".into(), 1)),
+                        Type::Uint(UBitwidth::B32),
+                        false,
+                    ),
+                    0u32.into(),
+                    0u32.into(),
+                    vec![
+                        TypedStatement::definition(
+                            typed::Variable::new(
+                                CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
+                                Type::FieldElement,
+                                true,
+                            )
+                            .into(),
+                            FieldElementExpression::from_value(3u32.into()).into(),
+                        ),
+                        TypedStatement::definition(
+                            typed::Variable::new(
+                                CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 1)),
+                                Type::FieldElement,
+                                false,
+                            )
+                            .into(),
+                            FieldElementExpression::from_value(4u32.into()).into(),
+                        ),
+                    ],
+                ),
+                TypedStatement::definition(
+                    typed::Variable::new(
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
+                        Type::FieldElement,
+                        true,
+                    )
+                    .into(),
+                    FieldElementExpression::from_value(5u32.into()).into(),
+                ),
+            ];
 
             checker.enter_scope();
             let checked: Vec<_> = statements

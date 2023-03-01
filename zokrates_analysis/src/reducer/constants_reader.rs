@@ -2,12 +2,9 @@
 
 use crate::reducer::ConstantDefinitions;
 use zokrates_ast::typed::{
-    folder::*, identifier::FrameIdentifier, ArrayExpression, ArrayExpressionInner, ArrayType,
-    BooleanExpression, CoreIdentifier, DeclarationConstant, Expr, FieldElementExpression, Id,
-    Identifier, IdentifierExpression, IdentifierOrExpression, StructExpression,
-    StructExpressionInner, StructType, TupleExpression, TupleExpressionInner, TupleType,
-    TypedExpression, TypedProgram, TypedSymbolDeclaration, UBitwidth, UExpression,
-    UExpressionInner,
+    folder::*, identifier::FrameIdentifier, CoreIdentifier, DeclarationConstant, Expr, Id,
+    Identifier, IdentifierExpression, IdentifierOrExpression, TypedExpression, TypedProgram,
+    TypedSymbolDeclaration, UExpression, UExpressionInner,
 };
 use zokrates_field::Field;
 

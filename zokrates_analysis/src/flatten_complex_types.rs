@@ -9,9 +9,7 @@ use zokrates_ast::common::WithSpan;
 use zokrates_ast::typed::types::{ConcreteArrayType, IntoType, UBitwidth};
 use zokrates_ast::typed::{self, Basic, Expr, Typed};
 use zokrates_ast::zir::IntoType as ZirIntoType;
-use zokrates_ast::zir::{
-    self, AssemblyStatement, Expr as ZirExpr, Folder, Id, MultipleDefinitionStatement, Select,
-};
+use zokrates_ast::zir::{self, Expr as ZirExpr, Folder, Id, MultipleDefinitionStatement, Select};
 use zokrates_field::Field;
 
 #[derive(Default)]
@@ -1149,7 +1147,7 @@ fn conjunction_tree<'ast, T: Field>(
         n => {
             let (x0, y0) = v.split_at(n / 2);
             let (x1, y1) = w.split_at(n / 2);
-            zir::BooleanExpression::and(conjunction_tree(x0, x1), conjunction_tree(y0, y1))
+            zir::BooleanExpression::bitand(conjunction_tree(x0, x1), conjunction_tree(y0, y1))
         }
     }
 }

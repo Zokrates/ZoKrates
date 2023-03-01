@@ -148,7 +148,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
                 CoreIdentifier::from(identifier),
                 UBitwidth::B32,
             )),
-            TypedExpression::from(UExpression::from(value)).into(),
+            TypedExpression::from(UExpression::from(value)),
         )
     });
 

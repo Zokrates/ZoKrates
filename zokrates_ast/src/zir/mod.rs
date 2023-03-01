@@ -892,15 +892,23 @@ impl<'ast, T> std::ops::Not for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> BooleanExpression<'ast, T> {
-    pub fn and(self, other: Self) -> Self {
+impl<'ast, T> std::ops::BitAnd for BooleanExpression<'ast, T> {
+    type Output = Self;
+
+    fn bitand(self, other: Self) -> Self {
         Self::And(BinaryExpression::new(self, other))
     }
+}
 
-    pub fn or(self, other: Self) -> Self {
+impl<'ast, T> std::ops::BitOr for BooleanExpression<'ast, T> {
+    type Output = Self;
+
+    fn bitor(self, other: Self) -> Self {
         Self::Or(BinaryExpression::new(self, other))
     }
+}
 
+impl<'ast, T> BooleanExpression<'ast, T> {
     pub fn uint_eq(left: UExpression<'ast, T>, right: UExpression<'ast, T>) -> Self {
         Self::UintEq(BinaryExpression::new(left, right))
     }

@@ -205,15 +205,20 @@ mod tests {
     use zokrates_interpreter::Interpreter;
 
     use super::*;
-    use zokrates_ast::common::{Parameter, Variable};
-    use zokrates_ast::ir::{Prog, Statement};
+    use zokrates_ast::common::flat::Parameter;
+    use zokrates_ast::ir::{Prog, Statement, Variable};
 
     #[test]
     fn verify() {
         let program: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![Parameter::public(Variable::new(0))],
             return_count: 1,
-            statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+            statements: vec![Statement::constraint(
+                Variable::new(0),
+                Variable::public(0),
+                None,
+            )],
         };
 
         let rng = &mut StdRng::from_entropy();

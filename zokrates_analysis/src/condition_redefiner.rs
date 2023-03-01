@@ -97,6 +97,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ops::*;
     use zokrates_ast::typed::{
         Block, BooleanExpression, Conditional, ConditionalKind, FieldElementExpression, Type,
     };
@@ -151,7 +152,7 @@ mod tests {
         // bool #CONDITION_0 = c && d;
         // field foo = if #CONDITION_0 { 1 } else { 2 };
 
-        let condition = BooleanExpression::and(
+        let condition = BooleanExpression::bitand(
             BooleanExpression::identifier("c".into()),
             BooleanExpression::identifier("d".into()),
         );
@@ -210,12 +211,12 @@ mod tests {
         //     3
         // };
 
-        let condition_0 = BooleanExpression::and(
+        let condition_0 = BooleanExpression::bitand(
             BooleanExpression::identifier("c".into()),
             BooleanExpression::identifier("d".into()),
         );
 
-        let condition_1 = BooleanExpression::and(
+        let condition_1 = BooleanExpression::bitand(
             BooleanExpression::identifier("e".into()),
             BooleanExpression::identifier("f".into()),
         );
@@ -292,17 +293,17 @@ mod tests {
         //     if #CONDITION_2 { 2 } : { 3 }
         // };
 
-        let condition_0 = BooleanExpression::and(
+        let condition_0 = BooleanExpression::bitand(
             BooleanExpression::identifier("c".into()),
             BooleanExpression::identifier("d".into()),
         );
 
-        let condition_1 = BooleanExpression::and(
+        let condition_1 = BooleanExpression::bitand(
             BooleanExpression::identifier("e".into()),
             BooleanExpression::identifier("f".into()),
         );
 
-        let condition_2 = BooleanExpression::and(
+        let condition_2 = BooleanExpression::bitand(
             BooleanExpression::identifier("e".into()),
             BooleanExpression::identifier("f".into()),
         );

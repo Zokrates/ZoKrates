@@ -320,14 +320,12 @@ mod tests {
                         ArrayExpression::identifier(Identifier::from(const_id.clone()))
                             .annotate(GType::FieldElement, 2u32),
                         UExpression::from_value(0u128).annotate(UBitwidth::B32),
-                    )
-                    .into(),
+                    ),
                     FieldElementExpression::select(
                         ArrayExpression::identifier(Identifier::from(const_id.clone()))
                             .annotate(GType::FieldElement, 2u32),
                         UExpression::from_value(1u128).annotate(UBitwidth::B32),
-                    )
-                    .into(),
+                    ),
                 )
                 .into(),
             )],
@@ -353,8 +351,7 @@ mod tests {
                                                 .into(),
                                             FieldElementExpression::from_value(Bn128Field::from(2))
                                                 .into(),
-                                        ]
-                                        .into(),
+                                        ],
                                     )
                                     .annotate(GType::FieldElement, 2u32),
                                 ),
