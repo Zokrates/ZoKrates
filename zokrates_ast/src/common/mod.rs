@@ -11,7 +11,6 @@ mod position;
 mod solvers;
 pub mod statements;
 mod value;
-mod variable;
 
 pub use self::embed::FlatEmbed;
 pub use self::error::RuntimeError;

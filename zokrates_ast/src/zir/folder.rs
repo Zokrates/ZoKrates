@@ -280,13 +280,14 @@ pub fn fold_multiple_definition_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: MultipleDefinitionStatement<'ast, T>,
 ) -> Vec<ZirStatement<'ast, T>> {
+    let expression_list = f.fold_expression_list(s.rhs);
     vec![ZirStatement::MultipleDefinition(
         MultipleDefinitionStatement::new(
             s.assignees
                 .into_iter()
                 .map(|v| f.fold_variable(v))
                 .collect(),
-            f.fold_expression_list(s.rhs),
+            expression_list,
         ),
     )]
 }
@@ -312,9 +313,10 @@ pub fn fold_definition_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: DefinitionStatement<'ast, T>,
 ) -> Vec<ZirStatement<'ast, T>> {
+    let rhs = f.fold_expression(s.rhs);
     vec![ZirStatement::Definition(DefinitionStatement::new(
         f.fold_assignee(s.assignee),
-        f.fold_expression(s.rhs),
+        rhs,
     ))]
 }
 

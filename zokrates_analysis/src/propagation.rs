@@ -1701,13 +1701,11 @@ mod tests {
             #[test]
             fn select() {
                 let e = FieldElementExpression::select(
-                    ArrayExpression::from_value(
-                        vec![
-                            FieldElementExpression::from_value(Bn128Field::from(1)).into(),
-                            FieldElementExpression::from_value(Bn128Field::from(2)).into(),
-                            FieldElementExpression::from_value(Bn128Field::from(3)).into(),
-                        ],
-                    )
+                    ArrayExpression::from_value(vec![
+                        FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                        FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                        FieldElementExpression::from_value(Bn128Field::from(3)).into(),
+                    ])
                     .annotate(Type::FieldElement, 3u32),
                     UExpression::add(1u32.into(), 1u32.into()),
                 );
@@ -1836,32 +1834,24 @@ mod tests {
             #[test]
             fn array_eq() {
                 let e_constant_true = BooleanExpression::ArrayEq(BinaryExpression::new(
-                    ArrayExpression::from_value(
-                        vec![TypedExpressionOrSpread::Expression(
-                            FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
-                        )],
-                    )
+                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
+                    )])
                     .annotate(Type::FieldElement, 1u32),
-                    ArrayExpression::from_value(
-                        vec![TypedExpressionOrSpread::Expression(
-                            FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
-                        )],
-                    )
+                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
+                    )])
                     .annotate(Type::FieldElement, 1u32),
                 ));
 
                 let e_constant_false = BooleanExpression::ArrayEq(BinaryExpression::new(
-                    ArrayExpression::from_value(
-                        vec![TypedExpressionOrSpread::Expression(
-                            FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
-                        )],
-                    )
+                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
+                    )])
                     .annotate(Type::FieldElement, 1u32),
-                    ArrayExpression::from_value(
-                        vec![TypedExpressionOrSpread::Expression(
-                            FieldElementExpression::from_value(Bn128Field::from(4usize)).into(),
-                        )],
-                    )
+                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::from_value(Bn128Field::from(4usize)).into(),
+                    )])
                     .annotate(Type::FieldElement, 1u32),
                 ));
 
@@ -1878,46 +1868,32 @@ mod tests {
                     ));
 
                 let e_non_canonical_true = BooleanExpression::ArrayEq(BinaryExpression::new(
-                    ArrayExpression::from_value(
-                        vec![TypedExpressionOrSpread::Spread(
-                            ArrayExpression::from_value(
-                                vec![TypedExpressionOrSpread::Expression(
-                                    FieldElementExpression::from_value(Bn128Field::from(2usize))
-                                        .into(),
-                                )],
-                            )
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
-                        )],
-                    )
-                    .annotate(Type::FieldElement, 1u32),
-                    ArrayExpression::from_value(
-                        vec![TypedExpressionOrSpread::Expression(
+                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Spread(
+                        ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
                             FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
-                        )],
-                    )
+                        )])
+                        .annotate(Type::FieldElement, 1u32)
+                        .into(),
+                    )])
+                    .annotate(Type::FieldElement, 1u32),
+                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
+                    )])
                     .annotate(Type::FieldElement, 1u32),
                 ));
 
                 let e_non_canonical_false = BooleanExpression::ArrayEq(BinaryExpression::new(
-                    ArrayExpression::from_value(
-                        vec![TypedExpressionOrSpread::Spread(
-                            ArrayExpression::from_value(
-                                vec![TypedExpressionOrSpread::Expression(
-                                    FieldElementExpression::from_value(Bn128Field::from(2usize))
-                                        .into(),
-                                )],
-                            )
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
-                        )],
-                    )
+                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Spread(
+                        ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
+                            FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
+                        )])
+                        .annotate(Type::FieldElement, 1u32)
+                        .into(),
+                    )])
                     .annotate(Type::FieldElement, 1u32),
-                    ArrayExpression::from_value(
-                        vec![TypedExpressionOrSpread::Expression(
-                            FieldElementExpression::from_value(Bn128Field::from(4usize)).into(),
-                        )],
-                    )
+                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::from_value(Bn128Field::from(4usize)).into(),
+                    )])
                     .annotate(Type::FieldElement, 1u32),
                 ));
 

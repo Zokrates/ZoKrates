@@ -702,9 +702,9 @@ pub fn fold_definition_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: DefinitionStatement<'ast, T>,
 ) -> Vec<TypedStatement<'ast, T>> {
+    let rhs = f.fold_definition_rhs(s.rhs);
     vec![TypedStatement::Definition(
-        DefinitionStatement::new(f.fold_assignee(s.assignee), f.fold_definition_rhs(s.rhs))
-            .span(s.span),
+        DefinitionStatement::new(f.fold_assignee(s.assignee), rhs).span(s.span),
     )]
 }
 

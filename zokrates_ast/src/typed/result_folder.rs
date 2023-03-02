@@ -781,9 +781,10 @@ pub fn fold_definition_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: DefinitionStatement<'ast, T>,
 ) -> Result<Vec<TypedStatement<'ast, T>>, F::Error> {
+    let rhs = f.fold_definition_rhs(s.rhs)?;
     Ok(vec![TypedStatement::Definition(DefinitionStatement::new(
         f.fold_assignee(s.assignee)?,
-        f.fold_definition_rhs(s.rhs)?,
+        rhs,
     ))])
 }
 

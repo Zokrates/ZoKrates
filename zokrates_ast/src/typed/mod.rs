@@ -837,23 +837,6 @@ impl<'ast, T> TypedStatement<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
-    fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
-        match self {
-            TypedStatement::For(s) => {
-                write!(f, "{}", "\t".repeat(depth))?;
-                writeln!(f, "for {} in {}..{} {{", s.var, s.from, s.to)?;
-                for s in &s.statements {
-                    s.fmt_indented(f, depth + 1)?;
-                    writeln!(f)?;
-                }
-                write!(f, "{}}}", "\t".repeat(depth))
-            }
-            s => write!(f, "{}{}", "\t".repeat(depth), s),
-        }
-    }
-}
-
 impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {

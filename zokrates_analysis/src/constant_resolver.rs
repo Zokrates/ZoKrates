@@ -345,14 +345,12 @@ mod tests {
                             const_id.clone(),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 TypedExpression::Array(
-                                    ArrayExpression::from_value(
-                                        vec![
-                                            FieldElementExpression::from_value(Bn128Field::from(2))
-                                                .into(),
-                                            FieldElementExpression::from_value(Bn128Field::from(2))
-                                                .into(),
-                                        ],
-                                    )
+                                    ArrayExpression::from_value(vec![
+                                        FieldElementExpression::from_value(Bn128Field::from(2))
+                                            .into(),
+                                        FieldElementExpression::from_value(Bn128Field::from(2))
+                                            .into(),
+                                    ])
                                     .annotate(GType::FieldElement, 2u32),
                                 ),
                                 DeclarationType::Array(DeclarationArrayType::new(

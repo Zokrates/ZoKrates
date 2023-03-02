@@ -155,16 +155,11 @@ impl<'ast, T: Field> Folder<'ast, T> for ShallowTransformer<'ast> {
         }
     }
 
-    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
-        match s {
-            // only fold bounds of for loop statements
-            TypedStatement::For(s) => {
-                let from = self.fold_uint_expression(s.from);
-                let to = self.fold_uint_expression(s.to);
-                vec![TypedStatement::for_(s.var, from, to, s.statements)]
-            }
-            s => fold_statement(self, s),
-        }
+    // only fold bounds of for loop statements
+    fn fold_for_statement(&mut self, s: ForStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+        let from = self.fold_uint_expression(s.from);
+        let to = self.fold_uint_expression(s.to);
+        vec![TypedStatement::for_(s.var, from, to, s.statements)]
     }
 
     // retrieve the latest version
@@ -410,12 +405,10 @@ mod tests {
 
             let s = TypedStatement::definition(
                 TypedAssignee::Identifier(Variable::array("a", Type::FieldElement, 2u32)),
-                ArrayExpression::from_value(
-                    vec![
-                        FieldElementExpression::from_value(Bn128Field::from(1)).into(),
-                        FieldElementExpression::from_value(Bn128Field::from(1)).into(),
-                    ],
-                )
+                ArrayExpression::from_value(vec![
+                    FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                    FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                ])
                 .annotate(Type::FieldElement, 2u32)
                 .into(),
             );
@@ -428,12 +421,10 @@ mod tests {
                         Type::FieldElement,
                         2u32
                     )),
-                    ArrayExpression::from_value(
-                        vec![
-                            FieldElementExpression::from_value(Bn128Field::from(1)).into(),
-                            FieldElementExpression::from_value(Bn128Field::from(1)).into()
-                        ]
-                    )
+                    ArrayExpression::from_value(vec![
+                        FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                        FieldElementExpression::from_value(Bn128Field::from(1)).into()
+                    ])
                     .annotate(Type::FieldElement, 2u32)
                     .into()
                 )]
@@ -465,26 +456,20 @@ mod tests {
 
             let s = TypedStatement::definition(
                 TypedAssignee::Identifier(Variable::new("a", array_of_array_ty.clone(), true)),
-                ArrayExpression::from_value(
-                    vec![
-                        ArrayExpression::from_value(
-                            vec![
-                                FieldElementExpression::from_value(Bn128Field::from(0)).into(),
-                                FieldElementExpression::from_value(Bn128Field::from(1)).into(),
-                            ],
-                        )
-                        .annotate(Type::FieldElement, 2u32)
-                        .into(),
-                        ArrayExpression::from_value(
-                            vec![
-                                FieldElementExpression::from_value(Bn128Field::from(2)).into(),
-                                FieldElementExpression::from_value(Bn128Field::from(3)).into(),
-                            ],
-                        )
-                        .annotate(Type::FieldElement, 2u32)
-                        .into(),
-                    ],
-                )
+                ArrayExpression::from_value(vec![
+                    ArrayExpression::from_value(vec![
+                        FieldElementExpression::from_value(Bn128Field::from(0)).into(),
+                        FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                    ])
+                    .annotate(Type::FieldElement, 2u32)
+                    .into(),
+                    ArrayExpression::from_value(vec![
+                        FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                        FieldElementExpression::from_value(Bn128Field::from(3)).into(),
+                    ])
+                    .annotate(Type::FieldElement, 2u32)
+                    .into(),
+                ])
                 .annotate(Type::array((Type::FieldElement, 2u32)), 2u32)
                 .into(),
             );
@@ -497,26 +482,20 @@ mod tests {
                         array_of_array_ty.clone(),
                         true,
                     )),
-                    ArrayExpression::from_value(
-                        vec![
-                            ArrayExpression::from_value(
-                                vec![
-                                    FieldElementExpression::from_value(Bn128Field::from(0)).into(),
-                                    FieldElementExpression::from_value(Bn128Field::from(1)).into(),
-                                ]
-                            )
-                            .annotate(Type::FieldElement, 2u32)
-                            .into(),
-                            ArrayExpression::from_value(
-                                vec![
-                                    FieldElementExpression::from_value(Bn128Field::from(2)).into(),
-                                    FieldElementExpression::from_value(Bn128Field::from(3)).into(),
-                                ]
-                            )
-                            .annotate(Type::FieldElement, 2u32)
-                            .into(),
-                        ]
-                    )
+                    ArrayExpression::from_value(vec![
+                        ArrayExpression::from_value(vec![
+                            FieldElementExpression::from_value(Bn128Field::from(0)).into(),
+                            FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                        ])
+                        .annotate(Type::FieldElement, 2u32)
+                        .into(),
+                        ArrayExpression::from_value(vec![
+                            FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                            FieldElementExpression::from_value(Bn128Field::from(3)).into(),
+                        ])
+                        .annotate(Type::FieldElement, 2u32)
+                        .into(),
+                    ])
                     .annotate(Type::array((Type::FieldElement, 2u32)), 2u32)
                     .into(),
                 )]
@@ -531,12 +510,10 @@ mod tests {
                     )),
                     box UExpression::from(1u32),
                 ),
-                ArrayExpression::from_value(
-                    vec![
-                        FieldElementExpression::from_value(Bn128Field::from(4)).into(),
-                        FieldElementExpression::from_value(Bn128Field::from(5)).into(),
-                    ],
-                )
+                ArrayExpression::from_value(vec![
+                    FieldElementExpression::from_value(Bn128Field::from(4)).into(),
+                    FieldElementExpression::from_value(Bn128Field::from(5)).into(),
+                ])
                 .annotate(Type::FieldElement, 2u32)
                 .into(),
             );
@@ -712,7 +689,6 @@ mod tests {
     }
 
     mod shadowing {
-        
 
         use super::*;
 
