@@ -12,7 +12,13 @@ impl<'ast, T> Add for UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
 
-        UExpressionInner::Add(BinaryExpression::new(self, other)).annotate(bitwidth)
+        // we apply a basic simplification here which enables more precise comparison of array sizes during semantic checking
+        // this could be done by the caller by calling propagation, but it is deemed simple enough to be done here
+        match (self.as_inner(), other.as_inner()) {
+            (UExpressionInner::Value(v), _) if v.value == 0 => other,
+            (_, UExpressionInner::Value(v)) if v.value == 0 => self,
+            _ => UExpressionInner::Add(BinaryExpression::new(self, other)).annotate(bitwidth),
+        }
     }
 }
 
