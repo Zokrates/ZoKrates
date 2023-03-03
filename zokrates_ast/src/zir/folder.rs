@@ -54,6 +54,20 @@ pub trait Folder<'ast, T: Field>: Sized {
         self.fold_variable(a)
     }
 
+    fn fold_assembly_constraint(
+        &mut self,
+        s: AssemblyConstraint<'ast, T>,
+    ) -> Vec<ZirAssemblyStatement<'ast, T>> {
+        fold_assembly_constraint(self, s)
+    }
+
+    fn fold_assembly_assignment(
+        &mut self,
+        s: AssemblyAssignment<'ast, T>,
+    ) -> Vec<ZirAssemblyStatement<'ast, T>> {
+        fold_assembly_assignment(self, s)
+    }
+
     fn fold_assembly_statement(
         &mut self,
         s: ZirAssemblyStatement<'ast, T>,
@@ -227,21 +241,31 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 }
 
+pub fn fold_assembly_assignment<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: AssemblyAssignment<'ast, T>,
+) -> Vec<ZirAssemblyStatement<'ast, T>> {
+    let assignees = s.assignee.into_iter().map(|a| f.fold_assignee(a)).collect();
+    let expression = f.fold_function(s.expression);
+    vec![ZirAssemblyStatement::assignment(assignees, expression)]
+}
+
+pub fn fold_assembly_constraint<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: AssemblyConstraint<'ast, T>,
+) -> Vec<ZirAssemblyStatement<'ast, T>> {
+    let left = f.fold_field_expression(s.left);
+    let right = f.fold_field_expression(s.right);
+    vec![ZirAssemblyStatement::constraint(left, right, s.metadata)]
+}
+
 pub fn fold_assembly_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: ZirAssemblyStatement<'ast, T>,
 ) -> Vec<ZirAssemblyStatement<'ast, T>> {
     match s {
-        ZirAssemblyStatement::Assignment(assignees, function) => {
-            let assignees = assignees.into_iter().map(|a| f.fold_assignee(a)).collect();
-            let function = f.fold_function(function);
-            vec![ZirAssemblyStatement::Assignment(assignees, function)]
-        }
-        ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {
-            let lhs = f.fold_field_expression(lhs);
-            let rhs = f.fold_field_expression(rhs);
-            vec![ZirAssemblyStatement::Constraint(lhs, rhs, metadata)]
-        }
+        ZirAssemblyStatement::Assignment(s) => f.fold_assembly_assignment(s),
+        ZirAssemblyStatement::Constraint(s) => f.fold_assembly_constraint(s),
     }
 }
 

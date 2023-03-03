@@ -2328,27 +2328,29 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened.set_span(span);
 
         match stat {
-            ZirAssemblyStatement::Assignment(assignees, function) => {
-                let inputs: Vec<FlatExpression<T>> = function
+            ZirAssemblyStatement::Assignment(s) => {
+                let inputs: Vec<FlatExpression<T>> = s
+                    .expression
                     .arguments
                     .iter()
                     .cloned()
                     .map(|p| self.layout.get(&p.id.id).cloned().unwrap().into())
                     .collect();
-                let outputs: Vec<Variable> = assignees
+                let outputs: Vec<Variable> = s
+                    .assignee
                     .into_iter()
                     .map(|assignee| self.use_variable(&assignee))
                     .collect();
-                let directive = FlatDirective::new(outputs, Solver::Zir(function), inputs);
+                let directive = FlatDirective::new(outputs, Solver::Zir(s.expression), inputs);
                 statements_flattened.push_back(FlatStatement::Directive(directive));
             }
-            ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {
-                let lhs = self.flatten_field_expression(statements_flattened, lhs);
-                let rhs = self.flatten_field_expression(statements_flattened, rhs);
+            ZirAssemblyStatement::Constraint(s) => {
+                let lhs = self.flatten_field_expression(statements_flattened, s.left);
+                let rhs = self.flatten_field_expression(statements_flattened, s.right);
                 statements_flattened.push_back(FlatStatement::condition(
                     lhs,
                     rhs,
-                    RuntimeError::SourceAssemblyConstraint(metadata),
+                    RuntimeError::SourceAssemblyConstraint(s.metadata),
                 ));
             }
         };

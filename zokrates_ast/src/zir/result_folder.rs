@@ -64,6 +64,20 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         self.fold_variable(a)
     }
 
+    fn fold_assembly_constraint(
+        &mut self,
+        s: AssemblyConstraint<'ast, T>,
+    ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
+        fold_assembly_constraint(self, s)
+    }
+
+    fn fold_assembly_assignment(
+        &mut self,
+        s: AssemblyAssignment<'ast, T>,
+    ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
+        fold_assembly_assignment(self, s)
+    }
+
     fn fold_assembly_statement(
         &mut self,
         s: ZirAssemblyStatement<'ast, T>,
@@ -269,25 +283,41 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_uint_expression_cases(self, bitwidth, e)
     }
 }
+
+pub fn fold_assembly_assignment<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: AssemblyAssignment<'ast, T>,
+) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, F::Error> {
+    let assignees = s
+        .assignee
+        .into_iter()
+        .map(|a| f.fold_assignee(a))
+        .collect::<Result<_, _>>()?;
+    let expression = f.fold_function(s.expression)?;
+    Ok(vec![ZirAssemblyStatement::assignment(
+        assignees, expression,
+    )])
+}
+
+pub fn fold_assembly_constraint<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: AssemblyConstraint<'ast, T>,
+) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, F::Error> {
+    let left = f.fold_field_expression(s.left)?;
+    let right = f.fold_field_expression(s.right)?;
+    Ok(vec![ZirAssemblyStatement::constraint(
+        left, right, s.metadata,
+    )])
+}
+
 pub fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: ZirAssemblyStatement<'ast, T>,
 ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, F::Error> {
-    Ok(match s {
-        ZirAssemblyStatement::Assignment(assignees, function) => {
-            let assignees = assignees
-                .into_iter()
-                .map(|a| f.fold_assignee(a))
-                .collect::<Result<_, _>>()?;
-            let function = f.fold_function(function)?;
-            vec![ZirAssemblyStatement::Assignment(assignees, function)]
-        }
-        ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {
-            let lhs = f.fold_field_expression(lhs)?;
-            let rhs = f.fold_field_expression(rhs)?;
-            vec![ZirAssemblyStatement::Constraint(lhs, rhs, metadata)]
-        }
-    })
+    match s {
+        ZirAssemblyStatement::Assignment(s) => f.fold_assembly_assignment(s),
+        ZirAssemblyStatement::Constraint(s) => f.fold_assembly_constraint(s),
+    }
 }
 
 pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(

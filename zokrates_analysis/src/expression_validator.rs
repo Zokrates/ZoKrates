@@ -25,15 +25,12 @@ impl ExpressionValidator {
 impl<'ast, T: Field> ResultFolder<'ast, T> for ExpressionValidator {
     type Error = Error;
 
-    fn fold_assembly_statement(
+    // we allow more dynamic expressions in witness generation
+    fn fold_assembly_assignment(
         &mut self,
-        s: TypedAssemblyStatement<'ast, T>,
+        s: zokrates_ast::typed::AssemblyAssignment<'ast, T>,
     ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
-        match s {
-            // we allow more dynamic expressions in witness generation
-            TypedAssemblyStatement::Assignment(_, _) => Ok(vec![s]),
-            s => fold_assembly_statement(self, s),
-        }
+        Ok(vec![TypedAssemblyStatement::Assignment(s)])
     }
 
     fn fold_field_expression_cases(

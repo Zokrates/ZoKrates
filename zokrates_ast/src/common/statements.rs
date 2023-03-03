@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Solver;
 
-use super::FormatString;
+use super::{FormatString, SourceMetadata};
 use super::{Span, WithSpan};
 use std::fmt;
 
@@ -206,5 +206,67 @@ impl<I: fmt::Display, O: fmt::Display, S: fmt::Display> fmt::Display
                 .collect::<Vec<_>>()
                 .join(", ")
         )
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AssemblyAssignment<A, E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
+    pub span: Option<Span>,
+    pub assignee: A,
+    pub expression: E,
+}
+
+impl<A, E> AssemblyAssignment<A, E> {
+    pub fn new(assignee: A, expression: E) -> Self {
+        Self {
+            span: None,
+            assignee,
+            expression,
+        }
+    }
+}
+
+impl<A, E> WithSpan for AssemblyAssignment<A, E> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self { span, ..self }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AssemblyConstraint<E> {
+    #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
+    pub span: Option<Span>,
+    pub left: E,
+    pub right: E,
+    pub metadata: SourceMetadata,
+}
+
+impl<E> AssemblyConstraint<E> {
+    pub fn new(left: E, right: E, metadata: SourceMetadata) -> Self {
+        Self {
+            span: None,
+            left,
+            right,
+            metadata,
+        }
+    }
+}
+
+impl<E> WithSpan for AssemblyConstraint<E> {
+    fn span(self, span: Option<Span>) -> Self {
+        Self { span, ..self }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        self.span
     }
 }

@@ -132,45 +132,65 @@ impl RuntimeError {
     }
 }
 
+pub type AssemblyConstraint<'ast, T> =
+    crate::common::statements::AssemblyConstraint<FieldElementExpression<'ast, T>>;
+pub type AssemblyAssignment<'ast, T> =
+    crate::common::statements::AssemblyAssignment<Vec<ZirAssignee<'ast>>, ZirFunction<'ast, T>>;
+
 #[derive(Clone, PartialEq, Hash, Eq, Debug, Serialize, Deserialize)]
 pub enum ZirAssemblyStatement<'ast, T> {
-    Assignment(
-        #[serde(borrow)] Vec<ZirAssignee<'ast>>,
-        ZirFunction<'ast, T>,
-    ),
-    Constraint(
-        FieldElementExpression<'ast, T>,
-        FieldElementExpression<'ast, T>,
-        SourceMetadata,
-    ),
+    #[serde(borrow)]
+    Assignment(AssemblyAssignment<'ast, T>),
+    Constraint(AssemblyConstraint<'ast, T>),
+}
+
+impl<'ast, T> ZirAssemblyStatement<'ast, T> {
+    pub fn assignment(assignee: Vec<ZirAssignee<'ast>>, expression: ZirFunction<'ast, T>) -> Self {
+        ZirAssemblyStatement::Assignment(AssemblyAssignment::new(assignee, expression))
+    }
+
+    pub fn constraint(
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+        metadata: SourceMetadata,
+    ) -> Self {
+        ZirAssemblyStatement::Constraint(AssemblyConstraint::new(left, right, metadata))
+    }
 }
 
 impl<'ast, T> WithSpan for ZirAssemblyStatement<'ast, T> {
-    fn span(self, _: Option<Span>) -> Self {
-        todo!()
+    fn span(self, span: Option<Span>) -> Self {
+        match self {
+            ZirAssemblyStatement::Assignment(s) => ZirAssemblyStatement::Assignment(s.span(span)),
+            ZirAssemblyStatement::Constraint(s) => ZirAssemblyStatement::Constraint(s.span(span)),
+        }
     }
 
     fn get_span(&self) -> Option<Span> {
-        todo!()
+        match self {
+            ZirAssemblyStatement::Assignment(s) => s.get_span(),
+            ZirAssemblyStatement::Constraint(s) => s.get_span(),
+        }
     }
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ZirAssemblyStatement::Assignment(ref lhs, ref rhs) => {
+            ZirAssemblyStatement::Assignment(ref s) => {
                 write!(
                     f,
                     "{} <-- {};",
-                    lhs.iter()
+                    s.assignee
+                        .iter()
                         .map(|a| a.to_string())
                         .collect::<Vec<_>>()
                         .join(", "),
-                    rhs
+                    s.expression
                 )
             }
-            ZirAssemblyStatement::Constraint(ref lhs, ref rhs, _) => {
-                write!(f, "{} === {};", lhs, rhs)
+            ZirAssemblyStatement::Constraint(ref s) => {
+                write!(f, "{} === {};", s.left, s.right)
             }
         }
     }

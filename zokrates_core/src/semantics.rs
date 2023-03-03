@@ -1814,15 +1814,17 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let e = FieldElementExpression::block(vec![], e);
                         match assignee.get_type() {
                             Type::FieldElement => Ok(vec![
-                                TypedAssemblyStatement::Assignment(
+                                TypedAssemblyStatement::assignment(
                                     assignee.clone(),
                                     e.clone().into(),
-                                ),
-                                TypedAssemblyStatement::Constraint(
+                                )
+                                .with_span(span),
+                                TypedAssemblyStatement::constraint(
                                     assignee.into(),
                                     e,
                                     SourceMetadata::new(module_id.display().to_string(), span.from),
-                                ),
+                                )
+                                .with_span(span),
                             ]),
                             ty => Err(ErrorInner {
                                 span: Some(span),
@@ -1832,7 +1834,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     false => {
                         let e = FieldElementExpression::block(vec![], e);
-                        Ok(vec![TypedAssemblyStatement::Assignment(assignee, e.into())])
+                        Ok(vec![
+                            TypedAssemblyStatement::assignment(assignee, e.into()).with_span(span)
+                        ])
                     }
                 }
             }
@@ -1856,11 +1860,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     ),
                 })?;
 
-                Ok(vec![TypedAssemblyStatement::Constraint(
+                Ok(vec![TypedAssemblyStatement::constraint(
                     lhs,
                     rhs,
                     SourceMetadata::new(module_id.display().to_string(), span.from),
-                )])
+                )
+                .with_span(span)])
             }
         }
     }

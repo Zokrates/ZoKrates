@@ -447,20 +447,24 @@ fn is_constant<T>(assignee: &TypedAssignee<T>) -> bool {
 impl<'ast, T: Field> ResultFolder<'ast, T> for VariableWriteRemover {
     type Error = Error;
 
-    fn fold_assembly_statement(
+    fn fold_assembly_assignment(
         &mut self,
-        s: TypedAssemblyStatement<'ast, T>,
+        s: AssemblyAssignment<'ast, T>,
     ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
-        match s {
-            TypedAssemblyStatement::Assignment(a, e) if is_constant(&a) => {
-                Ok(vec![TypedAssemblyStatement::Assignment(a, e)])
-            }
-            TypedAssemblyStatement::Assignment(a, _) => Err(Error(format!(
+        match is_constant(&s.assignee) {
+            true => Ok(vec![TypedAssemblyStatement::Assignment(s)]),
+            false => Err(Error(format!(
                 "Cannot assign to an assignee with a variable index `{}`",
-                a
+                s.assignee
             ))),
-            s => Ok(vec![s]),
         }
+    }
+
+    fn fold_assembly_constraint(
+        &mut self,
+        s: AssemblyConstraint<'ast, T>,
+    ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
+        Ok(vec![TypedAssemblyStatement::Constraint(s)])
     }
 
     fn fold_definition_statement(

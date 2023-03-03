@@ -546,10 +546,10 @@ fn fold_assembly_statement<'ast, T: Field>(
     s: typed::TypedAssemblyStatement<'ast, T>,
 ) -> zir::ZirAssemblyStatement<'ast, T> {
     match s {
-        typed::TypedAssemblyStatement::Assignment(a, e) => {
+        typed::TypedAssemblyStatement::Assignment(s) => {
             let mut statements_buffer: Vec<zir::ZirStatement<'ast, T>> = vec![];
-            let a = f.fold_assignee(a);
-            let e = f.fold_expression(&mut statements_buffer, e);
+            let a = f.fold_assignee(s.assignee);
+            let e = f.fold_expression(&mut statements_buffer, s.expression);
             statements_buffer.push(zir::ZirStatement::ret(e));
 
             let mut finder = ArgumentFinder::default();
@@ -575,12 +575,12 @@ fn fold_assembly_statement<'ast, T: Field>(
                 statements: statements_buffer,
             };
 
-            zir::ZirAssemblyStatement::Assignment(a, function)
+            zir::ZirAssemblyStatement::assignment(a, function)
         }
-        typed::TypedAssemblyStatement::Constraint(lhs, rhs, metadata) => {
-            let lhs = f.fold_field_expression(statements_buffer, lhs);
-            let rhs = f.fold_field_expression(statements_buffer, rhs);
-            zir::ZirAssemblyStatement::Constraint(lhs, rhs, metadata)
+        typed::TypedAssemblyStatement::Constraint(s) => {
+            let lhs = f.fold_field_expression(statements_buffer, s.left);
+            let rhs = f.fold_field_expression(statements_buffer, s.right);
+            zir::ZirAssemblyStatement::constraint(lhs, rhs, s.metadata)
         }
     }
 }

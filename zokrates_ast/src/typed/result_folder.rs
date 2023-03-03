@@ -450,6 +450,20 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_assembly_block(self, s)
     }
 
+    fn fold_assembly_assignment(
+        &mut self,
+        s: AssemblyAssignment<'ast, T>,
+    ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
+        fold_assembly_assignment(self, s)
+    }
+
+    fn fold_assembly_constraint(
+        &mut self,
+        s: AssemblyConstraint<'ast, T>,
+    ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
+        fold_assembly_constraint(self, s)
+    }
+
     fn fold_assembly_statement(
         &mut self,
         s: TypedAssemblyStatement<'ast, T>,
@@ -721,7 +735,7 @@ pub fn fold_statement_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
         TypedStatement::Assertion(s) => f.fold_assertion_statement(s),
         TypedStatement::For(s) => f.fold_for_statement(s),
         TypedStatement::Log(s) => f.fold_log_statement(s),
-        s => Ok(vec![s]),
+        TypedStatement::Assembly(s) => f.fold_assembly_block(s),
     }
 }
 
@@ -740,23 +754,36 @@ pub fn fold_assembly_block<'ast, T: Field, F: ResultFolder<'ast, T>>(
     ))])
 }
 
+pub fn fold_assembly_assignment<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: AssemblyAssignment<'ast, T>,
+) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, F::Error> {
+    let assignee = f.fold_assignee(s.assignee)?;
+    let expression = f.fold_expression(s.expression)?;
+    Ok(vec![TypedAssemblyStatement::assignment(
+        assignee, expression,
+    )])
+}
+
+pub fn fold_assembly_constraint<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: AssemblyConstraint<'ast, T>,
+) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, F::Error> {
+    let left = f.fold_field_expression(s.left)?;
+    let right = f.fold_field_expression(s.right)?;
+    Ok(vec![TypedAssemblyStatement::constraint(
+        left, right, s.metadata,
+    )])
+}
+
 pub fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: TypedAssemblyStatement<'ast, T>,
 ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, F::Error> {
-    Ok(match s {
-        TypedAssemblyStatement::Assignment(a, e) => {
-            let e = f.fold_expression(e)?;
-            vec![TypedAssemblyStatement::Assignment(f.fold_assignee(a)?, e)]
-        }
-        TypedAssemblyStatement::Constraint(lhs, rhs, metadata) => {
-            vec![TypedAssemblyStatement::Constraint(
-                f.fold_field_expression(lhs)?,
-                f.fold_field_expression(rhs)?,
-                metadata,
-            )]
-        }
-    })
+    match s {
+        TypedAssemblyStatement::Assignment(s) => f.fold_assembly_assignment(s),
+        TypedAssemblyStatement::Constraint(s) => f.fold_assembly_constraint(s),
+    }
 }
 
 pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(

@@ -82,65 +82,66 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         })
     }
 
-    fn fold_assembly_statement(
+    fn fold_assembly_assignment(
         &mut self,
-        s: ZirAssemblyStatement<'ast, T>,
+        s: zokrates_ast::zir::AssemblyAssignment<'ast, T>,
     ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
-        match s {
-            ZirAssemblyStatement::Assignment(assignees, function) => {
-                let assignees: Vec<_> = assignees
-                    .into_iter()
-                    .map(|a| self.fold_assignee(a))
-                    .collect::<Result<_, _>>()?;
+        let assignees: Vec<_> = s
+            .assignee
+            .into_iter()
+            .map(|a| self.fold_assignee(a))
+            .collect::<Result<_, _>>()?;
 
-                let function = self.fold_function(function)?;
+        let function = self.fold_function(s.expression)?;
 
-                match &function.statements.last().unwrap() {
-                    ZirStatement::Return(s) => {
-                        if s.inner.iter().all(|v| v.is_constant()) {
-                            self.constants.extend(
-                                assignees
-                                    .into_iter()
-                                    .zip(s.inner.iter())
-                                    .map(|(a, v)| (a.id, v.clone())),
-                            );
-                            Ok(vec![])
-                        } else {
-                            assignees.iter().for_each(|a| {
-                                self.constants.remove(&a.id);
-                            });
-                            Ok(vec![ZirAssemblyStatement::Assignment(assignees, function)])
-                        }
-                    }
-                    _ => {
-                        assignees.iter().for_each(|a| {
-                            self.constants.remove(&a.id);
-                        });
-                        Ok(vec![ZirAssemblyStatement::Assignment(assignees, function)])
-                    }
+        match &function.statements.last().unwrap() {
+            ZirStatement::Return(s) => {
+                if s.inner.iter().all(|v| v.is_constant()) {
+                    self.constants.extend(
+                        assignees
+                            .into_iter()
+                            .zip(s.inner.iter())
+                            .map(|(a, v)| (a.id, v.clone())),
+                    );
+                    Ok(vec![])
+                } else {
+                    assignees.iter().for_each(|a| {
+                        self.constants.remove(&a.id);
+                    });
+                    Ok(vec![ZirAssemblyStatement::assignment(assignees, function)])
                 }
             }
-            ZirAssemblyStatement::Constraint(left, right, metadata) => {
-                let left = self.fold_field_expression(left)?;
-                let right = self.fold_field_expression(right)?;
-
-                // a bit hacky, but we use a fake boolean expression to check this
-                let is_equal = BooleanExpression::field_eq(left.clone(), right.clone());
-                let is_equal = self.fold_boolean_expression(is_equal)?;
-
-                match is_equal {
-                    BooleanExpression::Value(v) if v.value => Ok(vec![]),
-                    BooleanExpression::Value(v) if !v.value => {
-                        Err(Error::AssertionFailed(RuntimeError::SourceAssertion(
-                            metadata
-                                .message(Some(format!("In asm block: `{} !== {}`", left, right))),
-                        )))
-                    }
-                    _ => Ok(vec![ZirAssemblyStatement::Constraint(
-                        left, right, metadata,
-                    )]),
-                }
+            _ => {
+                assignees.iter().for_each(|a| {
+                    self.constants.remove(&a.id);
+                });
+                Ok(vec![ZirAssemblyStatement::assignment(assignees, function)])
             }
+        }
+    }
+
+    fn fold_assembly_constraint(
+        &mut self,
+        s: zokrates_ast::zir::AssemblyConstraint<'ast, T>,
+    ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
+        let left = self.fold_field_expression(s.left)?;
+        let right = self.fold_field_expression(s.right)?;
+
+        // a bit hacky, but we use a fake boolean expression to check this
+        let is_equal = BooleanExpression::field_eq(left.clone(), right.clone());
+        let is_equal = self.fold_boolean_expression(is_equal)?;
+
+        match is_equal {
+            BooleanExpression::Value(v) if v.value => Ok(vec![]),
+            BooleanExpression::Value(v) if !v.value => {
+                Err(Error::AssertionFailed(RuntimeError::SourceAssertion(
+                    s.metadata
+                        .message(Some(format!("In asm block: `{} !== {}`", left, right))),
+                )))
+            }
+            _ => Ok(vec![ZirAssemblyStatement::constraint(
+                left, right, s.metadata,
+            )]),
         }
     }
 

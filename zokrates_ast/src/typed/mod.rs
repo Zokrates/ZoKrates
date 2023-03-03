@@ -733,24 +733,62 @@ impl<'ast, T> AssemblyBlockStatement<'ast, T> {
     }
 }
 
+pub type AssemblyConstraint<'ast, T> =
+    crate::common::statements::AssemblyConstraint<FieldElementExpression<'ast, T>>;
+pub type AssemblyAssignment<'ast, T> =
+    crate::common::statements::AssemblyAssignment<TypedAssignee<'ast, T>, TypedExpression<'ast, T>>;
+
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedAssemblyStatement<'ast, T> {
-    Assignment(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
-    Constraint(
-        FieldElementExpression<'ast, T>,
-        FieldElementExpression<'ast, T>,
-        SourceMetadata,
-    ),
+    Assignment(AssemblyAssignment<'ast, T>),
+    Constraint(AssemblyConstraint<'ast, T>),
+}
+
+impl<'ast, T> WithSpan for TypedAssemblyStatement<'ast, T> {
+    fn span(self, span: Option<Span>) -> Self {
+        match self {
+            TypedAssemblyStatement::Assignment(s) => {
+                TypedAssemblyStatement::Assignment(s.span(span))
+            }
+            TypedAssemblyStatement::Constraint(s) => {
+                TypedAssemblyStatement::Constraint(s.span(span))
+            }
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        match self {
+            TypedAssemblyStatement::Assignment(s) => s.get_span(),
+            TypedAssemblyStatement::Constraint(s) => s.get_span(),
+        }
+    }
+}
+
+impl<'ast, T> TypedAssemblyStatement<'ast, T> {
+    pub fn assignment(
+        assignee: TypedAssignee<'ast, T>,
+        expression: TypedExpression<'ast, T>,
+    ) -> Self {
+        TypedAssemblyStatement::Assignment(AssemblyAssignment::new(assignee, expression))
+    }
+
+    pub fn constraint(
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+        metadata: SourceMetadata,
+    ) -> Self {
+        TypedAssemblyStatement::Constraint(AssemblyConstraint::new(left, right, metadata))
+    }
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedAssemblyStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedAssemblyStatement::Assignment(ref lhs, ref rhs) => {
-                write!(f, "{} <-- {};", lhs, rhs)
+            TypedAssemblyStatement::Assignment(ref s) => {
+                write!(f, "{} <-- {};", s.assignee, s.expression)
             }
-            TypedAssemblyStatement::Constraint(ref lhs, ref rhs, _) => {
-                write!(f, "{} === {};", lhs, rhs)
+            TypedAssemblyStatement::Constraint(ref s) => {
+                write!(f, "{} === {};", s.left, s.right)
             }
         }
     }

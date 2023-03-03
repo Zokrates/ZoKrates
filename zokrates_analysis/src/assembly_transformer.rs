@@ -6,6 +6,7 @@ use std::fmt;
 use std::ops::*;
 use zokrates_ast::zir::lqc::LinQuadComb;
 use zokrates_ast::zir::result_folder::ResultFolder;
+use zokrates_ast::zir::AssemblyConstraint;
 use zokrates_ast::zir::{
     Expr, FieldElementExpression, Id, Identifier, ZirAssemblyStatement, ZirProgram,
 };
@@ -31,142 +32,135 @@ impl AssemblyTransformer {
 impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
     type Error = Error;
 
-    fn fold_assembly_statement(
+    fn fold_assembly_constraint(
         &mut self,
-        s: ZirAssemblyStatement<'ast, T>,
+        s: AssemblyConstraint<'ast, T>,
     ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
-        match s {
-            ZirAssemblyStatement::Assignment(_, _) => Ok(vec![s]),
-            ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {
-                let lhs = self.fold_field_expression(lhs)?;
-                let rhs = self.fold_field_expression(rhs)?;
+        let lhs = self.fold_field_expression(s.left)?;
+        let rhs = self.fold_field_expression(s.right)?;
 
-                let (is_quadratic, lhs, rhs) = match (lhs, rhs) {
-                    (
-                        lhs @ FieldElementExpression::Identifier(..),
-                        rhs @ FieldElementExpression::Identifier(..),
-                    ) => (true, lhs, rhs),
-                    (FieldElementExpression::Mult(e), other)
-                    | (other, FieldElementExpression::Mult(e))
-                        if other.is_linear() =>
-                    {
-                        (
-                            e.left.is_linear() && e.right.is_linear(),
-                            other,
-                            FieldElementExpression::Mult(e),
+        let (is_quadratic, lhs, rhs) = match (lhs, rhs) {
+            (
+                lhs @ FieldElementExpression::Identifier(..),
+                rhs @ FieldElementExpression::Identifier(..),
+            ) => (true, lhs, rhs),
+            (FieldElementExpression::Mult(e), other) | (other, FieldElementExpression::Mult(e))
+                if other.is_linear() =>
+            {
+                (
+                    e.left.is_linear() && e.right.is_linear(),
+                    other,
+                    FieldElementExpression::Mult(e),
+                )
+            }
+            (lhs, rhs) => (false, lhs, rhs),
+        };
+
+        match is_quadratic {
+            true => Ok(vec![ZirAssemblyStatement::constraint(lhs, rhs, s.metadata)]),
+            false => {
+                let sub = FieldElementExpression::sub(lhs, rhs);
+                let mut lqc = LinQuadComb::try_from(sub.clone())
+                    .map_err(|_| Error("Non-quadratic constraints are not allowed".to_string()))?;
+
+                let linear = lqc
+                    .linear
+                    .into_iter()
+                    .map(|(c, i)| {
+                        FieldElementExpression::mul(
+                            FieldElementExpression::from_value(c),
+                            FieldElementExpression::identifier(i),
                         )
-                    }
-                    (lhs, rhs) => (false, lhs, rhs),
-                };
+                    })
+                    .fold(FieldElementExpression::from_value(T::from(0)), |acc, e| {
+                        FieldElementExpression::add(acc, e)
+                    });
 
-                match is_quadratic {
-                    true => Ok(vec![ZirAssemblyStatement::Constraint(lhs, rhs, metadata)]),
-                    false => {
-                        let sub = FieldElementExpression::sub(lhs, rhs);
-                        let mut lqc = LinQuadComb::try_from(sub.clone()).map_err(|_| {
-                            Error("Non-quadratic constraints are not allowed".to_string())
-                        })?;
+                let lhs = FieldElementExpression::add(
+                    FieldElementExpression::from_value(lqc.constant),
+                    linear,
+                );
 
-                        let linear = lqc
-                            .linear
-                            .into_iter()
-                            .map(|(c, i)| {
-                                FieldElementExpression::mul(
-                                    FieldElementExpression::from_value(c),
-                                    FieldElementExpression::identifier(i),
-                                )
-                            })
-                            .fold(FieldElementExpression::from_value(T::from(0)), |acc, e| {
-                                FieldElementExpression::add(acc, e)
-                            });
-
-                        let lhs = FieldElementExpression::add(
-                            FieldElementExpression::from_value(lqc.constant),
-                            linear,
-                        );
-
-                        let rhs: FieldElementExpression<'ast, T> = if lqc.quadratic.len() > 1 {
-                            let common_factor = lqc
-                                .quadratic
-                                .iter()
-                                .scan(None, |state: &mut Option<Vec<&Identifier>>, (_, a, b)| {
-                                    // short circuit if we do not have any common factors anymore
-                                    if *state == Some(vec![]) {
-                                        None
-                                    } else {
-                                        match state {
-                                            // only keep factors found in this term
-                                            Some(factors) => {
-                                                factors.retain(|&x| x == a || x == b);
-                                            }
-                                            // initialisation step, start with the two factors in the first term
-                                            None => {
-                                                *state = Some(vec![a, b]);
-                                            }
-                                        };
-                                        state.clone()
+                let rhs: FieldElementExpression<'ast, T> = if lqc.quadratic.len() > 1 {
+                    let common_factor = lqc
+                        .quadratic
+                        .iter()
+                        .scan(None, |state: &mut Option<Vec<&Identifier>>, (_, a, b)| {
+                            // short circuit if we do not have any common factors anymore
+                            if *state == Some(vec![]) {
+                                None
+                            } else {
+                                match state {
+                                    // only keep factors found in this term
+                                    Some(factors) => {
+                                        factors.retain(|&x| x == a || x == b);
                                     }
-                                })
-                                .last()
-                                .and_then(|mut v| v.pop().cloned());
+                                    // initialisation step, start with the two factors in the first term
+                                    None => {
+                                        *state = Some(vec![a, b]);
+                                    }
+                                };
+                                state.clone()
+                            }
+                        })
+                        .last()
+                        .and_then(|mut v| v.pop().cloned());
 
-                            match common_factor {
-                                Some(factor) => Ok(FieldElementExpression::mul(
-                                    lqc.quadratic
-                                        .into_iter()
-                                        .map(|(c, i0, i1)| {
-                                            let c = T::zero() - c;
-                                            let e = match (i0, i1) {
-                                                (i0, i1) if factor.eq(&i0) => {
-                                                    FieldElementExpression::identifier(i1)
-                                                }
-                                                (i0, i1) if factor.eq(&i1) => {
-                                                    FieldElementExpression::identifier(i0)
-                                                }
-                                                _ => unreachable!(),
-                                            };
-                                            FieldElementExpression::mul(
-                                                FieldElementExpression::from_value(c),
-                                                e,
-                                            )
-                                        })
-                                        .fold(
-                                            FieldElementExpression::from_value(T::from(0)),
-                                            FieldElementExpression::add,
-                                        ),
-                                    FieldElementExpression::identifier(factor),
-                                )),
-                                None => Err(Error(
-                                    "Non-quadratic constraints are not allowed".to_string(),
-                                )),
-                            }?
-                        } else {
+                    match common_factor {
+                        Some(factor) => Ok(FieldElementExpression::mul(
                             lqc.quadratic
-                                .pop()
+                                .into_iter()
                                 .map(|(c, i0, i1)| {
+                                    let c = T::zero() - c;
+                                    let e = match (i0, i1) {
+                                        (i0, i1) if factor.eq(&i0) => {
+                                            FieldElementExpression::identifier(i1)
+                                        }
+                                        (i0, i1) if factor.eq(&i1) => {
+                                            FieldElementExpression::identifier(i0)
+                                        }
+                                        _ => unreachable!(),
+                                    };
                                     FieldElementExpression::mul(
-                                        FieldElementExpression::mul(
-                                            FieldElementExpression::from_value(T::zero() - c),
-                                            FieldElementExpression::identifier(i0),
-                                        ),
-                                        FieldElementExpression::identifier(i1),
+                                        FieldElementExpression::from_value(c),
+                                        e,
                                     )
                                 })
-                                .unwrap_or_else(|| FieldElementExpression::from_value(T::from(0)))
-                        };
+                                .fold(
+                                    FieldElementExpression::from_value(T::from(0)),
+                                    FieldElementExpression::add,
+                                ),
+                            FieldElementExpression::identifier(factor),
+                        )),
+                        None => Err(Error(
+                            "Non-quadratic constraints are not allowed".to_string(),
+                        )),
+                    }?
+                } else {
+                    lqc.quadratic
+                        .pop()
+                        .map(|(c, i0, i1)| {
+                            FieldElementExpression::mul(
+                                FieldElementExpression::mul(
+                                    FieldElementExpression::from_value(T::zero() - c),
+                                    FieldElementExpression::identifier(i0),
+                                ),
+                                FieldElementExpression::identifier(i1),
+                            )
+                        })
+                        .unwrap_or_else(|| FieldElementExpression::from_value(T::from(0)))
+                };
 
-                        let mut propagator = ZirPropagator::default();
-                        let lhs = propagator
-                            .fold_field_expression(lhs)
-                            .map_err(|e| Error(e.to_string()))?;
+                let mut propagator = ZirPropagator::default();
+                let lhs = propagator
+                    .fold_field_expression(lhs)
+                    .map_err(|e| Error(e.to_string()))?;
 
-                        let rhs = propagator
-                            .fold_field_expression(rhs)
-                            .map_err(|e| Error(e.to_string()))?;
+                let rhs = propagator
+                    .fold_field_expression(rhs)
+                    .map_err(|e| Error(e.to_string()))?;
 
-                        Ok(vec![ZirAssemblyStatement::Constraint(lhs, rhs, metadata)])
-                    }
-                }
+                Ok(vec![ZirAssemblyStatement::constraint(lhs, rhs, s.metadata)])
             }
         }
     }
