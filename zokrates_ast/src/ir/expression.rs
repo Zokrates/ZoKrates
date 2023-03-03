@@ -121,9 +121,8 @@ impl<T: Field> LinComb<T> {
     }
 
     pub fn is_assignee(&self, witness: &Witness<T>) -> bool {
-        self.0.len() == 1
-            && self.0.get(0).unwrap().1 == T::from(1)
-            && !witness.0.contains_key(&self.0.get(0).unwrap().0)
+        let (var, val) = self.0.get(0).unwrap();
+        self.0.len() == 1 && val == &T::from(1) && !witness.0.contains_key(var)
     }
 
     pub fn try_summand(self) -> Result<(Variable, T), Self> {
@@ -258,7 +257,7 @@ impl<T: Field> Mul<&T> for LinComb<T> {
         LinComb(
             self.0
                 .into_iter()
-                .map(|(var, coeff)| (var, coeff * scalar.clone()))
+                .map(|(var, coeff)| (var, coeff * scalar))
                 .collect(),
         )
     }

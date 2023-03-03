@@ -88,7 +88,7 @@ impl Interpreter {
                     .map_err(Error::Solver)?;
 
                     for (i, o) in d.outputs.iter().enumerate() {
-                        witness.insert(*o, res[i].clone());
+                        witness.insert(*o, res[i]);
                     }
                 }
                 Statement::Log(l, expressions) => {
@@ -264,41 +264,38 @@ impl Interpreter {
                     .collect()
             }
             Solver::Xor => {
-                let x = inputs[0].clone();
-                let y = inputs[1].clone();
+                let x = inputs[0];
+                let y = inputs[1];
 
-                vec![x.clone() + y.clone() - T::from(2) * x * y]
+                vec![x + y - T::from(2) * x * y]
             }
             Solver::Or => {
-                let x = inputs[0].clone();
-                let y = inputs[1].clone();
+                let x = inputs[0];
+                let y = inputs[1];
 
-                vec![x.clone() + y.clone() - x * y]
+                vec![x + y - x * y]
             }
             // res = b * c - (2b * c - b - c) * (a)
             Solver::ShaAndXorAndXorAnd => {
-                let a = inputs[0].clone();
-                let b = inputs[1].clone();
-                let c = inputs[2].clone();
-                vec![b.clone() * c.clone() - (T::from(2) * b.clone() * c.clone() - b - c) * a]
+                let a = inputs[0];
+                let b = inputs[1];
+                let c = inputs[2];
+                vec![b * c - (T::from(2) * b * c - b - c) * a]
             }
             // res = a(b - c) + c
             Solver::ShaCh => {
-                let a = inputs[0].clone();
-                let b = inputs[1].clone();
-                let c = inputs[2].clone();
-                vec![a * (b - c.clone()) + c]
+                let a = inputs[0];
+                let b = inputs[1];
+                let c = inputs[2];
+                vec![a * (b - c) + c]
             }
 
-            Solver::Div => vec![inputs[0]
-                .clone()
-                .checked_div(&inputs[1])
-                .unwrap_or_else(T::one)],
+            Solver::Div => vec![inputs[0].checked_div(&inputs[1]).unwrap_or_else(T::one)],
             Solver::EuclideanDiv => {
                 use num::CheckedDiv;
 
-                let n = inputs[0].clone().to_biguint();
-                let d = inputs[1].clone().to_biguint();
+                let n = inputs[0].to_biguint();
+                let d = inputs[1].to_biguint();
 
                 let q = n.checked_div(&d).unwrap_or_else(|| 0u32.into());
                 let r = n - d * &q;
@@ -363,14 +360,11 @@ pub enum Error {
 }
 
 fn evaluate_lin<T: Field>(w: &Witness<T>, l: &LinComb<T>) -> Result<T, EvaluationError> {
-    l.0.iter()
-        .map(|(var, mult)| {
-            w.0.get(var)
-                .map(|v| v.clone() * mult)
-                .ok_or(EvaluationError)
-        }) // get each term
-        .collect::<Result<Vec<_>, _>>() // fail if any term isn't found
-        .map(|v| v.iter().fold(T::from(0), |acc, t| acc + t)) // return the sum
+    l.0.iter().try_fold(T::from(0), |acc, (var, mult)| {
+        w.0.get(var)
+            .map(|v| acc + (*v * mult))
+            .ok_or(EvaluationError) // fail if any term isn't found
+    })
 }
 
 pub fn evaluate_quad<T: Field>(w: &Witness<T>, q: &QuadComb<T>) -> Result<T, EvaluationError> {
