@@ -181,7 +181,7 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
         self.arguments
             .iter()
             .filter(|p| !p.private)
-            .map(|p| witness.0.get(&p.id).unwrap().clone())
+            .map(|p| *witness.0.get(&p.id).unwrap())
             .chain(witness.return_values())
             .collect()
     }

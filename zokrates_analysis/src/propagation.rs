@@ -517,7 +517,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                 .unwrap()
                                 {
                                     FieldElementExpression::Number(num) => {
-                                        let mut acc = num.clone();
+                                        let mut acc = num;
                                         let mut res = vec![];
 
                                         for i in (0..bit_width as usize).rev() {

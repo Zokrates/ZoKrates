@@ -36,7 +36,7 @@ pub fn flat_expression_from_variable_summands<T: Field>(v: &[(T, usize)]) -> Fla
     match v.len() {
         0 => FlatExpression::Number(T::zero()),
         1 => {
-            let (val, var) = v[0].clone();
+            let (val, var) = v[0];
             FlatExpression::Mult(
                 box FlatExpression::Number(val),
                 box FlatExpression::Identifier(Variable::new(var)),

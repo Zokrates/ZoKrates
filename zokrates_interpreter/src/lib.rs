@@ -50,7 +50,7 @@ impl Interpreter {
         witness.insert(Variable::one(), T::one());
 
         for (arg, value) in program.arguments.iter().zip(inputs.iter()) {
-            witness.insert(arg.id, value.clone());
+            witness.insert(arg.id, *value);
         }
 
         for statement in program.statements.into_iter() {
@@ -188,7 +188,7 @@ impl Interpreter {
                     .map(|(a, v)| match &a.id._type {
                         zir::Type::FieldElement => Ok((
                             a.id.id.clone(),
-                            zokrates_ast::zir::FieldElementExpression::Number(v.clone()).into(),
+                            zokrates_ast::zir::FieldElementExpression::Number(*v).into(),
                         )),
                         zir::Type::Boolean => match v {
                             v if *v == T::from(0) => Ok((

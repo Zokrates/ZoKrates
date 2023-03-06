@@ -164,8 +164,8 @@ impl<T: Field> LinComb<T> {
                         match acc.entry(val) {
                             Entry::Occupied(o) => {
                                 // if the new value is non zero, update, else remove the term entirely
-                                if o.get().clone() + coeff.clone() != T::zero() {
-                                    *o.into_mut() = o.get().clone() + coeff;
+                                if *o.get() + coeff != T::zero() {
+                                    *o.into_mut() = *o.get() + coeff;
                                 } else {
                                     o.remove();
                                 }
