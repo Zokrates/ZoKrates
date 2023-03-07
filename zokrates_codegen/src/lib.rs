@@ -594,12 +594,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     // we transform (a == b) into (c => (a == b)) which is (!c || (a == b))
 
                     // let's introduce new variables to make sure everything is linear
-                    let name_quad = self.define(s.quad, &mut output);
                     let name_lin = self.define(s.lin, &mut output);
+                    let name_quad = self.define(s.quad, &mut output);
 
                     // let's introduce an expression which is 1 iff `a == b`
                     let y = FlatExpression::add(
-                        FlatExpression::sub(name_quad.into(), name_lin.into()),
+                        FlatExpression::sub(name_lin.into(), name_quad.into()),
                         T::one().into(),
                     ); // let's introduce !c
                     let x = FlatExpression::sub(T::one().into(), condition.clone());
@@ -2408,7 +2408,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let condition_flat =
                     self.flatten_boolean_expression(statements_flattened, s.condition.clone());
 
-                let condition_id = self.define(condition_flat, statements_flattened);
+                let condition_id = self.use_sym();
+                statements_flattened
+                    .push_back(FlatStatement::definition(condition_id, condition_flat));
 
                 if self.config.isolate_branches {
                     let mut consequence_statements = FlatStatements::default();

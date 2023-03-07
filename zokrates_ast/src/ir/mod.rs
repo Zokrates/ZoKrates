@@ -170,6 +170,14 @@ impl<'ast, T: Field> Statement<'ast, T> {
     pub fn block(inner: Vec<Statement<'ast, T>>) -> Self {
         Statement::Block(BlockStatement::new(inner))
     }
+
+    pub fn directive(
+        outputs: Vec<Variable>,
+        solver: Solver<'ast, T>,
+        inputs: Vec<QuadComb<T>>,
+    ) -> Self {
+        Statement::Directive(DirectiveStatement::new(outputs, solver, inputs))
+    }
 }
 
 impl<'ast, T: Field> fmt::Display for Statement<'ast, T> {

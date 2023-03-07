@@ -181,7 +181,7 @@ mod tests {
             FieldElementExpression::identifier("b".into()),
         );
 
-        let expected = vec![ZirAssemblyStatement::Constraint(
+        let expected = vec![ZirAssemblyStatement::constraint(
             FieldElementExpression::identifier("x".into()),
             FieldElementExpression::mul(
                 FieldElementExpression::identifier("a".into()),
@@ -190,7 +190,7 @@ mod tests {
             SourceMetadata::default(),
         )];
         let result = AssemblyTransformer
-            .fold_assembly_statement(ZirAssemblyStatement::Constraint(
+            .fold_assembly_statement(ZirAssemblyStatement::constraint(
                 lhs,
                 rhs,
                 SourceMetadata::default(),
@@ -212,7 +212,7 @@ mod tests {
             FieldElementExpression::identifier("c".into()),
         );
 
-        let result = AssemblyTransformer.fold_assembly_statement(ZirAssemblyStatement::Constraint(
+        let result = AssemblyTransformer.fold_assembly_statement(ZirAssemblyStatement::constraint(
             lhs,
             rhs,
             SourceMetadata::default(),
@@ -233,7 +233,7 @@ mod tests {
             ),
         );
 
-        let expected = vec![ZirAssemblyStatement::Constraint(
+        let expected = vec![ZirAssemblyStatement::constraint(
             FieldElementExpression::add(
                 FieldElementExpression::from_value(Bn128Field::from(-1)),
                 FieldElementExpression::identifier("x".into()),
@@ -249,7 +249,7 @@ mod tests {
         )];
 
         let result = AssemblyTransformer
-            .fold_assembly_statement(ZirAssemblyStatement::Constraint(
+            .fold_assembly_statement(ZirAssemblyStatement::constraint(
                 lhs,
                 rhs,
                 SourceMetadata::default(),
@@ -274,7 +274,7 @@ mod tests {
             ),
         );
 
-        let expected = vec![ZirAssemblyStatement::Constraint(
+        let expected = vec![ZirAssemblyStatement::constraint(
             FieldElementExpression::identifier("x".into()),
             FieldElementExpression::mul(
                 FieldElementExpression::add(
@@ -286,7 +286,7 @@ mod tests {
             SourceMetadata::default(),
         )];
         let result = AssemblyTransformer
-            .fold_assembly_statement(ZirAssemblyStatement::Constraint(
+            .fold_assembly_statement(ZirAssemblyStatement::constraint(
                 lhs,
                 rhs,
                 SourceMetadata::default(),
@@ -390,13 +390,13 @@ mod tests {
             FieldElementExpression::identifier("a".into()),
         );
 
-        let expected = vec![ZirAssemblyStatement::Constraint(
+        let expected = vec![ZirAssemblyStatement::constraint(
             lhs_expected,
             rhs_expected,
             SourceMetadata::default(),
         )];
         let result = AssemblyTransformer
-            .fold_assembly_statement(ZirAssemblyStatement::Constraint(
+            .fold_assembly_statement(ZirAssemblyStatement::constraint(
                 lhs,
                 rhs,
                 SourceMetadata::default(),

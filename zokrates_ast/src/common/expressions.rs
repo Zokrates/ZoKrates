@@ -211,7 +211,7 @@ impl<A, E> WithSpan for DefinitionStatement<A, E> {
 
 impl<A: fmt::Display, E: fmt::Display> fmt::Display for DefinitionStatement<A, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} = {};", self.assignee, self.rhs,)
+        write!(f, "{} = {}", self.assignee, self.rhs,)
     }
 }
 

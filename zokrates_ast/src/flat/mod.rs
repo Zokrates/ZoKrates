@@ -216,7 +216,7 @@ impl<'ast, T: Field> fmt::Display for FlatStatement<'ast, T> {
         match *self {
             FlatStatement::Definition(ref e) => write!(f, "{}", e),
             FlatStatement::Condition(ref s) => {
-                write!(f, "{} == {} // {}", s.quad, s.lin, s.error)
+                write!(f, "{} == {} // {}", s.lin, s.quad, s.error)
             }
             FlatStatement::Block(ref s) => {
                 writeln!(f, "{{")?;
