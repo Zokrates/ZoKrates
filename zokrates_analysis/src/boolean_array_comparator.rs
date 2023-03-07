@@ -4,8 +4,15 @@ use zokrates_ast::typed::{
     UExpressionInner,
 };
 
-use std::ops::*;
 use zokrates_field::Field;
+
+fn sum_rec<T: std::ops::Add<Output = T> + Clone>(a: &[T], default: &T) -> T {
+    match a.len() {
+        0 => default.clone(),
+        1 => a[0].clone(),
+        n => sum_rec(&a[..n / 2], default) + sum_rec(&a[n / 2..], default),
+    }
+}
 
 #[derive(Default)]
 pub struct BooleanArrayComparator;
@@ -53,8 +60,8 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                         elements
                             .chunks(chunk_size)
                             .map(|chunk| {
-                                TypedExpression::from(
-                                    chunk
+                                TypedExpression::from(sum_rec(
+                                    &chunk
                                         .iter()
                                         .rev()
                                         .enumerate()
@@ -74,14 +81,9 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                                                 ),
                                             )
                                         })
-                                        .fold(None, |acc, e| match acc {
-                                            Some(acc) => Some(FieldElementExpression::add(acc, e)),
-                                            None => Some(e),
-                                        })
-                                        .unwrap_or_else(|| {
-                                            FieldElementExpression::from_value(T::zero())
-                                        }),
-                                )
+                                        .collect::<Vec<_>>(),
+                                    &FieldElementExpression::from_value(T::from(0)),
+                                ))
                                 .into()
                             })
                             .collect()
