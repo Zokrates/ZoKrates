@@ -83,10 +83,10 @@ impl<'ast, T> IntoIterator for FlatStatements<'ast, T> {
 ///
 /// # Arguments
 /// * `funct` - `ZirFunction` that will be flattened
-pub fn from_program_and_config<'ast, T: Field>(
-    prog: ZirProgram<'ast, T>,
+pub fn from_program_and_config<T: Field>(
+    prog: ZirProgram<T>,
     config: CompileConfig,
-) -> FlattenerIterator<'ast, T> {
+) -> FlattenerIterator<T> {
     let funct = prog.main;
 
     let mut flattener = Flattener::new(config);

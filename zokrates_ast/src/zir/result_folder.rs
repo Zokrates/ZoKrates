@@ -197,6 +197,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_conditional_expression(self, ty, e)
     }
 
+    #[allow(clippy::type_complexity)]
     fn fold_binary_expression<
         L: Expr<'ast, T> + PartialEq + ResultFold<Self, Self::Error>,
         R: Expr<'ast, T> + PartialEq + ResultFold<Self, Self::Error>,
@@ -798,6 +799,7 @@ pub fn fold_select_expression<
     )))
 }
 
+#[allow(clippy::type_complexity)]
 pub fn fold_binary_expression<
     'ast,
     T: Field,
