@@ -21,6 +21,10 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_statement(self, s)
     }
 
+    fn fold_statement_cases(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
+        fold_statement_cases(self, s)
+    }
+
     fn fold_constraint_statement(&mut self, s: ConstraintStatement<T>) -> Vec<Statement<'ast, T>> {
         fold_constraint_statement(self, s)
     }
@@ -111,19 +115,24 @@ pub fn fold_block_statement<'ast, T: Field, F: Folder<'ast, T>>(
     )]
 }
 
-pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: Statement<'ast, T>,
 ) -> Vec<Statement<'ast, T>> {
     let span = s.get_span();
+    f.fold_statement_cases(s).into_iter().map(|s| s.span(span)).collect()
+}
 
-    let s: Vec<Statement<'ast, T>> = match s {
+pub fn fold_statement_cases<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: Statement<'ast, T>,
+) -> Vec<Statement<'ast, T>> {
+    match s {
         Statement::Constraint(s) => f.fold_constraint_statement(s),
         Statement::Directive(s) => f.fold_directive_statement(s),
         Statement::Log(s) => f.fold_log_statement(s),
         Statement::Block(s) => f.fold_block_statement(s),
-    };
-    s.into_iter().map(|s| s.span(span)).collect()
+    }
 }
 
 pub fn fold_linear_combination<'ast, T: Field, F: Folder<'ast, T>>(

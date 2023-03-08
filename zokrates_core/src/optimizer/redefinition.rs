@@ -38,7 +38,7 @@
 
 use std::collections::{HashMap, HashSet};
 use zokrates_ast::flat::Variable;
-use zokrates_ast::ir::folder::{fold_statement, Folder};
+use zokrates_ast::ir::folder::{fold_statement_cases, Folder};
 use zokrates_ast::ir::LinComb;
 use zokrates_ast::ir::*;
 use zokrates_field::Field;
@@ -67,7 +67,7 @@ impl<T: Field> RedefinitionOptimizer<T> {
         }
     }
 
-    fn fold_statement<'ast>(
+    fn fold_statement_cases<'ast>(
         &mut self,
         s: Statement<'ast, T>,
         aggressive: bool,
@@ -187,13 +187,13 @@ impl<T: Field> RedefinitionOptimizer<T> {
                     }
                 }
             }
-            s => fold_statement(self, s),
+            s => fold_statement_cases(self, s),
         }
     }
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<T> {
-    fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
+    fn fold_statement_cases(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
         match s {
             Statement::Block(statements) => {
                 #[allow(clippy::needless_collect)]
@@ -201,7 +201,7 @@ impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<T> {
                 let statements: Vec<_> = statements
                     .inner
                     .into_iter()
-                    .flat_map(|s| self.fold_statement(s, true))
+                    .flat_map(|s| self.fold_statement_cases(s, true))
                     .collect();
 
                 // clean up
@@ -218,7 +218,7 @@ impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<T> {
 
                 vec![Statement::block(statements)]
             }
-            s => self.fold_statement(s, false),
+            s => self.fold_statement_cases(s, false),
         }
     }
 
