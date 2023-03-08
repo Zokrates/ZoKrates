@@ -120,7 +120,10 @@ fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     s: Statement<'ast, T>,
 ) -> Vec<Statement<'ast, T>> {
     let span = s.get_span();
-    f.fold_statement_cases(s).into_iter().map(|s| s.span(span)).collect()
+    f.fold_statement_cases(s)
+        .into_iter()
+        .map(|s| s.span(span))
+        .collect()
 }
 
 pub fn fold_statement_cases<'ast, T: Field, F: Folder<'ast, T>>(
