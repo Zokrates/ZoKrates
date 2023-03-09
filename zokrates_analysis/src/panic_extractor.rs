@@ -229,7 +229,7 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 // if we use `x - 1` here, we end up having to calculate the bits of both `x` and `x - 1`, which is expensive
                 // by splitting, we can reuse the bits of `x` needed for this completeness check when computing the result
 
-                BooleanExpression::field_eq(left, right)
+                BooleanExpression::field_lt(left, right)
             }
             e => fold_boolean_expression_cases(self, e),
         }
