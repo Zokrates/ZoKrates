@@ -31,18 +31,18 @@ impl<'ast> fmt::Display for SourceIdentifier<'ast> {
     }
 }
 
+impl<'ast> Identifier<'ast> {
+    pub fn internal<S: Into<String>>(name: S) -> Self {
+        Identifier::Internal(name.into())
+    }
+}
+
 impl<'ast> fmt::Display for Identifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Identifier::Source(s) => write!(f, "{}", s),
             Identifier::Internal(s) => write!(f, "{}", s),
         }
-    }
-}
-
-impl<'ast> From<String> for Identifier<'ast> {
-    fn from(id: String) -> Identifier<'ast> {
-        Identifier::Internal(id)
     }
 }
 

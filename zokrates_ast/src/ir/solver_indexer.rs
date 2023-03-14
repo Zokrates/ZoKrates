@@ -1,3 +1,4 @@
+use crate::common::RefCall;
 use crate::ir::folder::Folder;
 use crate::ir::Directive;
 use crate::ir::Solver;
@@ -20,14 +21,14 @@ fn hash<T: Field>(f: &ZirFunction<T>) -> Hash {
 #[derive(Debug, Default)]
 pub struct SolverIndexer<'ast, T> {
     pub solvers: Vec<Solver<'ast, T>>,
-    pub index_map: HashMap<u64, usize>,
+    pub index_map: HashMap<Hash, usize>,
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for SolverIndexer<'ast, T> {
     fn fold_directive(&mut self, d: Directive<'ast, T>) -> Directive<'ast, T> {
         match d.solver {
             Solver::Zir(f) => {
-                let argc = f.arguments.len();
+                let argument_count = f.arguments.len();
                 let h = hash(&f);
                 let index = match self.index_map.entry(h) {
                     Entry::Occupied(v) => *v.get(),
@@ -41,7 +42,10 @@ impl<'ast, T: Field> Folder<'ast, T> for SolverIndexer<'ast, T> {
                 Directive {
                     inputs: d.inputs,
                     outputs: d.outputs,
-                    solver: Solver::IndexedCall(index, argc),
+                    solver: Solver::Ref(RefCall {
+                        index,
+                        argument_count,
+                    }),
                 }
             }
             _ => d,

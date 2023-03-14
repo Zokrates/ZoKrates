@@ -2245,24 +2245,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let mut substitution_map = HashMap::default();
                 for (index, p) in function.arguments.iter().enumerate() {
-                    let new_id = format!("i{}", index).into();
+                    let new_id = Identifier::internal(format!("i{}", index));
                     substitution_map.insert(p.id.id.clone(), new_id);
                 }
 
-                let mut substitutor = ZirSubstitutor::new(&substitution_map);
-                let function = ZirFunction {
-                    arguments: function
-                        .arguments
-                        .into_iter()
-                        .map(|p| substitutor.fold_parameter(p))
-                        .collect(),
-                    statements: function
-                        .statements
-                        .into_iter()
-                        .flat_map(|s| substitutor.fold_statement(s))
-                        .collect(),
-                    signature: function.signature,
-                };
+                let mut substitutor = ZirSubstitutor::new(substitution_map);
+                let function = substitutor.fold_function(function);
 
                 let solver = Solver::Zir(function);
                 let directive = FlatDirective::new(outputs, solver, inputs);

@@ -167,9 +167,9 @@ impl Interpreter {
         solvers: &[Solver<'ast, T>],
     ) -> Result<Vec<T>, String> {
         let solver = match solver {
-            Solver::IndexedCall(index, _) => solvers
-                .get(*index)
-                .ok_or_else(|| format!("Could not resolve solver at index {}", index))?,
+            Solver::Ref(call) => solvers
+                .get(call.index)
+                .ok_or_else(|| format!("Could not get solver at index {}", call.index))?,
             s => s,
         };
 
