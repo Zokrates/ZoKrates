@@ -173,7 +173,7 @@ mod tests {
         let expected = vec![
             // define condition
             TypedStatement::definition(
-                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::new(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition.into(),
             ),
             // rewrite statement
@@ -242,11 +242,11 @@ mod tests {
         let expected = vec![
             // define conditions
             TypedStatement::definition(
-                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::new(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition_0.into(),
             ),
             TypedStatement::definition(
-                Variable::immutable(CoreIdentifier::Condition(1), Type::Boolean).into(),
+                Variable::new(CoreIdentifier::Condition(1), Type::Boolean).into(),
                 condition_1.into(),
             ),
             // rewrite statement
@@ -350,7 +350,7 @@ mod tests {
         let expected = vec![
             // define conditions
             TypedStatement::definition(
-                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::new(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition_0.into(),
             ),
             // rewrite statement
@@ -365,8 +365,7 @@ mod tests {
                                 FieldElementExpression::from_value(Bn128Field::from(1)).into(),
                             ),
                             TypedStatement::definition(
-                                Variable::immutable(CoreIdentifier::Condition(1), Type::Boolean)
-                                    .into(),
+                                Variable::new(CoreIdentifier::Condition(1), Type::Boolean).into(),
                                 condition_1.into(),
                             ),
                         ],
@@ -384,8 +383,7 @@ mod tests {
                                 FieldElementExpression::from_value(Bn128Field::from(2)).into(),
                             ),
                             TypedStatement::definition(
-                                Variable::immutable(CoreIdentifier::Condition(2), Type::Boolean)
-                                    .into(),
+                                Variable::new(CoreIdentifier::Condition(2), Type::Boolean).into(),
                                 condition_2.into(),
                             ),
                         ],

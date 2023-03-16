@@ -5,7 +5,6 @@ use crate::typed::Identifier;
 use crate::typed::UExpression;
 use crate::typed::{TryFrom, TryInto};
 
-
 pub type GVariable<'ast, S> = crate::common::Variable<Identifier<'ast>, GType<S>>;
 pub type DeclarationVariable<'ast, T> = GVariable<'ast, DeclarationConstant<'ast, T>>;
 pub type ConcreteVariable<'ast> = GVariable<'ast, u32>;

@@ -15,6 +15,12 @@ pub struct Parameter<V> {
     pub private: bool,
 }
 
+impl<V> From<V> for Parameter<V> {
+    fn from(v: V) -> Self {
+        Self::private(v)
+    }
+}
+
 impl<V> Parameter<V> {
     pub fn new(v: V, private: bool) -> Self {
         Parameter {

@@ -173,7 +173,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 let input_bindings: Vec<_> = input_variables
                     .into_iter()
                     .zip(arguments)
-                    .map(|(v, a)| TypedStatement::definition(self.ssa.fold_assignee(v.into()), a))
+                    .map(|(v, a)| {
+                        TypedStatement::definition(self.ssa.fold_assignee(v.into()), a).span(span)
+                    })
                     .collect();
 
                 let input_bindings = input_bindings
@@ -181,7 +183,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     .map(|s| self.propagator.fold_statement(s))
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
-                    .flatten();
+                    .flatten()
+                    .collect::<Vec<_>>();
 
                 self.statement_buffer.extend(input_bindings);
 
@@ -190,7 +193,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     .map(|s| self.fold_statement(s))
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
-                    .flatten();
+                    .flatten()
+                    .collect::<Vec<_>>();
 
                 self.statement_buffer.extend(statements);
 
@@ -267,12 +271,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         unreachable!("canonical constant identifiers should not be folded, they should be inlined")
     }
 
-    fn fold_statement_cases(
+    // here we implement fold_statement and not fold_statement_cases because we do not want the span of the input
+    // to be applied to all the outputs: a statement which contains a call which gets inline should not hide the
+    // inlined statements behind its own span
+    fn fold_statement(
         &mut self,
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
-        let _span = s.get_span();
-
         let res = match s {
             TypedStatement::For(s) => {
                 let from = self.ssa.fold_uint_expression(s.from);
@@ -313,23 +318,23 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 }?
             }
             s => {
-                let statements = self.ssa.fold_statement_cases(s);
+                let statements = self.ssa.fold_statement(s);
 
                 let statements = statements
                     .into_iter()
-                    .map(|s| self.propagator.fold_statement_cases(dbg!(s)))
+                    .map(|s| self.propagator.fold_statement(s))
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
                     .flatten();
 
                 let statements = statements
-                    .map(|s| fold_statement_cases(self, dbg!(s)))
+                    .map(|s| fold_statement(self, s))
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
                     .flatten();
 
                 let statements = statements
-                    .map(|s| self.propagator.fold_statement_cases(dbg!(s)))
+                    .map(|s| self.propagator.fold_statement(s))
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
                     .flatten();
@@ -338,7 +343,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             }
         };
 
-        Ok(self.statement_buffer.drain(..).chain(res).collect())
+        let res = self.statement_buffer.drain(..).chain(res).collect();
+
+        Ok(res)
     }
 
     fn fold_slice_expression(

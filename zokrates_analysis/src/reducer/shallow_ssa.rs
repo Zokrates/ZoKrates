@@ -211,7 +211,7 @@ mod tests {
                         UExpression::from(0u32).into(),
                     ),
                     TypedStatement::for_(
-                        Variable::new("i", Type::Uint(UBitwidth::B32), false),
+                        Variable::new("i", Type::Uint(UBitwidth::B32)),
                         UExpression::identifier("i".into()).annotate(UBitwidth::B32),
                         2u32.into(),
                         vec![TypedStatement::definition(
@@ -455,7 +455,7 @@ mod tests {
             let array_of_array_ty = Type::array((Type::array((Type::FieldElement, 2u32)), 2u32));
 
             let s = TypedStatement::definition(
-                TypedAssignee::Identifier(Variable::new("a", array_of_array_ty.clone(), true)),
+                TypedAssignee::Identifier(Variable::new("a", array_of_array_ty.clone())),
                 ArrayExpression::from_value(vec![
                     ArrayExpression::from_value(vec![
                         FieldElementExpression::from_value(Bn128Field::from(0)).into(),
@@ -480,7 +480,6 @@ mod tests {
                     TypedAssignee::Identifier(Variable::new(
                         Identifier::from("a").version(0),
                         array_of_array_ty.clone(),
-                        true,
                     )),
                     ArrayExpression::from_value(vec![
                         ArrayExpression::from_value(vec![
@@ -503,11 +502,7 @@ mod tests {
 
             let s: TypedStatement<Bn128Field> = TypedStatement::definition(
                 TypedAssignee::Select(
-                    box TypedAssignee::Identifier(Variable::new(
-                        "a",
-                        array_of_array_ty.clone(),
-                        true,
-                    )),
+                    box TypedAssignee::Identifier(Variable::new("a", array_of_array_ty.clone())),
                     box UExpression::from(1u32),
                 ),
                 ArrayExpression::from_value(vec![

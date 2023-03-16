@@ -1,9 +1,9 @@
 use zokrates_ast::{
     common::WithSpan,
     typed::{
-        folder::*, ArrayExpression, BooleanExpression, Conditional,
-        ConditionalKind, Expr, FieldElementExpression, Select, Type,
-        TypedExpression, TypedProgram, UExpression, UExpressionInner,
+        folder::*, ArrayExpression, BooleanExpression, Conditional, ConditionalKind, Expr,
+        FieldElementExpression, Select, Type, TypedExpression, TypedProgram, UExpression,
+        UExpressionInner,
     },
 };
 

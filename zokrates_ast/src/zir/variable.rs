@@ -1,8 +1,6 @@
 use crate::zir::types::{Type, UBitwidth};
 use crate::zir::Identifier;
 
-
-
 pub type Variable<'ast> = crate::common::Variable<Identifier<'ast>, Type>;
 
 impl<'ast> Variable<'ast> {

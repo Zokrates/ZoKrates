@@ -4505,7 +4505,7 @@ mod tests {
             assert_eq!(
                 Checker::<Bn128Field>::default().check_signature(signature, &*MODULE_ID, &state),
                 Err(vec![ErrorInner {
-                    span: Some(Span::mock()),
+                    span: Some(SourceSpan::mock()),
                     message: "Undeclared symbol `K`".to_string()
                 }])
             );
@@ -4577,7 +4577,7 @@ mod tests {
         assert_eq!(
             checker.check_statement(statement, &*MODULE_ID, &TypeMap::new()),
             Err(vec![ErrorInner {
-                span: Some(Span::mock()),
+                span: Some(SourceSpan::mock()),
                 message: "Identifier \"b\" is undefined".into()
             }])
         );
@@ -4678,7 +4678,7 @@ mod tests {
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![Error {
                 inner: ErrorInner {
-                    span: Some(Span::mock()),
+                    span: Some(SourceSpan::mock()),
                     message: "Identifier \"a\" is undefined".into()
                 },
                 module_id: (*MODULE_ID).clone()
@@ -4807,7 +4807,7 @@ mod tests {
         assert_eq!(
             checker.check_function("foo", foo, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                span: Some(Span::mock()),
+                span: Some(SourceSpan::mock()),
                 message: "Identifier \"i\" is undefined".into()
             }])
         );
@@ -4933,7 +4933,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                span: Some(Span::mock()),
+                span: Some(SourceSpan::mock()),
                 message:
                     "Function definition for function foo with signature () -> field not found."
                         .into()
@@ -4972,7 +4972,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                span: Some(Span::mock()),
+                span: Some(SourceSpan::mock()),
 
                 message:
                     "Function definition for function foo with signature () -> field not found."
@@ -5048,7 +5048,7 @@ mod tests {
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![Error {
                 inner: ErrorInner {
-                    span: Some(Span::mock()),
+                    span: Some(SourceSpan::mock()),
                     message: "Variable `a` is undeclared".into()
                 },
                 module_id: (*MODULE_ID).clone()
@@ -5185,7 +5185,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                span: Some(Span::mock()),
+                span: Some(SourceSpan::mock()),
 
                 message: "Function definition for function foo with signature () -> _ not found."
                     .into()
@@ -5218,7 +5218,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                span: Some(Span::mock()),
+                span: Some(SourceSpan::mock()),
                 message: "Identifier \"a\" is undefined".into()
             }])
         );
@@ -5462,7 +5462,6 @@ mod tests {
                     typed::Variable::new(
                         CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
                         Type::FieldElement,
-                        true,
                     )
                     .into(),
                     FieldElementExpression::from_value(2u32.into()).into(),
@@ -5471,7 +5470,6 @@ mod tests {
                     typed::Variable::new(
                         CoreIdentifier::from(ShadowedIdentifier::shadow("i".into(), 1)),
                         Type::Uint(UBitwidth::B32),
-                        false,
                     ),
                     0u32.into(),
                     0u32.into(),
@@ -5480,7 +5478,6 @@ mod tests {
                             typed::Variable::new(
                                 CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
                                 Type::FieldElement,
-                                true,
                             )
                             .into(),
                             FieldElementExpression::from_value(3u32.into()).into(),
@@ -5489,7 +5486,6 @@ mod tests {
                             typed::Variable::new(
                                 CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 1)),
                                 Type::FieldElement,
-                                false,
                             )
                             .into(),
                             FieldElementExpression::from_value(4u32.into()).into(),
@@ -5500,7 +5496,6 @@ mod tests {
                     typed::Variable::new(
                         CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
                         Type::FieldElement,
-                        true,
                     )
                     .into(),
                     FieldElementExpression::from_value(5u32.into()).into(),
@@ -6369,7 +6364,6 @@ mod tests {
                 Ok(TypedAssignee::Identifier(typed::Variable::new(
                     "a",
                     Type::FieldElement,
-                    true
                 )))
             );
         }
@@ -6422,7 +6416,6 @@ mod tests {
                     box TypedAssignee::Identifier(typed::Variable::new(
                         "a",
                         Type::array((Type::FieldElement, 3u32)),
-                        true,
                     )),
                     box 2u32.into()
                 ))
@@ -6484,7 +6477,6 @@ mod tests {
                         box TypedAssignee::Identifier(typed::Variable::new(
                             "a",
                             Type::array((Type::array((Type::FieldElement, 1u32)), 1u32)),
-                            true,
                         )),
                         box 0u32.into()
                     ),

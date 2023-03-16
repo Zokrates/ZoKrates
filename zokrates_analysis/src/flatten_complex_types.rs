@@ -978,11 +978,14 @@ fn fold_conditional_expression<'ast, T: Field, E: Flatten<'ast, T>>(
     assert_eq!(consequence.len(), alternative.len());
 
     if !consequence_statements.is_empty() || !alternative_statements.is_empty() {
-        statements_buffer.push(zir::ZirStatement::if_else(
-            condition.clone().span(condition_span),
-            consequence_statements,
-            alternative_statements,
-        ));
+        statements_buffer.push(
+            zir::ZirStatement::if_else(
+                condition.clone().span(condition_span),
+                consequence_statements,
+                alternative_statements,
+            )
+            .span(span),
+        );
     }
 
     use zokrates_ast::zir::Conditional;

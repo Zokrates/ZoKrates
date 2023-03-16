@@ -783,14 +783,6 @@ impl<'ast, T> TypedAssemblyStatement<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedAssemblyStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.get_span()
-                .map(|_| "".to_string())
-                .unwrap_or("NONE".into())
-        )?;
-
         match *self {
             TypedAssemblyStatement::Assignment(ref s) => {
                 write!(f, "{} <-- {};", s.assignee, s.expression)
@@ -888,9 +880,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
         write!(
             f,
             "{}",
-            self.get_span()
-                .map(|_| "".to_string())
-                .unwrap_or("NONE".into())
+            self.get_span().map(|_| "".to_string()).unwrap_or("".into())
         )?;
 
         match *self {
@@ -2149,7 +2139,7 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        assert!(self.get_span().is_some());
+        // assert!(self.get_span().is_some());
 
         match self.inner {
             UExpressionInner::Block(ref block) => write!(f, "{}", block,),
@@ -2185,9 +2175,7 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
         write!(
             f,
             "{}",
-            self.get_span()
-                .map(|_| "".to_string())
-                .unwrap_or("NONE".into())
+            self.get_span().map(|_| "".to_string()).unwrap_or("".into())
         )?;
 
         match &self {

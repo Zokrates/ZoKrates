@@ -176,14 +176,6 @@ impl<'ast, T> WithSpan for ZirAssemblyStatement<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.get_span()
-                .map(|_| "".to_string())
-                .unwrap_or("NONE".into())
-        )?;
-
         match *self {
             ZirAssemblyStatement::Assignment(ref s) => {
                 write!(

@@ -49,14 +49,14 @@ mod tests {
             ConcreteFunctionKey::with_location("main", "main").into(),
             TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![
-                    DeclarationParameter {
-                        id: DeclarationVariable::new("a", DeclarationType::FieldElement, true),
-                        private: true,
-                    },
-                    DeclarationParameter {
-                        id: DeclarationVariable::new("b", DeclarationType::Boolean, false),
-                        private: false,
-                    },
+                    DeclarationParameter::private(DeclarationVariable::new(
+                        "a",
+                        DeclarationType::FieldElement,
+                    )),
+                    DeclarationParameter::public(DeclarationVariable::new(
+                        "b",
+                        DeclarationType::Boolean,
+                    )),
                 ],
                 statements: vec![],
                 signature: ConcreteSignature::new()
