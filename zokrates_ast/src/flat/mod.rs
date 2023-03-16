@@ -213,6 +213,14 @@ impl<'ast, T> WithSpan for FlatStatement<'ast, T> {
 
 impl<'ast, T: Field> fmt::Display for FlatStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.get_span()
+                .map(|_| "".to_string())
+                .unwrap_or("NONE".into())
+        )?;
+
         match *self {
             FlatStatement::Definition(ref e) => write!(f, "{}", e),
             FlatStatement::Condition(ref s) => {

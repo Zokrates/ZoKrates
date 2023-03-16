@@ -215,7 +215,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             Err(InlineError::Flat(embed, generics, output_type)) => {
                 let identifier = self.ssa.issue_next_identifier(CoreIdentifier::Call(0));
 
-                let var = Variable::immutable(identifier.clone(), output_type);
+                let var = Variable::new(identifier.clone(), output_type);
 
                 let v: TypedAssignee<'ast, T> = var.clone().into();
 
@@ -317,19 +317,19 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                 let statements = statements
                     .into_iter()
-                    .map(|s| self.propagator.fold_statement_cases(s))
+                    .map(|s| self.propagator.fold_statement_cases(dbg!(s)))
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
                     .flatten();
 
                 let statements = statements
-                    .map(|s| fold_statement_cases(self, s))
+                    .map(|s| fold_statement_cases(self, dbg!(s)))
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
                     .flatten();
 
                 let statements = statements
-                    .map(|s| self.propagator.fold_statement_cases(s))
+                    .map(|s| self.propagator.fold_statement_cases(dbg!(s)))
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
                     .flatten();

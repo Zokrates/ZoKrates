@@ -13,14 +13,14 @@ use std::path::{Path, PathBuf};
 use zokrates_ast::untyped::*;
 
 use typed_arena::Arena;
-use zokrates_ast::common::{FlatEmbed, Span};
+use zokrates_ast::common::{FlatEmbed, SourceSpan};
 use zokrates_ast::untyped::types::UnresolvedType;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Error {
-    span: Option<Span>,
+    span: Option<SourceSpan>,
     message: String,
 }
 
@@ -32,7 +32,7 @@ impl Error {
         }
     }
 
-    pub fn span(&self) -> &Option<Span> {
+    pub fn span(&self) -> &Option<SourceSpan> {
         &self.span
     }
 
@@ -40,7 +40,7 @@ impl Error {
         &self.message
     }
 
-    fn with_span(self, span: Option<Span>) -> Error {
+    fn with_span(self, span: Option<SourceSpan>) -> Error {
         Error { span, ..self }
     }
 }

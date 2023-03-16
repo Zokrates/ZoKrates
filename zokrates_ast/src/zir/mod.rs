@@ -176,6 +176,14 @@ impl<'ast, T> WithSpan for ZirAssemblyStatement<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.get_span()
+                .map(|_| "".to_string())
+                .unwrap_or("NONE".into())
+        )?;
+
         match *self {
             ZirAssemblyStatement::Assignment(ref s) => {
                 write!(
@@ -399,6 +407,14 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
 
 impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
     fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.get_span()
+                .map(|_| "".to_string())
+                .unwrap_or("NONE".into())
+        )?;
+
         write!(f, "{}", "\t".repeat(depth))?;
 
         match self {
@@ -573,6 +589,26 @@ pub enum ZirExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
     Uint(#[serde(borrow)] UExpression<'ast, T>),
+}
+
+impl<'ast, T> WithSpan for ZirExpression<'ast, T> {
+    fn span(self, span: Option<Span>) -> Self {
+        use ZirExpression::*;
+        match self {
+            Boolean(e) => Boolean(e.span(span)),
+            FieldElement(e) => FieldElement(e.span(span)),
+            Uint(e) => Uint(e.span(span)),
+        }
+    }
+
+    fn get_span(&self) -> Option<Span> {
+        use ZirExpression::*;
+        match self {
+            Boolean(e) => e.get_span(),
+            FieldElement(e) => e.get_span(),
+            Uint(e) => e.get_span(),
+        }
+    }
 }
 
 impl<'ast, T: Field> From<BooleanExpression<'ast, T>> for ZirExpression<'ast, T> {
@@ -859,6 +895,8 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        assert!(self.get_span().is_some());
+
         match self.inner {
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
             UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
@@ -883,6 +921,14 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.get_span()
+                .map(|_| "".to_string())
+                .unwrap_or("NONE".into())
+        )?;
+
         match *self {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
             BooleanExpression::Value(ref b) => write!(f, "{}", b),

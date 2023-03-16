@@ -1,3 +1,5 @@
+use crate::common::WithSpan;
+
 use super::folder::Folder;
 use super::{ProgIterator, Statement};
 use zokrates_field::Field;
@@ -21,6 +23,8 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
 
 impl<'ast, T: Field> Folder<'ast, T> for Cleaner {
     fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
+        assert!(s.get_span().is_some(), "{}", s);
+
         match s {
             Statement::Block(s) => s
                 .inner

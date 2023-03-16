@@ -1,12 +1,13 @@
 use std::fmt;
 
 use derivative::Derivative;
+use serde::{Deserialize, Serialize};
 
 use super::{Span, WithSpan};
 
 #[derive(Derivative)]
 #[derivative(PartialOrd, PartialEq, Hash, Eq)]
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Parameter<V> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
@@ -47,11 +48,5 @@ impl<V: fmt::Display> fmt::Display for Parameter<V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let visibility = if self.private { "private " } else { "" };
         write!(f, "{}{}", visibility, self.id)
-    }
-}
-
-impl<V: fmt::Debug> fmt::Debug for Parameter<V> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Parameter(variable: {:?})", self.id)
     }
 }

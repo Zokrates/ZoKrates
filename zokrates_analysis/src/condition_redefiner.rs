@@ -71,8 +71,8 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
                 let condition_id = Identifier::from(CoreIdentifier::Condition(self.index));
                 self.buffer.push(
                     TypedStatement::definition(
-                        Variable::immutable(condition_id.clone(), Type::Boolean).into(),
-                        TypedExpression::from(condition),
+                        Variable::new(condition_id.clone(), Type::Boolean).into(),
+                        TypedExpression::from(condition).span(condition_span),
                     )
                     .span(condition_span),
                 );

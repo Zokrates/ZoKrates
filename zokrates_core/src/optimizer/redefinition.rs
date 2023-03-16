@@ -37,6 +37,7 @@
 //     - otherwise return `c_0`
 
 use std::collections::{HashMap, HashSet};
+use zokrates_ast::common::WithSpan;
 use zokrates_ast::flat::Variable;
 use zokrates_ast::ir::folder::{fold_statement_cases, Folder};
 use zokrates_ast::ir::LinComb;
@@ -201,7 +202,12 @@ impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<T> {
                 let statements: Vec<_> = statements
                     .inner
                     .into_iter()
-                    .flat_map(|s| self.fold_statement_cases(s, true))
+                    .flat_map(|s| {
+                        let span = s.get_span();
+                        self.fold_statement_cases(s, true)
+                            .into_iter()
+                            .map(move |s| s.span(span))
+                    })
                     .collect();
 
                 // clean up

@@ -9,7 +9,7 @@ use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
 use zokrates_ast::common::expressions::ValueExpression;
-use zokrates_ast::common::{FormatString, ModuleMap, SourceMetadata, Span, WithSpan};
+use zokrates_ast::common::{FormatString, ModuleMap, SourceMetadata, SourceSpan, WithSpan};
 use zokrates_ast::typed::types::{GGenericsAssignment, GTupleType, GenericsAssignment};
 use zokrates_ast::typed::SourceIdentifier;
 use zokrates_ast::typed::*;
@@ -32,7 +32,7 @@ use zokrates_ast::typed::types::{
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct ErrorInner {
-    span: Option<Span>,
+    span: Option<SourceSpan>,
     message: String,
 }
 
@@ -43,7 +43,7 @@ pub struct Error {
 }
 
 impl ErrorInner {
-    pub fn pos(&self) -> &Option<Span> {
+    pub fn pos(&self) -> &Option<SourceSpan> {
         &self.span
     }
 
@@ -1163,12 +1163,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let decl_v = DeclarationVariable::new(
                         self.id_in_this_scope(arg.id.value.id),
                         decl_ty.clone(),
-                        arg.id.value.is_mutable,
                     );
 
                     let is_mutable = arg.id.value.is_mutable;
 
-                    let ty = specialize_declaration_type(decl_v.clone()._type, &generics).unwrap();
+                    let ty = specialize_declaration_type(decl_v.clone().ty, &generics).unwrap();
 
                     assert_eq!(self.scope.level, 1);
 
@@ -1188,10 +1187,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                     };
 
-                    arguments_checked.push(DeclarationParameter {
-                        id: decl_v,
-                        private: arg.is_private.unwrap_or(false),
-                    });
+                    arguments_checked.push(
+                        DeclarationParameter::new(decl_v, arg.is_private.unwrap_or(false))
+                            .with_span(span),
+                    );
                 }
 
                 let mut found_return = false;
@@ -1665,17 +1664,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
         types: &TypeMap<'ast, T>,
     ) -> Result<Variable<'ast, T>, Vec<ErrorInner>> {
         let ty = self
-            .check_type(v.value._type, module_id, types)
+            .check_type(v.value.ty, module_id, types)
             .map_err(|e| vec![e])?;
 
         // insert into the scope and ignore whether shadowing happened
         self.insert_into_scope(v.value.id, ty.clone(), v.value.is_mutable);
 
-        Ok(Variable::new(
-            self.id_in_this_scope(v.value.id),
-            ty,
-            v.value.is_mutable,
-        ))
+        Ok(Variable::new(self.id_in_this_scope(v.value.id), ty))
     }
 
     fn check_for_loop(
@@ -1683,7 +1678,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         var: zokrates_ast::untyped::VariableNode<'ast>,
         range: (ExpressionNode<'ast>, ExpressionNode<'ast>),
         statements: Vec<StatementNode<'ast>>,
-        span: Span,
+        span: SourceSpan,
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
@@ -1887,9 +1882,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .map_err(|e| vec![e])?,
                     );
                 }
-                Ok(TypedStatement::Assembly(AssemblyBlockStatement::new(
-                    checked_statements,
-                )))
+                Ok(TypedStatement::Assembly(
+                    AssemblyBlockStatement::new(checked_statements).with_span(span),
+                ))
             }
             Statement::Log(l, expressions) => {
                 let l = FormatString::from(l);
@@ -2004,7 +1999,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Statement::Definition(var, expr) => {
                 // get the lhs type
                 let var_ty = self
-                    .check_type(var.value._type, module_id, types)
+                    .check_type(var.value.ty, module_id, types)
                     .map_err(|e| vec![e])?;
 
                 // check the rhs based on the lhs type
@@ -2015,11 +2010,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 // insert the lhs into the scope and ignore whether shadowing happened
                 self.insert_into_scope(var.value.id, var_ty.clone(), var.value.is_mutable);
 
-                let var = Variable::new(
-                    self.id_in_this_scope(var.value.id),
-                    var_ty.clone(),
-                    var.value.is_mutable,
-                );
+                let var = Variable::new(self.id_in_this_scope(var.value.id), var_ty.clone());
 
                 match var_ty {
                     Type::FieldElement => FieldElementExpression::try_from_typed(checked_expr)
@@ -2158,7 +2149,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     _ => Ok(TypedAssignee::Identifier(Variable::new(
                         info.id,
                         info.ty.clone(),
-                        info.is_mutable,
                     ))),
                 },
                 None => Err(ErrorInner {
@@ -2453,7 +2443,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
-        let span = expr.span().in_module(module_id);
+        let span: SourceSpan = expr.span().in_module(module_id);
 
         match expr.value {
             Expression::IntConstant(v) => Ok(IntExpression::from_value(v).with_span(span).into()),

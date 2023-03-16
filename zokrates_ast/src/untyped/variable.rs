@@ -8,7 +8,7 @@ use super::Identifier;
 pub struct Variable<'ast> {
     pub is_mutable: bool,
     pub id: Identifier<'ast>,
-    pub _type: UnresolvedTypeNode<'ast>,
+    pub ty: UnresolvedTypeNode<'ast>,
 }
 
 pub type VariableNode<'ast> = Node<Variable<'ast>>;
@@ -22,7 +22,7 @@ impl<'ast> Variable<'ast> {
         Variable {
             is_mutable,
             id: id.into(),
-            _type: t,
+            ty: t,
         }
     }
 
@@ -35,13 +35,13 @@ impl<'ast> Variable<'ast> {
     }
 
     pub fn get_type(&self) -> &UnresolvedType<'ast> {
-        &self._type.value
+        &self.ty.value
     }
 }
 
 impl<'ast> fmt::Display for Variable<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {}", self._type, self.id,)
+        write!(f, "{} {}", self.ty, self.id,)
     }
 }
 
@@ -50,7 +50,7 @@ impl<'ast> fmt::Debug for Variable<'ast> {
         write!(
             f,
             "Variable(type: {:?}, id: {:?}, is_mutable: {:?})",
-            self._type, self.id, self.is_mutable
+            self.ty, self.id, self.is_mutable
         )
     }
 }

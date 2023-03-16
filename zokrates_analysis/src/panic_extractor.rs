@@ -81,7 +81,8 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                                 FieldElementExpression::from_value(T::zero()).span(span),
                             )
                             .span(span),
-                        ),
+                        )
+                        .span(span),
                         RuntimeError::DivisionByZero,
                     )
                     .span(span),
@@ -192,10 +193,12 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 self.panic_buffer.push(
                     ZirStatement::assertion(
                         BooleanExpression::field_lt(
-                            offset.clone()
-                                + FieldElementExpression::sub(left.clone(), right.clone()),
+                            offset.clone().span(span)
+                                + FieldElementExpression::sub(left.clone(), right.clone())
+                                    .span(span),
                             max,
-                        ),
+                        )
+                        .span(span),
                         RuntimeError::IncompleteDynamicRange,
                     )
                     .span(span),
@@ -215,7 +218,8 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                                 offset.span(span),
                             )
                             .span(span),
-                        ),
+                        )
+                        .span(span),
                         RuntimeError::IncompleteDynamicRange,
                     )
                     .span(span),

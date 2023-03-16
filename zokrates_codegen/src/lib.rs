@@ -981,12 +981,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             BooleanExpression::FieldLe(e) => {
                 let lt = self.flatten_boolean_expression(
                     statements_flattened,
-                    BooleanExpression::field_lt(*e.left.clone(), *e.right.clone()),
+                    BooleanExpression::field_lt(*e.left.clone(), *e.right.clone()).span(span),
                 );
+
                 let eq = self.flatten_boolean_expression(
                     statements_flattened,
-                    BooleanExpression::field_eq(*e.left, *e.right),
+                    BooleanExpression::field_eq(*e.left, *e.right).span(span),
                 );
+
                 FlatExpression::add(eq, lt)
             }
             BooleanExpression::UintLt(e) => {
@@ -1011,11 +1013,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             BooleanExpression::UintLe(e) => {
                 let lt = self.flatten_boolean_expression(
                     statements_flattened,
-                    BooleanExpression::uint_lt(*e.left.clone(), *e.right.clone()),
+                    BooleanExpression::uint_lt(*e.left.clone(), *e.right.clone()).span(span),
                 );
                 let eq = self.flatten_boolean_expression(
                     statements_flattened,
-                    BooleanExpression::uint_eq(*e.left, *e.right),
+                    BooleanExpression::uint_eq(*e.left, *e.right).span(span),
                 );
                 FlatExpression::add(eq, lt)
             }
@@ -1292,11 +1294,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) -> FlatUExpression<T> {
         match expr {
             ZirExpression::FieldElement(e) => {
+                assert!(e.get_span().is_some());
                 FlatUExpression::with_field(self.flatten_field_expression(statements_flattened, e))
             }
-            ZirExpression::Boolean(e) => FlatUExpression::with_field(
-                self.flatten_boolean_expression(statements_flattened, e),
-            ),
+            ZirExpression::Boolean(e) => {
+                assert!(e.get_span().is_some());
+                FlatUExpression::with_field(
+                    self.flatten_boolean_expression(statements_flattened, e),
+                )
+            }
             ZirExpression::Uint(e) => self.flatten_uint_expression(statements_flattened, e),
         }
     }
@@ -1668,6 +1674,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let left_metadata = e.left.metadata.clone().unwrap();
                 let right_metadata = e.right.metadata.clone().unwrap();
 
+                let left_span = e.left.get_span();
+                let right_span = e.right.get_span();
+
                 match (e.left.into_inner(), e.right.into_inner()) {
                     (UExpressionInner::And(e), UExpressionInner::And(ee)) => {
                         let a = *e.left;
@@ -1721,6 +1730,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     (UExpressionInner::Xor(e), c) => {
                         let a_metadata = e.left.metadata.clone().unwrap();
                         let b_metadata = e.right.metadata.clone().unwrap();
+
+                        let a_span = e.left.get_span();
+                        let b_span = e.right.get_span();
+                        let c_span = right_span;
 
                         match (e.left.into_inner(), e.right.into_inner(), c) {
                             (
@@ -1793,29 +1806,49 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                     self.default_xor(
                                         statements_flattened,
                                         UExpression::xor(
-                                            UExpression::and(a, b).metadata(a_metadata),
-                                            UExpression::and(aa, c).metadata(b_metadata),
+                                            UExpression::and(a, b)
+                                                .metadata(a_metadata)
+                                                .span(a_span),
+                                            UExpression::and(aa, c)
+                                                .metadata(b_metadata)
+                                                .span(b_span),
                                         )
-                                        .metadata(left_metadata),
-                                        UExpression::and(bb, cc).metadata(right_metadata),
+                                        .metadata(left_metadata)
+                                        .span(left_span),
+                                        UExpression::and(bb, cc)
+                                            .metadata(right_metadata)
+                                            .span(c_span),
                                     )
                                 }
                             }
                             (a, b, c) => self.default_xor(
                                 statements_flattened,
                                 UExpression::xor(
-                                    a.annotate(target_bitwidth).metadata(a_metadata),
-                                    b.annotate(target_bitwidth).metadata(b_metadata),
+                                    a.annotate(target_bitwidth)
+                                        .metadata(a_metadata)
+                                        .span(a_span),
+                                    b.annotate(target_bitwidth)
+                                        .metadata(b_metadata)
+                                        .span(b_span),
                                 )
-                                .metadata(left_metadata),
-                                c.annotate(target_bitwidth).metadata(right_metadata),
+                                .metadata(left_metadata)
+                                .span(left_span),
+                                c.annotate(target_bitwidth)
+                                    .metadata(right_metadata)
+                                    .span(c_span),
                             ),
                         }
                     }
                     (left_i, right_i) => self.default_xor(
                         statements_flattened,
-                        left_i.annotate(target_bitwidth).metadata(left_metadata),
-                        right_i.annotate(target_bitwidth).metadata(right_metadata),
+                        left_i
+                            .annotate(target_bitwidth)
+                            .metadata(left_metadata)
+                            .span(left_span),
+                        right_i
+                            .annotate(target_bitwidth)
+                            .metadata(right_metadata)
+                            .span(right_span),
                     ),
                 }
             }
@@ -2059,6 +2092,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut FlatStatements<'ast, T>,
         e: SelectExpression<'ast, T, U>,
     ) -> FlatUExpression<T> {
+        let span = e.get_span();
+
         let array = e.array;
         let index = *e.index;
 
@@ -2074,9 +2109,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             .metadata(UMetadata {
                                 should_reduce: ShouldReduce::True,
                                 max: T::from(i),
-                            }),
+                            })
+                            .span(span),
                         index.clone(),
-                    ),
+                    )
+                    .span(span),
                 );
 
                 let element = e.flatten(self, statements_flattened);
@@ -2091,15 +2128,18 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     FlatExpression::from_value(T::zero()),
                 ),
                 |(mut range_check, mut result), (condition, element)| {
-                    range_check = FlatExpression::add(range_check, condition.clone());
+                    range_check = FlatExpression::add(range_check, condition.clone()).span(span);
 
                     let conditional_element_id = self.use_sym();
-                    statements_flattened.push_back(FlatStatement::definition(
-                        conditional_element_id,
-                        FlatExpression::mul(condition, element.flat()),
-                    ));
+                    statements_flattened.push_back(
+                        FlatStatement::definition(
+                            conditional_element_id,
+                            FlatExpression::mul(condition, element.flat()).span(span),
+                        )
+                        .span(span),
+                    );
 
-                    result = FlatExpression::add(result, conditional_element_id.into());
+                    result = FlatExpression::add(result, conditional_element_id.into()).span(span);
                     (range_check, result)
                 },
             );
@@ -2485,7 +2525,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         for boolean in e.into_conjunction_iterator() {
                             self.flatten_statement(
                                 statements_flattened,
-                                ZirStatement::assertion(boolean, error.clone()),
+                                ZirStatement::assertion(boolean, error.clone()).span(span),
                             )
                         }
                     }
@@ -2913,6 +2953,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         parameter: &ZirParameter<'ast>,
         statements_flattened: &mut FlatStatements<'ast, T>,
     ) -> Parameter {
+        let span = parameter.get_span();
+
+        let backup_span = statements_flattened.span;
+
+        statements_flattened.set_span(span);
+
         let variable = self.use_variable(&parameter.id);
 
         match parameter.id.get_type() {
@@ -2937,10 +2983,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             Type::FieldElement => {}
         }
 
-        Parameter {
-            id: variable,
-            private: parameter.private,
-        }
+        statements_flattened.set_span(backup_span);
+
+        Parameter::new(variable, parameter.private).span(span)
     }
 
     fn issue_new_variable(&mut self) -> Variable {

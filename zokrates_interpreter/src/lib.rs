@@ -177,7 +177,7 @@ impl Interpreter {
                     .arguments
                     .iter()
                     .zip(inputs)
-                    .map(|(a, v)| match &a.id._type {
+                    .map(|(a, v)| match &a.id.ty {
                         zir::Type::FieldElement => Ok((
                             a.id.id.clone(),
                             zokrates_ast::zir::FieldElementExpression::from_value(v.clone()).into(),

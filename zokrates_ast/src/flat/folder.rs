@@ -166,7 +166,7 @@ pub fn fold_directive<'ast, T: Field, F: Folder<'ast, T>>(
 pub fn fold_argument<'ast, T: Field, F: Folder<'ast, T>>(f: &mut F, a: Parameter) -> Parameter {
     Parameter {
         id: f.fold_variable(a.id),
-        private: a.private,
+        ..a
     }
 }
 

@@ -115,7 +115,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                         crate::typed::types::try_from_g_type::<
                             DeclarationConstant<'ast, T>,
                             UExpression<'ast, T>,
-                        >(p.id._type.clone())
+                        >(p.id.ty.clone())
                         .unwrap(),
                     )
                     .map(|ty| AbiInput {
@@ -564,7 +564,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssignee<'ast, T> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Hash, Eq, Default, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct AssertionMetadata {
     pub file: String,
     pub span: Span,
@@ -783,6 +783,14 @@ impl<'ast, T> TypedAssemblyStatement<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedAssemblyStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.get_span()
+                .map(|_| "".to_string())
+                .unwrap_or("NONE".into())
+        )?;
+
         match *self {
             TypedAssemblyStatement::Assignment(ref s) => {
                 write!(f, "{} <-- {};", s.assignee, s.expression)
@@ -877,6 +885,14 @@ impl<'ast, T> TypedStatement<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.get_span()
+                .map(|_| "".to_string())
+                .unwrap_or("NONE".into())
+        )?;
+
         match *self {
             TypedStatement::Return(ref s) => {
                 write!(f, "{}", s)
@@ -1399,7 +1415,7 @@ impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for TupleExpression<'ast, T> {
         match assignee {
             TypedAssignee::Identifier(v) => {
                 let inner = TupleExpression::identifier(v.id);
-                match v._type {
+                match v.ty {
                     GType::Tuple(tuple_ty) => inner.annotate(tuple_ty),
                     _ => unreachable!(),
                 }
@@ -1416,7 +1432,7 @@ impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for StructExpression<'ast, T> 
         match assignee {
             TypedAssignee::Identifier(v) => {
                 let inner = StructExpression::identifier(v.id);
-                match v._type {
+                match v.ty {
                     GType::Struct(struct_ty) => inner.annotate(struct_ty),
                     _ => unreachable!(),
                 }
@@ -1433,7 +1449,7 @@ impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for ArrayExpression<'ast, T> {
         match assignee {
             TypedAssignee::Identifier(v) => {
                 let inner = ArrayExpression::identifier(v.id);
-                match v._type {
+                match v.ty {
                     GType::Array(array_ty) => inner.annotate(*array_ty.ty, *array_ty.size),
                     _ => unreachable!(),
                 }
@@ -2133,6 +2149,8 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        assert!(self.get_span().is_some());
+
         match self.inner {
             UExpressionInner::Block(ref block) => write!(f, "{}", block,),
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
@@ -2164,6 +2182,14 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.get_span()
+                .map(|_| "".to_string())
+                .unwrap_or("NONE".into())
+        )?;
+
         match &self {
             BooleanExpression::Block(ref block) => write!(f, "{}", block,),
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
@@ -2974,7 +3000,7 @@ pub enum ConditionalOrExpression<'ast, T, E: Expr<'ast, T>> {
 }
 
 pub trait Basic<'ast, T> {
-    type ZirExpressionType: Value + From<crate::zir::ZirExpression<'ast, T>>;
+    type ZirExpressionType: WithSpan + Value + From<crate::zir::ZirExpression<'ast, T>>;
 }
 
 impl<'ast, T: Clone> Basic<'ast, T> for FieldElementExpression<'ast, T> {

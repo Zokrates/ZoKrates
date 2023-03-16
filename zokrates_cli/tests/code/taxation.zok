@@ -1,9 +1,17 @@
-def wtax(field debt, field wealth) -> field {
-    field x = wealth < debt ? 0 : (wealth - debt);
-    return x;
-}
+// def wtax(field debt, field wealth) -> field {
+//     field x = wealth < debt ? 0 : (wealth - debt);
+//     return x;
+// }
 
 def main(field debt, field wealth) -> field {
-    field tax = wtax(debt, wealth);
-    return tax;
+    // field tax = wtax(debt, wealth);
+    return wealth < debt ? 0 : (wealth - debt);
 }
+
+// _264 = _2 * (_1 - _0)
+// return _264
+
+// _259 = (_1 - _0) * _260
+// 0 == (1 - _259) * (_1 - _0)
+// _266 = (_259 - _0) * _1
+// return _266

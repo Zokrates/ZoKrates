@@ -370,10 +370,7 @@ pub fn sha256_round<'ast, T: Field>(
         .clone()
         .into_iter()
         .chain(current_hash_argument_indices.clone())
-        .map(|i| Parameter {
-            id: Variable::new(i),
-            private: true,
-        })
+        .map(|i| Parameter::private(Variable::new(i)))
         .collect();
     // define a binding of the first variable in the constraint system to one
     let one_binding_statement = FlatStatement::condition(
@@ -570,10 +567,7 @@ pub fn unpack_to_bitwidth<'ast, T: Field>(
 
     let mut layout = HashMap::new();
 
-    let arguments = vec![Parameter {
-        id: Variable::new(0),
-        private: true,
-    }];
+    let arguments = vec![Parameter::private(Variable::new(0))];
 
     // o0, ..., o253 = ToBits(i0)
 

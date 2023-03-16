@@ -180,22 +180,19 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     }
 
     fn fold_variable(&mut self, v: Variable<'ast, T>) -> Result<Variable<'ast, T>, Self::Error> {
-        Ok(Variable {
-            id: self.fold_name(v.id)?,
-            _type: self.fold_type(v._type)?,
-            is_mutable: v.is_mutable,
-        })
+        let span = v.get_span();
+        Ok(Variable::new(self.fold_name(v.id)?, self.fold_type(v.ty)?).span(span))
     }
 
     fn fold_declaration_variable(
         &mut self,
         v: DeclarationVariable<'ast, T>,
     ) -> Result<DeclarationVariable<'ast, T>, Self::Error> {
-        Ok(DeclarationVariable {
-            id: self.fold_name(v.id)?,
-            _type: self.fold_declaration_type(v._type)?,
-            is_mutable: v.is_mutable,
-        })
+        let span = v.get_span();
+        Ok(
+            DeclarationVariable::new(self.fold_name(v.id)?, self.fold_declaration_type(v.ty)?)
+                .span(span),
+        )
     }
 
     fn fold_type(&mut self, t: Type<'ast, T>) -> Result<Type<'ast, T>, Self::Error> {
@@ -471,6 +468,13 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         s: TypedAssemblyStatement<'ast, T>,
     ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
         fold_assembly_statement(self, s)
+    }
+
+    fn fold_assembly_statement_cases(
+        &mut self,
+        s: TypedAssemblyStatement<'ast, T>,
+    ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
+        fold_assembly_statement_cases(self, s)
     }
 
     fn fold_statement(
@@ -778,7 +782,16 @@ pub fn fold_assembly_constraint<'ast, T: Field, F: ResultFolder<'ast, T>>(
     )])
 }
 
-pub fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: TypedAssemblyStatement<'ast, T>,
+) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, F::Error> {
+    let span = s.get_span();
+    f.fold_assembly_statement_cases(s)
+        .map(|s| s.into_iter().map(|s| s.span(span)).collect())
+}
+
+pub fn fold_assembly_statement_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: TypedAssemblyStatement<'ast, T>,
 ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, F::Error> {

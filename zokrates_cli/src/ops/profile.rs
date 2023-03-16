@@ -9,7 +9,7 @@ use zokrates_profiler::profile;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("profile")
-        .about("Profiles a compiled program")
+        .about("Profiles a compiled program, indicating which parts of the source yield the most constraints")
         .arg(
             Arg::with_name("input")
                 .short("i")

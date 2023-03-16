@@ -75,6 +75,13 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_assembly_statement(self, s)
     }
 
+    fn fold_assembly_statement_cases(
+        &mut self,
+        s: ZirAssemblyStatement<'ast, T>,
+    ) -> Vec<ZirAssemblyStatement<'ast, T>> {
+        fold_assembly_statement_cases(self, s)
+    }
+
     fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
         fold_statement(self, s)
     }
@@ -259,7 +266,18 @@ pub fn fold_assembly_constraint<'ast, T: Field, F: Folder<'ast, T>>(
     vec![ZirAssemblyStatement::constraint(left, right, s.metadata)]
 }
 
-pub fn fold_assembly_statement<'ast, T: Field, F: Folder<'ast, T>>(
+fn fold_assembly_statement<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: ZirAssemblyStatement<'ast, T>,
+) -> Vec<ZirAssemblyStatement<'ast, T>> {
+    let span = s.get_span();
+    f.fold_assembly_statement_cases(s)
+        .into_iter()
+        .map(|s| s.span(span))
+        .collect()
+}
+
+fn fold_assembly_statement_cases<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: ZirAssemblyStatement<'ast, T>,
 ) -> Vec<ZirAssemblyStatement<'ast, T>> {

@@ -85,6 +85,13 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_assembly_statement(self, s)
     }
 
+    fn fold_assembly_statement_cases(
+        &mut self,
+        s: ZirAssemblyStatement<'ast, T>,
+    ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, Self::Error> {
+        fold_assembly_statement_cases(self, s)
+    }
+
     fn fold_statement(
         &mut self,
         s: ZirStatement<'ast, T>,
@@ -311,7 +318,16 @@ pub fn fold_assembly_constraint<'ast, T: Field, F: ResultFolder<'ast, T>>(
     )])
 }
 
-pub fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+fn fold_assembly_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: ZirAssemblyStatement<'ast, T>,
+) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, F::Error> {
+    let span = s.get_span();
+    f.fold_assembly_statement_cases(s)
+        .map(|s| s.into_iter().map(|s| s.span(span)).collect())
+}
+
+pub fn fold_assembly_statement_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: ZirAssemblyStatement<'ast, T>,
 ) -> Result<Vec<ZirAssemblyStatement<'ast, T>>, F::Error> {

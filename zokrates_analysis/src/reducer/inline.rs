@@ -156,7 +156,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         .arguments
         .into_iter()
         .zip(inferred_signature.inputs.clone())
-        .map(|(p, t)| ConcreteVariable::new(p.id.id, t, false))
+        .map(|(p, t)| ConcreteVariable::new(p.id.id, t))
         .map(Variable::from)
         .collect();
 

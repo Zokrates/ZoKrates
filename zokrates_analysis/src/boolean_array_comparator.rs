@@ -1,7 +1,10 @@
-use zokrates_ast::typed::{
-    folder::*, ArrayExpression, BooleanExpression, ConditionalExpression, ConditionalKind, Expr,
-    FieldElementExpression, SelectExpression, Type, TypedExpression, TypedProgram,
-    UExpressionInner,
+use zokrates_ast::{
+    common::WithSpan,
+    typed::{
+        folder::*, ArrayExpression, BooleanExpression, Conditional,
+        ConditionalKind, Expr, FieldElementExpression, Select, Type,
+        TypedExpression, TypedProgram, UExpression, UExpressionInner,
+    },
 };
 
 use zokrates_field::Field;
@@ -31,6 +34,8 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
         match e {
             BooleanExpression::ArrayEq(e) => match *e.left.inner_type() {
                 Type::Boolean => {
+                    let span = e.get_span();
+
                     let len = e.left.size();
                     let len = match len.as_inner() {
                         UExpressionInner::Value(v) => v.value as usize,
@@ -40,20 +45,10 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                     let chunk_size = T::get_required_bits() as usize - 1;
 
                     let left_elements: Vec<_> = (0..len)
-                        .map(|i| {
-                            BooleanExpression::Select(SelectExpression::new(
-                                *e.left.clone(),
-                                (i as u32).into(),
-                            ))
-                        })
+                        .map(|i| BooleanExpression::select(*e.left.clone(), i as u32).span(span))
                         .collect();
                     let right_elements: Vec<_> = (0..len)
-                        .map(|i| {
-                            BooleanExpression::Select(SelectExpression::new(
-                                *e.right.clone(),
-                                (i as u32).into(),
-                            ))
-                        })
+                        .map(|i| BooleanExpression::select(*e.right.clone(), i as u32).span(span))
                         .collect();
 
                     let process = |elements: &[BooleanExpression<'ast, T>]| {
@@ -67,23 +62,22 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                                         .enumerate()
                                         .rev()
                                         .map(|(index, c)| {
-                                            FieldElementExpression::Conditional(
-                                                ConditionalExpression::new(
-                                                    c.clone(),
-                                                    FieldElementExpression::pow(
-                                                        FieldElementExpression::from_value(
-                                                            T::from(2),
-                                                        ),
-                                                        (index as u32).into(),
-                                                    ),
-                                                    T::zero().into(),
-                                                    ConditionalKind::Ternary,
+                                            FieldElementExpression::conditional(
+                                                c.clone().span(span),
+                                                FieldElementExpression::pow(
+                                                    FieldElementExpression::from_value(T::from(2))
+                                                        .span(span),
+                                                    UExpression::from(index as u32).span(span),
                                                 ),
+                                                FieldElementExpression::from(T::zero()).span(span),
+                                                ConditionalKind::Ternary,
                                             )
+                                            .span(span)
                                         })
                                         .collect::<Vec<_>>(),
-                                    &FieldElementExpression::from_value(T::from(0)),
+                                    &FieldElementExpression::from_value(T::from(0)).span(span),
                                 ))
+                                .span(span)
                                 .into()
                             })
                             .collect()
@@ -97,9 +91,11 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
 
                     BooleanExpression::array_eq(
                         ArrayExpression::from_value(left)
-                            .annotate(Type::FieldElement, chunk_count as u32),
+                            .annotate(Type::FieldElement, chunk_count as u32)
+                            .span(span),
                         ArrayExpression::from_value(right)
-                            .annotate(Type::FieldElement, chunk_count as u32),
+                            .annotate(Type::FieldElement, chunk_count as u32)
+                            .span(span),
                     )
                 }
                 _ => fold_boolean_expression_cases(self, BooleanExpression::ArrayEq(e)),

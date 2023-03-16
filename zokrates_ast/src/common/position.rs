@@ -6,8 +6,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use super::FlatEmbed;
+
 #[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord, Deserialize, Serialize)]
-pub struct LocalSpan {
+pub struct LocalSourceSpan {
     pub from: Position,
     pub to: Position,
 }
@@ -37,29 +39,76 @@ pub struct Position {
     pub col: usize,
 }
 
+#[derive(Clone, PartialEq, Eq, Copy, Hash, PartialOrd, Ord, Deserialize, Serialize, Debug)]
+pub enum Span {
+    Source(SourceSpan),
+    Embed(FlatEmbed),
+}
+
+impl fmt::Display for Span {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Span::Source(s) => write!(f, "{}", s),
+            Span::Embed(e) => write!(f, "{:?}", e),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ResolvedSpan {
+    Source(ResolvedSourceSpan),
+    Embed(FlatEmbed),
+}
+
+impl fmt::Display for ResolvedSpan {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ResolvedSpan::Source(s) => write!(f, "{}", s),
+            ResolvedSpan::Embed(e) => write!(f, "{:?}", e),
+        }
+    }
+}
+
+impl Span {
+    pub fn resolve(self, map: &ModuleMap) -> ResolvedSpan {
+        match self {
+            Span::Source(s) => ResolvedSpan::Source(ResolvedSourceSpan {
+                module: map.modules.get(&s.module).cloned().unwrap(),
+                from: s.from,
+                to: s.to,
+            }),
+            Span::Embed(s) => ResolvedSpan::Embed(s),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord, Deserialize, Serialize)]
-pub struct Span {
+pub struct SourceSpan {
     pub module: ModuleIdHash,
     pub from: Position,
     pub to: Position,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct ResolvedSpan {
+pub struct ResolvedSourceSpan {
     pub module: OwnedModuleId,
     pub from: Position,
     pub to: Position,
 }
 
-impl Span {
-    pub fn resolve(self, map: &ModuleMap) -> ResolvedSpan {
-        ResolvedSpan {
-            module: map.modules.get(&self.module).cloned().unwrap(),
-            from: self.from,
-            to: self.to,
-        }
+impl From<SourceSpan> for Span {
+    fn from(span: SourceSpan) -> Self {
+        Self::Source(span)
     }
+}
 
+impl From<FlatEmbed> for Span {
+    fn from(embed: FlatEmbed) -> Self {
+        Self::Embed(embed)
+    }
+}
+
+impl SourceSpan {
     pub fn mock() -> Self {
         Self {
             module: hash(&OwnedModuleId::default()),
@@ -72,8 +121,8 @@ impl Span {
 pub trait WithSpan: Sized {
     fn span(self, _: Option<Span>) -> Self;
 
-    fn with_span(self, span: Span) -> Self {
-        self.span(Some(span))
+    fn with_span<S: Into<Span>>(self, span: S) -> Self {
+        self.span(Some(span.into()))
     }
 
     fn get_span(&self) -> Option<Span>;
@@ -88,19 +137,19 @@ fn hash(id: &ModuleId) -> u64 {
     hasher.finish()
 }
 
-impl LocalSpan {
+impl LocalSourceSpan {
+    pub fn in_module(self, module_id: &ModuleId) -> SourceSpan {
+        SourceSpan {
+            module: hash(module_id),
+            from: self.from,
+            to: self.to,
+        }
+    }
+
     pub fn mock() -> Self {
         Self {
             from: Position::mock(),
             to: Position::mock(),
-        }
-    }
-
-    pub fn in_module(self, module_id: &ModuleId) -> Span {
-        Span {
-            module: hash(module_id),
-            from: self.from,
-            to: self.to,
         }
     }
 }
@@ -130,18 +179,18 @@ impl fmt::Debug for Position {
     }
 }
 
-impl fmt::Display for Span {
+impl fmt::Display for SourceSpan {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.from)
     }
 }
-impl fmt::Debug for Span {
+impl fmt::Debug for SourceSpan {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl fmt::Display for ResolvedSpan {
+impl fmt::Display for ResolvedSourceSpan {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,

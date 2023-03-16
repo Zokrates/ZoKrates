@@ -18,7 +18,7 @@ use zokrates_ast::common::expressions::{
     BinaryExpression, BinaryOrExpression, EqExpression, ValueExpression,
 };
 use zokrates_ast::common::operators::OpEq;
-use zokrates_ast::common::{FlatEmbed, ResultFold};
+use zokrates_ast::common::{FlatEmbed, ResultFold, WithSpan};
 use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::Type;
 use zokrates_ast::typed::*;
@@ -254,11 +254,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
         &mut self,
         s: AssemblyConstraint<'ast, T>,
     ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
+        let span = s.get_span();
+
         let left = self.fold_field_expression(s.left)?;
         let right = self.fold_field_expression(s.right)?;
 
         // a bit hacky, but we use a fake boolean expression to check this
-        let is_equal = BooleanExpression::FieldEq(EqExpression::new(left.clone(), right.clone()));
+        let is_equal = BooleanExpression::field_eq(left.clone(), right.clone()).span(span);
         let is_equal = self.fold_boolean_expression(is_equal)?;
 
         match is_equal {
@@ -279,6 +281,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
         &mut self,
         s: DefinitionStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        let span = s.get_span();
+
         match s.rhs {
             // propagation to the defined variable if rhs is a constant
             DefinitionRhs::Expression(e) => {
@@ -432,12 +436,16 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                                     Ok(FieldElementExpression::Number(n))
                                         if n.value == T::from(0) =>
                                     {
-                                        Ok(Some(BooleanExpression::from_value(false).into()))
+                                        Ok(Some(
+                                            BooleanExpression::from_value(false).span(span).into(),
+                                        ))
                                     }
                                     Ok(FieldElementExpression::Number(n))
                                         if n.value == T::from(1) =>
                                     {
-                                        Ok(Some(BooleanExpression::from_value(true).into()))
+                                        Ok(Some(
+                                            BooleanExpression::from_value(true).span(span).into(),
+                                        ))
                                     }
                                     Ok(FieldElementExpression::Number(n)) => {
                                         Err(Error::InvalidValue(format!(
@@ -516,11 +524,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                                                 ArrayExpression::from_value(
                                                     res.into_iter()
                                                         .map(|v| {
-                                                            BooleanExpression::from_value(v).into()
+                                                            BooleanExpression::from_value(v)
+                                                                .span(span)
+                                                                .into()
                                                         })
                                                         .collect::<Vec<_>>(),
                                                 )
                                                 .annotate(Type::Boolean, bit_width)
+                                                .span(span)
                                                 .into(),
                                             ))
                                         }
@@ -682,7 +693,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                     0 => Ok(e),
                     _ => Ok(UExpression::sub(
                         e.annotate(bitwidth),
-                        UExpression::from_value(v.value).annotate(bitwidth),
+                        UExpressionInner::Value(v).annotate(bitwidth),
                     )
                     .into_inner()),
                 },
@@ -727,7 +738,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                         1 => Ok(e),
                         _ => Ok(UExpression::mul(
                             e.annotate(bitwidth),
-                            UExpression::from_value(v.value).annotate(bitwidth),
+                            UExpressionInner::Value(v).annotate(bitwidth),
                         )
                         .into_inner()),
                     }
@@ -749,7 +760,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                     1 => Ok(e),
                     _ => Ok(UExpression::div(
                         e.annotate(bitwidth),
-                        UExpression::from_value(v.value).annotate(bitwidth),
+                        UExpressionInner::Value(v).annotate(bitwidth),
                     )
                     .into_inner()),
                 },
@@ -770,7 +781,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                     1 => Ok(UExpression::from_value(0)),
                     _ => Ok(UExpression::rem(
                         e.annotate(bitwidth),
-                        UExpression::from_value(v.value).annotate(bitwidth),
+                        UExpressionInner::Value(v).annotate(bitwidth),
                     )
                     .into_inner()),
                 },
@@ -948,7 +959,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                     ),
                     (e1, UExpressionInner::Value(n2)) => Ok(FieldElementExpression::pow(
                         e1,
-                        UExpression::from_value(n2.value).annotate(UBitwidth::B32),
+                        UExpressionInner::Value(n2).annotate(UBitwidth::B32),
                     )),
                     (e1, e2) => Ok(FieldElementExpression::pow(e1, e2.annotate(UBitwidth::B32))),
                 }
@@ -1190,7 +1201,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                             E::select(
                                 ArrayExpressionInner::Identifier(id)
                                     .annotate(inner_type, size.value as u32),
-                                UExpression::from_value(n.value).annotate(UBitwidth::B32),
+                                UExpressionInner::Value(n).annotate(UBitwidth::B32),
                             )
                             .into_inner(),
                         )),
