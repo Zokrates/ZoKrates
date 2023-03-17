@@ -2139,8 +2139,6 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // assert!(self.get_span().is_some());
-
         match self.inner {
             UExpressionInner::Block(ref block) => write!(f, "{}", block,),
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
@@ -2172,12 +2170,6 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.get_span().map(|_| "".to_string()).unwrap_or("".into())
-        )?;
-
         match &self {
             BooleanExpression::Block(ref block) => write!(f, "{}", block,),
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),

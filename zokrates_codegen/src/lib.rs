@@ -1294,15 +1294,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) -> FlatUExpression<T> {
         match expr {
             ZirExpression::FieldElement(e) => {
-                assert!(e.get_span().is_some());
                 FlatUExpression::with_field(self.flatten_field_expression(statements_flattened, e))
             }
-            ZirExpression::Boolean(e) => {
-                assert!(e.get_span().is_some());
-                FlatUExpression::with_field(
-                    self.flatten_boolean_expression(statements_flattened, e),
-                )
-            }
+            ZirExpression::Boolean(e) => FlatUExpression::with_field(
+                self.flatten_boolean_expression(statements_flattened, e),
+            ),
             ZirExpression::Uint(e) => self.flatten_uint_expression(statements_flattened, e),
         }
     }

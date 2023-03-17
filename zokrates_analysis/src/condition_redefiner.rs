@@ -71,13 +71,15 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
                 let condition_id = Identifier::from(CoreIdentifier::Condition(self.index));
                 self.buffer.push(
                     TypedStatement::definition(
-                        Variable::new(condition_id.clone(), Type::Boolean).into(),
+                        Variable::new(condition_id.clone(), Type::Boolean)
+                            .span(condition_span)
+                            .into(),
                         TypedExpression::from(condition).span(condition_span),
                     )
                     .span(condition_span),
                 );
                 self.index += 1;
-                BooleanExpression::identifier(condition_id)
+                BooleanExpression::identifier(condition_id).span(condition_span)
             }
         }
         .span(condition_span);

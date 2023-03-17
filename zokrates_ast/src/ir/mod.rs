@@ -182,14 +182,6 @@ impl<'ast, T: Field> Statement<'ast, T> {
 
 impl<'ast, T: Field> fmt::Display for Statement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.get_span()
-                .map(|_| "".to_string())
-                .unwrap_or("NONE".into())
-        )?;
-
         match *self {
             Statement::Constraint(ref s) => write!(f, "{}", s),
             Statement::Block(ref s) => write!(f, "{}", s),
