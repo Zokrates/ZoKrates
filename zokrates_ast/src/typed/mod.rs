@@ -877,12 +877,6 @@ impl<'ast, T> TypedStatement<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.get_span().map(|_| "".to_string()).unwrap_or("".into())
-        )?;
-
         match *self {
             TypedStatement::Return(ref s) => {
                 write!(f, "{}", s)
