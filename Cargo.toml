@@ -23,4 +23,5 @@ members = [
     "zokrates_profiler",
 ]
 
-exclude = []
+[profile.dev]
+opt-level = 1
