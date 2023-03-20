@@ -196,7 +196,7 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
         w.write_all(&[0u8; HEADER_SIZE])?; // reserve bytes for the header
 
         // write parameters
-        if self.arguments.len() > 0 {
+        if !self.arguments.is_empty() {
             let mut section = Section::new(SectionType::Parameters);
             section.set_offset(w.stream_position()?);
 
@@ -235,7 +235,7 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
         };
 
         // write solvers
-        if solver_indexer.solvers.len() > 0 {
+        if !solver_indexer.solvers.is_empty() {
             let mut section = Section::new(SectionType::Solvers);
             section.set_offset(w.stream_position()?);
 

@@ -505,4 +505,46 @@ mod tests {
 
         assert_eq!(res, expected);
     }
+
+    #[test]
+    fn solver_ref() {
+        use zir::{
+            types::{Signature, Type},
+            FieldElementExpression, Identifier, IdentifierExpression, Parameter, Variable,
+            ZirFunction, ZirStatement,
+        };
+        use zokrates_ast::common::RefCall;
+
+        let id = IdentifierExpression::new(Identifier::internal("i0"));
+
+        // (field i0) -> i0 * i0
+        let solvers = vec![Solver::Zir(ZirFunction {
+            arguments: vec![Parameter {
+                id: Variable::with_id_and_type(id.id.clone(), Type::FieldElement),
+                private: true,
+            }],
+            statements: vec![ZirStatement::Return(vec![FieldElementExpression::Mult(
+                Box::new(FieldElementExpression::Identifier(id.clone())),
+                Box::new(FieldElementExpression::Identifier(id.clone())),
+            )
+            .into()])],
+            signature: Signature::new()
+                .inputs(vec![Type::FieldElement])
+                .outputs(vec![Type::FieldElement]),
+        })];
+
+        let inputs = vec![Bn128Field::from(2)];
+        let res = Interpreter::execute_solver(
+            &Solver::Ref(RefCall {
+                index: 0,
+                argument_count: 1,
+            }),
+            &inputs,
+            &solvers,
+        )
+        .unwrap();
+
+        let expected = vec![Bn128Field::from(4)];
+        assert_eq!(res, expected);
+    }
 }
