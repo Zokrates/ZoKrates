@@ -114,6 +114,7 @@ impl<'ast, T: Field> fmt::Display for BlockStatement<'ast, T> {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Serialize, Deserialize, Clone, Derivative)]
 #[derivative(Hash, PartialEq, Eq)]
 pub enum Statement<'ast, T> {

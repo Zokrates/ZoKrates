@@ -153,7 +153,7 @@ impl<T: Field> UMetadata<T> {
     }
 
     pub fn bitwidth(&self) -> u32 {
-        self.max.bits() as u32
+        self.max.bits()
     }
 
     // issue the metadata for a parameter of a given bitwidth

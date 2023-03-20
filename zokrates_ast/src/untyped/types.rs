@@ -69,7 +69,7 @@ impl<'ast> fmt::Display for UnresolvedType<'ast> {
 
 impl<'ast> UnresolvedType<'ast> {
     pub fn array(ty: UnresolvedTypeNode<'ast>, size: ExpressionNode<'ast>) -> Self {
-        UnresolvedType::Array(box ty, size)
+        UnresolvedType::Array(Box::new(ty), size)
     }
 }
 

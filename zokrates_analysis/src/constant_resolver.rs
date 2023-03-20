@@ -113,7 +113,7 @@ mod tests {
     use zokrates_ast::typed::types::{DeclarationSignature, GTupleType};
     use zokrates_ast::typed::{
         DeclarationArrayType, DeclarationFunctionKey, DeclarationType, FieldElementExpression,
-        GType, Identifier, TypedConstant, TypedExpression, TypedFunction, TypedFunctionSymbol,
+        Identifier, TypedConstant, TypedExpression, TypedFunction, TypedFunctionSymbol,
         TypedStatement,
     };
     use zokrates_field::Bn128Field;
@@ -318,12 +318,12 @@ mod tests {
                 FieldElementExpression::add(
                     FieldElementExpression::select(
                         ArrayExpression::identifier(Identifier::from(const_id.clone()))
-                            .annotate(GType::FieldElement, 2u32),
+                            .annotate(GArrayType::new(Type::FieldElement, 2u32)),
                         UExpression::from_value(0u128).annotate(UBitwidth::B32),
                     ),
                     FieldElementExpression::select(
                         ArrayExpression::identifier(Identifier::from(const_id.clone()))
-                            .annotate(GType::FieldElement, 2u32),
+                            .annotate(GArrayType::new(Type::FieldElement, 2u32)),
                         UExpression::from_value(1u128).annotate(UBitwidth::B32),
                     ),
                 )
@@ -351,7 +351,7 @@ mod tests {
                                         FieldElementExpression::from_value(Bn128Field::from(2))
                                             .into(),
                                     ])
-                                    .annotate(GType::FieldElement, 2u32),
+                                    .annotate(GArrayType::new(Type::FieldElement, 2u32)),
                                 ),
                                 DeclarationType::Array(DeclarationArrayType::new(
                                     DeclarationType::FieldElement,
@@ -745,8 +745,9 @@ mod tests {
                     main_baz_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
                         TypedExpression::Array(
-                            ArrayExpression::identifier(main_bar_const_id.clone().into())
-                                .annotate(Type::FieldElement, main_foo_const_id.clone()),
+                            ArrayExpression::identifier(main_bar_const_id.clone().into()).annotate(
+                                ArrayType::new(Type::FieldElement, main_foo_const_id.clone()),
+                            ),
                         ),
                         DeclarationType::Array(DeclarationArrayType::new(
                             DeclarationType::FieldElement,
@@ -818,8 +819,9 @@ mod tests {
                     main_baz_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
                         TypedExpression::Array(
-                            ArrayExpression::identifier(main_bar_const_id.into())
-                                .annotate(Type::FieldElement, main_foo_const_id.clone()),
+                            ArrayExpression::identifier(main_bar_const_id.into()).annotate(
+                                ArrayType::new(Type::FieldElement, main_foo_const_id.clone()),
+                            ),
                         ),
                         DeclarationType::Array(DeclarationArrayType::new(
                             DeclarationType::FieldElement,

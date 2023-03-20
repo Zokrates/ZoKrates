@@ -9,7 +9,7 @@ pub fn write_tests(base: &str) {
     let base = Path::new(&base);
     let out_dir = env::var("OUT_DIR").unwrap();
     let destination = Path::new(&out_dir).join("tests.rs");
-    let test_file = File::create(&destination).unwrap();
+    let test_file = File::create(destination).unwrap();
     let mut writer = BufWriter::new(test_file);
 
     for p in glob(base.join("**/*.json").to_str().unwrap()).unwrap() {

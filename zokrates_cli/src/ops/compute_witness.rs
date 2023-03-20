@@ -73,7 +73,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
@@ -102,7 +102,7 @@ fn cli_compute<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
     let signature = match is_abi {
         true => {
             let path = Path::new(sub_matches.value_of("abi-spec").unwrap());
-            let file = File::open(&path)
+            let file = File::open(path)
                 .map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
             let mut reader = BufReader::new(file);
 
@@ -186,7 +186,7 @@ fn cli_compute<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
 
     // write witness to file
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
-    let output_file = File::create(&output_path)
+    let output_file = File::create(output_path)
         .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
 
     let writer = BufWriter::new(output_file);
@@ -197,7 +197,7 @@ fn cli_compute<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
 
     // write circom witness to file
     let wtns_path = Path::new(sub_matches.value_of("circom-witness").unwrap());
-    let wtns_file = File::create(&wtns_path)
+    let wtns_file = File::create(wtns_path)
         .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
 
     let mut writer = BufWriter::new(wtns_file);

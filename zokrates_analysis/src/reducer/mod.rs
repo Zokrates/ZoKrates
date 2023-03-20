@@ -439,7 +439,7 @@ mod tests {
     use zokrates_ast::typed::types::DeclarationSignature;
     use zokrates_ast::typed::types::{DeclarationConstant, GTupleType};
     use zokrates_ast::typed::{
-        ArrayExpression, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
+        ArrayExpression, ArrayType, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
         FieldElementExpression, GenericIdentifier, Identifier, Select, TupleExpression, TupleType,
         Type, TypedExpression, TypedExpressionOrSpread, UBitwidth, Variable,
     };
@@ -652,7 +652,7 @@ mod tests {
             .into()],
             statements: vec![TypedStatement::ret(
                 ArrayExpression::identifier("a".into())
-                    .annotate(Type::FieldElement, 1u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32))
                     .into(),
             )],
             signature: foo_signature.clone(),
@@ -677,7 +677,7 @@ mod tests {
                         "a".into(),
                     )
                     .into()])
-                    .annotate(Type::FieldElement, 1u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32))
                     .into(),
                 ),
                 TypedStatement::definition(
@@ -687,10 +687,10 @@ mod tests {
                             .signature(foo_signature.clone()),
                         vec![None],
                         vec![ArrayExpression::identifier("b".into())
-                            .annotate(Type::FieldElement, 1u32)
+                            .annotate(ArrayType::new(Type::FieldElement, 1u32))
                             .into()],
                     )
-                    .annotate(Type::FieldElement, 1u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32))
                     .into(),
                 ),
                 TypedStatement::definition(
@@ -703,7 +703,7 @@ mod tests {
                     (FieldElementExpression::identifier("a".into())
                         + FieldElementExpression::select(
                             ArrayExpression::identifier("b".into())
-                                .annotate(Type::FieldElement, 1u32),
+                                .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                             0u32,
                         ))
                     .into(),
@@ -754,28 +754,28 @@ mod tests {
                         "a".into(),
                     )
                     .into()])
-                    .annotate(Type::FieldElement, 1u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32))
                     .into(),
                 ),
                 TypedStatement::definition(
                     Variable::array(Identifier::from("a").in_frame(1), Type::FieldElement, 1u32)
                         .into(),
                     ArrayExpression::identifier("b".into())
-                        .annotate(Type::FieldElement, 1u32)
+                        .annotate(ArrayType::new(Type::FieldElement, 1u32))
                         .into(),
                 ),
                 TypedStatement::definition(
                     Variable::array(Identifier::from("b").version(1), Type::FieldElement, 1u32)
                         .into(),
                     ArrayExpression::identifier(Identifier::from("a").in_frame(1))
-                        .annotate(Type::FieldElement, 1u32)
+                        .annotate(ArrayType::new(Type::FieldElement, 1u32))
                         .into(),
                 ),
                 TypedStatement::ret(
                     (FieldElementExpression::identifier("a".into())
                         + FieldElementExpression::select(
                             ArrayExpression::identifier(Identifier::from("b").version(1))
-                                .annotate(Type::FieldElement, 1u32),
+                                .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                             0u32,
                         ))
                     .into(),
@@ -854,7 +854,7 @@ mod tests {
             .into()],
             statements: vec![TypedStatement::ret(
                 ArrayExpression::identifier("a".into())
-                    .annotate(Type::FieldElement, 1u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32))
                     .into(),
             )],
             signature: foo_signature.clone(),
@@ -889,7 +889,7 @@ mod tests {
                         "a".into(),
                     )
                     .into()])
-                    .annotate(Type::FieldElement, 1u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32))
                     .into(),
                 ),
                 TypedStatement::definition(
@@ -899,10 +899,10 @@ mod tests {
                             .signature(foo_signature.clone()),
                         vec![None],
                         vec![ArrayExpression::identifier("b".into())
-                            .annotate(Type::FieldElement, 1u32)
+                            .annotate(ArrayType::new(Type::FieldElement, 1u32))
                             .into()],
                     )
-                    .annotate(Type::FieldElement, 1u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32))
                     .into(),
                 ),
                 TypedStatement::definition(
@@ -915,7 +915,7 @@ mod tests {
                     (FieldElementExpression::identifier("a".into())
                         + FieldElementExpression::select(
                             ArrayExpression::identifier("b".into())
-                                .annotate(Type::FieldElement, 1u32),
+                                .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                             0u32,
                         ))
                     .into(),
@@ -966,28 +966,28 @@ mod tests {
                         "a".into(),
                     )
                     .into()])
-                    .annotate(Type::FieldElement, 1u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32))
                     .into(),
                 ),
                 TypedStatement::definition(
                     Variable::array(Identifier::from("a").in_frame(1), Type::FieldElement, 1u32)
                         .into(),
                     ArrayExpression::identifier("b".into())
-                        .annotate(Type::FieldElement, 1u32)
+                        .annotate(ArrayType::new(Type::FieldElement, 1u32))
                         .into(),
                 ),
                 TypedStatement::definition(
                     Variable::array(Identifier::from("b").version(1), Type::FieldElement, 1u32)
                         .into(),
                     ArrayExpression::identifier(Identifier::from("a").in_frame(1))
-                        .annotate(Type::FieldElement, 1u32)
+                        .annotate(ArrayType::new(Type::FieldElement, 1u32))
                         .into(),
                 ),
                 TypedStatement::ret(
                     (FieldElementExpression::identifier("a".into())
                         + FieldElementExpression::select(
                             ArrayExpression::identifier(Identifier::from("b").version(1))
-                                .annotate(Type::FieldElement, 1u32),
+                                .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                             0u32,
                         ))
                     .into(),
@@ -1082,23 +1082,23 @@ mod tests {
                             vec![ArrayExpression::from_value(vec![
                                 TypedExpressionOrSpread::Spread(
                                     ArrayExpression::identifier("a".into())
-                                        .annotate(Type::FieldElement, 1u32)
+                                        .annotate(ArrayType::new(Type::FieldElement, 1u32))
                                         .into(),
                                 ),
                                 FieldElementExpression::from_value(Bn128Field::from(0)).into(),
                             ])
-                            .annotate(
+                            .annotate(ArrayType::new(
                                 Type::FieldElement,
                                 UExpression::identifier("K".into()).annotate(UBitwidth::B32)
                                     + 1u32.into(),
-                            )
+                            ))
                             .into()],
                         )
-                        .annotate(
+                        .annotate(ArrayType::new(
                             Type::FieldElement,
                             UExpression::identifier("K".into()).annotate(UBitwidth::B32)
                                 + 1u32.into(),
-                        ),
+                        )),
                         0u32.into(),
                         UExpression::identifier("K".into()).annotate(UBitwidth::B32),
                     )
@@ -1106,10 +1106,10 @@ mod tests {
                 ),
                 TypedStatement::ret(
                     ArrayExpression::identifier("ret".into())
-                        .annotate(
+                        .annotate(ArrayType::new(
                             Type::FieldElement,
                             UExpression::identifier("K".into()).annotate(UBitwidth::B32),
-                        )
+                        ))
                         .into(),
                 ),
             ],
@@ -1127,10 +1127,10 @@ mod tests {
             .into()],
             statements: vec![TypedStatement::ret(
                 ArrayExpression::identifier("a".into())
-                    .annotate(
+                    .annotate(ArrayType::new(
                         Type::FieldElement,
                         UExpression::identifier("K".into()).annotate(UBitwidth::B32),
-                    )
+                    ))
                     .into(),
             )],
             signature: bar_signature.clone(),
@@ -1148,10 +1148,10 @@ mod tests {
                         vec![ArrayExpression::from_value(vec![
                             FieldElementExpression::from_value(Bn128Field::from(1)).into(),
                         ])
-                        .annotate(Type::FieldElement, 1u32)
+                        .annotate(ArrayType::new(Type::FieldElement, 1u32))
                         .into()],
                     )
-                    .annotate(Type::FieldElement, 1u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32))
                     .into(),
                 ),
                 TypedStatement::ret(
@@ -1262,7 +1262,7 @@ mod tests {
             .into()],
             statements: vec![TypedStatement::ret(
                 ArrayExpression::identifier("a".into())
-                    .annotate(Type::FieldElement, 1u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32))
                     .into(),
             )],
             signature: foo_signature.clone(),
@@ -1278,10 +1278,10 @@ mod tests {
                             .signature(foo_signature.clone()),
                         vec![None],
                         vec![ArrayExpression::from_value(vec![])
-                            .annotate(Type::FieldElement, 0u32)
+                            .annotate(ArrayType::new(Type::FieldElement, 0u32))
                             .into()],
                     )
-                    .annotate(Type::FieldElement, 1u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32))
                     .into(),
                 ),
                 TypedStatement::ret(

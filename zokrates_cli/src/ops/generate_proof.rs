@@ -94,7 +94,7 @@ pub fn subcommand() -> App<'static, 'static> {
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let program_path = Path::new(sub_matches.value_of("input").unwrap());
-    let program_file = File::open(&program_path)
+    let program_file = File::open(program_path)
         .map_err(|why| format!("Could not open {}: {}", program_path.display(), why))?;
 
     let mut reader = BufReader::new(program_file);
@@ -160,7 +160,7 @@ fn cli_generate_proof<
 
     // deserialize witness
     let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
-    let witness_file = File::open(&witness_path)
+    let witness_file = File::open(witness_path)
         .map_err(|why| format!("Could not open {}: {}", witness_path.display(), why))?;
 
     let witness = ir::Witness::read(witness_file)
@@ -169,7 +169,7 @@ fn cli_generate_proof<
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
     let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
-    let pk_file = File::open(&pk_path)
+    let pk_file = File::open(pk_path)
         .map_err(|why| format!("Could not open {}: {}", pk_path.display(), why))?;
 
     let mut pk: Vec<u8> = Vec::new();

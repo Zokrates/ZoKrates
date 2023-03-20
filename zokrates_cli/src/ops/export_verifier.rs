@@ -35,7 +35,7 @@ pub fn subcommand() -> App<'static, 'static> {
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let vk_path = Path::new(sub_matches.value_of("input").unwrap());
-    let vk_file = File::open(&vk_path)
+    let vk_file = File::open(vk_path)
         .map_err(|why| format!("Could not open {}: {}", vk_path.display(), why))?;
 
     // deserialize vk to JSON
@@ -84,7 +84,7 @@ fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T
 
     //write output file
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
-    let output_file = File::create(&output_path)
+    let output_file = File::create(output_path)
         .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
 
     let mut writer = BufWriter::new(output_file);

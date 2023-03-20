@@ -66,7 +66,7 @@ pub fn cli_mpc_export<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: Mpc
 ) -> Result<(), String> {
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 

@@ -279,8 +279,8 @@ fn var_to_index<F: ark_ff::PrimeField>(var: &FpVar<F>, offset: usize) -> usize {
 fn new_g1<T: Field>(flat: &[T]) -> G1 {
     assert_eq!(flat.len(), 2);
     G1::new(
-        BLS12Fq::from_str(&*flat[0].to_dec_string()).unwrap(),
-        BLS12Fq::from_str(&*flat[1].to_dec_string()).unwrap(),
+        BLS12Fq::from_str(&flat[0].to_dec_string()).unwrap(),
+        BLS12Fq::from_str(&flat[1].to_dec_string()).unwrap(),
         false,
     )
 }
@@ -290,12 +290,12 @@ fn new_g2<T: Field>(flat: &[T]) -> G2 {
     assert_eq!(flat.len(), 4);
     G2::new(
         BLS12Fq2::new(
-            BLS12Fq::from_str(&*flat[0].to_dec_string()).unwrap(),
-            BLS12Fq::from_str(&*flat[1].to_dec_string()).unwrap(),
+            BLS12Fq::from_str(&flat[0].to_dec_string()).unwrap(),
+            BLS12Fq::from_str(&flat[1].to_dec_string()).unwrap(),
         ),
         BLS12Fq2::new(
-            BLS12Fq::from_str(&*flat[2].to_dec_string()).unwrap(),
-            BLS12Fq::from_str(&*flat[3].to_dec_string()).unwrap(),
+            BLS12Fq::from_str(&flat[2].to_dec_string()).unwrap(),
+            BLS12Fq::from_str(&flat[3].to_dec_string()).unwrap(),
         ),
         false,
     )

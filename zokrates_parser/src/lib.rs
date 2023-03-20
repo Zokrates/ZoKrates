@@ -12,6 +12,7 @@ use pest::Parser;
 #[grammar = "zokrates.pest"]
 struct ZoKratesParser;
 
+#[allow(clippy::result_large_err)]
 pub fn parse(input: &str) -> Result<Pairs<Rule>, Error<Rule>> {
     ZoKratesParser::parse(Rule::file, input)
 }

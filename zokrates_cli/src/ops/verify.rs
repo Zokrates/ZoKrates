@@ -51,7 +51,7 @@ pub fn subcommand() -> App<'static, 'static> {
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
-    let vk_file = File::open(&vk_path)
+    let vk_file = File::open(vk_path)
         .map_err(|why| format!("Could not open {}: {}", vk_path.display(), why))?;
 
     // deserialize vk to JSON
@@ -60,7 +60,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         .map_err(|why| format!("Could not deserialize verification key: {}", why))?;
 
     let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
-    let proof_file = File::open(&proof_path)
+    let proof_file = File::open(proof_path)
         .map_err(|why| format!("Could not open {}: {}", proof_path.display(), why))?;
 
     // deserialize proof to JSON

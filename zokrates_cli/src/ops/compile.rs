@@ -145,10 +145,10 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     // serialize flattened program and write to binary file
     log::debug!("Serialize program");
-    let bin_output_file = File::create(&bin_output_path)
+    let bin_output_file = File::create(bin_output_path)
         .map_err(|why| format!("Could not create {}: {}", bin_output_path.display(), why))?;
 
-    let r1cs_output_file = File::create(&r1cs_output_path)
+    let r1cs_output_file = File::create(r1cs_output_path)
         .map_err(|why| format!("Could not create {}: {}", r1cs_output_path.display(), why))?;
 
     let mut bin_writer = BufWriter::new(bin_output_file);
@@ -162,7 +162,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         Ok(constraint_count) => {
             // serialize ABI spec and write to JSON file
             log::debug!("Serialize ABI");
-            let abi_spec_file = File::create(&abi_spec_path)
+            let abi_spec_file = File::create(abi_spec_path)
                 .map_err(|why| format!("Could not create {}: {}", abi_spec_path.display(), why))?;
 
             let mut writer = BufWriter::new(abi_spec_file);

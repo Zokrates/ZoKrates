@@ -250,7 +250,7 @@ mod integration {
             .unwrap();
 
         // load the expected witness
-        let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
+        let mut expected_witness_file = File::open(expected_witness_path).unwrap();
         let mut expected_witness = String::new();
         expected_witness_file
             .read_to_string(&mut expected_witness)
@@ -584,7 +584,7 @@ mod integration {
             .unwrap();
 
         // load the expected smtlib2
-        let mut expected_smtlib2_file = File::open(&expected_smtlib2_path).unwrap();
+        let mut expected_smtlib2_file = File::open(expected_smtlib2_path).unwrap();
         let mut expected_smtlib2 = String::new();
         expected_smtlib2_file
             .read_to_string(&mut expected_smtlib2)

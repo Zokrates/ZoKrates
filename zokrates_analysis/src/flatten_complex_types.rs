@@ -37,17 +37,14 @@ fn flatten_identifier_rec<'ast>(
         )],
         typed::types::ConcreteType::Array(array_type) => (0..*array_type.size)
             .flat_map(|i| {
-                flatten_identifier_rec(
-                    zir::SourceIdentifier::Select(box id.clone(), i),
-                    &array_type.ty,
-                )
+                flatten_identifier_rec(zir::SourceIdentifier::select(id.clone(), i), &array_type.ty)
             })
             .collect(),
         typed::types::ConcreteType::Struct(members) => members
             .iter()
             .flat_map(|struct_member| {
                 flatten_identifier_rec(
-                    zir::SourceIdentifier::Member(box id.clone(), struct_member.id.clone()),
+                    zir::SourceIdentifier::member(id.clone(), struct_member.id.clone()),
                     &struct_member.ty,
                 )
             })
@@ -57,7 +54,7 @@ fn flatten_identifier_rec<'ast>(
             .iter()
             .enumerate()
             .flat_map(|(i, ty)| {
-                flatten_identifier_rec(zir::SourceIdentifier::Element(box id.clone(), i as u32), ty)
+                flatten_identifier_rec(zir::SourceIdentifier::element(id.clone(), i as u32), ty)
             })
             .collect(),
     }
@@ -83,7 +80,7 @@ fn flatten_identifier_to_expression_rec<'ast, T: Field>(
         typed::ConcreteType::Array(array_type) => (0..*array_type.size)
             .flat_map(|i| {
                 flatten_identifier_to_expression_rec(
-                    zir::SourceIdentifier::Select(box id.clone(), i),
+                    zir::SourceIdentifier::select(id.clone(), i),
                     &array_type.ty,
                 )
             })
@@ -92,7 +89,7 @@ fn flatten_identifier_to_expression_rec<'ast, T: Field>(
             .iter()
             .flat_map(|struct_member| {
                 flatten_identifier_to_expression_rec(
-                    zir::SourceIdentifier::Member(box id.clone(), struct_member.id.clone()),
+                    zir::SourceIdentifier::member(id.clone(), struct_member.id.clone()),
                     &struct_member.ty,
                 )
             })
@@ -103,7 +100,7 @@ fn flatten_identifier_to_expression_rec<'ast, T: Field>(
             .enumerate()
             .flat_map(|(i, ty)| {
                 flatten_identifier_to_expression_rec(
-                    zir::SourceIdentifier::Element(box id.clone(), i as u32),
+                    zir::SourceIdentifier::element(id.clone(), i as u32),
                     ty,
                 )
             })
@@ -226,12 +223,12 @@ impl<'ast, T: Field> Flattener<T> {
     fn fold_assignee(&mut self, a: typed::TypedAssignee<'ast, T>) -> Vec<zir::ZirAssignee<'ast>> {
         match a {
             typed::TypedAssignee::Identifier(v) => self.fold_variable(v),
-            typed::TypedAssignee::Select(box a, box i) => {
+            typed::TypedAssignee::Select(a, i) => {
                 let count = match typed::ConcreteType::try_from(a.get_type()).unwrap() {
                     typed::ConcreteType::Array(array_ty) => array_ty.ty.get_primitive_count(),
                     _ => unreachable!(),
                 };
-                let a = self.fold_assignee(a);
+                let a = self.fold_assignee(*a);
 
                 match i.as_inner() {
                     typed::UExpressionInner::Value(index) => {
@@ -240,7 +237,7 @@ impl<'ast, T: Field> Flattener<T> {
                     i => unreachable!("index {:?} not allowed, should be a constant", i),
                 }
             }
-            typed::TypedAssignee::Member(box a, m) => {
+            typed::TypedAssignee::Member(a, m) => {
                 let (offset, size) =
                     match typed::ConcreteType::try_from(a.get_type()).unwrap() {
                         typed::ConcreteType::Struct(struct_type) => struct_type
@@ -258,11 +255,11 @@ impl<'ast, T: Field> Flattener<T> {
 
                 let size = size.unwrap();
 
-                let a = self.fold_assignee(a);
+                let a = self.fold_assignee(*a);
 
                 a[offset..offset + size].to_vec()
             }
-            typed::TypedAssignee::Element(box a, index) => {
+            typed::TypedAssignee::Element(a, index) => {
                 let tuple_ty = typed::ConcreteTupleType::try_from(
                     typed::ConcreteType::try_from(a.get_type()).unwrap(),
                 )
@@ -277,7 +274,7 @@ impl<'ast, T: Field> Flattener<T> {
 
                 let size = &tuple_ty.elements[index as usize].get_primitive_count();
 
-                let a = self.fold_assignee(a);
+                let a = self.fold_assignee(*a);
 
                 a[offset..offset + size].to_vec()
             }

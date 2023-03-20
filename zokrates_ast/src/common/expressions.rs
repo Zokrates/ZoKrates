@@ -23,8 +23,8 @@ impl<Op, L, R, Out> BinaryExpression<Op, L, R, Out> {
     pub fn new(left: L, right: R) -> Self {
         Self {
             span: None,
-            left: box left,
-            right: box right,
+            left: Box::new(left),
+            right: Box::new(right),
             operator: PhantomData,
             output: PhantomData,
         }
@@ -72,7 +72,7 @@ impl<Op, In, Out> UnaryExpression<Op, In, Out> {
     pub fn new(inner: In) -> Self {
         Self {
             span: None,
-            inner: box inner,
+            inner: Box::new(inner),
             operator: PhantomData,
             output: PhantomData,
         }

@@ -73,30 +73,28 @@ impl<'ast, T: Field> Propagator<'ast, T> {
                 .get_mut(&var.id)
                 .map(|c| Ok((var, c)))
                 .unwrap_or(Err(var)),
-            TypedAssignee::Select(box assignee, box index) => {
-                match self.try_get_constant_mut(assignee) {
-                    Ok((variable, constant)) => match index.as_inner() {
-                        UExpressionInner::Value(n) => match constant {
-                            TypedExpression::Array(a) => match a.as_inner_mut() {
-                                ArrayExpressionInner::Value(value) => {
-                                    match value.value.get_mut(n.value as usize) {
-                                        Some(TypedExpressionOrSpread::Expression(ref mut e)) => {
-                                            Ok((variable, e))
-                                        }
-                                        None => Err(variable),
-                                        _ => unreachable!(),
+            TypedAssignee::Select(assignee, index) => match self.try_get_constant_mut(assignee) {
+                Ok((variable, constant)) => match index.as_inner() {
+                    UExpressionInner::Value(n) => match constant {
+                        TypedExpression::Array(a) => match a.as_inner_mut() {
+                            ArrayExpressionInner::Value(value) => {
+                                match value.value.get_mut(n.value as usize) {
+                                    Some(TypedExpressionOrSpread::Expression(ref mut e)) => {
+                                        Ok((variable, e))
                                     }
+                                    None => Err(variable),
+                                    _ => unreachable!(),
                                 }
-                                _ => unreachable!("should be an array value"),
-                            },
-                            _ => unreachable!("should be an array expression"),
+                            }
+                            _ => unreachable!("should be an array value"),
                         },
-                        _ => Err(variable),
+                        _ => unreachable!("should be an array expression"),
                     },
-                    e => e,
-                }
-            }
-            TypedAssignee::Member(box assignee, m) => match self.try_get_constant_mut(assignee) {
+                    _ => Err(variable),
+                },
+                e => e,
+            },
+            TypedAssignee::Member(assignee, m) => match self.try_get_constant_mut(assignee) {
                 Ok((v, c)) => {
                     let ty = assignee.get_type();
 
@@ -119,20 +117,18 @@ impl<'ast, T: Field> Propagator<'ast, T> {
                 }
                 e => e,
             },
-            TypedAssignee::Element(box assignee, index) => {
-                match self.try_get_constant_mut(assignee) {
-                    Ok((v, c)) => match c {
-                        TypedExpression::Tuple(a) => match a.as_inner_mut() {
-                            TupleExpressionInner::Value(value) => {
-                                Ok((v, &mut value.value[*index as usize]))
-                            }
-                            _ => unreachable!("should be a tuple value"),
-                        },
-                        _ => unreachable!("should be a tuple expression"),
+            TypedAssignee::Element(assignee, index) => match self.try_get_constant_mut(assignee) {
+                Ok((v, c)) => match c {
+                    TypedExpression::Tuple(a) => match a.as_inner_mut() {
+                        TupleExpressionInner::Value(value) => {
+                            Ok((v, &mut value.value[*index as usize]))
+                        }
+                        _ => unreachable!("should be a tuple value"),
                     },
-                    e => e,
-                }
-            }
+                    _ => unreachable!("should be a tuple expression"),
+                },
+                e => e,
+            },
         }
     }
 }
@@ -418,7 +414,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                                     .map(|v| BooleanExpression::from_value(v).into())
                                     .collect::<Vec<_>>(),
                             )
-                            .annotate(Type::Boolean, bitwidth.to_usize() as u32)
+                            .annotate(ArrayType::new(Type::Boolean, bitwidth.to_usize() as u32))
                             .into()
                         }
                         _ => unreachable!("should be a uint value"),
@@ -530,7 +526,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                                                         })
                                                         .collect::<Vec<_>>(),
                                                 )
-                                                .annotate(Type::Boolean, bit_width)
+                                                .annotate(ArrayType::new(Type::Boolean, bit_width))
                                                 .span(span)
                                                 .into(),
                                             ))
@@ -1200,7 +1196,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                         None => Ok(SelectOrExpression::Expression(
                             E::select(
                                 ArrayExpressionInner::Identifier(id)
-                                    .annotate(inner_type, size.value as u32),
+                                    .annotate(ArrayType::new(inner_type, size.value as u32)),
                                 UExpressionInner::Value(n).annotate(UBitwidth::B32),
                             )
                             .into_inner(),
@@ -1208,7 +1204,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                     }
                 }
                 (a, i) => Ok(SelectOrExpression::Select(SelectExpression::new(
-                    a.annotate(inner_type, size.value as u32),
+                    a.annotate(ArrayType::new(inner_type, size.value as u32)),
                     i.annotate(UBitwidth::B32),
                 ))),
             },
@@ -1714,7 +1710,7 @@ mod tests {
                         FieldElementExpression::from_value(Bn128Field::from(2)).into(),
                         FieldElementExpression::from_value(Bn128Field::from(3)).into(),
                     ])
-                    .annotate(Type::FieldElement, 3u32),
+                    .annotate(ArrayType::new(Type::FieldElement, 3u32)),
                     UExpression::add(1u32.into(), 1u32.into()),
                 );
 
@@ -1845,34 +1841,38 @@ mod tests {
                     ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
                         FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
                     )])
-                    .annotate(Type::FieldElement, 1u32),
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                     ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
                         FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
                     )])
-                    .annotate(Type::FieldElement, 1u32),
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                 ));
 
                 let e_constant_false = BooleanExpression::ArrayEq(BinaryExpression::new(
                     ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
                         FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
                     )])
-                    .annotate(Type::FieldElement, 1u32),
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                     ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
                         FieldElementExpression::from_value(Bn128Field::from(4usize)).into(),
                     )])
-                    .annotate(Type::FieldElement, 1u32),
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                 ));
 
                 let e_identifier_true: BooleanExpression<Bn128Field> =
                     BooleanExpression::ArrayEq(BinaryExpression::new(
-                        ArrayExpression::identifier("a".into()).annotate(Type::FieldElement, 1u32),
-                        ArrayExpression::identifier("a".into()).annotate(Type::FieldElement, 1u32),
+                        ArrayExpression::identifier("a".into())
+                            .annotate(ArrayType::new(Type::FieldElement, 1u32)),
+                        ArrayExpression::identifier("a".into())
+                            .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                     ));
 
                 let e_identifier_unchanged: BooleanExpression<Bn128Field> =
                     BooleanExpression::ArrayEq(BinaryExpression::new(
-                        ArrayExpression::identifier("a".into()).annotate(Type::FieldElement, 1u32),
-                        ArrayExpression::identifier("b".into()).annotate(Type::FieldElement, 1u32),
+                        ArrayExpression::identifier("a".into())
+                            .annotate(ArrayType::new(Type::FieldElement, 1u32)),
+                        ArrayExpression::identifier("b".into())
+                            .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                     ));
 
                 let e_non_canonical_true = BooleanExpression::ArrayEq(BinaryExpression::new(
@@ -1880,14 +1880,14 @@ mod tests {
                         ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
                             FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
                         )])
-                        .annotate(Type::FieldElement, 1u32)
+                        .annotate(ArrayType::new(Type::FieldElement, 1u32))
                         .into(),
                     )])
-                    .annotate(Type::FieldElement, 1u32),
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                     ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
                         FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
                     )])
-                    .annotate(Type::FieldElement, 1u32),
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                 ));
 
                 let e_non_canonical_false = BooleanExpression::ArrayEq(BinaryExpression::new(
@@ -1895,14 +1895,14 @@ mod tests {
                         ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
                             FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
                         )])
-                        .annotate(Type::FieldElement, 1u32)
+                        .annotate(ArrayType::new(Type::FieldElement, 1u32))
                         .into(),
                     )])
-                    .annotate(Type::FieldElement, 1u32),
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                     ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
                         FieldElementExpression::from_value(Bn128Field::from(4usize)).into(),
                     )])
-                    .annotate(Type::FieldElement, 1u32),
+                    .annotate(ArrayType::new(Type::FieldElement, 1u32)),
                 ));
 
                 assert_eq!(

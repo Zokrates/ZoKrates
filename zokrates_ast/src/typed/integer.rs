@@ -110,7 +110,7 @@ impl<'ast, T: Clone> IntegerInference for StructType<'ast, T> {
                 .zip(other.members.into_iter())
                 .map(|(m_t, m_u)| match m_t.ty.get_common_pattern(*m_u.ty) {
                     Ok(ty) => DeclarationStructMember {
-                        ty: box ty,
+                        ty: Box::new(ty),
                         id: m_t.id,
                     },
                     Err(..) => unreachable!(
@@ -590,7 +590,8 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         Ok(FieldElementExpression::select(
-                            ArrayExpression::from_value(values).annotate(Type::FieldElement, size),
+                            ArrayExpression::from_value(values)
+                                .annotate(ArrayType::new(Type::FieldElement, size)),
                             index,
                         ))
                     }
@@ -713,7 +714,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                             .collect::<Result<Vec<_>, _>>()?;
                         Ok(UExpression::select(
                             ArrayExpression::from_value(values)
-                                .annotate(Type::Uint(*bitwidth), size),
+                                .annotate(ArrayType::new(Type::Uint(*bitwidth), size)),
                             index,
                         ))
                     }
@@ -773,12 +774,16 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
 
                 let inner_ty = res.value[0].get_type().0;
 
-                Ok(ArrayExpressionInner::Value(res).annotate(inner_ty, *array_ty.size))
+                let array_ty = ArrayType::new(inner_ty, *array_ty.size);
+
+                Ok(ArrayExpressionInner::Value(res).annotate(array_ty))
             }
             ArrayExpressionInner::Repeat(r) => {
                 match &*target_array_ty.ty {
                     GType::Int => {
-                        Ok(ArrayExpressionInner::Repeat(r).annotate(Type::Int, *array_ty.size))
+                        let array_ty = ArrayType::new(Type::Int, *array_ty.size);
+
+                        Ok(ArrayExpressionInner::Repeat(r).annotate(array_ty))
                     }
                     // try to align the repeated element to the target type
                     t => TypedExpression::align_to_type(*r.e, t)
@@ -786,16 +791,16 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                             let ty = e.get_type().clone();
 
                             ArrayExpressionInner::Repeat(RepeatExpression::new(e, *r.count))
-                                .annotate(ty, *array_ty.size)
+                                .annotate(ArrayType::new(ty, *array_ty.size))
                         })
                         .map_err(|(e, _)| e),
                 }
             }
             a => {
                 if *target_array_ty.ty == *array_ty.ty {
-                    Ok(a.annotate(*array_ty.ty, *array_ty.size))
+                    Ok(a.annotate(array_ty))
                 } else {
-                    Err(a.annotate(*array_ty.ty, *array_ty.size).into())
+                    Err(a.annotate(array_ty).into())
                 }
             }
         }
@@ -921,11 +926,11 @@ mod tests {
         let n: IntExpression<Bn128Field> = BigUint::from(42usize).into();
         let n_a: ArrayExpression<Bn128Field> =
             ArrayExpressionInner::Value(ValueExpression::new(vec![n.clone().into()]))
-                .annotate(Type::Int, 1u32);
+                .annotate(ArrayType::new(Type::Int, 1u32));
         let t: FieldElementExpression<Bn128Field> = Bn128Field::from(42).into();
         let t_a: ArrayExpression<Bn128Field> =
             ArrayExpressionInner::Value(ValueExpression::new(vec![t.clone().into()]))
-                .annotate(Type::FieldElement, 1u32);
+                .annotate(ArrayType::new(Type::FieldElement, 1u32));
         let i: UExpression<Bn128Field> = 42u32.into();
         let c: BooleanExpression<Bn128Field> = true.into();
 
@@ -982,11 +987,11 @@ mod tests {
         let n: IntExpression<Bn128Field> = BigUint::from(42usize).into();
         let n_a: ArrayExpression<Bn128Field> =
             ArrayExpressionInner::Value(ValueExpression::new(vec![n.clone().into()]))
-                .annotate(Type::Int, 1u32);
+                .annotate(ArrayType::new(Type::Int, 1u32));
         let t: UExpression<Bn128Field> = 42u32.into();
         let t_a: ArrayExpression<Bn128Field> =
             ArrayExpressionInner::Value(ValueExpression::new(vec![t.clone().into()]))
-                .annotate(Type::Uint(UBitwidth::B32), 1u32);
+                .annotate(ArrayType::new(Type::Uint(UBitwidth::B32), 1u32));
         let i: UExpression<Bn128Field> = 0u32.into();
         let c: BooleanExpression<Bn128Field> = true.into();
 

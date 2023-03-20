@@ -306,7 +306,7 @@ fn try_from_g_struct_member<T: TryInto<U>, U>(
 ) -> Result<GStructMember<U>, SpecializationError> {
     Ok(GStructMember {
         id: t.id,
-        ty: box try_from_g_type(*t.ty)?,
+        ty: Box::new(try_from_g_type(*t.ty)?),
     })
 }
 
@@ -372,8 +372,8 @@ fn try_from_g_array_type<T: TryInto<U>, U>(
     t: GArrayType<T>,
 ) -> Result<GArrayType<U>, SpecializationError> {
     Ok(GArrayType {
-        size: box (*t.size).try_into().map_err(|_| SpecializationError)?,
-        ty: box try_from_g_type(*t.ty)?,
+        size: Box::new((*t.size).try_into().map_err(|_| SpecializationError)?),
+        ty: Box::new(try_from_g_type(*t.ty)?),
     })
 }
 
@@ -463,6 +463,42 @@ impl<S> TryFrom<GType<S>> for GTupleType<S> {
 
     fn try_from(t: GType<S>) -> Result<Self, Self::Error> {
         if let GType::Tuple(t) = t {
+            Ok(t)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<S> TryFrom<GType<S>> for GStructType<S> {
+    type Error = ();
+
+    fn try_from(t: GType<S>) -> Result<Self, Self::Error> {
+        if let GType::Struct(t) = t {
+            Ok(t)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<S> TryFrom<GType<S>> for GArrayType<S> {
+    type Error = ();
+
+    fn try_from(t: GType<S>) -> Result<Self, Self::Error> {
+        if let GType::Array(t) = t {
+            Ok(t)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<S> TryFrom<GType<S>> for UBitwidth {
+    type Error = ();
+
+    fn try_from(t: GType<S>) -> Result<Self, Self::Error> {
+        if let GType::Uint(t) = t {
             Ok(t)
         } else {
             Err(())
@@ -821,8 +857,8 @@ impl<'ast, T> From<ConcreteType> for DeclarationType<'ast, T> {
 impl<S, U: Into<S>> From<(GType<S>, U)> for GArrayType<S> {
     fn from(tup: (GType<S>, U)) -> Self {
         GArrayType {
-            ty: box tup.0,
-            size: box tup.1.into(),
+            ty: Box::new(tup.0),
+            size: Box::new(tup.1.into()),
         }
     }
 }
@@ -830,8 +866,8 @@ impl<S, U: Into<S>> From<(GType<S>, U)> for GArrayType<S> {
 impl<S> GArrayType<S> {
     pub fn new<U: Into<S>>(ty: GType<S>, size: U) -> Self {
         GArrayType {
-            ty: box ty,
-            size: box size.into(),
+            ty: Box::new(ty),
+            size: Box::new(size.into()),
         }
     }
 }
@@ -1208,8 +1244,12 @@ pub fn specialize_declaration_type<
                     .into_iter()
                     .map(|m| {
                         let id = m.id;
-                        specialize_declaration_type(*m.ty, &inside_generics)
-                            .map(|ty| GStructMember { ty: box ty, id })
+                        specialize_declaration_type(*m.ty, &inside_generics).map(|ty| {
+                            GStructMember {
+                                ty: Box::new(ty),
+                                id,
+                            }
+                        })
                     })
                     .collect::<Result<_, _>>()?,
                 generics: s0
@@ -1250,7 +1290,7 @@ pub mod signature {
             Self {
                 generics: vec![],
                 inputs: vec![],
-                output: box GType::Tuple(GTupleType::new(vec![])),
+                output: Box::new(GType::Tuple(GTupleType::new(vec![]))),
             }
         }
     }
@@ -1399,7 +1439,7 @@ pub mod signature {
                 .into_iter()
                 .map(try_from_g_type)
                 .collect::<Result<_, _>>()?,
-            output: box try_from_g_type(*t.output)?,
+            output: Box::new(try_from_g_type(*t.output)?),
         })
     }
 

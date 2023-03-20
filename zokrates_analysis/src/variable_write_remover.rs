@@ -56,7 +56,7 @@ impl<'ast> VariableWriteRemover {
                     let tail = indices;
 
                     match head {
-                        Access::Select(box head) => {
+                        Access::Select(head) => {
                             statements.insert(TypedStatement::assertion(
                                 BooleanExpression::uint_lt(
                                     head.clone(),
@@ -266,7 +266,7 @@ impl<'ast> VariableWriteRemover {
                                     })
                                     .collect::<Vec<_>>(),
                             )
-                            .annotate(inner_ty.clone(), size)
+                            .annotate(ArrayType::new(inner_ty.clone(), size))
                             .into()
                         }
                         _ => unreachable!(),
@@ -525,27 +525,28 @@ impl<'ast> VariableWriteRemover {
 
 #[derive(Clone, Debug)]
 enum Access<'ast, T: Field> {
-    Select(Box<UExpression<'ast, T>>),
+    Select(UExpression<'ast, T>),
     Member(MemberId),
     Element(u32),
 }
+
 /// Turn an assignee into its representation as a base variable and a list accesses
 /// a[2][3][4] -> (a, [2, 3, 4])
 fn linear<T: Field>(a: TypedAssignee<T>) -> (Variable<T>, Vec<Access<T>>) {
     match a {
         TypedAssignee::Identifier(v) => (v, vec![]),
-        TypedAssignee::Select(box array, box index) => {
-            let (v, mut indices) = linear(array);
-            indices.push(Access::Select(box index));
+        TypedAssignee::Select(array, index) => {
+            let (v, mut indices) = linear(*array);
+            indices.push(Access::Select(*index));
             (v, indices)
         }
-        TypedAssignee::Member(box s, m) => {
-            let (v, mut indices) = linear(s);
+        TypedAssignee::Member(s, m) => {
+            let (v, mut indices) = linear(*s);
             indices.push(Access::Member(m));
             (v, indices)
         }
-        TypedAssignee::Element(box s, i) => {
-            let (v, mut indices) = linear(s);
+        TypedAssignee::Element(s, i) => {
+            let (v, mut indices) = linear(*s);
             indices.push(Access::Element(i));
             (v, indices)
         }
@@ -555,12 +556,12 @@ fn linear<T: Field>(a: TypedAssignee<T>) -> (Variable<T>, Vec<Access<T>>) {
 fn is_constant<T>(assignee: &TypedAssignee<T>) -> bool {
     match assignee {
         TypedAssignee::Identifier(_) => true,
-        TypedAssignee::Select(box assignee, box index) => match index.as_inner() {
+        TypedAssignee::Select(assignee, index) => match index.as_inner() {
             UExpressionInner::Value(_) => is_constant(assignee),
             _ => false,
         },
-        TypedAssignee::Member(box assignee, _) => is_constant(assignee),
-        TypedAssignee::Element(box assignee, _) => is_constant(assignee),
+        TypedAssignee::Member(ref assignee, _) => is_constant(assignee),
+        TypedAssignee::Element(ref assignee, _) => is_constant(assignee),
     }
 }
 
@@ -616,7 +617,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for VariableWriteRemover {
                             .annotate(bitwidth)
                             .into(),
                         Type::Array(array_type) => ArrayExpression::identifier(variable.id.clone())
-                            .annotate(*array_type.ty, *array_type.size)
+                            .annotate(array_type)
                             .into(),
                         Type::Struct(members) => StructExpression::identifier(variable.id.clone())
                             .annotate(members)
@@ -633,9 +634,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for VariableWriteRemover {
                     let indices = indices
                         .into_iter()
                         .map(|a| match a {
-                            Access::Select(box i) => {
-                                Ok(Access::Select(box self.fold_uint_expression(i)?))
-                            }
+                            Access::Select(i) => Ok(Access::Select(self.fold_uint_expression(i)?)),
                             a => Ok(a),
                         })
                         .collect::<Result<_, _>>()?;

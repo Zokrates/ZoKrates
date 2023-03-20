@@ -29,6 +29,7 @@ impl<T> WithSpan for QuadComb<T> {
 }
 
 impl<T: Field> QuadComb<T> {
+    #[allow(clippy::result_large_err)]
     pub fn try_linear(self) -> Result<LinComb<T>, Self> {
         // identify `(k * ~ONE) * (lincomb)` and `(lincomb) * (k * ~ONE)` and return (k * lincomb)
         // if not, error out with the input

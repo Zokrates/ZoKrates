@@ -300,7 +300,7 @@ impl FlatEmbed {
         );
 
         assert_eq!(gen.len(), assignment.0.len());
-        gen.map(|g| *assignment.0.get(&g).unwrap() as u32).collect()
+        gen.map(|g| *assignment.0.get(&g).unwrap()).collect()
     }
 
     pub fn id(&self) -> &'static str {

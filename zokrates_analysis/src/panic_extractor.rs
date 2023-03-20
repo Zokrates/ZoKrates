@@ -1,6 +1,6 @@
 use std::ops::*;
 use zokrates_ast::{
-    common::{expressions::BinaryExpression, Fold, WithSpan},
+    common::{Fold, WithSpan},
     zir::{
         folder::*, BooleanExpression, Conditional, ConditionalExpression, ConditionalOrExpression,
         Expr, FieldElementExpression, IfElseStatement, RuntimeError, UBitwidth, UExpression,
@@ -162,14 +162,12 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
     ) -> BooleanExpression<'ast, T> {
         match e {
             // constant range checks are complete, so no panic needs to be extracted
-            e @ BooleanExpression::FieldLt(BinaryExpression {
-                left: box FieldElementExpression::Number(_),
-                ..
-            })
-            | e @ BooleanExpression::FieldLt(BinaryExpression {
-                right: box FieldElementExpression::Number(_),
-                ..
-            }) => fold_boolean_expression_cases(self, e),
+            BooleanExpression::FieldLt(b)
+                if matches!(b.left.as_ref(), FieldElementExpression::Number(_))
+                    || matches!(b.right.as_ref(), FieldElementExpression::Number(_)) =>
+            {
+                fold_boolean_expression_cases(self, BooleanExpression::FieldLt(b))
+            }
             BooleanExpression::FieldLt(e) => {
                 let span = e.get_span();
 

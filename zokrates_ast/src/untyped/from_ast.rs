@@ -390,85 +390,85 @@ impl<'ast> From<pest::BinaryExpression<'ast>> for untyped::ExpressionNode<'ast> 
         use crate::untyped::NodeValue;
         match expression.op {
             pest::BinaryOperator::Add => untyped::Expression::Add(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::Sub => untyped::Expression::Sub(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::Mul => untyped::Expression::Mult(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::Div => untyped::Expression::Div(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::Rem => untyped::Expression::Rem(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::Eq => untyped::Expression::Eq(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::Lt => untyped::Expression::Lt(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::Lte => untyped::Expression::Le(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::Gt => untyped::Expression::Gt(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::Gte => untyped::Expression::Ge(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::And => untyped::Expression::And(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::Or => untyped::Expression::Or(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::Pow => untyped::Expression::Pow(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::BitXor => untyped::Expression::BitXor(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::LeftShift => untyped::Expression::LeftShift(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::RightShift => untyped::Expression::RightShift(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::BitAnd => untyped::Expression::BitAnd(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             pest::BinaryOperator::BitOr => untyped::Expression::BitOr(
-                box untyped::ExpressionNode::from(*expression.left),
-                box untyped::ExpressionNode::from(*expression.right),
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
             // rewrite (a != b)` as `!(a == b)`
-            pest::BinaryOperator::NotEq => untyped::Expression::Not(
-                box untyped::Expression::Eq(
-                    box untyped::ExpressionNode::from(*expression.left),
-                    box untyped::ExpressionNode::from(*expression.right),
+            pest::BinaryOperator::NotEq => untyped::Expression::Not(Box::new(
+                untyped::Expression::Eq(
+                    Box::new(untyped::ExpressionNode::from(*expression.left)),
+                    Box::new(untyped::ExpressionNode::from(*expression.right)),
                 )
                 .span(expression.span.clone()),
-            ),
+            )),
         }
         .span(expression.span)
     }
@@ -477,22 +477,22 @@ impl<'ast> From<pest::BinaryExpression<'ast>> for untyped::ExpressionNode<'ast> 
 impl<'ast> From<pest::IfElseExpression<'ast>> for untyped::ExpressionNode<'ast> {
     fn from(expression: pest::IfElseExpression<'ast>) -> untyped::ExpressionNode<'ast> {
         use crate::untyped::NodeValue;
-        untyped::Expression::Conditional(box ConditionalExpression {
-            condition: box untyped::ExpressionNode::from(*expression.condition),
+        untyped::Expression::Conditional(Box::new(ConditionalExpression {
+            condition: Box::new(untyped::ExpressionNode::from(*expression.condition)),
             consequence_statements: expression
                 .consequence_statements
                 .into_iter()
                 .map(untyped::StatementNode::from)
                 .collect(),
-            consequence: box untyped::ExpressionNode::from(*expression.consequence),
+            consequence: Box::new(untyped::ExpressionNode::from(*expression.consequence)),
             alternative_statements: expression
                 .alternative_statements
                 .into_iter()
                 .map(untyped::StatementNode::from)
                 .collect(),
-            alternative: box untyped::ExpressionNode::from(*expression.alternative),
+            alternative: Box::new(untyped::ExpressionNode::from(*expression.alternative)),
             kind: untyped::ConditionalKind::IfElse,
-        })
+        }))
         .span(expression.span)
     }
 }
@@ -500,14 +500,14 @@ impl<'ast> From<pest::IfElseExpression<'ast>> for untyped::ExpressionNode<'ast> 
 impl<'ast> From<pest::TernaryExpression<'ast>> for untyped::ExpressionNode<'ast> {
     fn from(expression: pest::TernaryExpression<'ast>) -> untyped::ExpressionNode<'ast> {
         use crate::untyped::NodeValue;
-        untyped::Expression::Conditional(box ConditionalExpression {
-            condition: box untyped::ExpressionNode::from(*expression.condition),
+        untyped::Expression::Conditional(Box::new(ConditionalExpression {
+            condition: Box::new(untyped::ExpressionNode::from(*expression.condition)),
             consequence_statements: vec![],
-            consequence: box untyped::ExpressionNode::from(*expression.consequence),
+            consequence: Box::new(untyped::ExpressionNode::from(*expression.consequence)),
             alternative_statements: vec![],
-            alternative: box untyped::ExpressionNode::from(*expression.alternative),
+            alternative: Box::new(untyped::ExpressionNode::from(*expression.alternative)),
             kind: untyped::ConditionalKind::Ternary,
-        })
+        }))
         .span(expression.span)
     }
 }
@@ -617,7 +617,8 @@ impl<'ast> From<pest::ArrayInitializerExpression<'ast>> for untyped::ExpressionN
 
         let value = untyped::ExpressionNode::from(*initializer.value);
         let count = untyped::ExpressionNode::from(*initializer.count);
-        untyped::Expression::ArrayInitializer(box value, box count).span(initializer.span)
+        untyped::Expression::ArrayInitializer(Box::new(value), Box::new(count))
+            .span(initializer.span)
     }
 }
 
@@ -674,18 +675,20 @@ impl<'ast> From<pest::PostfixExpression<'ast>> for untyped::ExpressionNode<'ast>
                 )
                 .span(a.span),
                 pest::Access::Select(a) => untyped::Expression::Select(
-                    box acc,
-                    box untyped::RangeOrExpression::from(a.expression),
+                    Box::new(acc),
+                    Box::new(untyped::RangeOrExpression::from(a.expression)),
                 )
                 .span(a.span),
                 pest::Access::Dot(m) => match m.inner {
                     pest::IdentifierOrDecimal::Identifier(id) => {
-                        untyped::Expression::Member(box acc, box id.span.as_str()).span(m.span)
-                    }
-                    pest::IdentifierOrDecimal::Decimal(id) => {
-                        untyped::Expression::Element(box acc, id.span.as_str().parse().unwrap())
+                        untyped::Expression::Member(Box::new(acc), Box::new(id.span.as_str()))
                             .span(m.span)
                     }
+                    pest::IdentifierOrDecimal::Decimal(id) => untyped::Expression::Element(
+                        Box::new(acc),
+                        id.span.as_str().parse().unwrap(),
+                    )
+                    .span(m.span),
                 },
             })
     }
@@ -783,15 +786,15 @@ impl<'ast> From<pest::Assignee<'ast>> for untyped::AssigneeNode<'ast> {
         assignee.accesses.into_iter().fold(a, |acc, s| {
             match s {
                 pest::AssigneeAccess::Select(s) => untyped::Assignee::Select(
-                    box acc,
-                    box untyped::RangeOrExpression::from(s.expression),
+                    Box::new(acc),
+                    Box::new(untyped::RangeOrExpression::from(s.expression)),
                 ),
                 pest::AssigneeAccess::Dot(a) => match a.inner {
                     pest::IdentifierOrDecimal::Identifier(id) => {
-                        untyped::Assignee::Member(box acc, box id.span.as_str())
+                        untyped::Assignee::Member(Box::new(acc), Box::new(id.span.as_str()))
                     }
                     pest::IdentifierOrDecimal::Decimal(id) => {
-                        untyped::Assignee::Element(box acc, id.span.as_str().parse().unwrap())
+                        untyped::Assignee::Element(Box::new(acc), id.span.as_str().parse().unwrap())
                     }
                 },
             }
@@ -1032,29 +1035,33 @@ mod tests {
                 (
                     "field[2]",
                     untyped::UnresolvedType::Array(
-                        box untyped::UnresolvedType::FieldElement.mock(),
+                        Box::new(untyped::UnresolvedType::FieldElement.mock()),
                         untyped::Expression::IntConstant(2usize.into()).mock(),
                     ),
                 ),
                 (
                     "field[2][3]",
                     untyped::UnresolvedType::Array(
-                        box untyped::UnresolvedType::Array(
-                            box untyped::UnresolvedType::FieldElement.mock(),
-                            untyped::Expression::IntConstant(3usize.into()).mock(),
-                        )
-                        .mock(),
+                        Box::new(
+                            untyped::UnresolvedType::Array(
+                                Box::new(untyped::UnresolvedType::FieldElement.mock()),
+                                untyped::Expression::IntConstant(3usize.into()).mock(),
+                            )
+                            .mock(),
+                        ),
                         untyped::Expression::IntConstant(2usize.into()).mock(),
                     ),
                 ),
                 (
                     "bool[2][3u32]",
                     untyped::UnresolvedType::Array(
-                        box untyped::UnresolvedType::Array(
-                            box untyped::UnresolvedType::Boolean.mock(),
-                            untyped::Expression::U32Constant(3u32).mock(),
-                        )
-                        .mock(),
+                        Box::new(
+                            untyped::UnresolvedType::Array(
+                                Box::new(untyped::UnresolvedType::Boolean.mock()),
+                                untyped::Expression::U32Constant(3u32).mock(),
+                            )
+                            .mock(),
+                        ),
                         untyped::Expression::IntConstant(2usize.into()).mock(),
                     ),
                 ),
@@ -1099,59 +1106,59 @@ mod tests {
                 (
                     "a[3]",
                     untyped::Expression::Select(
-                        box untyped::Expression::Identifier("a").into(),
-                        box untyped::RangeOrExpression::Expression(
+                        Box::new(untyped::Expression::Identifier("a").into()),
+                        Box::new(untyped::RangeOrExpression::Expression(
                             untyped::Expression::IntConstant(3usize.into()).into(),
                         ),
-                    ),
+                    )),
                 ),
                 (
                     "a[3][4]",
                     untyped::Expression::Select(
-                        box untyped::Expression::Select(
-                            box untyped::Expression::Identifier("a").into(),
-                            box untyped::RangeOrExpression::Expression(
+                        Box::new(untyped::Expression::Select(
+                            Box::new(untyped::Expression::Identifier("a").into()),
+                            Box::new(untyped::RangeOrExpression::Expression(
                                 untyped::Expression::IntConstant(3usize.into()).into(),
-                            ),
+                            )),
                         )
-                        .into(),
-                        box untyped::RangeOrExpression::Expression(
+                        .into()),
+                        Box::new(untyped::RangeOrExpression::Expression(
                             untyped::Expression::IntConstant(4usize.into()).into(),
-                        ),
+                        )),
                     ),
                 ),
                 (
                     "a(3)[4]",
                     untyped::Expression::Select(
-                        box untyped::Expression::FunctionCall(
-                            box untyped::Expression::Identifier("a").mock(),
+                        Box::new(untyped::Expression::FunctionCall(
+                            Box::new(untyped::Expression::Identifier("a").mock()),
                             None,
                             vec![untyped::Expression::IntConstant(3usize.into()).into()],
                         )
-                        .into(),
-                        box untyped::RangeOrExpression::Expression(
+                        .into()),
+                        Box::new(untyped::RangeOrExpression::Expression(
                             untyped::Expression::IntConstant(4usize.into()).into(),
-                        ),
+                        )),
                     ),
                 ),
                 (
                     "a(3)[4][5]",
                     untyped::Expression::Select(
-                        box untyped::Expression::Select(
-                            box untyped::Expression::FunctionCall(
-                                box untyped::Expression::Identifier("a").mock(),
+                        Box::new(untyped::Expression::Select(
+                            Box::new(untyped::Expression::FunctionCall(
+                                Box::new(untyped::Expression::Identifier("a").mock()),
                                 None,
                                 vec![untyped::Expression::IntConstant(3usize.into()).into()],
                             )
-                            .into(),
-                            box untyped::RangeOrExpression::Expression(
+                            .into()),
+                            Box::new(untyped::RangeOrExpression::Expression(
                                 untyped::Expression::IntConstant(4usize.into()).into(),
-                            ),
+                            )),
                         )
-                        .into(),
-                        box untyped::RangeOrExpression::Expression(
+                        .into()),
+                        Box::new(untyped::RangeOrExpression::Expression(
                             untyped::Expression::IntConstant(5usize.into()).into(),
-                        ),
+                        )),
                     ),
                 ),
             ];
@@ -1172,13 +1179,15 @@ mod tests {
             assert_eq!(
                 untyped::Module::from(ast),
                 wrap(untyped::Expression::FunctionCall(
-                    box untyped::Expression::Select(
-                        box untyped::Expression::Identifier("a").mock(),
-                        box untyped::RangeOrExpression::Expression(
-                            untyped::Expression::IntConstant(2u32.into()).mock()
+                    Box::new(
+                        untyped::Expression::Select(
+                            Box::new(untyped::Expression::Identifier("a").mock()),
+                            Box::new(untyped::RangeOrExpression::Expression(
+                                untyped::Expression::IntConstant(2u32.into()).mock()
+                            ))
                         )
-                    )
-                    .mock(),
+                        .mock()
+                    ),
                     None,
                     vec![untyped::Expression::IntConstant(3u32.into()).mock()],
                 ))
@@ -1194,12 +1203,14 @@ mod tests {
             assert_eq!(
                 untyped::Module::from(ast),
                 wrap(untyped::Expression::FunctionCall(
-                    box untyped::Expression::FunctionCall(
-                        box untyped::Expression::Identifier("a").mock(),
-                        None,
-                        vec![untyped::Expression::IntConstant(2u32.into()).mock()]
-                    )
-                    .mock(),
+                    Box::new(
+                        untyped::Expression::FunctionCall(
+                            Box::new(untyped::Expression::Identifier("a").mock()),
+                            None,
+                            vec![untyped::Expression::IntConstant(2u32.into()).mock()]
+                        )
+                        .mock()
+                    ),
                     None,
                     vec![untyped::Expression::IntConstant(3u32.into()).mock()],
                 ))
@@ -1261,10 +1272,10 @@ mod tests {
                 span: span.clone(),
             }),
             expression: pest::Expression::Postfix(pest::PostfixExpression {
-                base: box pest::Expression::Identifier(pest::IdentifierExpression {
+                base: Box::new(pest::Expression::Identifier(pest::IdentifierExpression {
                     value: String::from("foo"),
                     span: span.clone(),
-                }),
+                })),
                 accesses: vec![pest::Access::Call(pest::CallAccess {
                     explicit_generics: None,
                     arguments: pest::Arguments {
