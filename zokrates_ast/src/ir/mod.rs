@@ -20,7 +20,7 @@ mod witness;
 
 pub use self::expression::QuadComb;
 pub use self::expression::{CanonicalLinComb, LinComb};
-pub use self::serialize::ProgEnum;
+pub use self::serialize::{ProgEnum, ProgHeader};
 pub use crate::common::Parameter;
 pub use crate::common::RuntimeError;
 pub use crate::common::Solver;
