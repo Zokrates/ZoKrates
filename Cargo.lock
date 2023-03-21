@@ -3081,6 +3081,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "csv",
  "derivative",
+ "log",
  "num-bigint 0.2.6",
  "pairing_ce",
  "serde",
