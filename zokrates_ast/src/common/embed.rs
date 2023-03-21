@@ -356,13 +356,11 @@ pub fn sha256_round<'ast, T: Field>(
     // apply an offset of `variable_count` to get the indice of our dummy `input` argument
     let input_argument_indices: Vec<_> = input_indices
         .clone()
-        .into_iter()
         .map(|i| i + variable_count)
         .collect();
     // apply an offset of `variable_count` to get the indice of our dummy `current_hash` argument
     let current_hash_argument_indices: Vec<_> = current_hash_indices
         .clone()
-        .into_iter()
         .map(|i| i + variable_count)
         .collect();
     // define parameters to the function based on the variables

@@ -161,8 +161,8 @@ impl Interpreter {
         }
     }
 
-    pub fn execute_solver<'ast, T: Field>(
-        solver: &Solver<'ast, T>,
+    pub fn execute_solver<T: Field>(
+        solver: &Solver<T>,
         inputs: &[T],
     ) -> Result<Vec<T>, String> {
         let (expected_input_count, expected_output_count) = solver.get_signature();

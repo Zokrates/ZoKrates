@@ -282,7 +282,7 @@ impl<'ast, T> TryInto<usize> for DeclarationConstant<'ast, T> {
 
 pub type MemberId = String;
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Debug, Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct GStructMember<S> {
     #[serde(rename = "name")]
@@ -324,7 +324,7 @@ impl<'ast, T> From<ConcreteStructMember> for StructMember<'ast, T> {
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
 pub struct GArrayType<S> {
     pub size: Box<S>,
@@ -391,7 +391,7 @@ impl<'ast, T> From<ConcreteArrayType> for ArrayType<'ast, T> {
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
 pub struct GTupleType<S> {
     pub elements: Vec<GType<S>>,
@@ -679,7 +679,7 @@ impl fmt::Display for UBitwidth {
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum GType<S> {
     FieldElement,

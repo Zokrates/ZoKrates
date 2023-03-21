@@ -84,12 +84,8 @@ fn cli() -> Result<(), String> {
 }
 
 fn panic_hook(pi: &std::panic::PanicInfo) {
-    let location = pi
-        .location()
-        .map(|l| format!("({})", l))
-        .unwrap_or_default();
-
-    println!("The compiler unexpectedly panicked {}", location);
+    println!("The compiler unexpectedly panicked");
+    println!("{}", pi);
 
     #[cfg(debug_assertions)]
     {
