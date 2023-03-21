@@ -12,7 +12,7 @@ jobs:
   build:
     docker:
       - image: zokrates/env:latest
-    resource_class: large
+    resource_class: xlarge
     steps:
       - checkout
       - run:
@@ -68,7 +68,7 @@ jobs:
     docker:
       - image: zokrates/env:latest
       - image: trufflesuite/ganache-cli:next
-    resource_class: large
+    resource_class: xlarge
     steps:
       - checkout
       - run:
