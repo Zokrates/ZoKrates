@@ -1921,7 +1921,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     return Err(errors);
                 }
 
-                Ok(TypedStatement::log(l, expressions))
+                Ok(TypedStatement::log(l, expressions).with_span(span))
             }
             Statement::Return(e) => {
                 let mut errors = vec![];
