@@ -8,7 +8,7 @@ use crate::typed::Identifier as CoreIdentifier;
 pub enum Identifier<'ast> {
     #[serde(borrow)]
     Source(SourceIdentifier<'ast>),
-    Internal(String),
+    Internal(usize),
 }
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -32,8 +32,8 @@ impl<'ast> fmt::Display for SourceIdentifier<'ast> {
 }
 
 impl<'ast> Identifier<'ast> {
-    pub fn internal<S: Into<String>>(name: S) -> Self {
-        Identifier::Internal(name.into())
+    pub fn internal<T: Into<usize>>(id: T) -> Self {
+        Identifier::Internal(id.into())
     }
 }
 
@@ -41,7 +41,7 @@ impl<'ast> fmt::Display for Identifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Identifier::Source(s) => write!(f, "{}", s),
-            Identifier::Internal(s) => write!(f, "{}", s),
+            Identifier::Internal(i) => write!(f, "i{}", i),
         }
     }
 }

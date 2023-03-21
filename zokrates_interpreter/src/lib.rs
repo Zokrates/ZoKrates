@@ -515,7 +515,7 @@ mod tests {
         };
         use zokrates_ast::common::RefCall;
 
-        let id = IdentifierExpression::new(Identifier::internal("i0"));
+        let id = IdentifierExpression::new(Identifier::internal(0usize));
 
         // (field i0) -> i0 * i0
         let solvers = vec![Solver::Zir(ZirFunction {

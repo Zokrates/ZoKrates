@@ -2243,18 +2243,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .map(|assignee| self.use_variable(&assignee))
                     .collect();
 
-                let mut substitution_map = HashMap::default();
-                for (index, p) in function.arguments.iter().enumerate() {
-                    let new_id = Identifier::internal(format!("i{}", index));
-                    substitution_map.insert(p.id.id.clone(), new_id);
-                }
-
-                let mut substitutor = ZirSubstitutor::new(substitution_map);
+                let mut substitutor = ZirSubstitutor::default();
                 let function = substitutor.fold_function(function);
 
-                let solver = Solver::Zir(function);
-                let directive = FlatDirective::new(outputs, solver, inputs);
-
+                let directive = FlatDirective::new(outputs, Solver::Zir(function), inputs);
                 statements_flattened.push_back(FlatStatement::Directive(directive));
             }
             ZirAssemblyStatement::Constraint(lhs, rhs, metadata) => {

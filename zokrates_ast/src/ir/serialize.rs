@@ -61,6 +61,7 @@ impl<
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[repr(u32)]
 pub enum SectionType {
     Parameters = 1,
     Constraints = 2,
@@ -112,7 +113,7 @@ pub struct ProgHeader {
     pub curve_id: [u8; 4],
     pub constraint_count: u32,
     pub return_count: u32,
-    pub sections: Vec<Section>,
+    pub sections: [Section; 3],
 }
 
 impl ProgHeader {
@@ -123,7 +124,6 @@ impl ProgHeader {
         w.write_u32::<LittleEndian>(self.constraint_count)?;
         w.write_u32::<LittleEndian>(self.return_count)?;
 
-        w.write_u32::<LittleEndian>(self.sections.len() as u32)?;
         for s in &self.sections {
             w.write_u32::<LittleEndian>(s.ty as u32)?;
             w.write_u64::<LittleEndian>(s.offset)?;
@@ -146,19 +146,9 @@ impl ProgHeader {
         let constraint_count = r.read_u32::<LittleEndian>()?;
         let return_count = r.read_u32::<LittleEndian>()?;
 
-        let section_count = r.read_u32::<LittleEndian>()?;
-        let mut sections = vec![];
-
-        for _ in 0..section_count {
-            let id = r.read_u32::<LittleEndian>()?;
-            let mut section = Section::new(
-                SectionType::try_from(id)
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?,
-            );
-            section.set_offset(r.read_u64::<LittleEndian>()?);
-            section.set_length(r.read_u64::<LittleEndian>()?);
-            sections.push(section);
-        }
+        let parameters = Self::read_section(r.by_ref())?;
+        let constraints = Self::read_section(r.by_ref())?;
+        let solvers = Self::read_section(r.by_ref())?;
 
         Ok(ProgHeader {
             magic,
@@ -166,12 +156,19 @@ impl ProgHeader {
             curve_id,
             constraint_count,
             return_count,
-            sections,
+            sections: [parameters, constraints, solvers],
         })
     }
 
-    fn get_section(&self, ty: SectionType) -> Option<&Section> {
-        self.sections.iter().find(|s| s.ty == ty)
+    fn read_section<R: Read>(mut r: R) -> std::io::Result<Section> {
+        let id = r.read_u32::<LittleEndian>()?;
+        let mut section = Section::new(
+            SectionType::try_from(id)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?,
+        );
+        section.set_offset(r.read_u64::<LittleEndian>()?);
+        section.set_length(r.read_u64::<LittleEndian>()?);
+        Ok(section)
     }
 }
 
@@ -181,37 +178,26 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
     pub fn serialize<W: Write + Seek>(self, mut w: W) -> Result<usize, DynamicError> {
         use super::folder::Folder;
 
-        const SECTION_COUNT: usize = 3;
-        const HEADER_SIZE: usize = 24 + SECTION_COUNT * 20;
+        // reserve bytes for the header
+        w.write_all(&[0u8; std::mem::size_of::<ProgHeader>()])?;
 
-        let mut header = ProgHeader {
-            magic: *ZOKRATES_MAGIC,
-            version: *FILE_VERSION,
-            curve_id: T::id(),
-            constraint_count: 0,
-            return_count: self.return_count as u32,
-            sections: Vec::with_capacity(SECTION_COUNT),
-        };
-
-        w.write_all(&[0u8; HEADER_SIZE])?; // reserve bytes for the header
-
-        // write parameters
-        if !self.arguments.is_empty() {
+        // write parameters section
+        let parameters = {
             let mut section = Section::new(SectionType::Parameters);
             section.set_offset(w.stream_position()?);
 
             serde_cbor::to_writer(&mut w, &self.arguments)?;
 
             section.set_length(w.stream_position()? - section.offset);
-            header.sections.push(section);
-        }
+            section
+        };
 
         let mut solver_indexer: SolverIndexer<'ast, T> = SolverIndexer::default();
         let mut unconstrained_variable_detector = UnconstrainedVariableDetector::new(&self);
         let mut count: usize = 0;
 
-        // write constraints
-        {
+        // write constraints section
+        let constraints = {
             let mut section = Section::new(SectionType::Constraints);
             section.set_offset(w.stream_position()?);
 
@@ -231,21 +217,28 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
             }
 
             section.set_length(w.stream_position()? - section.offset);
-            header.sections.push(section);
+            section
         };
 
-        // write solvers
-        if !solver_indexer.solvers.is_empty() {
+        // write solvers section
+        let solvers = {
             let mut section = Section::new(SectionType::Solvers);
             section.set_offset(w.stream_position()?);
 
             serde_cbor::to_writer(&mut w, &solver_indexer.solvers)?;
 
             section.set_length(w.stream_position()? - section.offset);
-            header.sections.push(section);
-        }
+            section
+        };
 
-        header.constraint_count = count as u32;
+        let header = ProgHeader {
+            magic: *ZOKRATES_MAGIC,
+            version: *FILE_VERSION,
+            curve_id: T::id(),
+            constraint_count: count as u32,
+            return_count: self.return_count as u32,
+            sections: [parameters, constraints, solvers],
+        };
 
         // rewind to write the header
         w.rewind()?;
@@ -289,39 +282,39 @@ impl<'de, R: Read + Seek>
         T,
         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, T>>,
     > {
-        let parameters = match header.get_section(SectionType::Parameters) {
-            Some(section) => {
-                r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
+        let parameters = {
+            let section = &header.sections[0];
+            r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
 
-                let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
-                Vec::deserialize(&mut p)
-                    .map_err(|_| String::from("Cannot read parameters"))
-                    .unwrap()
-            }
-            None => vec![],
+            let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
+            Vec::deserialize(&mut p)
+                .map_err(|_| String::from("Cannot read parameters"))
+                .unwrap()
         };
 
-        let solvers = match header.get_section(SectionType::Solvers) {
-            Some(section) => {
-                r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
+        let solvers = {
+            let section = &header.sections[2];
+            r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
 
-                let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
-                Vec::deserialize(&mut p)
-                    .map_err(|_| String::from("Cannot read solvers"))
-                    .unwrap()
-            }
-            None => vec![],
+            let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
+            Vec::deserialize(&mut p)
+                .map_err(|_| String::from("Cannot read solvers"))
+                .unwrap()
         };
 
-        let section = header.get_section(SectionType::Constraints).unwrap();
-        r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
+        let statements_deserializer = {
+            let section = &header.sections[1];
+            r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
 
-        let p = serde_cbor::Deserializer::from_reader(r);
-        let s = p.into_iter::<Statement<T>>();
+            let p = serde_cbor::Deserializer::from_reader(r);
+            let s = p.into_iter::<Statement<T>>();
+
+            UnwrappedStreamDeserializer { s }
+        };
 
         ProgIterator::new(
             parameters,
-            UnwrappedStreamDeserializer { s },
+            statements_deserializer,
             header.return_count as usize,
             solvers,
         )
