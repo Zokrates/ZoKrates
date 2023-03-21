@@ -2651,124 +2651,70 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             error.into(),
                         )
                     }
-                    BooleanExpression::Not(u) => match *u.inner {
-                        BooleanExpression::UintEq(b) => {
-                            if let UExpressionInner::Value(ValueExpression { value: 0, .. }) =
-                                b.left.inner
-                            {
-                                let x = self
-                                    .flatten_uint_expression(statements_flattened, *b.right)
-                                    .get_field_unchecked();
-                                self.enforce_not_zero_assertion(statements_flattened, x)
-                            } else if let UExpressionInner::Value(ValueExpression {
-                                value: 0,
-                                ..
-                            }) = b.right.inner
-                            {
-                                let x = self
-                                    .flatten_uint_expression(statements_flattened, *b.left)
-                                    .get_field_unchecked();
-                                self.enforce_not_zero_assertion(statements_flattened, x)
-                            } else {
-                                self.enforce_naive_assertion(
+                    BooleanExpression::Not(u) => {
+                        let inner_span = u.get_span();
+
+                        match *u.inner {
+                            BooleanExpression::UintEq(b) => {
+                                if let UExpressionInner::Value(ValueExpression {
+                                    value: 0, ..
+                                }) = b.left.inner
+                                {
+                                    let x = self
+                                        .flatten_uint_expression(statements_flattened, *b.right)
+                                        .get_field_unchecked();
+                                    self.enforce_not_zero_assertion(statements_flattened, x)
+                                } else if let UExpressionInner::Value(ValueExpression {
+                                    value: 0,
+                                    ..
+                                }) = b.right.inner
+                                {
+                                    let x = self
+                                        .flatten_uint_expression(statements_flattened, *b.left)
+                                        .get_field_unchecked();
+                                    self.enforce_not_zero_assertion(statements_flattened, x)
+                                } else {
+                                    self.enforce_naive_assertion(
+                                        statements_flattened,
+                                        BooleanExpression::not(BooleanExpression::UintEq(b)),
+                                        error,
+                                    );
+                                }
+                            }
+                            BooleanExpression::FieldEq(b) => match (*b.left, *b.right) {
+                                (
+                                    FieldElementExpression::Number(ValueExpression {
+                                        value: zero,
+                                        ..
+                                    }),
+                                    x,
+                                )
+                                | (
+                                    x,
+                                    FieldElementExpression::Number(ValueExpression {
+                                        value: zero,
+                                        ..
+                                    }),
+                                ) if zero == T::from(0) => {
+                                    let x = self.flatten_field_expression(statements_flattened, x);
+                                    self.enforce_not_zero_assertion(statements_flattened, x)
+                                }
+                                (left, right) => self.enforce_naive_assertion(
                                     statements_flattened,
-                                    BooleanExpression::not(BooleanExpression::UintEq(b)),
+                                    BooleanExpression::not(
+                                        BooleanExpression::field_eq(left, right).span(inner_span),
+                                    )
+                                    .span(span),
                                     error,
-                                );
-                            }
-                        }
-                        BooleanExpression::FieldEq(b) => match (*b.left, *b.right) {
-                            (
-                                FieldElementExpression::Number(ValueExpression {
-                                    value: zero, ..
-                                }),
-                                x,
-                            )
-                            | (
-                                x,
-                                FieldElementExpression::Number(ValueExpression {
-                                    value: zero, ..
-                                }),
-                            ) if zero == T::from(0) => {
-                                let x = self.flatten_field_expression(statements_flattened, x);
-                                self.enforce_not_zero_assertion(statements_flattened, x)
-                            }
-                            (left, right) => self.enforce_naive_assertion(
+                                ),
+                            },
+                            e => self.enforce_naive_assertion(
                                 statements_flattened,
-                                BooleanExpression::not(BooleanExpression::field_eq(left, right)),
+                                BooleanExpression::not(e.span(inner_span)).span(span),
                                 error,
                             ),
-                        },
-                        e => self.enforce_naive_assertion(statements_flattened, e, error),
-                    },
-                    // // `!(x == 0)` can be asserted by giving the inverse of `x`
-                    // BooleanExpression::Not(UnaryExpression {
-                    //     inner:
-                    //         box BooleanExpression::UintEq(BinaryExpression {
-                    //             left:
-                    //                 box UExpression {
-                    //                     inner:
-                    //                         UExpressionInner::Value(ValueExpression {
-                    //                             value: 0, ..
-                    //                         }),
-                    //                     ..
-                    //                 },
-                    //             right: box x,
-                    //             ..
-                    //         }),
-                    //     ..
-                    // })
-                    // | BooleanExpression::Not(UnaryExpression {
-                    //     inner:
-                    //         box BooleanExpression::UintEq(BinaryExpression {
-                    //             right:
-                    //                 box UExpression {
-                    //                     inner:
-                    //                         UExpressionInner::Value(ValueExpression {
-                    //                             value: 0, ..
-                    //                         }),
-                    //                     ..
-                    //                 },
-                    //             left: box x,
-                    //             ..
-                    //         }),
-                    //     ..
-                    // }) => {
-                    //     let x = self
-                    //         .flatten_uint_expression(statements_flattened, x)
-                    //         .get_field_unchecked();
-
-                    //     self.enforce_not_zero_assertion(statements_flattened, x);
-                    // }
-                    // // `!(x == 0)` can be asserted by giving the inverse of `x`
-                    // BooleanExpression::Not(UnaryExpression {
-                    //     inner:
-                    //         box BooleanExpression::FieldEq(
-                    //             BinaryExpression {
-                    //                 left: box FieldElementExpression::Number(zero),
-                    //                 right: box x,
-                    //                 ..
-                    //             },
-                    //             ..,
-                    //         ),
-                    //     ..
-                    // })
-                    // | BooleanExpression::Not(UnaryExpression {
-                    //     inner:
-                    //         box BooleanExpression::FieldEq(
-                    //             BinaryExpression {
-                    //                 left: box x,
-                    //                 right: box FieldElementExpression::Number(zero),
-                    //                 ..
-                    //             },
-                    //             ..,
-                    //         ),
-                    //     ..
-                    // }) if zero.value == T::from(0) => {
-                    //     let x = self.flatten_field_expression(statements_flattened, x);
-
-                    //     self.enforce_not_zero_assertion(statements_flattened, x)
-                    // }
+                        }
+                    }
                     e => self.enforce_naive_assertion(statements_flattened, e, error),
                 }
             }
