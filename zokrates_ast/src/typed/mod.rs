@@ -788,7 +788,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssemblyStatement<'ast, T> {
                 write!(f, "{} <-- {};", s.assignee, s.expression)
             }
             TypedAssemblyStatement::Constraint(ref s) => {
-                write!(f, "{} === {};", s.left, s.right)
+                write!(f, "{}", s)
             }
         }
     }
@@ -930,7 +930,7 @@ pub enum TypedExpression<'ast, T> {
 
 impl<'ast, T: Field> TypedExpression<'ast, T> {
     pub fn empty_tuple() -> TypedExpression<'ast, T> {
-        TypedExpression::Tuple(TupleExpression::from_value(vec![]).annotate(TupleType::new(vec![])))
+        TypedExpression::Tuple(TupleExpression::value(vec![]).annotate(TupleType::new(vec![])))
     }
 }
 
@@ -1373,7 +1373,7 @@ impl<'ast, T: fmt::Display, E> fmt::Display for FunctionCallExpression<'ast, T, 
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum FieldElementExpression<'ast, T> {
     Block(BlockExpression<'ast, T, Self>),
-    Number(FieldValueExpression<T>),
+    Value(FieldValueExpression<T>),
     Identifier(IdentifierExpression<'ast, Self>),
     Add(BinaryExpression<OpAdd, Self, Self, Self>),
     Sub(BinaryExpression<OpSub, Self, Self, Self>),
@@ -1544,7 +1544,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
 
 impl<'ast, T: Clone> From<T> for FieldElementExpression<'ast, T> {
     fn from(n: T) -> Self {
-        FieldElementExpression::Number(ValueExpression::new(n))
+        FieldElementExpression::Value(ValueExpression::new(n))
     }
 }
 
@@ -2106,7 +2106,7 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FieldElementExpression::Block(ref block) => write!(f, "{}", block),
-            FieldElementExpression::Number(ref i) => write!(f, "{}f", i),
+            FieldElementExpression::Value(ref i) => write!(f, "{}f", i),
             FieldElementExpression::Identifier(ref var) => write!(f, "{}", var),
             FieldElementExpression::Add(ref e) => write!(f, "{}", e),
             FieldElementExpression::Sub(ref e) => write!(f, "{}", e),
@@ -2275,7 +2275,7 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Member(e) => Member(e.span(span)),
             Element(e) => Element(e.span(span)),
             Add(e) => Add(e.span(span)),
-            Number(e) => Number(e.span(span)),
+            Value(e) => Value(e.span(span)),
             Mult(e) => Mult(e.span(span)),
             Sub(e) => Sub(e.span(span)),
             Pow(e) => Pow(e.span(span)),
@@ -2301,7 +2301,7 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Member(e) => e.get_span(),
             Element(e) => e.get_span(),
             Add(e) => e.get_span(),
-            Number(e) => e.get_span(),
+            Value(e) => e.get_span(),
             Sub(e) => e.get_span(),
             Mult(e) => e.get_span(),
             Div(e) => e.get_span(),
@@ -2704,14 +2704,6 @@ impl<'ast, T, E> WithSpan for BlockExpression<'ast, T, E> {
 
 impl<'ast, T: Clone> Value for FieldElementExpression<'ast, T> {
     type Value = T;
-
-    fn as_value(&self) -> Option<&Self::Value> {
-        if let Self::Number(v) = self {
-            Some(&v.value)
-        } else {
-            None
-        }
-    }
 }
 
 impl<'ast, T> Value for BooleanExpression<'ast, T> {
@@ -2753,7 +2745,7 @@ pub trait Expr<'ast, T>: Value + WithSpan + fmt::Display + From<TypedExpression<
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner;
 
-    fn from_value(_: Self::Value) -> Self::Inner;
+    fn value(_: Self::Value) -> Self::Inner;
 }
 
 impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
@@ -2777,8 +2769,8 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for FieldElementExpression<'as
         self
     }
 
-    fn from_value(v: Self::Value) -> Self::Inner {
-        Self::Number(ValueExpression::new(v))
+    fn value(v: <Self as Value>::Value) -> Self::Inner {
+        Self::Value(ValueExpression::new(v))
     }
 }
 
@@ -2803,7 +2795,7 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for BooleanExpression<'ast, T>
         self
     }
 
-    fn from_value(v: <crate::typed::BooleanExpression<'ast, T> as Value>::Value) -> Self::Inner {
+    fn value(v: <Self as Value>::Value) -> Self::Inner {
         Self::Value(ValueExpression::new(v))
     }
 }
@@ -2829,7 +2821,7 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for UExpression<'ast, T> {
         &mut self.inner
     }
 
-    fn from_value(v: Self::Value) -> Self::Inner {
+    fn value(v: Self::Value) -> Self::Inner {
         UExpressionInner::Value(ValueExpression::new(v))
     }
 }
@@ -2855,7 +2847,7 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for StructExpression<'ast, T> 
         &mut self.inner
     }
 
-    fn from_value(v: Self::Value) -> Self::Inner {
+    fn value(v: Self::Value) -> Self::Inner {
         StructExpressionInner::Value(ValueExpression::new(v))
     }
 }
@@ -2881,7 +2873,7 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
         &mut self.inner
     }
 
-    fn from_value(v: Self::Value) -> Self::Inner {
+    fn value(v: Self::Value) -> Self::Inner {
         ArrayExpressionInner::Value(ValueExpression::new(v))
     }
 }
@@ -2907,7 +2899,7 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for TupleExpression<'ast, T> {
         &mut self.inner
     }
 
-    fn from_value(v: Self::Value) -> Self::Inner {
+    fn value(v: Self::Value) -> Self::Inner {
         TupleExpressionInner::Value(ValueExpression::new(v))
     }
 }
@@ -2933,7 +2925,7 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for IntExpression<'ast, T> {
         self
     }
 
-    fn from_value(v: <integer::IntExpression<'ast, T> as Value>::Value) -> Self {
+    fn value(v: <integer::IntExpression<'ast, T> as Value>::Value) -> Self {
         IntExpression::Value(ValueExpression::new(v))
     }
 }
@@ -3500,7 +3492,7 @@ pub trait Constant: Sized {
 
 impl<'ast, T: Field> Constant for FieldElementExpression<'ast, T> {
     fn is_constant(&self) -> bool {
-        matches!(self, FieldElementExpression::Number(..))
+        matches!(self, FieldElementExpression::Value(..))
     }
 }
 
@@ -3580,7 +3572,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
         let array_ty = self.ty().clone();
 
         match self.into_inner() {
-            ArrayExpressionInner::Value(v) => ArrayExpression::from_value(
+            ArrayExpressionInner::Value(v) => ArrayExpression::value(
                 v.into_iter()
                     .flat_map(into_canonical_constant_aux)
                     .map(|e| e.into())
@@ -3603,7 +3595,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                     _ => unreachable!("should be an array value"),
                 };
 
-                ArrayExpression::from_value(
+                ArrayExpression::value(
                     v.into_iter()
                         .flat_map(into_canonical_constant_aux)
                         .map(|e| e.into())
@@ -3621,7 +3613,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
 
                 let e = e.e.into_canonical_constant();
 
-                ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(e); count])
+                ArrayExpression::value(vec![TypedExpressionOrSpread::Expression(e); count])
                     .annotate(*array_ty.ty, *array_ty.size)
             }
             _ => unreachable!(),
@@ -3641,7 +3633,7 @@ impl<'ast, T: Field> Constant for StructExpression<'ast, T> {
         let struct_ty = self.ty().clone();
 
         match self.into_inner() {
-            StructExpressionInner::Value(expressions) => StructExpression::from_value(
+            StructExpressionInner::Value(expressions) => StructExpression::value(
                 expressions
                     .into_iter()
                     .map(|e| e.into_canonical_constant())
@@ -3665,7 +3657,7 @@ impl<'ast, T: Field> Constant for TupleExpression<'ast, T> {
         let tuple_ty = self.ty().clone();
 
         match self.into_inner() {
-            TupleExpressionInner::Value(expressions) => TupleExpression::from_value(
+            TupleExpressionInner::Value(expressions) => TupleExpression::value(
                 expressions
                     .into_iter()
                     .map(|e| e.into_canonical_constant())

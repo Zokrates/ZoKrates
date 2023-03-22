@@ -246,7 +246,7 @@ impl<'ast, T: Field> From<DeclarationConstant<'ast, T>> for UExpression<'ast, T>
                     .annotate(UBitwidth::B32)
             }
             DeclarationConstant::Concrete(v) => {
-                UExpression::from_value(v as u128).annotate(UBitwidth::B32)
+                UExpression::value(v as u128).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Constant(v) => {
                 UExpression::identifier(FrameIdentifier::from(v).into()).annotate(UBitwidth::B32)

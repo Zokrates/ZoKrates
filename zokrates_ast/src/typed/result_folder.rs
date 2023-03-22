@@ -1139,7 +1139,7 @@ pub fn fold_field_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
             IdentifierOrExpression::Expression(u) => u,
         },
         Block(block) => Block(f.fold_block_expression(block)?),
-        Number(n) => Number(n),
+        Value(n) => Value(n),
         Add(e) => match f.fold_binary_expression(&Type::FieldElement, e)? {
             BinaryOrExpression::Binary(e) => Add(e),
             BinaryOrExpression::Expression(u) => u,

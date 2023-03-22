@@ -360,7 +360,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 .into_inner()
             {
                 ArrayExpressionInner::Value(v) =>
-                    UExpression::from_value(
+                    UExpression::value(
                         v.into_iter()
                             .map(|v| match v {
                                 TypedExpressionOrSpread::Expression(
@@ -413,9 +413,9 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                             }
                             assert_eq!(num, 0);
 
-                            ArrayExpression::from_value(
+                            ArrayExpression::value(
                                 res.into_iter()
-                                    .map(|v| BooleanExpression::from_value(v).into())
+                                    .map(|v| BooleanExpression::value(v).into())
                                     .collect::<Vec<_>>(),
                             )
                             .annotate(Type::Boolean, bitwidth.to_usize() as u32)
@@ -433,21 +433,17 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                                 match FieldElementExpression::try_from_typed(
                                     embed_call.arguments[0].clone(),
                                 ) {
-                                    Ok(FieldElementExpression::Number(n))
+                                    Ok(FieldElementExpression::Value(n))
                                         if n.value == T::from(0) =>
                                     {
-                                        Ok(Some(
-                                            BooleanExpression::from_value(false).span(span).into(),
-                                        ))
+                                        Ok(Some(BooleanExpression::value(false).span(span).into()))
                                     }
-                                    Ok(FieldElementExpression::Number(n))
+                                    Ok(FieldElementExpression::Value(n))
                                         if n.value == T::from(1) =>
                                     {
-                                        Ok(Some(
-                                            BooleanExpression::from_value(true).span(span).into(),
-                                        ))
+                                        Ok(Some(BooleanExpression::value(true).span(span).into()))
                                     }
-                                    Ok(FieldElementExpression::Number(n)) => {
+                                    Ok(FieldElementExpression::Value(n)) => {
                                         Err(Error::InvalidValue(format!(
                                             "Cannot call `{}` with value `{}`: should be 0 or 1",
                                             embed_call.embed.id(),
@@ -500,7 +496,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                                 )
                                 .unwrap()
                                 {
-                                    FieldElementExpression::Number(num) => {
+                                    FieldElementExpression::Value(num) => {
                                         let mut acc = num.value.clone();
                                         let mut res = vec![];
 
@@ -521,10 +517,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                                             )))
                                         } else {
                                             Ok(Some(
-                                                ArrayExpression::from_value(
+                                                ArrayExpression::value(
                                                     res.into_iter()
                                                         .map(|v| {
-                                                            BooleanExpression::from_value(v)
+                                                            BooleanExpression::value(v)
                                                                 .span(span)
                                                                 .into()
                                                         })
@@ -661,7 +657,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    Ok(UExpression::from_value(
+                    Ok(UExpression::value(
                         (v1.value + v2.value) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     ))
                 }
@@ -670,7 +666,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                         0 => Ok(e),
                         _ => Ok(UExpression::add(
                             e.annotate(bitwidth),
-                            UExpression::from_value(v.value).annotate(bitwidth),
+                            UExpression::value(v.value).annotate(bitwidth),
                         )
                         .into_inner()),
                     }
@@ -684,7 +680,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    Ok(UExpression::from_value(
+                    Ok(UExpression::value(
                         (v1.value.wrapping_sub(v2.value))
                             % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     ))
@@ -706,7 +702,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    Ok(UExpression::from_value(
+                    Ok(UExpression::value(
                         v1.value.saturating_sub(v2.value)
                             % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     ))
@@ -728,13 +724,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    Ok(UExpression::from_value(
+                    Ok(UExpression::value(
                         (v1.value * v2.value) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     ))
                 }
                 (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => {
                     match v.value {
-                        0 => Ok(UExpression::from_value(0)),
+                        0 => Ok(UExpression::value(0)),
                         1 => Ok(e),
                         _ => Ok(UExpression::mul(
                             e.annotate(bitwidth),
@@ -752,7 +748,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    Ok(UExpression::from_value(
+                    Ok(UExpression::value(
                         (v1.value / v2.value) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     ))
                 }
@@ -773,12 +769,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    Ok(UExpression::from_value(
+                    Ok(UExpression::value(
                         (v1.value % v2.value) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     ))
                 }
                 (e, UExpressionInner::Value(v)) => match v.value {
-                    1 => Ok(UExpression::from_value(0)),
+                    1 => Ok(UExpression::value(0)),
                     _ => Ok(UExpression::rem(
                         e.annotate(bitwidth),
                         UExpressionInner::Value(v).annotate(bitwidth),
@@ -794,7 +790,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let right = self.fold_uint_expression(*e.right)?;
                 match (left.into_inner(), right.into_inner()) {
                     (UExpressionInner::Value(v), UExpressionInner::Value(by)) => {
-                        Ok(UExpression::from_value(v.value >> by.value))
+                        Ok(UExpression::value(v.value >> by.value))
                     }
                     (e, by) => Ok(UExpression::right_shift(
                         e.annotate(bitwidth),
@@ -808,7 +804,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let right = self.fold_uint_expression(*e.right)?;
                 match (left.into_inner(), right.into_inner()) {
                     (UExpressionInner::Value(v), UExpressionInner::Value(by)) => {
-                        Ok(UExpression::from_value(
+                        Ok(UExpression::value(
                             (v.value << by.value) & (2_u128.pow(bitwidth as u32) - 1),
                         ))
                     }
@@ -824,7 +820,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    Ok(UExpression::from_value(v1.value ^ v2.value))
+                    Ok(UExpression::value(v1.value ^ v2.value))
                 }
                 (UExpressionInner::Value(v), e2) | (e2, UExpressionInner::Value(v))
                     if v.value == 0 =>
@@ -833,7 +829,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 }
                 (e1, e2) => {
                     if e1 == e2 {
-                        Ok(UExpression::from_value(0))
+                        Ok(UExpression::value(0))
                     } else {
                         Ok(
                             UExpression::xor(e1.annotate(bitwidth), e2.annotate(bitwidth))
@@ -847,12 +843,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 self.fold_uint_expression(*e.right)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    Ok(UExpression::from_value(v1.value & v2.value))
+                    Ok(UExpression::value(v1.value & v2.value))
                 }
                 (UExpressionInner::Value(v), _) | (_, UExpressionInner::Value(v))
                     if v.value == 0 =>
                 {
-                    Ok(UExpression::from_value(0))
+                    Ok(UExpression::value(0))
                 }
                 (e1, e2) => {
                     Ok(UExpression::and(e1.annotate(bitwidth), e2.annotate(bitwidth)).into_inner())
@@ -861,7 +857,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
             UExpressionInner::Not(e) => {
                 let e = self.fold_uint_expression(*e.inner)?.into_inner();
                 match e {
-                    UExpressionInner::Value(v) => Ok(UExpression::from_value(
+                    UExpressionInner::Value(v) => Ok(UExpression::value(
                         (!v.value) & (2_u128.pow(bitwidth as u32) - 1),
                     )),
                     e => Ok(UExpression::not(e.annotate(bitwidth)).into_inner()),
@@ -870,7 +866,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
             UExpressionInner::Neg(e) => {
                 let e = self.fold_uint_expression(*e.inner)?.into_inner();
                 match e {
-                    UExpressionInner::Value(v) => Ok(UExpression::from_value(
+                    UExpressionInner::Value(v) => Ok(UExpression::value(
                         (0u128.wrapping_sub(v.value))
                             % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     )),
@@ -880,7 +876,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
             UExpressionInner::Pos(e) => {
                 let e = self.fold_uint_expression(*e.inner)?.into_inner();
                 match e {
-                    UExpressionInner::Value(v) => Ok(UExpression::from_value(v.value)),
+                    UExpressionInner::Value(v) => Ok(UExpression::value(v.value)),
                     e => Ok(UExpression::pos(e.annotate(bitwidth)).into_inner()),
                 }
             }
@@ -898,8 +894,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let right = self.fold_field_expression(*e.right)?;
 
                 Ok(match (left, right) {
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        FieldElementExpression::Number(ValueExpression::new(n1.value + n2.value))
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        FieldElementExpression::Value(ValueExpression::new(n1.value + n2.value))
                     }
                     (e1, e2) => e1 + e2,
                 })
@@ -909,8 +905,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let right = self.fold_field_expression(*e.right)?;
 
                 Ok(match (left, right) {
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        FieldElementExpression::Number(ValueExpression::new(n1.value - n2.value))
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        FieldElementExpression::Value(ValueExpression::new(n1.value - n2.value))
                     }
                     (e1, e2) => e1 - e2,
                 })
@@ -920,8 +916,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let right = self.fold_field_expression(*e.right)?;
 
                 Ok(match (left, right) {
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        FieldElementExpression::Number(ValueExpression::new(n1.value * n2.value))
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        FieldElementExpression::Value(ValueExpression::new(n1.value * n2.value))
                     }
                     (e1, e2) => e1 * e2,
                 })
@@ -931,20 +927,20 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let right = self.fold_field_expression(*e.right)?;
 
                 Ok(match (left, right) {
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        FieldElementExpression::Number(ValueExpression::new(n1.value / n2.value))
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        FieldElementExpression::Value(ValueExpression::new(n1.value / n2.value))
                     }
                     (e1, e2) => e1 / e2,
                 })
             }
             FieldElementExpression::Neg(e) => match self.fold_field_expression(*e.inner)? {
-                FieldElementExpression::Number(n) => {
-                    Ok(FieldElementExpression::from_value(T::zero() - n.value))
+                FieldElementExpression::Value(n) => {
+                    Ok(FieldElementExpression::value(T::zero() - n.value))
                 }
                 e => Ok(FieldElementExpression::neg(e)),
             },
             FieldElementExpression::Pos(e) => match self.fold_field_expression(*e.inner)? {
-                FieldElementExpression::Number(n) => Ok(FieldElementExpression::Number(n)),
+                FieldElementExpression::Value(n) => Ok(FieldElementExpression::Value(n)),
                 e => Ok(FieldElementExpression::pos(e)),
             },
             FieldElementExpression::Pow(e) => {
@@ -952,15 +948,11 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let e2 = self.fold_uint_expression(*e.right)?;
                 match (e1, e2.into_inner()) {
                     (_, UExpressionInner::Value(ref n2)) if n2.value == 0 => {
-                        Ok(FieldElementExpression::from_value(T::from(1)))
+                        Ok(FieldElementExpression::value(T::from(1)))
                     }
-                    (FieldElementExpression::Number(n1), UExpressionInner::Value(n2)) => Ok(
-                        FieldElementExpression::from_value(n1.value.pow(n2.value as usize)),
+                    (FieldElementExpression::Value(n1), UExpressionInner::Value(n2)) => Ok(
+                        FieldElementExpression::value(n1.value.pow(n2.value as usize)),
                     ),
-                    (e1, UExpressionInner::Value(n2)) => Ok(FieldElementExpression::pow(
-                        e1,
-                        UExpressionInner::Value(n2).annotate(UBitwidth::B32),
-                    )),
                     (e1, e2) => Ok(FieldElementExpression::pow(e1, e2.annotate(UBitwidth::B32))),
                 }
             }
@@ -969,19 +961,19 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let e2 = self.fold_field_expression(*e.right)?;
 
                 match (e1, e2) {
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(FieldElementExpression::from_value(
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        Ok(FieldElementExpression::value(
                             T::try_from(n1.value.to_biguint().bitxor(n2.value.to_biguint()))
                                 .unwrap(),
                         ))
                     }
-                    (FieldElementExpression::Number(n), e)
-                    | (e, FieldElementExpression::Number(n))
+                    (FieldElementExpression::Value(n), e)
+                    | (e, FieldElementExpression::Value(n))
                         if n.value == T::from(0) =>
                     {
                         Ok(e)
                     }
-                    (e1, e2) if e1.eq(&e2) => Ok(FieldElementExpression::from_value(T::from(0))),
+                    (e1, e2) if e1.eq(&e2) => Ok(FieldElementExpression::value(T::from(0))),
                     (e1, e2) => Ok(FieldElementExpression::bitxor(e1, e2)),
                 }
             }
@@ -990,14 +982,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let e2 = self.fold_field_expression(*e.right)?;
 
                 match (e1, e2) {
-                    (_, FieldElementExpression::Number(n))
-                    | (FieldElementExpression::Number(n), _)
+                    (_, FieldElementExpression::Value(n))
+                    | (FieldElementExpression::Value(n), _)
                         if n.value == T::from(0) =>
                     {
-                        Ok(FieldElementExpression::Number(n))
+                        Ok(FieldElementExpression::Value(n))
                     }
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(FieldElementExpression::from_value(
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        Ok(FieldElementExpression::value(
                             T::try_from(n1.value.to_biguint().bitand(n2.value.to_biguint()))
                                 .unwrap(),
                         ))
@@ -1010,14 +1002,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let e2 = self.fold_field_expression(*e.right)?;
 
                 match (e1, e2) {
-                    (e, FieldElementExpression::Number(n))
-                    | (FieldElementExpression::Number(n), e)
+                    (e, FieldElementExpression::Value(n))
+                    | (FieldElementExpression::Value(n), e)
                         if n.value == T::from(0) =>
                     {
                         Ok(e)
                     }
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(FieldElementExpression::from_value(
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        Ok(FieldElementExpression::value(
                             T::try_from(n1.value.to_biguint().bitor(n2.value.to_biguint()))
                                 .unwrap(),
                         ))
@@ -1043,10 +1035,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                             ..
                         },
                     ) if by.value as usize >= T::get_required_bits() => {
-                        Ok(FieldElementExpression::from_value(T::from(0)))
+                        Ok(FieldElementExpression::value(T::from(0)))
                     }
                     (
-                        FieldElementExpression::Number(n),
+                        FieldElementExpression::Value(n),
                         UExpression {
                             inner: UExpressionInner::Value(by),
                             ..
@@ -1055,7 +1047,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                         let two = BigUint::from(2usize);
                         let mask: BigUint = two.pow(T::get_required_bits()).sub(1usize);
 
-                        Ok(FieldElementExpression::from_value(
+                        Ok(FieldElementExpression::value(
                             T::try_from(n.value.to_biguint().shl(by.value as usize).bitand(mask))
                                 .unwrap(),
                         ))
@@ -1081,15 +1073,15 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                             ..
                         },
                     ) if by.value as usize >= T::get_required_bits() => {
-                        Ok(FieldElementExpression::from_value(T::from(0)))
+                        Ok(FieldElementExpression::value(T::from(0)))
                     }
                     (
-                        FieldElementExpression::Number(n),
+                        FieldElementExpression::Value(n),
                         UExpression {
                             inner: UExpressionInner::Value(by),
                             ..
                         },
-                    ) => Ok(FieldElementExpression::from_value(
+                    ) => Ok(FieldElementExpression::value(
                         T::try_from(n.value.to_biguint().shr(by.value as usize)).unwrap(),
                     )),
                     (e, by) => Ok(FieldElementExpression::right_shift(e, by)),
@@ -1360,18 +1352,18 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
         // if the two expressions are the same, we can reduce to `true`.
         // Note that if they are different we cannot reduce to `false`: `a == 1` may still be `true` even though `a` and `1` are different expressions
         if left == right {
-            return Ok(BinaryOrExpression::Expression(
-                BooleanExpression::from_value(true),
-            ));
+            return Ok(BinaryOrExpression::Expression(BooleanExpression::value(
+                true,
+            )));
         }
 
         // if both expressions are constant, we can reduce the equality check after we put them in canonical form
         if left.is_constant() && right.is_constant() {
             let left = left.into_canonical_constant();
             let right = right.into_canonical_constant();
-            Ok(BinaryOrExpression::Expression(
-                BooleanExpression::from_value(left == right),
-            ))
+            Ok(BinaryOrExpression::Expression(BooleanExpression::value(
+                left == right,
+            )))
         } else {
             Ok(BinaryOrExpression::Binary(BinaryExpression::new(
                 left, right,
@@ -1394,8 +1386,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let e2 = self.fold_field_expression(*e.right)?;
 
                 match (e1, e2) {
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(BooleanExpression::from_value(n1.value < n2.value))
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        Ok(BooleanExpression::value(n1.value < n2.value))
                     }
                     (e1, e2) => Ok(BooleanExpression::field_lt(e1, e2)),
                 }
@@ -1405,8 +1397,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let e2 = self.fold_field_expression(*e.right)?;
 
                 match (e1, e2) {
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(BooleanExpression::from_value(n1.value <= n2.value))
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        Ok(BooleanExpression::value(n1.value <= n2.value))
                     }
                     (e1, e2) => Ok(BooleanExpression::field_le(e1, e2)),
                 }
@@ -1417,7 +1409,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
 
                 match (e1.as_inner(), e2.as_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        Ok(BooleanExpression::from_value(n1.value < n2.value))
+                        Ok(BooleanExpression::value(n1.value < n2.value))
                     }
                     _ => Ok(BooleanExpression::uint_lt(e1, e2)),
                 }
@@ -1428,7 +1420,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
 
                 match (e1.as_inner(), e2.as_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        Ok(BooleanExpression::from_value(n1.value <= n2.value))
+                        Ok(BooleanExpression::value(n1.value <= n2.value))
                     }
                     _ => Ok(BooleanExpression::uint_le(e1, e2)),
                 }
@@ -1440,13 +1432,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 match (e1, e2) {
                     // reduction of constants
                     (BooleanExpression::Value(v1), BooleanExpression::Value(v2)) => {
-                        Ok(BooleanExpression::from_value(v1.value || v2.value))
+                        Ok(BooleanExpression::value(v1.value || v2.value))
                     }
                     // x || true == true
                     (_, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), _)
                         if v.value =>
                     {
-                        Ok(BooleanExpression::from_value(true))
+                        Ok(BooleanExpression::value(true))
                     }
                     // x || false == x
                     (e, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), e)
@@ -1464,7 +1456,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 match (e1, e2) {
                     // reduction of constants
                     (BooleanExpression::Value(v1), BooleanExpression::Value(v2)) => {
-                        Ok(BooleanExpression::from_value(v1.value && v2.value))
+                        Ok(BooleanExpression::value(v1.value && v2.value))
                     }
                     // x && true == x
                     (e, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), e)
@@ -1476,7 +1468,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                     (_, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), _)
                         if !v.value =>
                     {
-                        Ok(BooleanExpression::from_value(false))
+                        Ok(BooleanExpression::value(false))
                     }
                     (e1, e2) => Ok(BooleanExpression::bitand(e1, e2)),
                 }
@@ -1484,7 +1476,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
             BooleanExpression::Not(e) => {
                 let e = self.fold_boolean_expression(*e.inner)?;
                 match e {
-                    BooleanExpression::Value(v) => Ok(BooleanExpression::from_value(!v.value)),
+                    BooleanExpression::Value(v) => Ok(BooleanExpression::value(!v.value)),
                     e => Ok(BooleanExpression::not(e)),
                 }
             }
@@ -1509,65 +1501,65 @@ mod tests {
             #[test]
             fn add() {
                 let e = FieldElementExpression::add(
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
-                    FieldElementExpression::from_value(Bn128Field::from(3)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(3)),
                 );
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(5)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(5)))
                 );
             }
 
             #[test]
             fn sub() {
                 let e = FieldElementExpression::sub(
-                    FieldElementExpression::from_value(Bn128Field::from(3)),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(3)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(1)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(1)))
                 );
             }
 
             #[test]
             fn mult() {
                 let e = FieldElementExpression::mul(
-                    FieldElementExpression::from_value(Bn128Field::from(3)),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(3)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(6)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(6)))
                 );
             }
 
             #[test]
             fn div() {
                 let e = FieldElementExpression::div(
-                    FieldElementExpression::from_value(Bn128Field::from(6)),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(6)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(3)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(3)))
                 );
             }
 
             #[test]
             fn pow() {
                 let e = FieldElementExpression::pow(
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                     3u32.into(),
                 );
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(8)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(8)))
                 );
             }
 
@@ -1585,34 +1577,34 @@ mod tests {
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::left_shift(
-                        FieldElementExpression::from_value(Bn128Field::from(2)),
+                        FieldElementExpression::value(Bn128Field::from(2)),
                         2u32.into(),
                     )),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(8)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(8)))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::left_shift(
-                        FieldElementExpression::from_value(Bn128Field::from(1)),
+                        FieldElementExpression::value(Bn128Field::from(1)),
                         ((Bn128Field::get_required_bits() - 1) as u32).into(),
                     )),
-                    Ok(FieldElementExpression::from_value(Bn128Field::try_from_dec_str("14474011154664524427946373126085988481658748083205070504932198000989141204992").unwrap()))
+                    Ok(FieldElementExpression::value(Bn128Field::try_from_dec_str("14474011154664524427946373126085988481658748083205070504932198000989141204992").unwrap()))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::left_shift(
-                        FieldElementExpression::from_value(Bn128Field::from(3)),
+                        FieldElementExpression::value(Bn128Field::from(3)),
                         ((Bn128Field::get_required_bits() - 3) as u32).into(),
                     )),
-                    Ok(FieldElementExpression::from_value(Bn128Field::try_from_dec_str("10855508365998393320959779844564491361244061062403802878699148500741855903744").unwrap()))
+                    Ok(FieldElementExpression::value(Bn128Field::try_from_dec_str("10855508365998393320959779844564491361244061062403802878699148500741855903744").unwrap()))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::left_shift(
-                        FieldElementExpression::from_value(Bn128Field::from(1)),
+                        FieldElementExpression::value(Bn128Field::from(1)),
                         (Bn128Field::get_required_bits() as u32).into(),
                     )),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(0)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(0)))
                 );
             }
 
@@ -1633,86 +1625,86 @@ mod tests {
                         FieldElementExpression::identifier("a".into()),
                         (Bn128Field::get_required_bits() as u32).into(),
                     )),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(0)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(0)))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::right_shift(
-                        FieldElementExpression::from_value(Bn128Field::from(3)),
+                        FieldElementExpression::value(Bn128Field::from(3)),
                         1u32.into(),
                     )),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(1)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(1)))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::right_shift(
-                        FieldElementExpression::from_value(Bn128Field::from(2)),
+                        FieldElementExpression::value(Bn128Field::from(2)),
                         2u32.into(),
                     )),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(0)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(0)))
                 );
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::right_shift(
-                        FieldElementExpression::from_value(Bn128Field::from(2)),
+                        FieldElementExpression::value(Bn128Field::from(2)),
                         4u32.into(),
                     )),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(0)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(0)))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::right_shift(
-                        FieldElementExpression::from_value(Bn128Field::max_value()),
+                        FieldElementExpression::value(Bn128Field::max_value()),
                         ((Bn128Field::get_required_bits() - 1) as u32).into(),
                     )),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(1)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(1)))
                 );
 
                 assert_eq!(
                     propagator.fold_field_expression(FieldElementExpression::right_shift(
-                        FieldElementExpression::from_value(Bn128Field::max_value()),
+                        FieldElementExpression::value(Bn128Field::max_value()),
                         (Bn128Field::get_required_bits() as u32).into(),
                     )),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(0)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(0)))
                 );
             }
 
             #[test]
             fn if_else_true() {
                 let e = FieldElementExpression::conditional(
-                    BooleanExpression::from_value(true),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
-                    FieldElementExpression::from_value(Bn128Field::from(3)),
+                    BooleanExpression::value(true),
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(3)),
                     ConditionalKind::IfElse,
                 );
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(2)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(2)))
                 );
             }
 
             #[test]
             fn if_else_false() {
                 let e = FieldElementExpression::conditional(
-                    BooleanExpression::from_value(false),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
-                    FieldElementExpression::from_value(Bn128Field::from(3)),
+                    BooleanExpression::value(false),
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(3)),
                     ConditionalKind::IfElse,
                 );
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(3)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(3)))
                 );
             }
 
             #[test]
             fn select() {
                 let e = FieldElementExpression::select(
-                    ArrayExpression::from_value(vec![
-                        FieldElementExpression::from_value(Bn128Field::from(1)).into(),
-                        FieldElementExpression::from_value(Bn128Field::from(2)).into(),
-                        FieldElementExpression::from_value(Bn128Field::from(3)).into(),
+                    ArrayExpression::value(vec![
+                        FieldElementExpression::value(Bn128Field::from(1)).into(),
+                        FieldElementExpression::value(Bn128Field::from(2)).into(),
+                        FieldElementExpression::value(Bn128Field::from(3)).into(),
                     ])
                     .annotate(Type::FieldElement, 3u32),
                     UExpression::add(1u32.into(), 1u32.into()),
@@ -1720,7 +1712,7 @@ mod tests {
 
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::from_value(Bn128Field::from(3)))
+                    Ok(FieldElementExpression::value(Bn128Field::from(3)))
                 );
             }
         }
@@ -1732,21 +1724,21 @@ mod tests {
             #[test]
             fn not() {
                 let e_true: BooleanExpression<Bn128Field> =
-                    BooleanExpression::not(BooleanExpression::from_value(false));
+                    BooleanExpression::not(BooleanExpression::value(false));
 
                 let e_false: BooleanExpression<Bn128Field> =
-                    BooleanExpression::not(BooleanExpression::from_value(true));
+                    BooleanExpression::not(BooleanExpression::value(true));
 
                 let e_default: BooleanExpression<Bn128Field> =
                     BooleanExpression::not(BooleanExpression::identifier("a".into()));
 
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_true),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_false),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_default.clone()),
@@ -1757,13 +1749,13 @@ mod tests {
             #[test]
             fn field_eq() {
                 let e_constant_true = BooleanExpression::FieldEq(BinaryExpression::new(
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                 ));
 
                 let e_constant_false = BooleanExpression::FieldEq(BinaryExpression::new(
-                    FieldElementExpression::from_value(Bn128Field::from(4)),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(4)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                 ));
 
                 let e_identifier_true: BooleanExpression<Bn128Field> =
@@ -1780,15 +1772,15 @@ mod tests {
 
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_constant_true),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_constant_false),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_identifier_true),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_identifier_unchanged.clone()),
@@ -1801,64 +1793,64 @@ mod tests {
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::BoolEq(EqExpression::new(
-                            BooleanExpression::from_value(false),
-                            BooleanExpression::from_value(false)
+                            BooleanExpression::value(false),
+                            BooleanExpression::value(false)
                         ))
                     ),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
 
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::BoolEq(EqExpression::new(
-                            BooleanExpression::from_value(true),
-                            BooleanExpression::from_value(true)
+                            BooleanExpression::value(true),
+                            BooleanExpression::value(true)
                         ))
                     ),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
 
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::BoolEq(EqExpression::new(
-                            BooleanExpression::from_value(true),
-                            BooleanExpression::from_value(false)
+                            BooleanExpression::value(true),
+                            BooleanExpression::value(false)
                         ))
                     ),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
 
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::BoolEq(EqExpression::new(
-                            BooleanExpression::from_value(false),
-                            BooleanExpression::from_value(true)
+                            BooleanExpression::value(false),
+                            BooleanExpression::value(true)
                         ))
                     ),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
             }
 
             #[test]
             fn array_eq() {
                 let e_constant_true = BooleanExpression::ArrayEq(BinaryExpression::new(
-                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
-                        FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
+                    ArrayExpression::value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::value(Bn128Field::from(2usize)).into(),
                     )])
                     .annotate(Type::FieldElement, 1u32),
-                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
-                        FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
+                    ArrayExpression::value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::value(Bn128Field::from(2usize)).into(),
                     )])
                     .annotate(Type::FieldElement, 1u32),
                 ));
 
                 let e_constant_false = BooleanExpression::ArrayEq(BinaryExpression::new(
-                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
-                        FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
+                    ArrayExpression::value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::value(Bn128Field::from(2usize)).into(),
                     )])
                     .annotate(Type::FieldElement, 1u32),
-                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
-                        FieldElementExpression::from_value(Bn128Field::from(4usize)).into(),
+                    ArrayExpression::value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::value(Bn128Field::from(4usize)).into(),
                     )])
                     .annotate(Type::FieldElement, 1u32),
                 ));
@@ -1876,46 +1868,46 @@ mod tests {
                     ));
 
                 let e_non_canonical_true = BooleanExpression::ArrayEq(BinaryExpression::new(
-                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Spread(
-                        ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
-                            FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
+                    ArrayExpression::value(vec![TypedExpressionOrSpread::Spread(
+                        ArrayExpression::value(vec![TypedExpressionOrSpread::Expression(
+                            FieldElementExpression::value(Bn128Field::from(2usize)).into(),
                         )])
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                     )])
                     .annotate(Type::FieldElement, 1u32),
-                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
-                        FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
+                    ArrayExpression::value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::value(Bn128Field::from(2usize)).into(),
                     )])
                     .annotate(Type::FieldElement, 1u32),
                 ));
 
                 let e_non_canonical_false = BooleanExpression::ArrayEq(BinaryExpression::new(
-                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Spread(
-                        ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
-                            FieldElementExpression::from_value(Bn128Field::from(2usize)).into(),
+                    ArrayExpression::value(vec![TypedExpressionOrSpread::Spread(
+                        ArrayExpression::value(vec![TypedExpressionOrSpread::Expression(
+                            FieldElementExpression::value(Bn128Field::from(2usize)).into(),
                         )])
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                     )])
                     .annotate(Type::FieldElement, 1u32),
-                    ArrayExpression::from_value(vec![TypedExpressionOrSpread::Expression(
-                        FieldElementExpression::from_value(Bn128Field::from(4usize)).into(),
+                    ArrayExpression::value(vec![TypedExpressionOrSpread::Expression(
+                        FieldElementExpression::value(Bn128Field::from(4usize)).into(),
                     )])
                     .annotate(Type::FieldElement, 1u32),
                 ));
 
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_constant_true),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_constant_false),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_identifier_true),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_identifier_unchanged.clone()),
@@ -1923,99 +1915,99 @@ mod tests {
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_non_canonical_true),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_non_canonical_false),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
             }
 
             #[test]
             fn lt() {
                 let e_true = BooleanExpression::field_lt(
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
-                    FieldElementExpression::from_value(Bn128Field::from(4)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(4)),
                 );
 
                 let e_false = BooleanExpression::field_lt(
-                    FieldElementExpression::from_value(Bn128Field::from(4)),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(4)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_true),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_false),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
             }
 
             #[test]
             fn le() {
                 let e_true = BooleanExpression::field_le(
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                 );
 
                 let e_false = BooleanExpression::field_le(
-                    FieldElementExpression::from_value(Bn128Field::from(4)),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(4)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_true),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_false),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
             }
 
             #[test]
             fn gt() {
                 let e_true = BooleanExpression::field_gt(
-                    FieldElementExpression::from_value(Bn128Field::from(5)),
-                    FieldElementExpression::from_value(Bn128Field::from(4)),
+                    FieldElementExpression::value(Bn128Field::from(5)),
+                    FieldElementExpression::value(Bn128Field::from(4)),
                 );
 
                 let e_false = BooleanExpression::field_gt(
-                    FieldElementExpression::from_value(Bn128Field::from(4)),
-                    FieldElementExpression::from_value(Bn128Field::from(5)),
+                    FieldElementExpression::value(Bn128Field::from(4)),
+                    FieldElementExpression::value(Bn128Field::from(5)),
                 );
 
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_true),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_false),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
             }
 
             #[test]
             fn ge() {
                 let e_true = BooleanExpression::field_ge(
-                    FieldElementExpression::from_value(Bn128Field::from(5)),
-                    FieldElementExpression::from_value(Bn128Field::from(5)),
+                    FieldElementExpression::value(Bn128Field::from(5)),
+                    FieldElementExpression::value(Bn128Field::from(5)),
                 );
 
                 let e_false = BooleanExpression::field_ge(
-                    FieldElementExpression::from_value(Bn128Field::from(4)),
-                    FieldElementExpression::from_value(Bn128Field::from(5)),
+                    FieldElementExpression::value(Bn128Field::from(4)),
+                    FieldElementExpression::value(Bn128Field::from(5)),
                 );
 
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_true),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::default().fold_boolean_expression(e_false),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
             }
 
@@ -2026,7 +2018,7 @@ mod tests {
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitand(
-                            BooleanExpression::from_value(true),
+                            BooleanExpression::value(true),
                             BooleanExpression::identifier(a_bool.clone())
                         )
                     ),
@@ -2036,7 +2028,7 @@ mod tests {
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitand(
                             BooleanExpression::identifier(a_bool.clone()),
-                            BooleanExpression::from_value(true),
+                            BooleanExpression::value(true),
                         )
                     ),
                     Ok(BooleanExpression::identifier(a_bool.clone()))
@@ -2044,56 +2036,56 @@ mod tests {
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitand(
-                            BooleanExpression::from_value(false),
+                            BooleanExpression::value(false),
                             BooleanExpression::identifier(a_bool.clone())
                         )
                     ),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitand(
                             BooleanExpression::identifier(a_bool.clone()),
-                            BooleanExpression::from_value(false),
+                            BooleanExpression::value(false),
                         )
                     ),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitand(
-                            BooleanExpression::from_value(true),
-                            BooleanExpression::from_value(false),
+                            BooleanExpression::value(true),
+                            BooleanExpression::value(false),
                         )
                     ),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitand(
-                            BooleanExpression::from_value(false),
-                            BooleanExpression::from_value(true),
+                            BooleanExpression::value(false),
+                            BooleanExpression::value(true),
                         )
                     ),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitand(
-                            BooleanExpression::from_value(true),
-                            BooleanExpression::from_value(true),
+                            BooleanExpression::value(true),
+                            BooleanExpression::value(true),
                         )
                     ),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitand(
-                            BooleanExpression::from_value(false),
-                            BooleanExpression::from_value(false),
+                            BooleanExpression::value(false),
+                            BooleanExpression::value(false),
                         )
                     ),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
             }
 
@@ -2104,25 +2096,25 @@ mod tests {
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitor(
-                            BooleanExpression::from_value(true),
+                            BooleanExpression::value(true),
                             BooleanExpression::identifier(a_bool.clone())
                         )
                     ),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitor(
                             BooleanExpression::identifier(a_bool.clone()),
-                            BooleanExpression::from_value(true),
+                            BooleanExpression::value(true),
                         )
                     ),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitor(
-                            BooleanExpression::from_value(false),
+                            BooleanExpression::value(false),
                             BooleanExpression::identifier(a_bool.clone())
                         )
                     ),
@@ -2132,7 +2124,7 @@ mod tests {
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitor(
                             BooleanExpression::identifier(a_bool.clone()),
-                            BooleanExpression::from_value(false),
+                            BooleanExpression::value(false),
                         )
                     ),
                     Ok(BooleanExpression::identifier(a_bool.clone()))
@@ -2140,38 +2132,38 @@ mod tests {
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitor(
-                            BooleanExpression::from_value(true),
-                            BooleanExpression::from_value(false),
+                            BooleanExpression::value(true),
+                            BooleanExpression::value(false),
                         )
                     ),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitor(
-                            BooleanExpression::from_value(false),
-                            BooleanExpression::from_value(true),
+                            BooleanExpression::value(false),
+                            BooleanExpression::value(true),
                         )
                     ),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitor(
-                            BooleanExpression::from_value(true),
-                            BooleanExpression::from_value(true),
+                            BooleanExpression::value(true),
+                            BooleanExpression::value(true),
                         )
                     ),
-                    Ok(BooleanExpression::from_value(true))
+                    Ok(BooleanExpression::value(true))
                 );
                 assert_eq!(
                     Propagator::<Bn128Field>::default().fold_boolean_expression(
                         BooleanExpression::bitor(
-                            BooleanExpression::from_value(false),
-                            BooleanExpression::from_value(false),
+                            BooleanExpression::value(false),
+                            BooleanExpression::value(false),
                         )
                     ),
-                    Ok(BooleanExpression::from_value(false))
+                    Ok(BooleanExpression::value(false))
                 );
             }
         }

@@ -34,17 +34,17 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
         let span = flat_expression.get_span();
 
         match flat_expression {
-            FlatExpression::Number(ref n) if n.value == T::from(0) => LinComb::zero(),
-            FlatExpression::Number(n) => LinComb::summand(n.value, Variable::one()),
+            FlatExpression::Value(ref n) if n.value == T::from(0) => LinComb::zero(),
+            FlatExpression::Value(n) => LinComb::summand(n.value, Variable::one()),
             FlatExpression::Identifier(id) => LinComb::from(id.id),
             FlatExpression::Add(e) => LinComb::from(*e.left) + LinComb::from(*e.right),
             FlatExpression::Sub(e) => LinComb::from(*e.left) - LinComb::from(*e.right),
             FlatExpression::Mult(e) => match (*e.left, *e.right) {
-                (FlatExpression::Number(n1), FlatExpression::Identifier(v1))
-                | (FlatExpression::Identifier(v1), FlatExpression::Number(n1)) => {
+                (FlatExpression::Value(n1), FlatExpression::Identifier(v1))
+                | (FlatExpression::Identifier(v1), FlatExpression::Value(n1)) => {
                     LinComb::summand(n1.value, v1.id)
                 }
-                (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
+                (FlatExpression::Value(n1), FlatExpression::Value(n2)) => {
                     LinComb::summand(n1.value * n2.value, Variable::one())
                 }
                 (left, right) => unreachable!("{}", FlatExpression::mul(left, right).span(e.span)),
@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn zero() {
         // 0
-        let zero = FlatExpression::from_value(Bn128Field::from(0));
+        let zero = FlatExpression::value(Bn128Field::from(0));
         let expected: LinComb<Bn128Field> = LinComb::zero();
         assert_eq!(LinComb::from(zero), expected);
     }
@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn one() {
         // 1
-        let one = FlatExpression::from_value(Bn128Field::from(1));
+        let one = FlatExpression::value(Bn128Field::from(1));
         let expected: LinComb<Bn128Field> = Variable::one().into();
         assert_eq!(LinComb::from(one), expected);
     }
@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn forty_two() {
         // 42
-        let one = FlatExpression::from_value(Bn128Field::from(42));
+        let one = FlatExpression::value(Bn128Field::from(42));
         let expected: LinComb<Bn128Field> = LinComb::summand(42, Variable::one());
         assert_eq!(LinComb::from(one), expected);
     }
@@ -152,11 +152,11 @@ mod tests {
         // 42*x + 21*y
         let add = FlatExpression::add(
             FlatExpression::mul(
-                FlatExpression::from_value(Bn128Field::from(42)),
+                FlatExpression::value(Bn128Field::from(42)),
                 FlatExpression::identifier(Variable::new(42)),
             ),
             FlatExpression::mul(
-                FlatExpression::from_value(Bn128Field::from(21)),
+                FlatExpression::value(Bn128Field::from(21)),
                 FlatExpression::identifier(Variable::new(21)),
             ),
         );
@@ -171,11 +171,11 @@ mod tests {
         let add = FlatExpression::add(
             FlatExpression::mul(
                 FlatExpression::identifier(Variable::new(42)),
-                FlatExpression::from_value(Bn128Field::from(42)),
+                FlatExpression::value(Bn128Field::from(42)),
             ),
             FlatExpression::mul(
                 FlatExpression::identifier(Variable::new(21)),
-                FlatExpression::from_value(Bn128Field::from(21)),
+                FlatExpression::value(Bn128Field::from(21)),
             ),
         );
         let expected: LinComb<Bn128Field> =

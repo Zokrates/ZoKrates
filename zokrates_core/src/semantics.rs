@@ -2446,8 +2446,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let span: SourceSpan = expr.span().in_module(module_id);
 
         match expr.value {
-            Expression::IntConstant(v) => Ok(IntExpression::from_value(v).with_span(span).into()),
-            Expression::BooleanConstant(b) => Ok(BooleanExpression::from_value(b).with_span(span).into()),
+            Expression::IntConstant(v) => Ok(IntExpression::value(v).with_span(span).into()),
+            Expression::BooleanConstant(b) => Ok(BooleanExpression::value(b).with_span(span).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
                 match self.scope.get(name) {
@@ -2783,7 +2783,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }
             }
-            Expression::FieldConstant(n) => Ok(FieldElementExpression::Number(
+            Expression::FieldConstant(n) => Ok(FieldElementExpression::Value(
                 T::try_from(n)
                     .map(ValueExpression::new)
                     .map_err(|_| ErrorInner {
@@ -2796,10 +2796,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     })?,
             ).with_span(span)
             .into()),
-            Expression::U8Constant(n) => Ok(UExpression::from_value(n.into()).annotate(8).with_span(span).into()),
-            Expression::U16Constant(n) => Ok(UExpression::from_value(n.into()).annotate(16).with_span(span).into()),
-            Expression::U32Constant(n) => Ok(UExpression::from_value(n.into()).annotate(32).with_span(span).into()),
-            Expression::U64Constant(n) => Ok(UExpression::from_value(n.into()).annotate(64).with_span(span).into()),
+            Expression::U8Constant(n) => Ok(UExpression::value(n.into()).annotate(8).with_span(span).into()),
+            Expression::U16Constant(n) => Ok(UExpression::value(n.into()).annotate(16).with_span(span).into()),
+            Expression::U32Constant(n) => Ok(UExpression::value(n.into()).annotate(32).with_span(span).into()),
+            Expression::U64Constant(n) => Ok(UExpression::value(n.into()).annotate(64).with_span(span).into()),
             Expression::FunctionCall(box fun_id_expression, generics, arguments) => self
                 .check_function_call_expression(
                     fun_id_expression,
@@ -3285,7 +3285,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Type::Int => expressions_or_spreads_checked,
                     t => {
                         let target_array_ty =
-                            ArrayType::new(t, UExpression::from_value(0).annotate(UBitwidth::B32));
+                            ArrayType::new(t, UExpression::value(0).annotate(UBitwidth::B32));
 
                         expressions_or_spreads_checked
                             .into_iter()
@@ -3325,7 +3325,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .unwrap_or_else(|| 0u32.into());
 
                 Ok(
-                    ArrayExpression::from_value(unwrapped_expressions_or_spreads)
+                    ArrayExpression::value(unwrapped_expressions_or_spreads)
                         .annotate(inferred_type, size)
                         .into(),
                 )
@@ -3336,7 +3336,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .map(|e| self.check_expression(e, module_id, types))
                     .collect::<Result<_, _>>()?;
                 let ty = TupleType::new(elements.iter().map(|e| e.get_type()).collect());
-                Ok(TupleExpression::from_value(elements).annotate(ty).into())
+                Ok(TupleExpression::value(elements).annotate(ty).into())
             }
             Expression::ArrayInitializer(box e, box count) => {
                 let e = self.check_expression(e, module_id, types)?;
@@ -3484,7 +3484,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     members,
                 };
 
-                Ok(StructExpression::from_value(inferred_values)
+                Ok(StructExpression::value(inferred_values)
                     .annotate(inferred_struct_type)
                     .into())
             }
@@ -5464,7 +5464,7 @@ mod tests {
                         Type::FieldElement,
                     )
                     .into(),
-                    FieldElementExpression::from_value(2u32.into()).into(),
+                    FieldElementExpression::value(2u32.into()).into(),
                 ),
                 TypedStatement::for_(
                     typed::Variable::new(
@@ -5480,7 +5480,7 @@ mod tests {
                                 Type::FieldElement,
                             )
                             .into(),
-                            FieldElementExpression::from_value(3u32.into()).into(),
+                            FieldElementExpression::value(3u32.into()).into(),
                         ),
                         TypedStatement::definition(
                             typed::Variable::new(
@@ -5488,7 +5488,7 @@ mod tests {
                                 Type::FieldElement,
                             )
                             .into(),
-                            FieldElementExpression::from_value(4u32.into()).into(),
+                            FieldElementExpression::value(4u32.into()).into(),
                         ),
                     ],
                 ),
@@ -5498,7 +5498,7 @@ mod tests {
                         Type::FieldElement,
                     )
                     .into(),
-                    FieldElementExpression::from_value(5u32.into()).into(),
+                    FieldElementExpression::value(5u32.into()).into(),
                 ),
             ];
 
@@ -5939,7 +5939,7 @@ mod tests {
                         &state.types
                     ),
                     Ok(FieldElementExpression::member(
-                        StructExpression::from_value(vec![FieldElementExpression::from_value(
+                        StructExpression::value(vec![FieldElementExpression::value(
                             Bn128Field::from(42u32)
                         )
                         .into()])
@@ -6063,9 +6063,9 @@ mod tests {
                         &*MODULE_ID,
                         &state.types
                     ),
-                    Ok(StructExpression::from_value(vec![
-                        FieldElementExpression::from_value(Bn128Field::from(42u32)).into(),
-                        BooleanExpression::from_value(true).into()
+                    Ok(StructExpression::value(vec![
+                        FieldElementExpression::value(Bn128Field::from(42u32)).into(),
+                        BooleanExpression::value(true).into()
                     ])
                     .annotate(StructType::new(
                         "".into(),
@@ -6116,9 +6116,9 @@ mod tests {
                         &*MODULE_ID,
                         &state.types
                     ),
-                    Ok(StructExpression::from_value(vec![
-                        FieldElementExpression::from_value(Bn128Field::from(42u32)).into(),
-                        BooleanExpression::from_value(true).into()
+                    Ok(StructExpression::value(vec![
+                        FieldElementExpression::value(Bn128Field::from(42u32)).into(),
+                        BooleanExpression::value(true).into()
                     ])
                     .annotate(StructType::new(
                         "".into(),

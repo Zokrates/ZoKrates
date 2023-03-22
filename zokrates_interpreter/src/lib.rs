@@ -180,23 +180,23 @@ impl Interpreter {
                     .map(|(a, v)| match &a.id.ty {
                         zir::Type::FieldElement => Ok((
                             a.id.id.clone(),
-                            zokrates_ast::zir::FieldElementExpression::from_value(v.clone()).into(),
+                            zokrates_ast::zir::FieldElementExpression::value(v.clone()).into(),
                         )),
                         zir::Type::Boolean => match v {
                             v if *v == T::from(0) => Ok((
                                 a.id.id.clone(),
-                                zokrates_ast::zir::BooleanExpression::from_value(false).into(),
+                                zokrates_ast::zir::BooleanExpression::value(false).into(),
                             )),
                             v if *v == T::from(1) => Ok((
                                 a.id.id.clone(),
-                                zokrates_ast::zir::BooleanExpression::from_value(true).into(),
+                                zokrates_ast::zir::BooleanExpression::value(true).into(),
                             )),
                             v => Err(format!("`{}` has unexpected value `{}`", a.id, v)),
                         },
                         zir::Type::Uint(bitwidth) => match v.bits() <= bitwidth.to_usize() as u32 {
                             true => Ok((
                                 a.id.id.clone(),
-                                zokrates_ast::zir::UExpression::from_value(
+                                zokrates_ast::zir::UExpression::value(
                                     v.to_dec_string().parse::<u128>().unwrap(),
                                 )
                                 .annotate(*bitwidth)
@@ -226,7 +226,7 @@ impl Interpreter {
                         .into_iter()
                         .map(|v| match v {
                             zokrates_ast::zir::ZirExpression::FieldElement(
-                                zokrates_ast::zir::FieldElementExpression::Number(n),
+                                zokrates_ast::zir::FieldElementExpression::Value(n),
                             ) => n.value,
                             _ => unreachable!(),
                         })

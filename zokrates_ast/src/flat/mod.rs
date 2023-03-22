@@ -47,7 +47,7 @@ pub struct FlatFunctionIterator<'ast, T, I: IntoIterator<Item = FlatStatement<'a
     pub arguments: Vec<Parameter>,
     /// Vector of statements that are executed when running the function
     pub statements: I,
-    /// Number of outputs
+    /// Value of outputs
     pub return_count: usize,
 }
 
@@ -305,7 +305,7 @@ impl<'ast, T: Field> FlatStatement<'ast, T> {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum FlatExpression<T> {
-    Number(ValueExpression<T>),
+    Value(ValueExpression<T>),
     Identifier(IdentifierExpression<Variable, Self>),
     Add(BinaryExpression<OpAdd, Self, Self, Self>),
     Sub(BinaryExpression<OpSub, Self, Self, Self>),
@@ -338,7 +338,7 @@ impl<T> std::ops::Mul for FlatExpression<T> {
 
 impl<T> From<T> for FlatExpression<T> {
     fn from(other: T) -> Self {
-        Self::from_value(other)
+        Self::value(other)
     }
 }
 
@@ -364,13 +364,13 @@ impl<T> FlatExpression<T> {
         Self::Identifier(IdentifierExpression::new(v))
     }
 
-    pub fn from_value(t: T) -> Self {
-        Self::Number(ValueExpression::new(t))
+    pub fn value(t: T) -> Self {
+        Self::Value(ValueExpression::new(t))
     }
 
     pub fn apply_substitution(self, substitution: &HashMap<Variable, Variable>) -> Self {
         match self {
-            e @ FlatExpression::Number(_) => e,
+            e @ FlatExpression::Value(_) => e,
             FlatExpression::Identifier(id) => {
                 FlatExpression::Identifier(id.apply_substitution(substitution))
             }
@@ -382,19 +382,19 @@ impl<T> FlatExpression<T> {
 
     pub fn is_linear(&self) -> bool {
         match *self {
-            FlatExpression::Number(_) | FlatExpression::Identifier(_) => true,
+            FlatExpression::Value(_) | FlatExpression::Identifier(_) => true,
             FlatExpression::Add(ref e) => e.left.is_linear() && e.right.is_linear(),
             FlatExpression::Sub(ref e) => e.left.is_linear() && e.right.is_linear(),
             FlatExpression::Mult(ref e) => matches!(
                 (&e.left, &e.right),
-                (box FlatExpression::Number(_), box FlatExpression::Number(_))
+                (box FlatExpression::Value(_), box FlatExpression::Value(_))
                     | (
-                        box FlatExpression::Number(_),
+                        box FlatExpression::Value(_),
                         box FlatExpression::Identifier(_)
                     )
                     | (
                         box FlatExpression::Identifier(_),
-                        box FlatExpression::Number(_)
+                        box FlatExpression::Value(_)
                     )
             ),
         }
@@ -404,7 +404,7 @@ impl<T> FlatExpression<T> {
 impl<T: Field> fmt::Display for FlatExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FlatExpression::Number(ref i) => write!(f, "{}", i),
+            FlatExpression::Value(ref i) => write!(f, "{}", i),
             FlatExpression::Identifier(ref var) => write!(f, "{}", var),
             FlatExpression::Add(ref e) => write!(f, "{}", e),
             FlatExpression::Sub(ref e) => write!(f, "{}", e),
@@ -437,7 +437,7 @@ impl<T> WithSpan for FlatExpression<T> {
             Add(e) => Add(e.span(span)),
             Sub(e) => Sub(e.span(span)),
             Mult(e) => Mult(e.span(span)),
-            Number(e) => Number(e.span(span)),
+            Value(e) => Value(e.span(span)),
             Identifier(e) => Identifier(e.span(span)),
         }
     }
@@ -448,7 +448,7 @@ impl<T> WithSpan for FlatExpression<T> {
             Add(e) => e.get_span(),
             Sub(e) => e.get_span(),
             Mult(e) => e.get_span(),
-            Number(e) => e.get_span(),
+            Value(e) => e.get_span(),
             Identifier(e) => e.get_span(),
         }
     }

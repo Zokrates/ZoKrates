@@ -66,7 +66,7 @@ impl<'ast> VariableWriteRemover {
                                 RuntimeError::SelectRangeCheck,
                             ));
 
-                            ArrayExpression::from_value(
+                            ArrayExpression::value(
                                 (0..size)
                                     .map(|i| match inner_ty {
                                         Type::Int => unreachable!(),

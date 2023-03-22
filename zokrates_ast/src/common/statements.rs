@@ -270,3 +270,9 @@ impl<E> WithSpan for AssemblyConstraint<E> {
         self.span
     }
 }
+
+impl<E: fmt::Display> fmt::Display for AssemblyConstraint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} === {};", self.left, self.right)
+    }
+}

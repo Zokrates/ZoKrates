@@ -343,9 +343,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             }
         };
 
-        let res = self.statement_buffer.drain(..).chain(res).collect();
-
-        Ok(res)
+        Ok(self.statement_buffer.drain(..).chain(res).collect())
     }
 
     fn fold_slice_expression(
@@ -673,10 +671,9 @@ mod tests {
                 ),
                 TypedStatement::definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
-                    ArrayExpression::from_value(vec![FieldElementExpression::identifier(
-                        "a".into(),
-                    )
-                    .into()])
+                    ArrayExpression::value(vec![
+                        FieldElementExpression::identifier("a".into()).into()
+                    ])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
@@ -750,10 +747,9 @@ mod tests {
             statements: vec![
                 TypedStatement::definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
-                    ArrayExpression::from_value(vec![FieldElementExpression::identifier(
-                        "a".into(),
-                    )
-                    .into()])
+                    ArrayExpression::value(vec![
+                        FieldElementExpression::identifier("a".into()).into()
+                    ])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
@@ -885,10 +881,9 @@ mod tests {
                         ),
                     )
                     .into(),
-                    ArrayExpression::from_value(vec![FieldElementExpression::identifier(
-                        "a".into(),
-                    )
-                    .into()])
+                    ArrayExpression::value(vec![
+                        FieldElementExpression::identifier("a".into()).into()
+                    ])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
@@ -962,10 +957,9 @@ mod tests {
             statements: vec![
                 TypedStatement::definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
-                    ArrayExpression::from_value(vec![FieldElementExpression::identifier(
-                        "a".into(),
-                    )
-                    .into()])
+                    ArrayExpression::value(vec![
+                        FieldElementExpression::identifier("a".into()).into()
+                    ])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
@@ -1079,13 +1073,13 @@ mod tests {
                             DeclarationFunctionKey::with_location("main", "bar")
                                 .signature(foo_signature.clone()),
                             vec![None],
-                            vec![ArrayExpression::from_value(vec![
+                            vec![ArrayExpression::value(vec![
                                 TypedExpressionOrSpread::Spread(
                                     ArrayExpression::identifier("a".into())
                                         .annotate(Type::FieldElement, 1u32)
                                         .into(),
                                 ),
-                                FieldElementExpression::from_value(Bn128Field::from(0)).into(),
+                                FieldElementExpression::value(Bn128Field::from(0)).into(),
                             ])
                             .annotate(
                                 Type::FieldElement,
@@ -1145,9 +1139,10 @@ mod tests {
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
-                        vec![ArrayExpression::from_value(vec![
-                            FieldElementExpression::from_value(Bn128Field::from(1)).into(),
-                        ])
+                        vec![ArrayExpression::value(vec![FieldElementExpression::value(
+                            Bn128Field::from(1),
+                        )
+                        .into()])
                         .annotate(Type::FieldElement, 1u32)
                         .into()],
                     )
@@ -1155,7 +1150,7 @@ mod tests {
                     .into(),
                 ),
                 TypedStatement::ret(
-                    TupleExpression::from_value(vec![])
+                    TupleExpression::value(vec![])
                         .annotate(TupleType::new(vec![]))
                         .into(),
                 ),
@@ -1199,7 +1194,7 @@ mod tests {
         let expected_main = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::ret(
-                TupleExpression::from_value(vec![])
+                TupleExpression::value(vec![])
                     .annotate(TupleType::new(vec![]))
                     .into(),
             )],
@@ -1277,7 +1272,7 @@ mod tests {
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
-                        vec![ArrayExpression::from_value(vec![])
+                        vec![ArrayExpression::value(vec![])
                             .annotate(Type::FieldElement, 0u32)
                             .into()],
                     )
@@ -1285,7 +1280,7 @@ mod tests {
                     .into(),
                 ),
                 TypedStatement::ret(
-                    TupleExpression::from_value(vec![])
+                    TupleExpression::value(vec![])
                         .annotate(TupleType::new(vec![]))
                         .into(),
                 ),

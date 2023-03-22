@@ -28,7 +28,7 @@ use derivative::Derivative;
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
-pub use self::identifier::{Identifier, SourceIdentifier};
+pub use self::identifier::Identifier;
 use serde::{Deserialize, Serialize};
 
 /// A typed program as a collection of modules, one of them being the main
@@ -51,7 +51,6 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ZirFunction<'ast, T> {
     /// Arguments of the function
-    #[serde(borrow)]
     pub arguments: Vec<Parameter<'ast>>,
     /// Vector of statements that are executed when running the function
     #[serde(borrow)]
@@ -190,7 +189,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
                 )
             }
             ZirAssemblyStatement::Constraint(ref s) => {
-                write!(f, "{} === {};", s.left, s.right)
+                write!(f, "{}", s)
             }
         }
     }
@@ -289,20 +288,20 @@ impl<'ast, T: fmt::Display> fmt::Display for MultipleDefinitionStatement<'ast, T
 #[derive(Derivative)]
 #[derivative(PartialEq, Hash)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AssemblyStatement<'ast, T> {
+pub struct AssemblyBlockStatement<'ast, T> {
     #[derivative(PartialEq = "ignore", PartialOrd = "ignore", Hash = "ignore")]
     pub span: Option<Span>,
     #[serde(borrow)]
     pub inner: Vec<ZirAssemblyStatement<'ast, T>>,
 }
 
-impl<'ast, T> AssemblyStatement<'ast, T> {
+impl<'ast, T> AssemblyBlockStatement<'ast, T> {
     pub fn new(inner: Vec<ZirAssemblyStatement<'ast, T>>) -> Self {
         Self { span: None, inner }
     }
 }
 
-impl<'ast, T> WithSpan for AssemblyStatement<'ast, T> {
+impl<'ast, T> WithSpan for AssemblyBlockStatement<'ast, T> {
     fn span(mut self, span: Option<Span>) -> Self {
         self.span = span;
         self
@@ -325,7 +324,7 @@ pub enum ZirStatement<'ast, T> {
     MultipleDefinition(MultipleDefinitionStatement<'ast, T>),
     Log(LogStatement<'ast, T>),
     #[serde(borrow)]
-    Assembly(AssemblyStatement<'ast, T>),
+    Assembly(AssemblyBlockStatement<'ast, T>),
 }
 
 impl<'ast, T> ZirStatement<'ast, T> {
@@ -349,7 +348,7 @@ impl<'ast, T> ZirStatement<'ast, T> {
     }
 
     pub fn assembly(s: Vec<ZirAssemblyStatement<'ast, T>>) -> Self {
-        Self::Assembly(AssemblyStatement::new(s))
+        Self::Assembly(AssemblyBlockStatement::new(s))
     }
 
     pub fn if_else(
@@ -570,9 +569,10 @@ impl<'ast, T, E> WithSpan for SelectExpression<'ast, T, E> {
 #[derivative(PartialEq, Hash)]
 #[derive(Clone, Serialize, Deserialize)]
 pub enum ZirExpression<'ast, T> {
+    #[serde(borrow)]
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
-    Uint(#[serde(borrow)] UExpression<'ast, T>),
+    Uint(UExpression<'ast, T>),
 }
 
 impl<'ast, T> WithSpan for ZirExpression<'ast, T> {
@@ -683,7 +683,7 @@ pub type IdentifierExpression<'ast, E> = expressions::IdentifierExpression<Ident
 #[derivative(PartialEq, Eq, Hash)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum FieldElementExpression<'ast, T> {
-    Number(ValueExpression<T>),
+    Value(ValueExpression<T>),
     #[serde(borrow)]
     Identifier(IdentifierExpression<'ast, Self>),
     Select(SelectExpression<'ast, T, Self>),
@@ -702,7 +702,7 @@ pub enum FieldElementExpression<'ast, T> {
 
 impl<'ast, T> FieldElementExpression<'ast, T> {
     pub fn number(n: T) -> Self {
-        Self::Number(ValueExpression::new(n))
+        Self::Value(ValueExpression::new(n))
     }
 
     pub fn pow(self, right: UExpression<'ast, T>) -> Self {
@@ -711,13 +711,13 @@ impl<'ast, T> FieldElementExpression<'ast, T> {
 
     pub fn is_linear(&self) -> bool {
         match self {
-            FieldElementExpression::Number(_) => true,
+            FieldElementExpression::Value(_) => true,
             FieldElementExpression::Identifier(_) => true,
             FieldElementExpression::Add(e) => e.left.is_linear() && e.right.is_linear(),
             FieldElementExpression::Sub(e) => e.left.is_linear() && e.right.is_linear(),
             FieldElementExpression::Mult(e) => matches!(
                 (&*e.left, &*e.right),
-                (FieldElementExpression::Number(_), _) | (_, FieldElementExpression::Number(_))
+                (FieldElementExpression::Value(_), _) | (_, FieldElementExpression::Value(_))
             ),
             _ => false,
         }
@@ -857,7 +857,7 @@ impl<'ast, T> From<ZirExpression<'ast, T>> for UExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FieldElementExpression::Number(ref i) => write!(f, "{}", i),
+            FieldElementExpression::Value(ref i) => write!(f, "{}", i),
             FieldElementExpression::Identifier(ref var) => write!(f, "{}", var),
             FieldElementExpression::Select(ref e) => write!(f, "{}", e),
             FieldElementExpression::Add(ref e) => write!(f, "{}", e),
@@ -1066,10 +1066,6 @@ impl<'ast, T: Field> std::ops::Div for FieldElementExpression<'ast, T> {
 
 impl<'ast, T: Clone> Value for FieldElementExpression<'ast, T> {
     type Value = T;
-
-    fn as_value(&self) -> Option<&Self::Value> {
-        unimplemented!()
-    }
 }
 
 impl<'ast, T> Value for BooleanExpression<'ast, T> {
@@ -1093,7 +1089,7 @@ pub trait Expr<'ast, T>: Value + fmt::Display + PartialEq + From<ZirExpression<'
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner;
 
-    fn from_value(_: Self::Value) -> Self::Inner;
+    fn value(_: Self::Value) -> Self::Inner;
 }
 
 impl<'ast, T: Field> Expr<'ast, T> for FieldElementExpression<'ast, T> {
@@ -1116,8 +1112,8 @@ impl<'ast, T: Field> Expr<'ast, T> for FieldElementExpression<'ast, T> {
         self
     }
 
-    fn from_value(v: Self::Value) -> Self::Inner {
-        Self::Number(ValueExpression::new(v))
+    fn value(v: <Self as Value>::Value) -> Self::Inner {
+        Self::Value(ValueExpression::new(v))
     }
 }
 
@@ -1141,7 +1137,7 @@ impl<'ast, T: Field> Expr<'ast, T> for BooleanExpression<'ast, T> {
         self
     }
 
-    fn from_value(v: <crate::zir::BooleanExpression<'ast, T> as Value>::Value) -> Self::Inner {
+    fn value(v: <crate::zir::BooleanExpression<'ast, T> as Value>::Value) -> Self::Inner {
         Self::Value(ValueExpression::new(v))
     }
 }
@@ -1166,7 +1162,7 @@ impl<'ast, T: Field> Expr<'ast, T> for UExpression<'ast, T> {
         &mut self.inner
     }
 
-    fn from_value(v: Self::Value) -> Self::Inner {
+    fn value(v: Self::Value) -> Self::Inner {
         UExpressionInner::Value(ValueExpression::new(v))
     }
 }
@@ -1317,7 +1313,7 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Identifier(e) => Identifier(e.span(span)),
             Conditional(e) => Conditional(e.span(span)),
             Add(e) => Add(e.span(span)),
-            Number(e) => Number(e.span(span)),
+            Value(e) => Value(e.span(span)),
             Sub(e) => Sub(e.span(span)),
             Mult(e) => Mult(e.span(span)),
             Div(e) => Div(e.span(span)),
@@ -1337,7 +1333,7 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Identifier(e) => e.get_span(),
             Conditional(e) => e.get_span(),
             Add(e) => e.get_span(),
-            Number(e) => e.get_span(),
+            Value(e) => e.get_span(),
             Sub(e) => e.get_span(),
             Mult(e) => e.get_span(),
             Div(e) => e.get_span(),
@@ -1452,7 +1448,7 @@ impl<'ast, T> WithSpan for UExpressionInner<'ast, T> {
 
 impl<'ast, T: Field> Constant for FieldElementExpression<'ast, T> {
     fn is_constant(&self) -> bool {
-        matches!(self, FieldElementExpression::Number(..))
+        matches!(self, FieldElementExpression::Value(..))
     }
 }
 

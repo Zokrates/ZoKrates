@@ -78,7 +78,7 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                         BooleanExpression::not(
                             BooleanExpression::field_eq(
                                 d.clone().span(span),
-                                FieldElementExpression::from_value(T::zero()).span(span),
+                                FieldElementExpression::value(T::zero()).span(span),
                             )
                             .span(span),
                         )
@@ -112,12 +112,10 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
         let alternative_panics: Vec<_> = alternative_extractor.panic_buffer.drain(..).collect();
 
         if !(consequence_panics.is_empty() && alternative_panics.is_empty()) {
-            self.panic_buffer
-                .push(ZirStatement::IfElse(IfElseStatement::new(
-                    condition.clone(),
-                    consequence_panics,
-                    alternative_panics,
-                )));
+            self.panic_buffer.push(
+                ZirStatement::if_else(condition.clone(), consequence_panics, alternative_panics)
+                    .span(span),
+            );
         }
 
         ConditionalOrExpression::Conditional(
@@ -141,7 +139,7 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                         BooleanExpression::not(
                             BooleanExpression::uint_eq(
                                 d.clone().span(span),
-                                UExpression::from_value(0).annotate(b).span(span),
+                                UExpression::value(0).annotate(b).span(span),
                             )
                             .span(span),
                         )
@@ -163,11 +161,11 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
         match e {
             // constant range checks are complete, so no panic needs to be extracted
             e @ BooleanExpression::FieldLt(BinaryExpression {
-                left: box FieldElementExpression::Number(_),
+                left: box FieldElementExpression::Value(_),
                 ..
             })
             | e @ BooleanExpression::FieldLt(BinaryExpression {
-                right: box FieldElementExpression::Number(_),
+                right: box FieldElementExpression::Value(_),
                 ..
             }) => fold_boolean_expression_cases(self, e),
             BooleanExpression::FieldLt(e) => {

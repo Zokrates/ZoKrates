@@ -113,9 +113,9 @@ mod tests {
         let s = TypedStatement::definition(
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
-                BooleanExpression::from_value(true),
-                FieldElementExpression::from_value(Bn128Field::from(1)),
-                FieldElementExpression::from_value(Bn128Field::from(2)),
+                BooleanExpression::value(true),
+                FieldElementExpression::value(Bn128Field::from(1)),
+                FieldElementExpression::value(Bn128Field::from(2)),
                 ConditionalKind::IfElse,
             )
             .into(),
@@ -135,8 +135,8 @@ mod tests {
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
                 BooleanExpression::identifier("c".into()),
-                FieldElementExpression::from_value(Bn128Field::from(1)),
-                FieldElementExpression::from_value(Bn128Field::from(2)),
+                FieldElementExpression::value(Bn128Field::from(1)),
+                FieldElementExpression::value(Bn128Field::from(2)),
                 ConditionalKind::IfElse,
             )
             .into(),
@@ -163,8 +163,8 @@ mod tests {
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
                 condition.clone(),
-                FieldElementExpression::from_value(Bn128Field::from(1)),
-                FieldElementExpression::from_value(Bn128Field::from(2)),
+                FieldElementExpression::value(Bn128Field::from(1)),
+                FieldElementExpression::value(Bn128Field::from(2)),
                 ConditionalKind::IfElse,
             )
             .into(),
@@ -183,8 +183,8 @@ mod tests {
                 Variable::field_element("foo").into(),
                 FieldElementExpression::conditional(
                     BooleanExpression::identifier(CoreIdentifier::Condition(0).into()),
-                    FieldElementExpression::from_value(Bn128Field::from(1)),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(1)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                     ConditionalKind::IfElse,
                 )
                 .into(),
@@ -229,11 +229,11 @@ mod tests {
                 condition_0.clone(),
                 FieldElementExpression::conditional(
                     condition_1.clone(),
-                    FieldElementExpression::from_value(Bn128Field::from(1)),
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(1)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                     ConditionalKind::IfElse,
                 ),
-                FieldElementExpression::from_value(Bn128Field::from(3)),
+                FieldElementExpression::value(Bn128Field::from(3)),
                 ConditionalKind::IfElse,
             )
             .into(),
@@ -258,11 +258,11 @@ mod tests {
                     BooleanExpression::identifier(CoreIdentifier::Condition(0).into()),
                     FieldElementExpression::conditional(
                         BooleanExpression::identifier(CoreIdentifier::Condition(1).into()),
-                        FieldElementExpression::from_value(Bn128Field::from(1)),
-                        FieldElementExpression::from_value(Bn128Field::from(2)),
+                        FieldElementExpression::value(Bn128Field::from(1)),
+                        FieldElementExpression::value(Bn128Field::from(2)),
                         ConditionalKind::IfElse,
                     ),
-                    FieldElementExpression::from_value(Bn128Field::from(3)),
+                    FieldElementExpression::value(Bn128Field::from(3)),
                     ConditionalKind::IfElse,
                 )
                 .into(),
@@ -321,24 +321,24 @@ mod tests {
                 FieldElementExpression::block(
                     vec![TypedStatement::definition(
                         Variable::field_element("a").into(),
-                        FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                        FieldElementExpression::value(Bn128Field::from(1)).into(),
                     )],
                     FieldElementExpression::conditional(
                         condition_1.clone(),
-                        FieldElementExpression::from_value(Bn128Field::from(2)),
-                        FieldElementExpression::from_value(Bn128Field::from(3)),
+                        FieldElementExpression::value(Bn128Field::from(2)),
+                        FieldElementExpression::value(Bn128Field::from(3)),
                         ConditionalKind::IfElse,
                     ),
                 ),
                 FieldElementExpression::block(
                     vec![TypedStatement::definition(
                         Variable::field_element("b").into(),
-                        FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                        FieldElementExpression::value(Bn128Field::from(2)).into(),
                     )],
                     FieldElementExpression::conditional(
                         condition_2.clone(),
-                        FieldElementExpression::from_value(Bn128Field::from(2)),
-                        FieldElementExpression::from_value(Bn128Field::from(3)),
+                        FieldElementExpression::value(Bn128Field::from(2)),
+                        FieldElementExpression::value(Bn128Field::from(3)),
                         ConditionalKind::IfElse,
                     ),
                 ),
@@ -364,7 +364,7 @@ mod tests {
                         vec![
                             TypedStatement::definition(
                                 Variable::field_element("a").into(),
-                                FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                                FieldElementExpression::value(Bn128Field::from(1)).into(),
                             ),
                             TypedStatement::definition(
                                 Variable::new(CoreIdentifier::Condition(1), Type::Boolean).into(),
@@ -373,8 +373,8 @@ mod tests {
                         ],
                         FieldElementExpression::conditional(
                             condition_id_1,
-                            FieldElementExpression::from_value(Bn128Field::from(2)),
-                            FieldElementExpression::from_value(Bn128Field::from(3)),
+                            FieldElementExpression::value(Bn128Field::from(2)),
+                            FieldElementExpression::value(Bn128Field::from(3)),
                             ConditionalKind::IfElse,
                         ),
                     ),
@@ -382,7 +382,7 @@ mod tests {
                         vec![
                             TypedStatement::definition(
                                 Variable::field_element("b").into(),
-                                FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                                FieldElementExpression::value(Bn128Field::from(2)).into(),
                             ),
                             TypedStatement::definition(
                                 Variable::new(CoreIdentifier::Condition(2), Type::Boolean).into(),
@@ -391,8 +391,8 @@ mod tests {
                         ],
                         FieldElementExpression::conditional(
                             condition_id_2,
-                            FieldElementExpression::from_value(Bn128Field::from(2)),
-                            FieldElementExpression::from_value(Bn128Field::from(3)),
+                            FieldElementExpression::value(Bn128Field::from(2)),
+                            FieldElementExpression::value(Bn128Field::from(3)),
                             ConditionalKind::IfElse,
                         ),
                     ),

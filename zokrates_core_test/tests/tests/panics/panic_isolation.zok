@@ -18,13 +18,13 @@ def no(bool x) -> bool {
     return x;
 }
 
-def ones<N>(field[N] a) -> field[N] {
-    assert(a == [1; N]);
+def ones(field[2] a) -> field[2] {
+    assert(a == [1, 1]);
     return a;
 }
 
-def twos<N>(field[N] a) -> field[N] {
-    assert(a == [2; N]);
+def twos(field[2] a) -> field[2] {
+    assert(a == [2, 2]);
     return a;
 }
 

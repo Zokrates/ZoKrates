@@ -7,7 +7,7 @@ use super::{
 use zokrates_field::Field;
 
 pub fn f<'ast, T, U: TryInto<T>>(v: U) -> FieldElementExpression<'ast, T> {
-    FieldElementExpression::Number(ValueExpression::new(v.try_into().map_err(|_| ()).unwrap()))
+    FieldElementExpression::Value(ValueExpression::new(v.try_into().map_err(|_| ()).unwrap()))
 }
 
 pub fn a_id<'ast, T: Field, I: TryInto<Identifier<'ast>>>(v: I) -> ArrayExpressionInner<'ast, T> {
@@ -23,7 +23,7 @@ pub fn a<
     values: [E; N],
 ) -> ArrayExpression<'ast, T> {
     let ty = values[0].get_type();
-    ArrayExpression::from_value(
+    ArrayExpression::value(
         values
             .into_iter()
             .map(|e| TypedExpressionOrSpread::Expression(e.into()))
@@ -33,7 +33,7 @@ pub fn a<
 }
 
 pub fn u_32<'ast, T: Field, U: TryInto<u32>>(v: U) -> UExpression<'ast, T> {
-    UExpression::from_value(v.try_into().map_err(|_| ()).unwrap() as u128).annotate(UBitwidth::B32)
+    UExpression::value(v.try_into().map_err(|_| ()).unwrap() as u128).annotate(UBitwidth::B32)
 }
 
 pub fn conditional<'ast, T, E: Conditional<'ast, T>>(
