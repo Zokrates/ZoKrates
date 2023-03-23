@@ -109,7 +109,7 @@ pub fn fold_expression<'ast, T: Field, F: Folder<'ast, T>>(
     e: FlatExpression<T>,
 ) -> FlatExpression<T> {
     match e {
-        FlatExpression::Number(n) => FlatExpression::Number(n),
+        FlatExpression::Value(n) => FlatExpression::Value(n),
         FlatExpression::Identifier(id) => match f.fold_identifier_expression(id) {
             IdentifierOrExpression::Identifier(e) => FlatExpression::Identifier(e),
             IdentifierOrExpression::Expression(e) => e,

@@ -349,7 +349,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                         UExpression::left_shift(
                             force_reduce(left),
-                            UExpression::from_value(by.value).annotate(UBitwidth::B32),
+                            UExpression::value(by.value).annotate(UBitwidth::B32),
                         )
                         .with_max(max)
                     }
@@ -373,7 +373,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                         UExpression::right_shift(
                             force_reduce(left),
-                            UExpression::from_value(by.value).annotate(UBitwidth::B32),
+                            UExpression::value(by.value).annotate(UBitwidth::B32),
                         )
                         .with_max(max)
                     }
@@ -801,7 +801,7 @@ mod tests {
         assert_eq!(
             UintOptimizer::new()
                 .fold_uint_expression(UExpression::conditional(
-                    BooleanExpression::from_value(true),
+                    BooleanExpression::value(true),
                     consequence,
                     alternative
                 ))

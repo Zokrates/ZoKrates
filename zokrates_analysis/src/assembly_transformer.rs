@@ -68,16 +68,16 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                     .into_iter()
                     .map(|(c, i)| {
                         FieldElementExpression::mul(
-                            FieldElementExpression::from_value(c),
+                            FieldElementExpression::value(c),
                             FieldElementExpression::identifier(i),
                         )
                     })
-                    .fold(FieldElementExpression::from_value(T::from(0)), |acc, e| {
+                    .fold(FieldElementExpression::value(T::from(0)), |acc, e| {
                         FieldElementExpression::add(acc, e)
                     });
 
                 let lhs = FieldElementExpression::add(
-                    FieldElementExpression::from_value(lqc.constant),
+                    FieldElementExpression::value(lqc.constant),
                     linear,
                 );
 
@@ -121,13 +121,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                                         }
                                         _ => unreachable!(),
                                     };
-                                    FieldElementExpression::mul(
-                                        FieldElementExpression::from_value(c),
-                                        e,
-                                    )
+                                    FieldElementExpression::mul(FieldElementExpression::value(c), e)
                                 })
                                 .fold(
-                                    FieldElementExpression::from_value(T::from(0)),
+                                    FieldElementExpression::value(T::from(0)),
                                     FieldElementExpression::add,
                                 ),
                             FieldElementExpression::identifier(factor),
@@ -142,13 +139,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for AssemblyTransformer {
                         .map(|(c, i0, i1)| {
                             FieldElementExpression::mul(
                                 FieldElementExpression::mul(
-                                    FieldElementExpression::from_value(T::zero() - c),
+                                    FieldElementExpression::value(T::zero() - c),
                                     FieldElementExpression::identifier(i0),
                                 ),
                                 FieldElementExpression::identifier(i1),
                             )
                         })
-                        .unwrap_or_else(|| FieldElementExpression::from_value(T::from(0)))
+                        .unwrap_or_else(|| FieldElementExpression::value(T::from(0)))
                 };
 
                 let mut propagator = ZirPropagator::default();
@@ -226,7 +223,7 @@ mod tests {
         // x === 1 - a * b; --> (-1) + x === (((-1) * a) * b);
         let lhs = FieldElementExpression::identifier("x".into());
         let rhs = FieldElementExpression::sub(
-            FieldElementExpression::from_value(Bn128Field::from(1)),
+            FieldElementExpression::value(Bn128Field::from(1)),
             FieldElementExpression::mul(
                 FieldElementExpression::identifier("a".into()),
                 FieldElementExpression::identifier("b".into()),
@@ -235,12 +232,12 @@ mod tests {
 
         let expected = vec![ZirAssemblyStatement::constraint(
             FieldElementExpression::add(
-                FieldElementExpression::from_value(Bn128Field::from(-1)),
+                FieldElementExpression::value(Bn128Field::from(-1)),
                 FieldElementExpression::identifier("x".into()),
             ),
             FieldElementExpression::mul(
                 FieldElementExpression::mul(
-                    FieldElementExpression::from_value(Bn128Field::from(-1)),
+                    FieldElementExpression::value(Bn128Field::from(-1)),
                     FieldElementExpression::identifier("a".into()),
                 ),
                 FieldElementExpression::identifier("b".into()),
@@ -316,7 +313,7 @@ mod tests {
                         ),
                         FieldElementExpression::mul(
                             FieldElementExpression::mul(
-                                FieldElementExpression::from_value(Bn128Field::from(2)),
+                                FieldElementExpression::value(Bn128Field::from(2)),
                                 FieldElementExpression::identifier("a".into()),
                             ),
                             FieldElementExpression::identifier("b".into()),
@@ -324,20 +321,20 @@ mod tests {
                     ),
                     FieldElementExpression::mul(
                         FieldElementExpression::mul(
-                            FieldElementExpression::from_value(Bn128Field::from(2)),
+                            FieldElementExpression::value(Bn128Field::from(2)),
                             FieldElementExpression::identifier("a".into()),
                         ),
                         FieldElementExpression::identifier("c".into()),
                     ),
                 ),
                 FieldElementExpression::mul(
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                     FieldElementExpression::identifier("mid".into()),
                 ),
             ),
             FieldElementExpression::mul(
                 FieldElementExpression::mul(
-                    FieldElementExpression::from_value(Bn128Field::from(4)),
+                    FieldElementExpression::value(Bn128Field::from(4)),
                     FieldElementExpression::identifier("a".into()),
                 ),
                 FieldElementExpression::identifier("mid".into()),
@@ -350,22 +347,22 @@ mod tests {
                     FieldElementExpression::add(
                         FieldElementExpression::identifier("x".into()),
                         FieldElementExpression::mul(
-                            FieldElementExpression::from_value(Bn128Field::from(-1)),
+                            FieldElementExpression::value(Bn128Field::from(-1)),
                             FieldElementExpression::identifier("a".into()),
                         ),
                     ),
                     FieldElementExpression::mul(
-                        FieldElementExpression::from_value(Bn128Field::from(-1)),
+                        FieldElementExpression::value(Bn128Field::from(-1)),
                         FieldElementExpression::identifier("b".into()),
                     ),
                 ),
                 FieldElementExpression::mul(
-                    FieldElementExpression::from_value(Bn128Field::from(-1)),
+                    FieldElementExpression::value(Bn128Field::from(-1)),
                     FieldElementExpression::identifier("c".into()),
                 ),
             ),
             FieldElementExpression::mul(
-                FieldElementExpression::from_value(Bn128Field::from(2)),
+                FieldElementExpression::value(Bn128Field::from(2)),
                 FieldElementExpression::identifier("mid".into()),
             ),
         );
@@ -374,16 +371,16 @@ mod tests {
             FieldElementExpression::add(
                 FieldElementExpression::add(
                     FieldElementExpression::mul(
-                        FieldElementExpression::from_value(Bn128Field::from(-2)),
+                        FieldElementExpression::value(Bn128Field::from(-2)),
                         FieldElementExpression::identifier("b".into()),
                     ),
                     FieldElementExpression::mul(
-                        FieldElementExpression::from_value(Bn128Field::from(-2)),
+                        FieldElementExpression::value(Bn128Field::from(-2)),
                         FieldElementExpression::identifier("c".into()),
                     ),
                 ),
                 FieldElementExpression::mul(
-                    FieldElementExpression::from_value(Bn128Field::from(4)),
+                    FieldElementExpression::value(Bn128Field::from(4)),
                     FieldElementExpression::identifier("mid".into()),
                 ),
             ),

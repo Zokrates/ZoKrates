@@ -511,7 +511,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
         let span = i.get_span();
 
         match i {
-            IntExpression::Value(i) => Ok(Self::Number(ValueExpression::new(
+            IntExpression::Value(i) => Ok(Self::Value(ValueExpression::new(
                 T::try_from(i.value.clone()).map_err(|_| IntExpression::Value(i))?,
             ))),
             IntExpression::Add(e) => Ok(Self::add(
@@ -590,7 +590,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         Ok(FieldElementExpression::select(
-                            ArrayExpression::from_value(values)
+                            ArrayExpression::value(values)
                                 .annotate(ArrayType::new(Type::FieldElement, size)),
                             index,
                         ))
@@ -632,7 +632,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         match i {
             Value(i) => {
                 if i.value <= BigUint::from(2u128.pow(bitwidth.to_usize() as u32) - 1) {
-                    Ok(UExpression::from_value(
+                    Ok(UExpression::value(
                         u128::from_str_radix(&i.value.to_str_radix(16), 16).unwrap(),
                     )
                     .annotate(*bitwidth))
@@ -713,7 +713,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         Ok(UExpression::select(
-                            ArrayExpression::from_value(values)
+                            ArrayExpression::value(values)
                                 .annotate(ArrayType::new(Type::Uint(*bitwidth), size)),
                             index,
                         ))
@@ -829,7 +829,7 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
                     TypedExpression::align_to_type(value, &*target_member.ty)
                 })
                 .collect::<Result<Vec<_>, _>>()
-                .map(|v| StructExpression::from_value(v).annotate(struct_ty.clone()))
+                .map(|v| StructExpression::value(v).annotate(struct_ty.clone()))
                 .map_err(|(v, _)| v),
             s => {
                 if struct_ty
@@ -879,7 +879,7 @@ impl<'ast, T: Field> TupleExpression<'ast, T> {
                 .collect::<Result<Vec<_>, _>>()
                 .map(|v| {
                     let ty = TupleType::new(v.iter().map(|e| e.get_type()).collect());
-                    TupleExpression::from_value(v).annotate(ty)
+                    TupleExpression::value(v).annotate(ty)
                 })
                 .map_err(|(v, _)| v),
             s => {
@@ -911,7 +911,7 @@ impl<'ast, T: Field> TupleExpression<'ast, T> {
 
 impl<'ast, T: Field> From<BigUint> for IntExpression<'ast, T> {
     fn from(v: BigUint) -> Self {
-        IntExpression::from_value(v)
+        IntExpression::value(v)
     }
 }
 

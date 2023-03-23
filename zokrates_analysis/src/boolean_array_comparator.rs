@@ -65,7 +65,7 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                                             FieldElementExpression::conditional(
                                                 c.clone().span(span),
                                                 FieldElementExpression::pow(
-                                                    FieldElementExpression::from_value(T::from(2))
+                                                    FieldElementExpression::value(T::from(2))
                                                         .span(span),
                                                     UExpression::from(index as u32).span(span),
                                                 ),
@@ -75,7 +75,7 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                                             .span(span)
                                         })
                                         .collect::<Vec<_>>(),
-                                    &FieldElementExpression::from_value(T::from(0)).span(span),
+                                    &FieldElementExpression::value(T::from(0)).span(span),
                                 ))
                                 .span(span)
                                 .into()
@@ -90,10 +90,10 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                     let chunk_count = left.len();
 
                     BooleanExpression::array_eq(
-                        ArrayExpression::from_value(left)
+                        ArrayExpression::value(left)
                             .annotate(ArrayType::new(Type::FieldElement, chunk_count as u32))
                             .span(span),
-                        ArrayExpression::from_value(right)
+                        ArrayExpression::value(right)
                             .annotate(ArrayType::new(Type::FieldElement, chunk_count as u32))
                             .span(span),
                     )

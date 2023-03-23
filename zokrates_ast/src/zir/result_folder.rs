@@ -136,7 +136,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
 
     fn fold_assembly_block(
         &mut self,
-        s: AssemblyStatement<'ast, T>,
+        s: AssemblyBlockStatement<'ast, T>,
     ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
         fold_assembly_block(self, s)
     }
@@ -446,9 +446,9 @@ pub fn fold_log_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
 pub fn fold_assembly_block<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
-    s: AssemblyStatement<'ast, T>,
+    s: AssemblyBlockStatement<'ast, T>,
 ) -> Result<Vec<ZirStatement<'ast, T>>, F::Error> {
-    Ok(vec![ZirStatement::Assembly(AssemblyStatement::new(
+    Ok(vec![ZirStatement::Assembly(AssemblyBlockStatement::new(
         s.inner
             .into_iter()
             .map(|s| f.fold_assembly_statement(s))
@@ -488,7 +488,7 @@ pub fn fold_field_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
     e: FieldElementExpression<'ast, T>,
 ) -> Result<FieldElementExpression<'ast, T>, F::Error> {
     Ok(match e {
-        FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
+        FieldElementExpression::Value(n) => FieldElementExpression::Value(n),
         FieldElementExpression::Identifier(id) => {
             match f.fold_identifier_expression(&Type::FieldElement, id)? {
                 IdentifierOrExpression::Identifier(i) => FieldElementExpression::Identifier(i),

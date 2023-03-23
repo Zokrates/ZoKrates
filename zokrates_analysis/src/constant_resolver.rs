@@ -149,7 +149,7 @@ mod tests {
                         TypedConstantSymbolDeclaration::new(
                             CanonicalConstantIdentifier::new(const_id, "main".into()),
                             TypedConstantSymbol::Here(TypedConstant::new(
-                                TypedExpression::FieldElement(FieldElementExpression::from_value(
+                                TypedExpression::FieldElement(FieldElementExpression::value(
                                     Bn128Field::from(1),
                                 )),
                                 DeclarationType::FieldElement,
@@ -210,7 +210,7 @@ mod tests {
                         TypedConstantSymbolDeclaration::new(
                             const_id,
                             TypedConstantSymbol::Here(TypedConstant::new(
-                                TypedExpression::Boolean(BooleanExpression::from_value(true)),
+                                TypedExpression::Boolean(BooleanExpression::value(true)),
                                 DeclarationType::Boolean,
                             )),
                         )
@@ -271,9 +271,7 @@ mod tests {
                         TypedConstantSymbolDeclaration::new(
                             const_id,
                             TypedConstantSymbol::Here(TypedConstant::new(
-                                UExpression::from_value(1u128)
-                                    .annotate(UBitwidth::B32)
-                                    .into(),
+                                UExpression::value(1u128).annotate(UBitwidth::B32).into(),
                                 DeclarationType::Uint(UBitwidth::B32),
                             )),
                         )
@@ -319,12 +317,12 @@ mod tests {
                     FieldElementExpression::select(
                         ArrayExpression::identifier(Identifier::from(const_id.clone()))
                             .annotate(GArrayType::new(Type::FieldElement, 2u32)),
-                        UExpression::from_value(0u128).annotate(UBitwidth::B32),
+                        UExpression::value(0u128).annotate(UBitwidth::B32),
                     ),
                     FieldElementExpression::select(
                         ArrayExpression::identifier(Identifier::from(const_id.clone()))
                             .annotate(GArrayType::new(Type::FieldElement, 2u32)),
-                        UExpression::from_value(1u128).annotate(UBitwidth::B32),
+                        UExpression::value(1u128).annotate(UBitwidth::B32),
                     ),
                 )
                 .into(),
@@ -345,11 +343,9 @@ mod tests {
                             const_id.clone(),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 TypedExpression::Array(
-                                    ArrayExpression::from_value(vec![
-                                        FieldElementExpression::from_value(Bn128Field::from(2))
-                                            .into(),
-                                        FieldElementExpression::from_value(Bn128Field::from(2))
-                                            .into(),
+                                    ArrayExpression::value(vec![
+                                        FieldElementExpression::value(Bn128Field::from(2)).into(),
+                                        FieldElementExpression::value(Bn128Field::from(2)).into(),
                                     ])
                                     .annotate(GArrayType::new(Type::FieldElement, 2u32)),
                                 ),
@@ -415,7 +411,7 @@ mod tests {
                         TypedConstantSymbolDeclaration::new(
                             const_a_id.clone(),
                             TypedConstantSymbol::Here(TypedConstant::new(
-                                TypedExpression::FieldElement(FieldElementExpression::from_value(
+                                TypedExpression::FieldElement(FieldElementExpression::value(
                                     Bn128Field::from(1),
                                 )),
                                 DeclarationType::FieldElement,
@@ -429,7 +425,7 @@ mod tests {
                                     FieldElementExpression::identifier(Identifier::from(
                                         const_a_id.clone(),
                                     )),
-                                    FieldElementExpression::from_value(Bn128Field::from(1)),
+                                    FieldElementExpression::value(Bn128Field::from(1)),
                                 )),
                                 DeclarationType::FieldElement,
                             )),
@@ -506,7 +502,7 @@ mod tests {
                 TypedConstantSymbolDeclaration::new(
                     foo_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
-                        TypedExpression::FieldElement(FieldElementExpression::from_value(
+                        TypedExpression::FieldElement(FieldElementExpression::value(
                             Bn128Field::from(42),
                         )),
                         DeclarationType::FieldElement,
@@ -686,7 +682,7 @@ mod tests {
                 TypedConstantSymbolDeclaration::new(
                     foo_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
-                        TypedExpression::FieldElement(FieldElementExpression::from_value(
+                        TypedExpression::FieldElement(FieldElementExpression::value(
                             Bn128Field::from(2),
                         )),
                         DeclarationType::FieldElement,
@@ -697,7 +693,7 @@ mod tests {
                     bar_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
                         TypedExpression::Array(ArrayExpression::repeat(
-                            FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                            FieldElementExpression::value(Bn128Field::from(1)).into(),
                             UExpression::from(foo_const_id.clone()),
                         )),
                         DeclarationType::Array(DeclarationArrayType::new(
@@ -796,7 +792,7 @@ mod tests {
                 TypedConstantSymbolDeclaration::new(
                     main_foo_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
-                        FieldElementExpression::from_value(Bn128Field::from(2)).into(),
+                        FieldElementExpression::value(Bn128Field::from(2)).into(),
                         DeclarationType::FieldElement,
                     )),
                 )
@@ -805,7 +801,7 @@ mod tests {
                     main_bar_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
                         TypedExpression::Array(ArrayExpression::repeat(
-                            FieldElementExpression::from_value(Bn128Field::from(1)).into(),
+                            FieldElementExpression::value(Bn128Field::from(1)).into(),
                             UExpression::from(foo_const_id.clone()),
                         )),
                         DeclarationType::Array(DeclarationArrayType::new(

@@ -1053,8 +1053,8 @@ pub fn fold_field_expression_cases<'ast, T: Field, F: Folder<'ast, T>>(
             IdentifierOrExpression::Expression(u) => u,
         },
         Block(block) => Block(f.fold_block_expression(block)),
-        Number(value) => match f.fold_field_value_expression(value) {
-            ValueOrExpression::Value(value) => Number(value),
+        Value(value) => match f.fold_field_value_expression(value) {
+            ValueOrExpression::Value(value) => Value(value),
             ValueOrExpression::Expression(e) => e,
         },
         Add(e) => match f.fold_binary_expression(&Type::FieldElement, e) {

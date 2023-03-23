@@ -37,7 +37,7 @@ pub struct ConstraintStatement<T> {
     pub span: Option<Span>,
     pub quad: QuadComb<T>,
     pub lin: LinComb<T>,
-    #[derivative(Hash = "ignore")]
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
     pub error: Option<RuntimeError>,
 }
 

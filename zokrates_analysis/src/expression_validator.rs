@@ -1,5 +1,5 @@
 use std::fmt;
-use zokrates_ast::typed::{result_folder::*, UExpression};
+use zokrates_ast::typed::{result_folder::*, AssemblyAssignment, UExpression};
 use zokrates_ast::typed::{
     FieldElementExpression, TypedAssemblyStatement, TypedProgram, UBitwidth, UExpressionInner,
 };
@@ -28,7 +28,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ExpressionValidator {
     // we allow more dynamic expressions in witness generation
     fn fold_assembly_assignment(
         &mut self,
-        s: zokrates_ast::typed::AssemblyAssignment<'ast, T>,
+        s: AssemblyAssignment<'ast, T>,
     ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
         Ok(vec![TypedAssemblyStatement::Assignment(s)])
     }

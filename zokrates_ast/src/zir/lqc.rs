@@ -109,7 +109,7 @@ impl<'ast, T: Field> TryFrom<FieldElementExpression<'ast, T>> for LinQuadComb<'a
 
     fn try_from(e: FieldElementExpression<'ast, T>) -> Result<Self, Self::Error> {
         match e {
-            FieldElementExpression::Number(v) => Ok(Self {
+            FieldElementExpression::Value(v) => Ok(Self {
                 constant: v.value,
                 ..Self::default()
             }),
@@ -145,9 +145,9 @@ mod tests {
     fn add() {
         // (2 + 2*a)
         let a = LinQuadComb::try_from(FieldElementExpression::add(
-            FieldElementExpression::from_value(Bn128Field::from(2)),
+            FieldElementExpression::value(Bn128Field::from(2)),
             FieldElementExpression::mul(
-                FieldElementExpression::from_value(Bn128Field::from(2)),
+                FieldElementExpression::value(Bn128Field::from(2)),
                 FieldElementExpression::identifier("a".into()),
             ),
         ))
@@ -155,10 +155,10 @@ mod tests {
 
         // (2 + 2*a*b)
         let b = LinQuadComb::try_from(FieldElementExpression::add(
-            FieldElementExpression::from_value(Bn128Field::from(2)),
+            FieldElementExpression::value(Bn128Field::from(2)),
             FieldElementExpression::mul(
                 FieldElementExpression::mul(
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                     FieldElementExpression::identifier("a".into()),
                 ),
                 FieldElementExpression::identifier("b".into()),
@@ -188,9 +188,9 @@ mod tests {
     fn sub() {
         // (2 + 2*a)
         let a = LinQuadComb::try_from(FieldElementExpression::add(
-            FieldElementExpression::from_value(Bn128Field::from(2)),
+            FieldElementExpression::value(Bn128Field::from(2)),
             FieldElementExpression::mul(
-                FieldElementExpression::from_value(Bn128Field::from(2)),
+                FieldElementExpression::value(Bn128Field::from(2)),
                 FieldElementExpression::identifier("a".into()),
             ),
         ))
@@ -198,10 +198,10 @@ mod tests {
 
         // (2 + 2*a*b)
         let b = LinQuadComb::try_from(FieldElementExpression::add(
-            FieldElementExpression::from_value(Bn128Field::from(2)),
+            FieldElementExpression::value(Bn128Field::from(2)),
             FieldElementExpression::mul(
                 FieldElementExpression::mul(
-                    FieldElementExpression::from_value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                     FieldElementExpression::identifier("a".into()),
                 ),
                 FieldElementExpression::identifier("b".into()),
@@ -231,9 +231,9 @@ mod tests {
     fn mul() {
         // (2 + 2*a)
         let a = LinQuadComb::try_from(FieldElementExpression::add(
-            FieldElementExpression::from_value(Bn128Field::from(2)),
+            FieldElementExpression::value(Bn128Field::from(2)),
             FieldElementExpression::mul(
-                FieldElementExpression::from_value(Bn128Field::from(2)),
+                FieldElementExpression::value(Bn128Field::from(2)),
                 FieldElementExpression::identifier("a".into()),
             ),
         ))
@@ -241,9 +241,9 @@ mod tests {
 
         // (2 + 2*b)
         let b = LinQuadComb::try_from(FieldElementExpression::add(
-            FieldElementExpression::from_value(Bn128Field::from(2)),
+            FieldElementExpression::value(Bn128Field::from(2)),
             FieldElementExpression::mul(
-                FieldElementExpression::from_value(Bn128Field::from(2)),
+                FieldElementExpression::value(Bn128Field::from(2)),
                 FieldElementExpression::identifier("b".into()),
             ),
         ))
@@ -270,7 +270,7 @@ mod tests {
     fn mul_degree_error() {
         // 2*a*b
         let a = LinQuadComb::try_from(FieldElementExpression::add(
-            FieldElementExpression::from_value(Bn128Field::from(2)),
+            FieldElementExpression::value(Bn128Field::from(2)),
             FieldElementExpression::mul(
                 FieldElementExpression::identifier("a".into()),
                 FieldElementExpression::identifier("b".into()),

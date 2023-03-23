@@ -185,28 +185,16 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     log::debug!("Flatten");
     let program_flattened = from_program_and_config(typed_ast, config);
 
-    let program_flattened = program_flattened.collect();
-    log::trace!("{}", program_flattened);
-
     // convert to ir
     log::debug!("Convert to IR");
     let ir_prog = from_flat(program_flattened);
-
-    let ir_prog = ir_prog.collect();
-    log::trace!("{}", ir_prog);
 
     // optimize
     log::debug!("Optimise IR");
     let optimized_ir_prog = optimize(ir_prog);
 
-    let optimized_ir_prog = optimized_ir_prog.collect();
-    log::trace!("{}", optimized_ir_prog);
-
     // clean (remove blocks)
     let clean_ir_prog = optimized_ir_prog.clean();
-
-    let clean_ir_prog = clean_ir_prog.collect();
-    log::trace!("{}", clean_ir_prog);
 
     Ok(CompilationArtifacts {
         prog: clean_ir_prog,

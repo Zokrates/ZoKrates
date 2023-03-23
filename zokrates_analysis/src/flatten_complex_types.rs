@@ -18,33 +18,26 @@ pub struct Flattener<T: Field> {
 }
 
 fn flatten_identifier_rec<'ast>(
-    id: zir::SourceIdentifier<'ast>,
+    id: zir::Identifier<'ast>,
     ty: &typed::types::ConcreteType,
 ) -> Vec<zir::Variable<'ast>> {
     match ty {
         typed::ConcreteType::Int => unreachable!(),
-        typed::ConcreteType::FieldElement => vec![zir::Variable::new(
-            zir::Identifier::Source(id),
-            zir::Type::FieldElement,
-        )],
-        typed::types::ConcreteType::Boolean => vec![zir::Variable::new(
-            zir::Identifier::Source(id),
-            zir::Type::Boolean,
-        )],
-        typed::types::ConcreteType::Uint(bitwidth) => vec![zir::Variable::new(
-            zir::Identifier::Source(id),
-            zir::Type::uint(bitwidth.to_usize()),
-        )],
+        typed::ConcreteType::FieldElement => vec![zir::Variable::new(id, zir::Type::FieldElement)],
+        typed::types::ConcreteType::Boolean => vec![zir::Variable::new(id, zir::Type::Boolean)],
+        typed::types::ConcreteType::Uint(bitwidth) => {
+            vec![zir::Variable::new(id, zir::Type::uint(bitwidth.to_usize()))]
+        }
         typed::types::ConcreteType::Array(array_type) => (0..*array_type.size)
             .flat_map(|i| {
-                flatten_identifier_rec(zir::SourceIdentifier::select(id.clone(), i), &array_type.ty)
+                flatten_identifier_rec(zir::Identifier::select(id.clone(), i), &array_type.ty)
             })
             .collect(),
         typed::types::ConcreteType::Struct(members) => members
             .iter()
             .flat_map(|struct_member| {
                 flatten_identifier_rec(
-                    zir::SourceIdentifier::member(id.clone(), struct_member.id.clone()),
+                    zir::Identifier::member(id.clone(), struct_member.id.clone()),
                     &struct_member.ty,
                 )
             })
@@ -54,33 +47,33 @@ fn flatten_identifier_rec<'ast>(
             .iter()
             .enumerate()
             .flat_map(|(i, ty)| {
-                flatten_identifier_rec(zir::SourceIdentifier::element(id.clone(), i as u32), ty)
+                flatten_identifier_rec(zir::Identifier::element(id.clone(), i as u32), ty)
             })
             .collect(),
     }
 }
 
 fn flatten_identifier_to_expression_rec<'ast, T: Field>(
-    id: zir::SourceIdentifier<'ast>,
+    id: zir::Identifier<'ast>,
     ty: &typed::types::ConcreteType,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
     match ty {
         typed::ConcreteType::Int => unreachable!(),
         typed::ConcreteType::FieldElement => {
-            vec![zir::FieldElementExpression::identifier(zir::Identifier::Source(id)).into()]
+            vec![zir::FieldElementExpression::identifier(id).into()]
         }
         typed::ConcreteType::Boolean => {
-            vec![zir::BooleanExpression::identifier(zir::Identifier::Source(id)).into()]
+            vec![zir::BooleanExpression::identifier(id).into()]
         }
         typed::ConcreteType::Uint(bitwidth) => {
-            vec![zir::UExpression::identifier(zir::Identifier::Source(id))
+            vec![zir::UExpression::identifier(id)
                 .annotate(bitwidth.to_usize())
                 .into()]
         }
         typed::ConcreteType::Array(array_type) => (0..*array_type.size)
             .flat_map(|i| {
                 flatten_identifier_to_expression_rec(
-                    zir::SourceIdentifier::select(id.clone(), i),
+                    zir::Identifier::select(id.clone(), i),
                     &array_type.ty,
                 )
             })
@@ -89,7 +82,7 @@ fn flatten_identifier_to_expression_rec<'ast, T: Field>(
             .iter()
             .flat_map(|struct_member| {
                 flatten_identifier_to_expression_rec(
-                    zir::SourceIdentifier::member(id.clone(), struct_member.id.clone()),
+                    zir::Identifier::member(id.clone(), struct_member.id.clone()),
                     &struct_member.ty,
                 )
             })
@@ -100,7 +93,7 @@ fn flatten_identifier_to_expression_rec<'ast, T: Field>(
             .enumerate()
             .flat_map(|(i, ty)| {
                 flatten_identifier_to_expression_rec(
-                    zir::SourceIdentifier::element(id.clone(), i as u32),
+                    zir::Identifier::element(id.clone(), i as u32),
                     ty,
                 )
             })
@@ -203,8 +196,8 @@ impl<'ast, T: Field> Flattener<T> {
             .collect()
     }
 
-    fn fold_name(&mut self, n: typed::Identifier<'ast>) -> zir::SourceIdentifier<'ast> {
-        zir::SourceIdentifier::Basic(n)
+    fn fold_name(&mut self, n: typed::Identifier<'ast>) -> zir::Identifier<'ast> {
+        zir::Identifier::Basic(n)
     }
 
     fn fold_variable(&mut self, v: typed::Variable<'ast, T>) -> Vec<zir::Variable<'ast>> {
@@ -1048,7 +1041,7 @@ fn fold_field_expression<'ast, T: Field>(
     let span = e.get_span();
 
     match e {
-        typed::FieldElementExpression::Number(n) => zir::FieldElementExpression::Number(n),
+        typed::FieldElementExpression::Value(n) => zir::FieldElementExpression::Value(n),
         typed::FieldElementExpression::Identifier(id) => f
             .fold_identifier_expression(typed::ConcreteType::FieldElement, id)
             .pop()
@@ -1089,7 +1082,7 @@ fn fold_field_expression<'ast, T: Field>(
             let e = f.fold_field_expression(statements_buffer, *e.inner);
 
             zir::FieldElementExpression::sub(
-                zir::FieldElementExpression::Number(ValueExpression::new(T::zero())),
+                zir::FieldElementExpression::Value(ValueExpression::new(T::zero())),
                 e,
             )
         }
@@ -1143,7 +1136,7 @@ fn conjunction_tree<'ast, T: Field>(
     assert_eq!(v.len(), w.len());
 
     match v.len() {
-        0 => zir::BooleanExpression::from_value(true),
+        0 => zir::BooleanExpression::value(true),
         1 => match (v[0].clone(), w[0].clone()) {
             (zir::ZirExpression::Boolean(v), zir::ZirExpression::Boolean(w)) => {
                 zir::BooleanExpression::bool_eq(v, w).span(span)
@@ -1366,7 +1359,7 @@ fn fold_uint_expression_inner<'ast, T: Field>(
 
             f.fold_uint_expression(
                 statements_buffer,
-                typed::UExpression::from_value(0).annotate(bitwidth) - *e.inner,
+                typed::UExpression::value(0).annotate(bitwidth) - *e.inner,
             )
             .into_inner()
         }

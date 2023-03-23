@@ -21,7 +21,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<T> {
     fn fold_statement(&mut self, s: FlatStatement<'ast, T>) -> Vec<FlatStatement<'ast, T>> {
         match s {
             FlatStatement::Definition(s) => match self.fold_expression(s.rhs) {
-                FlatExpression::Number(n) => {
+                FlatExpression::Value(n) => {
                     self.constants.insert(s.assignee, n.value);
                     vec![]
                 }
@@ -36,46 +36,46 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<T> {
         e: zokrates_ast::common::expressions::IdentifierExpression<Variable, FlatExpression<T>>,
     ) -> IdentifierOrExpression<Variable, FlatExpression<T>, FlatExpression<T>> {
         match self.constants.get(&e.id) {
-            Some(c) => IdentifierOrExpression::Expression(FlatExpression::from_value(c.clone())),
+            Some(c) => IdentifierOrExpression::Expression(FlatExpression::value(c.clone())),
             None => IdentifierOrExpression::Identifier(e),
         }
     }
 
     fn fold_expression(&mut self, e: FlatExpression<T>) -> FlatExpression<T> {
+        let span = e.get_span();
+
         match e {
-            FlatExpression::Number(n) => FlatExpression::Number(n),
+            FlatExpression::Value(n) => FlatExpression::Value(n),
             FlatExpression::Add(e) => match (
                 self.fold_expression(*e.left),
                 self.fold_expression(*e.right),
             ) {
-                (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                    FlatExpression::from_value(n1.value + n2.value)
+                (FlatExpression::Value(n1), FlatExpression::Value(n2)) => {
+                    FlatExpression::value(n1.value + n2.value)
                 }
                 (e1, e2) => FlatExpression::add(e1, e2),
-            }
-            .span(e.span),
+            },
             FlatExpression::Sub(e) => match (
                 self.fold_expression(*e.left),
                 self.fold_expression(*e.right),
             ) {
-                (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                    FlatExpression::from_value(n1.value - n2.value)
+                (FlatExpression::Value(n1), FlatExpression::Value(n2)) => {
+                    FlatExpression::value(n1.value - n2.value)
                 }
                 (e1, e2) => FlatExpression::sub(e1, e2),
-            }
-            .span(e.span),
+            },
             FlatExpression::Mult(e) => match (
                 self.fold_expression(*e.left),
                 self.fold_expression(*e.right),
             ) {
-                (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                    FlatExpression::from_value(n1.value * n2.value)
+                (FlatExpression::Value(n1), FlatExpression::Value(n2)) => {
+                    FlatExpression::value(n1.value * n2.value)
                 }
                 (e1, e2) => FlatExpression::mul(e1, e2),
-            }
-            .span(e.span),
+            },
             e => fold_expression(self, e),
         }
+        .span(span)
     }
 }
 
@@ -97,13 +97,13 @@ mod tests {
                 let mut propagator = Propagator::default();
 
                 let e = FlatExpression::add(
-                    FlatExpression::from_value(Bn128Field::from(2)),
-                    FlatExpression::from_value(Bn128Field::from(3)),
+                    FlatExpression::value(Bn128Field::from(2)),
+                    FlatExpression::value(Bn128Field::from(3)),
                 );
 
                 assert_eq!(
                     propagator.fold_expression(e),
-                    FlatExpression::from_value(Bn128Field::from(5))
+                    FlatExpression::value(Bn128Field::from(5))
                 );
             }
 
@@ -112,13 +112,13 @@ mod tests {
                 let mut propagator = Propagator::default();
 
                 let e = FlatExpression::sub(
-                    FlatExpression::from_value(Bn128Field::from(3)),
-                    FlatExpression::from_value(Bn128Field::from(2)),
+                    FlatExpression::value(Bn128Field::from(3)),
+                    FlatExpression::value(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
                     propagator.fold_expression(e),
-                    FlatExpression::from_value(Bn128Field::from(1))
+                    FlatExpression::value(Bn128Field::from(1))
                 );
             }
 
@@ -127,13 +127,13 @@ mod tests {
                 let mut propagator = Propagator::default();
 
                 let e = FlatExpression::mul(
-                    FlatExpression::from_value(Bn128Field::from(3)),
-                    FlatExpression::from_value(Bn128Field::from(2)),
+                    FlatExpression::value(Bn128Field::from(3)),
+                    FlatExpression::value(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
                     propagator.fold_expression(e),
-                    FlatExpression::from_value(Bn128Field::from(6))
+                    FlatExpression::value(Bn128Field::from(6))
                 );
             }
         }
