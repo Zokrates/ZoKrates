@@ -47,7 +47,7 @@ pub struct FlatFunctionIterator<'ast, T, I: IntoIterator<Item = FlatStatement<'a
     pub arguments: Vec<Parameter>,
     /// Vector of statements that are executed when running the function
     pub statements: I,
-    /// Value of outputs
+    /// Number of outputs
     pub return_count: usize,
 }
 
