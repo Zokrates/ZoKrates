@@ -26,7 +26,7 @@ def validateInput(field x) -> bool {
 }
 
 // variables naming: box'row''column'
-def main(field a21, field b11, field b22, field c11, field c22, field d21, private field a11, private field a12, private field a22, private field b12, private field b21, private field c12, private field c21, private field d11, private field d12, private field d22) {
+def main(field a21, field b11, field b22, field c11, field c22, field d21, private field a11, private field a12, private field a22, private field b12, private field b21, private field c12, private field c21, private field d11, private field d12, private field d22) -> bool {
 
     // validate inputs
     assert(validateInput(a11));
