@@ -1,10 +1,10 @@
+pub mod canonicalizer;
 pub mod folder;
 mod from_typed;
 mod identifier;
 pub mod lqc;
 mod parameter;
 pub mod result_folder;
-pub mod substitution;
 pub mod types;
 mod uint;
 mod variable;

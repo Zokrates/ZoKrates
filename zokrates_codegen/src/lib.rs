@@ -11,7 +11,7 @@ mod utils;
 
 use self::utils::flat_expression_from_bits;
 use zokrates_ast::zir::{
-    substitution::ZirSubstitutor, ConditionalExpression, Folder, SelectExpression, ShouldReduce,
+    canonicalizer::ZirCanonicalizer, ConditionalExpression, Folder, SelectExpression, ShouldReduce,
     UMetadata, ZirAssemblyStatement, ZirExpressionList,
 };
 use zokrates_interpreter::Interpreter;
@@ -2243,8 +2243,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .map(|assignee| self.use_variable(&assignee))
                     .collect();
 
-                let mut substitutor = ZirSubstitutor::default();
-                let function = substitutor.fold_function(function);
+                let mut canonicalizer = ZirCanonicalizer::default();
+                let function = canonicalizer.fold_function(function);
 
                 let directive = FlatDirective::new(outputs, Solver::Zir(function), inputs);
                 statements_flattened.push_back(FlatStatement::Directive(directive));

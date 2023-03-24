@@ -520,7 +520,7 @@ mod tests {
         // (field i0) -> i0 * i0
         let solvers = vec![Solver::Zir(ZirFunction {
             arguments: vec![Parameter {
-                id: Variable::with_id_and_type(id.id.clone(), Type::FieldElement),
+                id: Variable::field_element(id.id.clone()),
                 private: true,
             }],
             statements: vec![ZirStatement::Return(vec![FieldElementExpression::Mult(
