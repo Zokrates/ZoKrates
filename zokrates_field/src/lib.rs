@@ -591,9 +591,12 @@ mod prime_field {
                 }
 
                 fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr {
-                    use bellman_ce::pairing::ff::PrimeField;
-                    let s = self.to_dec_string();
-                    <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
+                    use bellman_ce::pairing::ff::{PrimeField, PrimeFieldRepr};
+                    let bytes = self.to_byte_vector();
+                    let mut repr =
+                        <<Self::BellmanEngine as ScalarEngine>::Fr as PrimeField>::Repr::default();
+                    repr.read_le(bytes.as_slice()).unwrap();
+                    <Self::BellmanEngine as ScalarEngine>::Fr::from_repr(repr).unwrap()
                 }
 
                 fn new_fq2(

@@ -11,7 +11,7 @@ use bellman::{
 };
 use std::collections::BTreeMap;
 use zokrates_ast::common::Variable;
-use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
+use zokrates_ast::ir::{LinComb, ProgIterator, Statement, Witness};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
@@ -45,7 +45,7 @@ impl<'a, T: Field, I: IntoIterator<Item = Statement<'a, T>>> Computation<'a, T, 
 }
 
 fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::BellmanEngine>>(
-    l: CanonicalLinComb<T>,
+    l: LinComb<T>,
     cs: &mut CS,
     symbols: &mut BTreeMap<Variable, BellmanVariable>,
     witness: &mut Witness<T>,
@@ -127,19 +127,9 @@ impl<'a, T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<'a,
 
         for statement in self.program.statements {
             if let Statement::Constraint(quad, lin, _) = statement {
-                let a = &bellman_combination(
-                    quad.left.into_canonical(),
-                    cs,
-                    &mut symbols,
-                    &mut witness,
-                );
-                let b = &bellman_combination(
-                    quad.right.into_canonical(),
-                    cs,
-                    &mut symbols,
-                    &mut witness,
-                );
-                let c = &bellman_combination(lin.into_canonical(), cs, &mut symbols, &mut witness);
+                let a = &bellman_combination(quad.left, cs, &mut symbols, &mut witness);
+                let b = &bellman_combination(quad.right, cs, &mut symbols, &mut witness);
+                let c = &bellman_combination(lin, cs, &mut symbols, &mut witness);
 
                 cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
             }
