@@ -4,7 +4,7 @@ use rand_0_8::rngs::StdRng;
 use rand_0_8::SeedableRng;
 use std::convert::TryFrom;
 use std::fs::File;
-use std::io::{BufReader, Read, Write};
+use std::io::{BufReader, Write};
 use std::path::Path;
 #[cfg(feature = "ark")]
 use zokrates_ark::Ark;
@@ -163,7 +163,9 @@ fn cli_generate_proof<
     let witness_file = File::open(&witness_path)
         .map_err(|why| format!("Could not open {}: {}", witness_path.display(), why))?;
 
-    let witness = ir::Witness::read(witness_file)
+    let witness_reader = BufReader::new(witness_file);
+
+    let witness = ir::Witness::read(witness_reader)
         .map_err(|why| format!("Could not load witness: {:?}", why))?;
 
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
@@ -172,18 +174,14 @@ fn cli_generate_proof<
     let pk_file = File::open(&pk_path)
         .map_err(|why| format!("Could not open {}: {}", pk_path.display(), why))?;
 
-    let mut pk: Vec<u8> = Vec::new();
-    let mut pk_reader = BufReader::new(pk_file);
-    pk_reader
-        .read_to_end(&mut pk)
-        .map_err(|why| format!("Could not read {}: {}", pk_path.display(), why))?;
+    let pk_reader = BufReader::new(pk_file);
 
     let mut rng = sub_matches
         .value_of("entropy")
         .map(get_rng_from_entropy)
         .unwrap_or_else(StdRng::from_entropy);
 
-    let proof = B::generate_proof(program, witness, pk, &mut rng);
+    let proof = B::generate_proof(program, witness, pk_reader, &mut rng);
     let mut proof_file = File::create(proof_path).unwrap();
 
     let proof =

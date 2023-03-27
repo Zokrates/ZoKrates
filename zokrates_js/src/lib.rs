@@ -424,7 +424,7 @@ mod internal {
         let ir_witness: ir::Witness<T> = ir::Witness::read(str_witness.as_bytes())
             .map_err(|err| JsValue::from_str(&format!("Could not read witness: {}", err)))?;
 
-        let proof = B::generate_proof(prog, ir_witness, pk.to_vec(), rng);
+        let proof = B::generate_proof(prog, ir_witness, pk, rng);
         Ok(JsValue::from_serde(&TaggedProof::<T, S>::new(proof.proof, proof.inputs)).unwrap())
     }
 

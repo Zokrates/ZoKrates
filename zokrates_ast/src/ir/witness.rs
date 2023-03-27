@@ -44,7 +44,6 @@ impl<T: Field> Witness<T> {
     pub fn write<W: Write>(&self, writer: W) -> io::Result<()> {
         let mut wtr = csv::WriterBuilder::new()
             .delimiter(b' ')
-            .flexible(true)
             .has_headers(false)
             .from_writer(writer);
 
@@ -59,36 +58,71 @@ impl<T: Field> Witness<T> {
     pub fn read<R: Read>(mut reader: R) -> io::Result<Self> {
         let mut rdr = csv::ReaderBuilder::new()
             .delimiter(b' ')
-            .flexible(true)
             .has_headers(false)
             .from_reader(&mut reader);
 
-        let map = rdr
-            .deserialize::<(String, String)>()
-            .map(|r| {
-                r.map(|(variable, value)| {
-                    let variable = Variable::try_from_human_readable(&variable).map_err(|why| {
-                        io::Error::new(
-                            io::ErrorKind::Other,
-                            format!("Invalid variable in witness: {}", why),
-                        )
-                    })?;
-                    let value = T::try_from_dec_str(&value).map_err(|_| {
-                        io::Error::new(
-                            io::ErrorKind::Other,
-                            format!("Invalid value in witness: {}", value),
-                        )
-                    })?;
-                    Ok((variable, value))
-                })
-                .map_err(|e| match e.into_kind() {
-                    csv::ErrorKind::Io(e) => e,
-                    e => io::Error::new(io::ErrorKind::Other, format!("{:?}", e)),
-                })?
-            })
-            .collect::<io::Result<BTreeMap<Variable, T>>>()?;
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "parallel")] {
+                use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
-        Ok(Witness(map))
+                let map = rdr
+                    .deserialize::<(String, String)>()
+                    .collect::<Vec<Result<_, _>>>()
+                    .into_par_iter()
+                    .map(|r| {
+                        let (var, val) = r.map_err(|e| match e.into_kind() {
+                            csv::ErrorKind::Io(e) => e,
+                            e => io::Error::new(io::ErrorKind::Other, format!("{:?}", e)),
+                        })?;
+
+                        let variable = Variable::try_from_human_readable(&var).map_err(|why| {
+                            io::Error::new(
+                                io::ErrorKind::Other,
+                                format!("Invalid variable in witness: {}", why),
+                            )
+                        })?;
+
+                        let value = T::try_from_dec_str(&val).map_err(|_| {
+                            io::Error::new(
+                                io::ErrorKind::Other,
+                                format!("Invalid value in witness: {}", &val),
+                            )
+                        })?;
+
+                        Ok((variable, value))
+                    })
+                    .collect::<io::Result<BTreeMap<Variable, T>>>()?;
+
+                Ok(Witness(map))
+            } else {
+                let map = rdr
+                    .deserialize::<(String, String)>()
+                    .map(|r| {
+                        r.map(|(variable, value)| {
+                            let variable = Variable::try_from_human_readable(&variable).map_err(|why| {
+                                io::Error::new(
+                                    io::ErrorKind::Other,
+                                    format!("Invalid variable in witness: {}", why),
+                                )
+                            })?;
+                            let value = T::try_from_dec_str(&value).map_err(|_| {
+                                io::Error::new(
+                                    io::ErrorKind::Other,
+                                    format!("Invalid value in witness: {}", value),
+                                )
+                            })?;
+                            Ok((variable, value))
+                        })
+                        .map_err(|e| match e.into_kind() {
+                            csv::ErrorKind::Io(e) => e,
+                            e => io::Error::new(io::ErrorKind::Other, format!("{:?}", e)),
+                        })?
+                    })
+                    .collect::<io::Result<BTreeMap<Variable, T>>>()?;
+
+                Ok(Witness(map))
+            }
+        }
     }
 }
 
