@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.8.5] - 2023-03-28
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.5 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Reduce memory usage and runtime by refactoring the reducer (ssa, propagation, unrolling and inlining) (#1283, @schaeff)
+- Fix `radix-path` help message on `mpc init` subcommand (#1280, @dark64)
+- Fix a potential crash in `zokrates-js` due to inefficient serialization of a setup keypair (#1277, @dark64)
+- Show help when running `zokrates mpc` (#1275, @dark64)
+
 ## [0.8.4] - 2023-01-31
 
 ### Release
