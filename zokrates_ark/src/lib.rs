@@ -9,7 +9,7 @@ use ark_relations::r1cs::{
 };
 use std::collections::BTreeMap;
 use zokrates_ast::common::Variable;
-use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
+use zokrates_ast::ir::{LinComb, ProgIterator, Statement, Witness};
 use zokrates_field::{ArkFieldExtensions, Field};
 
 pub use self::parse::*;
@@ -39,7 +39,7 @@ impl<'a, T, I: IntoIterator<Item = Statement<'a, T>>> Computation<'a, T, I> {
 }
 
 fn ark_combination<T: Field + ArkFieldExtensions>(
-    l: CanonicalLinComb<T>,
+    l: LinComb<T>,
     cs: &mut ConstraintSystem<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
     symbols: &mut BTreeMap<Variable, ArkVariable>,
     witness: &mut Witness<T>,
@@ -113,24 +113,9 @@ impl<'a, T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<'a, T>>
 
                 for statement in self.program.statements {
                     if let Statement::Constraint(quad, lin, _) = statement {
-                        let a = ark_combination(
-                            quad.left.clone().into_canonical(),
-                            &mut cs,
-                            &mut symbols,
-                            &mut witness,
-                        );
-                        let b = ark_combination(
-                            quad.right.clone().into_canonical(),
-                            &mut cs,
-                            &mut symbols,
-                            &mut witness,
-                        );
-                        let c = ark_combination(
-                            lin.into_canonical(),
-                            &mut cs,
-                            &mut symbols,
-                            &mut witness,
-                        );
+                        let a = ark_combination(quad.left, &mut cs, &mut symbols, &mut witness);
+                        let b = ark_combination(quad.right, &mut cs, &mut symbols, &mut witness);
+                        let c = ark_combination(lin, &mut cs, &mut symbols, &mut witness);
 
                         cs.enforce_constraint(a, b, c)?;
                     }
