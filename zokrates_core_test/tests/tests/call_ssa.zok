@@ -1,0 +1,11 @@
+// main should be x -> x + 4
+
+def foo(field mut a) -> field {
+    a = a + 1;
+    return a + 1;
+}
+
+def main(field mut a) -> field {
+    a = foo(a + 1);
+    return a + 1;
+}

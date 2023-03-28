@@ -4,6 +4,8 @@ use crate::typed::types::*;
 use crate::typed::*;
 use zokrates_field::Field;
 
+use super::identifier::FrameIdentifier;
+
 pub trait Fold<'ast, T: Field>: Sized {
     fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self;
 }
@@ -128,11 +130,12 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
-        let id = match n.id {
-            CoreIdentifier::Constant(c) => {
-                CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c))
-            }
-            id => id,
+        let id = match n.id.id.clone() {
+            CoreIdentifier::Constant(c) => FrameIdentifier {
+                id: CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c)),
+                frame: 0,
+            },
+            _ => n.id,
         };
 
         Identifier { id, ..n }
@@ -528,10 +531,8 @@ pub fn fold_assembly_statement<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> Vec<TypedAssemblyStatement<'ast, T>> {
     match s {
         TypedAssemblyStatement::Assignment(a, e) => {
-            vec![TypedAssemblyStatement::Assignment(
-                f.fold_assignee(a),
-                f.fold_expression(e),
-            )]
+            let e = f.fold_expression(e);
+            vec![TypedAssemblyStatement::Assignment(f.fold_assignee(a), e)]
         }
         TypedAssemblyStatement::Constraint(lhs, rhs, metadata) => {
             vec![TypedAssemblyStatement::Constraint(
@@ -549,8 +550,9 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> Vec<TypedStatement<'ast, T>> {
     let res = match s {
         TypedStatement::Return(e) => TypedStatement::Return(f.fold_expression(e)),
-        TypedStatement::Definition(a, e) => {
-            TypedStatement::Definition(f.fold_assignee(a), f.fold_definition_rhs(e))
+        TypedStatement::Definition(a, rhs) => {
+            let rhs = f.fold_definition_rhs(rhs);
+            TypedStatement::Definition(f.fold_assignee(a), rhs)
         }
         TypedStatement::Assertion(e, error) => {
             TypedStatement::Assertion(f.fold_boolean_expression(e), error)
@@ -573,7 +575,6 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
                 .flat_map(|s| f.fold_assembly_statement(s))
                 .collect(),
         ),
-        s => s,
     };
     vec![res]
 }

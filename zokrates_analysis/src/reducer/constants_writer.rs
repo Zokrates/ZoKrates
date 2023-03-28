@@ -5,9 +5,9 @@ use crate::reducer::{
 };
 use std::collections::{BTreeMap, HashSet};
 use zokrates_ast::typed::{
-    result_folder::*, types::ConcreteGenericsAssignment, Constant, OwnedTypedModuleId, Typed,
-    TypedConstant, TypedConstantSymbol, TypedConstantSymbolDeclaration, TypedModuleId,
-    TypedProgram, TypedSymbolDeclaration, UExpression,
+    result_folder::*, Constant, OwnedTypedModuleId, Typed, TypedConstant, TypedConstantSymbol,
+    TypedConstantSymbolDeclaration, TypedModuleId, TypedProgram, TypedSymbolDeclaration,
+    UExpression,
 };
 use zokrates_field::Field;
 
@@ -118,11 +118,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
                     signature: DeclarationSignature::new().output(c.ty.clone()),
                 };
 
-                let mut inlined_wrapper = reduce_function(
-                    wrapper,
-                    ConcreteGenericsAssignment::default(),
-                    &self.program,
-                )?;
+                let mut inlined_wrapper = reduce_function(wrapper, &self.program)?;
 
                 if let TypedStatement::Return(expression) =
                     inlined_wrapper.statements.pop().unwrap()

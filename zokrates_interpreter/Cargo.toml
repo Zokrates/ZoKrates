@@ -1,12 +1,12 @@
 [package]
 name = "zokrates_interpreter"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 
 [features]
 default = ["bellman", "ark"]
-bellman = ["zokrates_field/bellman", "pairing_ce", "zokrates_embed/bellman", "zokrates_ast/bellman"]
-ark = ["ark-bls12-377", "zokrates_embed/ark", "zokrates_ast/ark"]
+bellman = ["zokrates_field/bellman", "pairing_ce", "zokrates_embed/bellman", "zokrates_ast/bellman", "zokrates_analysis/bellman"]
+ark = ["ark-bls12-377", "zokrates_embed/ark", "zokrates_ast/ark", "zokrates_analysis/ark"]
 
 [dependencies]
 zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }

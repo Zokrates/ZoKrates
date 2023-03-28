@@ -53,6 +53,7 @@ impl CompilationResult {
         arr.copy_from(&self.program);
         arr
     }
+
     pub fn abi(&self) -> JsValue {
         JsValue::from_serde(&self.abi).unwrap()
     }
@@ -88,15 +89,36 @@ impl ComputationResult {
     pub fn witness(&self) -> JsValue {
         JsValue::from_str(&self.witness)
     }
+
     pub fn output(&self) -> JsValue {
         JsValue::from_str(&self.output)
     }
+
     pub fn snarkjs_witness(&self) -> Option<js_sys::Uint8Array> {
         self.snarkjs_witness.as_ref().map(|w| {
             let arr = js_sys::Uint8Array::new_with_length(w.len() as u32);
             arr.copy_from(w);
             arr
         })
+    }
+}
+
+#[wasm_bindgen]
+pub struct Keypair {
+    vk: JsValue,
+    pk: Vec<u8>,
+}
+
+#[wasm_bindgen]
+impl Keypair {
+    pub fn vk(&self) -> JsValue {
+        self.vk.to_owned()
+    }
+
+    pub fn pk(&self) -> js_sys::Uint8Array {
+        let arr = js_sys::Uint8Array::new_with_length(self.pk.len() as u32);
+        arr.copy_from(&self.pk);
+        arr
     }
 }
 
@@ -204,6 +226,7 @@ impl<'a> Write for LogWriter<'a> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.buf.write(buf)
     }
+
     fn flush(&mut self) -> std::io::Result<()> {
         self.callback
             .call1(
@@ -352,10 +375,13 @@ mod internal {
     >(
         program: ir::Prog<T>,
         rng: &mut R,
-    ) -> JsValue {
+    ) -> Keypair {
         let keypair = B::setup(program, rng);
         let tagged_keypair = TaggedKeypair::<T, S>::new(keypair);
-        JsValue::from_serde(&tagged_keypair).unwrap()
+        Keypair {
+            vk: JsValue::from_serde(&tagged_keypair.vk).unwrap(),
+            pk: tagged_keypair.pk,
+        }
     }
 
     pub fn setup_universal<
@@ -367,9 +393,13 @@ mod internal {
     >(
         srs: &[u8],
         program: ir::ProgIterator<'a, T, I>,
-    ) -> Result<JsValue, JsValue> {
+    ) -> Result<Keypair, JsValue> {
         let keypair = B::setup(srs.to_vec(), program).map_err(|e| JsValue::from_str(&e))?;
-        Ok(JsValue::from_serde(&TaggedKeypair::<T, S>::new(keypair)).unwrap())
+        let tagged_keypair = TaggedKeypair::<T, S>::new(keypair);
+        Ok(Keypair {
+            vk: JsValue::from_serde(&tagged_keypair.vk).unwrap(),
+            pk: tagged_keypair.pk,
+        })
     }
 
     pub fn universal_setup_of_size<
@@ -528,7 +558,7 @@ pub fn export_solidity_verifier(vk: JsValue) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn setup(program: &[u8], entropy: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
+pub fn setup(program: &[u8], entropy: JsValue, options: JsValue) -> Result<Keypair, JsValue> {
     let options: serde_json::Value = options.into_serde().unwrap();
 
     let backend = BackendParameter::try_from(
@@ -597,7 +627,7 @@ pub fn setup(program: &[u8], entropy: JsValue, options: JsValue) -> Result<JsVal
 }
 
 #[wasm_bindgen]
-pub fn setup_with_srs(srs: &[u8], program: &[u8], options: JsValue) -> Result<JsValue, JsValue> {
+pub fn setup_with_srs(srs: &[u8], program: &[u8], options: JsValue) -> Result<Keypair, JsValue> {
     let options: serde_json::Value = options.into_serde().unwrap();
 
     let scheme = SchemeParameter::try_from(
