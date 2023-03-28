@@ -404,6 +404,7 @@ mod tests {
                 ),
                 Statement::constraint(Variable::new(1), Variable::public(0)),
             ],
+            solvers: vec![],
         };
 
         let rng = &mut StdRng::from_entropy();
@@ -439,6 +440,7 @@ mod tests {
                 ),
                 Statement::constraint(Variable::new(1), Variable::public(0)),
             ],
+            solvers: vec![],
         };
 
         let rng = &mut StdRng::from_entropy();

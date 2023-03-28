@@ -70,6 +70,7 @@ pub trait Field:
     + Zero
     + One
     + Clone
+    + Copy
     + PartialEq
     + Eq
     + Hash
@@ -148,7 +149,7 @@ mod prime_field {
 
             type Fr = <$v as ark_ec::PairingEngine>::Fr;
 
-            #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash)]
+            #[derive(PartialEq, PartialOrd, Clone, Copy, Eq, Ord, Hash)]
             pub struct FieldPrime {
                 v: Fr,
             }

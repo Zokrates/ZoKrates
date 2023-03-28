@@ -50,6 +50,7 @@ pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
             .flat_map(|s| f.fold_statement(s))
             .collect(),
         return_count: p.return_count,
+        solvers: p.solvers,
     }
 }
 

@@ -20,6 +20,7 @@ fn generate_proof() {
         arguments: vec![Parameter::public(Variable::new(0))],
         return_count: 1,
         statements: vec![Statement::constraint(Variable::new(0), Variable::new(0))],
+        solvers: vec![],
     };
 
     let interpreter = Interpreter::default();

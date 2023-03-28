@@ -10,7 +10,9 @@ use std::ops::{Add, Div, Mul, Sub};
 
 const _PRIME: u8 = 7;
 
-#[derive(Default, Debug, Hash, Clone, PartialOrd, Ord, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Default, Debug, Hash, Clone, Copy, PartialOrd, Ord, Serialize, Deserialize, PartialEq, Eq,
+)]
 pub struct FieldPrime {
     v: u8,
 }
