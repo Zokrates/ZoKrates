@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use std::io::{Read, Write};
 
 // A variable in a constraint system
 // id > 0 for intermediate variables
@@ -31,6 +32,20 @@ impl Variable {
     pub fn id(&self) -> usize {
         assert!(self.id > 0);
         (self.id as usize) - 1
+    }
+
+    pub fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+        writer.write_all(&self.id.to_le_bytes())?;
+        Ok(())
+    }
+
+    pub fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+        let mut buf = [0; std::mem::size_of::<isize>()];
+        reader.read_exact(&mut buf)?;
+
+        Ok(Variable {
+            id: isize::from_le_bytes(buf),
+        })
     }
 
     pub fn try_from_human_readable(s: &str) -> Result<Self, &str> {

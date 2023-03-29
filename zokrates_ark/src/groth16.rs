@@ -42,6 +42,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
                 .unwrap();
 
         let proof = Groth16::<T::ArkEngine>::prove(&pk, computation, rng).unwrap();
+
         let proof_points = ProofPoints {
             a: parse_g1::<T>(&proof.a),
             b: parse_g2::<T>(&proof.b),

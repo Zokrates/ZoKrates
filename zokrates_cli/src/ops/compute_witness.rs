@@ -66,6 +66,10 @@ pub fn subcommand() -> App<'static, 'static> {
         .help("Read arguments from stdin")
         .conflicts_with("arguments")
         .required(false)
+    ).arg(Arg::with_name("json")
+        .long("json")
+        .help("Write witness in a json format")
+        .required(false)
     )
 }
 
@@ -194,6 +198,19 @@ fn cli_compute<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
     witness
         .write(writer)
         .map_err(|why| format!("Could not save witness: {:?}", why))?;
+
+    // write witness in the json format
+    if sub_matches.is_present("json") {
+        let json_path = Path::new(sub_matches.value_of("output").unwrap()).with_extension("json");
+        let json_file = File::create(&json_path)
+            .map_err(|why| format!("Could not create {}: {}", json_path.display(), why))?;
+
+        let writer = BufWriter::new(json_file);
+
+        witness
+            .write_json(writer)
+            .map_err(|why| format!("Could not save {}: {:?}", json_path.display(), why))?;
+    }
 
     // write circom witness to file
     let wtns_path = Path::new(sub_matches.value_of("circom-witness").unwrap());

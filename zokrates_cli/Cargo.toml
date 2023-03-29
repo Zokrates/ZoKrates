@@ -20,7 +20,7 @@ regex = "0.2"
 zokrates_field = { version = "0.5", path = "../zokrates_field", features = ["multicore"] }
 zokrates_abi = { version = "0.1", path = "../zokrates_abi" }
 zokrates_core = { version = "0.7", path = "../zokrates_core", default-features = false }
-zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false, features = ["parallel"] }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
 zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", default-features = false }
 zokrates_circom = { version = "0.1", path = "../zokrates_circom", default-features = false }
 zokrates_embed = { version = "0.1", path = "../zokrates_embed", features = ["multicore"] }

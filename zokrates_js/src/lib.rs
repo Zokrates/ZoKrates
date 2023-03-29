@@ -79,15 +79,17 @@ pub struct ResolverResult {
 
 #[wasm_bindgen]
 pub struct ComputationResult {
-    witness: String,
+    witness: Vec<u8>,
     output: String,
     snarkjs_witness: Option<Vec<u8>>,
 }
 
 #[wasm_bindgen]
 impl ComputationResult {
-    pub fn witness(&self) -> JsValue {
-        JsValue::from_str(&self.witness)
+    pub fn witness(&self) -> js_sys::Uint8Array {
+        let arr = js_sys::Uint8Array::new_with_length(self.witness.len() as u32);
+        arr.copy_from(&self.witness);
+        arr
     }
 
     pub fn output(&self) -> JsValue {
@@ -360,8 +362,14 @@ mod internal {
             buffer.into_inner()
         });
 
+        let witness = {
+            let mut buffer = Cursor::new(vec![]);
+            witness.write(&mut buffer).unwrap();
+            buffer.into_inner()
+        };
+
         Ok(ComputationResult {
-            witness: format!("{}", witness),
+            witness,
             output: to_string_pretty(&return_values).unwrap(),
             snarkjs_witness,
         })
@@ -416,12 +424,11 @@ mod internal {
 
     pub fn generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>, R: RngCore + CryptoRng>(
         prog: ir::Prog<T>,
-        witness: JsValue,
+        witness: &[u8],
         pk: &[u8],
         rng: &mut R,
     ) -> Result<JsValue, JsValue> {
-        let str_witness = witness.as_string().unwrap();
-        let ir_witness: ir::Witness<T> = ir::Witness::read(str_witness.as_bytes())
+        let ir_witness: ir::Witness<T> = ir::Witness::read(witness)
             .map_err(|err| JsValue::from_str(&format!("Could not read witness: {}", err)))?;
 
         let proof = B::generate_proof(prog, ir_witness, pk, rng);
@@ -693,7 +700,7 @@ pub fn universal_setup(curve: JsValue, size: u32, entropy: JsValue) -> Result<Ve
 #[wasm_bindgen]
 pub fn generate_proof(
     program: &[u8],
-    witness: JsValue,
+    witness: &[u8],
     pk: &[u8],
     entropy: JsValue,
     options: JsValue,

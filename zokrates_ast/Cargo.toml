@@ -7,7 +7,6 @@ edition = "2021"
 default = ["bellman", "ark"]
 bellman = ["zokrates_field/bellman", "pairing_ce", "zokrates_embed/bellman"]
 ark = ["ark-bls12-377", "zokrates_embed/ark"]
-parallel = ["rayon"]
 
 [dependencies]
 zokrates_pest_ast = { version = "0.3.0", path = "../zokrates_pest_ast" }
@@ -22,4 +21,3 @@ zokrates_embed = { version = "0.1.0", path = "../zokrates_embed", default-featur
 pairing_ce = { version = "^0.21", optional = true }
 ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = false, optional = true }
 derivative = "2.2.0"
-rayon = { version = "1.7", optional = true }

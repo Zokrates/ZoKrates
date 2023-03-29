@@ -8,7 +8,6 @@ extern crate num_bigint;
 
 #[cfg(feature = "bellman")]
 use bellman_ce::pairing::{ff::ScalarEngine, Engine};
-
 use num_bigint::BigUint;
 use num_traits::{CheckedDiv, One, Zero};
 use serde::{Deserialize, Serialize};
@@ -16,6 +15,7 @@ use std::convert::{From, TryFrom};
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
+use std::io::{Read, Write};
 use std::ops::{Add, Div, Mul, Sub};
 
 pub trait Pow<RHS> {
@@ -95,6 +95,10 @@ pub trait Field:
     + num_traits::CheckedMul
 {
     const G2_TYPE: G2Type = G2Type::Fq2;
+    // Read field from the reader
+    fn read<R: Read>(reader: R) -> std::io::Result<Self>;
+    // Write field to the writer
+    fn write<W: Write>(&self, writer: W) -> std::io::Result<()>;
     /// Returns this `Field`'s contents as little-endian byte vector
     fn to_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
@@ -144,6 +148,7 @@ mod prime_field {
             use std::convert::TryFrom;
             use std::fmt;
             use std::fmt::{Debug, Display};
+            use std::io::{Read, Write};
             use std::ops::{Add, Div, Mul, Sub};
 
             type Fr = <$v as ark_ec::PairingEngine>::Fr;
@@ -186,9 +191,21 @@ mod prime_field {
                     self.v.into_repr().to_bytes_le()
                 }
 
+                fn read<R: Read>(reader: R) -> std::io::Result<Self> {
+                    use ark_ff::FromBytes;
+                    Ok(FieldPrime {
+                        v: Fr::read(reader)?,
+                    })
+                }
+
+                fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+                    use ark_ff::ToBytes;
+                    self.v.write(&mut writer)?;
+                    Ok(())
+                }
+
                 fn from_byte_vector(bytes: Vec<u8>) -> Self {
                     use ark_ff::FromBytes;
-
                     FieldPrime {
                         v: Fr::from(<Fr as PrimeField>::BigInt::read(&bytes[..]).unwrap()),
                     }

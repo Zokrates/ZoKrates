@@ -41,88 +41,44 @@ impl<T: Field> Witness<T> {
         Witness(BTreeMap::new())
     }
 
-    pub fn write<W: Write>(&self, writer: W) -> io::Result<()> {
-        let mut wtr = csv::WriterBuilder::new()
-            .delimiter(b' ')
-            .has_headers(false)
-            .from_writer(writer);
+    pub fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {
+        let length = self.0.len();
+        writer.write_all(&length.to_le_bytes())?;
 
-        // Write each line of the witness to the file
         for (variable, value) in &self.0 {
-            wtr.serialize((variable.to_string(), value.to_dec_string()))?;
+            variable.write(&mut writer)?;
+            value.write(&mut writer)?;
         }
-
         Ok(())
     }
 
     pub fn read<R: Read>(mut reader: R) -> io::Result<Self> {
-        let mut rdr = csv::ReaderBuilder::new()
-            .delimiter(b' ')
-            .has_headers(false)
-            .from_reader(&mut reader);
+        let mut witness = Self::empty();
 
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "parallel")] {
-                use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+        let mut buf = [0; std::mem::size_of::<usize>()];
+        reader.read_exact(&mut buf)?;
 
-                let map = rdr
-                    .deserialize::<(String, String)>()
-                    .collect::<Vec<Result<_, _>>>()
-                    .into_par_iter()
-                    .map(|r| {
-                        let (var, val) = r.map_err(|e| match e.into_kind() {
-                            csv::ErrorKind::Io(e) => e,
-                            e => io::Error::new(io::ErrorKind::Other, format!("{:?}", e)),
-                        })?;
+        let length: usize = usize::from_le_bytes(buf);
 
-                        let variable = Variable::try_from_human_readable(&var).map_err(|why| {
-                            io::Error::new(
-                                io::ErrorKind::Other,
-                                format!("Invalid variable in witness: {}", why),
-                            )
-                        })?;
+        for _ in 0..length {
+            let var = Variable::read(&mut reader)?;
+            let val = T::read(&mut reader)?;
 
-                        let value = T::try_from_dec_str(&val).map_err(|_| {
-                            io::Error::new(
-                                io::ErrorKind::Other,
-                                format!("Invalid value in witness: {}", &val),
-                            )
-                        })?;
-
-                        Ok((variable, value))
-                    })
-                    .collect::<io::Result<BTreeMap<Variable, T>>>()?;
-
-                Ok(Witness(map))
-            } else {
-                let map = rdr
-                    .deserialize::<(String, String)>()
-                    .map(|r| {
-                        r.map(|(variable, value)| {
-                            let variable = Variable::try_from_human_readable(&variable).map_err(|why| {
-                                io::Error::new(
-                                    io::ErrorKind::Other,
-                                    format!("Invalid variable in witness: {}", why),
-                                )
-                            })?;
-                            let value = T::try_from_dec_str(&value).map_err(|_| {
-                                io::Error::new(
-                                    io::ErrorKind::Other,
-                                    format!("Invalid value in witness: {}", value),
-                                )
-                            })?;
-                            Ok((variable, value))
-                        })
-                        .map_err(|e| match e.into_kind() {
-                            csv::ErrorKind::Io(e) => e,
-                            e => io::Error::new(io::ErrorKind::Other, format!("{:?}", e)),
-                        })?
-                    })
-                    .collect::<io::Result<BTreeMap<Variable, T>>>()?;
-
-                Ok(Witness(map))
-            }
+            assert_eq!(witness.insert(var, val), None);
         }
+
+        Ok(witness)
+    }
+
+    pub fn write_json<W: Write>(&self, writer: W) -> io::Result<()> {
+        let map = self
+            .0
+            .iter()
+            .map(|(k, v)| (k.to_string(), serde_json::json!(v.to_dec_string())))
+            .collect::<serde_json::Map<String, serde_json::Value>>();
+
+        serde_json::to_writer_pretty(writer, &map)?;
+        Ok(())
     }
 }
 
@@ -169,35 +125,6 @@ mod tests {
             let r = Witness::read(buff).unwrap();
 
             assert_eq!(w, r);
-        }
-
-        #[test]
-        fn wrong_value() {
-            let mut buff = Cursor::new(vec![]);
-
-            buff.write_all("_1 123bug".as_ref()).unwrap();
-            buff.set_position(0);
-
-            assert!(Witness::<Bn128Field>::read(buff).is_err());
-        }
-
-        #[test]
-        fn wrong_variable() {
-            let mut buff = Cursor::new(vec![]);
-
-            buff.write_all("_1bug 123".as_ref()).unwrap();
-            buff.set_position(0);
-
-            assert!(Witness::<Bn128Field>::read(buff).is_err());
-        }
-
-        #[test]
-        fn not_csv() {
-            let mut buff = Cursor::new(vec![]);
-            buff.write_all("whatwhat".as_ref()).unwrap();
-            buff.set_position(0);
-
-            assert!(Witness::<Bn128Field>::read(buff).is_err());
         }
     }
 }

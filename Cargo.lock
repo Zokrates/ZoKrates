@@ -2964,7 +2964,6 @@ dependencies = [
  "derivative",
  "num-bigint 0.2.6",
  "pairing_ce",
- "rayon",
  "serde",
  "serde_cbor",
  "serde_json",
