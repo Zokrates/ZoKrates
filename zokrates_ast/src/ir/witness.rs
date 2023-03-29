@@ -64,7 +64,7 @@ impl<T: Field> Witness<T> {
             let var = Variable::read(&mut reader)?;
             let val = T::read(&mut reader)?;
 
-            assert_eq!(witness.insert(var, val), None);
+            witness.insert(var, val);
         }
 
         Ok(witness)
