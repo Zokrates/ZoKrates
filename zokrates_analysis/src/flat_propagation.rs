@@ -32,7 +32,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<T> {
         match e {
             FlatExpression::Number(n) => FlatExpression::Number(n),
             FlatExpression::Identifier(id) => match self.constants.get(&id) {
-                Some(c) => FlatExpression::Number(c.clone()),
+                Some(c) => FlatExpression::Number(*c),
                 None => FlatExpression::Identifier(id),
             },
             FlatExpression::Add(box e1, box e2) => {

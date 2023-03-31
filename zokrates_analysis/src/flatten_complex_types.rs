@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
 use std::marker::PhantomData;
 use zokrates_ast::typed::types::{ConcreteArrayType, IntoType, UBitwidth};
@@ -481,7 +481,7 @@ impl<'ast, T: Field> Flattener<T> {
 // }
 #[derive(Default)]
 pub struct ArgumentFinder<'ast, T> {
-    pub identifiers: HashMap<zir::Identifier<'ast>, zir::Type>,
+    pub identifiers: BTreeMap<zir::Identifier<'ast>, zir::Type>,
     _phantom: PhantomData<T>,
 }
 

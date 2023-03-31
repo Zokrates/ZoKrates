@@ -14,12 +14,13 @@ pub mod folder;
 pub mod from_flat;
 mod serialize;
 pub mod smtlib2;
+mod solver_indexer;
 pub mod visitor;
 mod witness;
 
 pub use self::expression::QuadComb;
 pub use self::expression::{CanonicalLinComb, LinComb};
-pub use self::serialize::ProgEnum;
+pub use self::serialize::{ProgEnum, ProgHeader};
 pub use crate::common::Parameter;
 pub use crate::common::RuntimeError;
 pub use crate::common::Solver;
@@ -130,14 +131,22 @@ pub struct ProgIterator<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> {
     pub arguments: Vec<Parameter>,
     pub return_count: usize,
     pub statements: I,
+    #[serde(borrow)]
+    pub solvers: Vec<Solver<'ast, T>>,
 }
 
 impl<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, I> {
-    pub fn new(arguments: Vec<Parameter>, statements: I, return_count: usize) -> Self {
+    pub fn new(
+        arguments: Vec<Parameter>,
+        statements: I,
+        return_count: usize,
+        solvers: Vec<Solver<'ast, T>>,
+    ) -> Self {
         Self {
             arguments,
             return_count,
             statements,
+            solvers,
         }
     }
 
@@ -146,6 +155,7 @@ impl<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, 
             statements: self.statements.into_iter().collect::<Vec<_>>(),
             arguments: self.arguments,
             return_count: self.return_count,
+            solvers: self.solvers,
         }
     }
 
@@ -171,7 +181,7 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
         self.arguments
             .iter()
             .filter(|p| !p.private)
-            .map(|p| witness.0.get(&p.id).unwrap().clone())
+            .map(|p| *witness.0.get(&p.id).unwrap())
             .chain(witness.return_values())
             .collect()
     }
@@ -192,6 +202,7 @@ impl<'ast, T> Prog<'ast, T> {
             statements: self.statements.into_iter(),
             arguments: self.arguments,
             return_count: self.return_count,
+            solvers: self.solvers,
         }
     }
 }

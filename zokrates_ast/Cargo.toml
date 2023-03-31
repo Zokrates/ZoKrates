@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_ast"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 
 [features]
@@ -9,6 +9,7 @@ bellman = ["zokrates_field/bellman", "pairing_ce", "zokrates_embed/bellman"]
 ark = ["ark-bls12-377", "zokrates_embed/ark"]
 
 [dependencies]
+byteorder = "1.4.3"
 zokrates_pest_ast = { version = "0.3.0", path = "../zokrates_pest_ast" }
 cfg-if = "0.1"
 zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }

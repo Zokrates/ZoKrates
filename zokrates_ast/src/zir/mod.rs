@@ -1,3 +1,4 @@
+pub mod canonicalizer;
 pub mod folder;
 mod from_typed;
 mod identifier;

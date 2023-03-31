@@ -520,7 +520,8 @@ pub fn compute_witness(
     config: JsValue,
     log_callback: &js_sys::Function,
 ) -> Result<ComputationResult, JsValue> {
-    let prog = ir::ProgEnum::deserialize(program)
+    let cursor = Cursor::new(program);
+    let prog = ir::ProgEnum::deserialize(cursor)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
     match prog {
@@ -582,7 +583,8 @@ pub fn setup(program: &[u8], entropy: JsValue, options: JsValue) -> Result<Keypa
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
-    let prog = ir::ProgEnum::deserialize(program)
+    let cursor = Cursor::new(program);
+    let prog = ir::ProgEnum::deserialize(cursor)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
 
@@ -644,7 +646,8 @@ pub fn setup_with_srs(srs: &[u8], program: &[u8], options: JsValue) -> Result<Ke
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
-    let prog = ir::ProgEnum::deserialize(program)
+    let cursor = Cursor::new(program);
+    let prog = ir::ProgEnum::deserialize(cursor)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
 
@@ -721,7 +724,8 @@ pub fn generate_proof(
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
-    let prog = ir::ProgEnum::deserialize(program)
+    let cursor = Cursor::new(program);
+    let prog = ir::ProgEnum::deserialize(cursor)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
 

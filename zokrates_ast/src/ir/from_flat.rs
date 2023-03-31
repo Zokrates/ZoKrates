@@ -24,6 +24,7 @@ pub fn from_flat<'ast, T: Field, I: IntoIterator<Item = FlatStatement<'ast, T>>>
         statements: flat_prog_iterator.statements.into_iter().map(Into::into),
         arguments: flat_prog_iterator.arguments,
         return_count: flat_prog_iterator.return_count,
+        solvers: vec![],
     }
 }
 

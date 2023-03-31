@@ -11,8 +11,8 @@ mod utils;
 
 use self::utils::flat_expression_from_bits;
 use zokrates_ast::zir::{
-    ConditionalExpression, SelectExpression, ShouldReduce, UMetadata, ZirAssemblyStatement,
-    ZirExpressionList,
+    canonicalizer::ZirCanonicalizer, ConditionalExpression, Folder, SelectExpression, ShouldReduce,
+    UMetadata, ZirAssemblyStatement, ZirExpressionList,
 };
 use zokrates_interpreter::Interpreter;
 
@@ -1885,7 +1885,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         // constants do not require directives
         if let Some(FlatExpression::Number(ref x)) = e.field {
-            let bits: Vec<_> = Interpreter::execute_solver(&Solver::bits(to), &[x.clone()])
+            let bits: Vec<_> = Interpreter::execute_solver(&Solver::bits(to), &[*x], &[])
                 .unwrap()
                 .into_iter()
                 .map(FlatExpression::Number)
@@ -2237,10 +2237,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .cloned()
                     .map(|p| self.layout.get(&p.id.id).cloned().unwrap().into())
                     .collect();
+
                 let outputs: Vec<Variable> = assignees
                     .into_iter()
                     .map(|assignee| self.use_variable(&assignee))
                     .collect();
+
+                let mut canonicalizer = ZirCanonicalizer::default();
+                let function = canonicalizer.fold_function(function);
+
                 let directive = FlatDirective::new(outputs, Solver::Zir(function), inputs);
                 statements_flattened.push_back(FlatStatement::Directive(directive));
             }
