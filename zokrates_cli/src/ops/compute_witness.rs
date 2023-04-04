@@ -68,7 +68,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .required(false)
     ).arg(Arg::with_name("json")
         .long("json")
-        .help("Write witness in a json format")
+        .help("Write witness in a json format for debugging purposes")
         .required(false)
     )
 }
