@@ -16,11 +16,11 @@ mod integration {
     use std::fs;
     use std::fs::File;
     use std::io::{BufReader, Read, Write};
-    use std::panic;
     use std::path::Path;
     use std::process::Command;
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
+    use zokrates_ast::ir::Witness;
     use zokrates_ast::typed::abi::Abi;
     use zokrates_field::Bn128Field;
     use zokrates_proof_systems::{
@@ -101,7 +101,9 @@ mod integration {
                 let program_name =
                     Path::new(Path::new(path.file_stem().unwrap()).file_stem().unwrap());
                 let prog = dir.join(program_name).with_extension("zok");
-                let witness = dir.join(program_name).with_extension("expected.witness");
+                let witness = dir
+                    .join(program_name)
+                    .with_extension("expected.witness.json");
                 let json_input = dir.join(program_name).with_extension("arguments.json");
 
                 test_compile_and_witness(
@@ -250,33 +252,24 @@ mod integration {
             .unwrap();
 
         // load the expected witness
-        let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
-        let mut expected_witness = String::new();
-        expected_witness_file
-            .read_to_string(&mut expected_witness)
-            .unwrap();
+        let expected_witness_file = File::open(&expected_witness_path).unwrap();
+        let expected_witness =
+            Witness::<zokrates_field::Bn128Field>::read_json(expected_witness_file).unwrap();
 
         // load the actual witness
-        let mut witness_file = File::open(&witness_path).unwrap();
-        let mut witness = String::new();
-        witness_file.read_to_string(&mut witness).unwrap();
+        let witness_file = File::open(&witness_path).unwrap();
+        let witness = Witness::<zokrates_field::Bn128Field>::read(witness_file).unwrap();
 
         // load the actual inline witness
-        let mut inline_witness_file = File::open(&inline_witness_path).unwrap();
-        let mut inline_witness = String::new();
-        inline_witness_file
-            .read_to_string(&mut inline_witness)
-            .unwrap();
+        let inline_witness_file = File::open(&inline_witness_path).unwrap();
+        let inline_witness =
+            Witness::<zokrates_field::Bn128Field>::read(inline_witness_file).unwrap();
 
         assert_eq!(inline_witness, witness);
 
-        for line in expected_witness.as_str().split('\n') {
-            assert!(
-                witness.contains(line),
-                "Witness generation failed for {}\n\nLine \"{}\" not found in witness",
-                program_path.to_str().unwrap(),
-                line
-            );
+        for (k, v) in expected_witness.0 {
+            let value = witness.0.get(&k).expect("should contain key");
+            assert!(v.eq(value));
         }
 
         let backends = map! {
