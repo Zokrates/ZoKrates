@@ -159,7 +159,7 @@ impl<T: Field> RedefinitionOptimizer<T> {
                         // unwrap inputs to their constant value
                         let inputs: Vec<_> = inputs.into_iter().map(|i| i.unwrap()).collect();
                         // run the solver
-                        let outputs = Interpreter::execute_solver(&d.solver, &inputs).unwrap();
+                        let outputs = Interpreter::execute_solver(&d.solver, &inputs, &[]).unwrap();
                         assert_eq!(outputs.len(), d.outputs.len());
 
                         // insert the results in the substitution
@@ -277,6 +277,7 @@ mod tests {
                 Statement::definition(out, y),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let optimized: Prog<Bn128Field> = Prog {
@@ -284,6 +285,7 @@ mod tests {
             arguments: vec![x],
             statements: vec![Statement::definition(out, x.id)],
             return_count: 1,
+            solvers: vec![],
         };
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
@@ -303,6 +305,7 @@ mod tests {
             arguments: vec![x],
             statements: vec![Statement::definition(one, x.id)],
             return_count: 1,
+            solvers: vec![],
         };
 
         let optimized = p.clone();
@@ -340,6 +343,7 @@ mod tests {
                 Statement::definition(out, z),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let optimized: Prog<Bn128Field> = Prog {
@@ -350,6 +354,7 @@ mod tests {
                 Statement::definition(out, x.id),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
@@ -391,6 +396,7 @@ mod tests {
                 Statement::definition(out_1, w),
             ],
             return_count: 2,
+            solvers: vec![],
         };
 
         let optimized: Prog<Bn128Field> = Prog {
@@ -401,6 +407,7 @@ mod tests {
                 Statement::definition(out_1, Bn128Field::from(1)),
             ],
             return_count: 2,
+            solvers: vec![],
         };
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
@@ -451,6 +458,7 @@ mod tests {
                 Statement::definition(r, LinComb::from(a) + LinComb::from(b) + LinComb::from(c)),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let expected: Prog<Bn128Field> = Prog {
@@ -473,6 +481,7 @@ mod tests {
                 ),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
@@ -508,6 +517,7 @@ mod tests {
                 Statement::definition(z, LinComb::from(x.id)),
             ],
             return_count: 0,
+            solvers: vec![],
         };
 
         let optimized = p.clone();
@@ -537,6 +547,7 @@ mod tests {
                 Statement::constraint(x.id, Bn128Field::from(2), None),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let optimized = p.clone();

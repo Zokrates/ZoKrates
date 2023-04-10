@@ -36,7 +36,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<T> {
         e: zokrates_ast::common::expressions::IdentifierExpression<Variable, FlatExpression<T>>,
     ) -> IdentifierOrExpression<Variable, FlatExpression<T>, FlatExpression<T>> {
         match self.constants.get(&e.id) {
-            Some(c) => IdentifierOrExpression::Expression(FlatExpression::value(c.clone())),
+            Some(c) => IdentifierOrExpression::Expression(FlatExpression::value(*c)),
             None => IdentifierOrExpression::Identifier(e),
         }
     }

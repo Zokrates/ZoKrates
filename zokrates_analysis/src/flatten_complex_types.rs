@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
 use std::marker::PhantomData;
 use std::ops::*;
@@ -8,8 +8,8 @@ use zokrates_ast::common::statements::LogStatement;
 use zokrates_ast::common::{Span, WithSpan};
 use zokrates_ast::typed::types::{ConcreteArrayType, IntoType, UBitwidth};
 use zokrates_ast::typed::{self, Basic, Expr, Typed};
-use zokrates_ast::zir::IntoType as ZirIntoType;
 use zokrates_ast::zir::{self, Expr as ZirExpr, Folder, Id, MultipleDefinitionStatement, Select};
+use zokrates_ast::zir::{IntoType as ZirIntoType, SourceIdentifier};
 use zokrates_field::Field;
 
 #[derive(Default)]
@@ -18,26 +18,38 @@ pub struct Flattener<T: Field> {
 }
 
 fn flatten_identifier_rec<'ast>(
-    id: zir::Identifier<'ast>,
+    id: zir::SourceIdentifier<'ast>,
     ty: &typed::types::ConcreteType,
 ) -> Vec<zir::Variable<'ast>> {
     match ty {
         typed::ConcreteType::Int => unreachable!(),
-        typed::ConcreteType::FieldElement => vec![zir::Variable::new(id, zir::Type::FieldElement)],
-        typed::types::ConcreteType::Boolean => vec![zir::Variable::new(id, zir::Type::Boolean)],
+        typed::ConcreteType::FieldElement => vec![zir::Variable::new(
+            zir::Identifier::Source(id),
+            zir::Type::FieldElement,
+        )],
+        typed::types::ConcreteType::Boolean => vec![zir::Variable::new(
+            zir::Identifier::Source(id),
+            zir::Type::Boolean,
+        )],
         typed::types::ConcreteType::Uint(bitwidth) => {
-            vec![zir::Variable::new(id, zir::Type::uint(bitwidth.to_usize()))]
+            vec![zir::Variable::new(
+                zir::Identifier::Source(id),
+                zir::Type::uint(bitwidth.to_usize()),
+            )]
         }
         typed::types::ConcreteType::Array(array_type) => (0..*array_type.size)
             .flat_map(|i| {
-                flatten_identifier_rec(zir::Identifier::Select(box id.clone(), i), &array_type.ty)
+                flatten_identifier_rec(
+                    SourceIdentifier::Select(Box::new(id.clone()), i),
+                    &array_type.ty,
+                )
             })
             .collect(),
         typed::types::ConcreteType::Struct(members) => members
             .iter()
             .flat_map(|struct_member| {
                 flatten_identifier_rec(
-                    zir::Identifier::Member(box id.clone(), struct_member.id.clone()),
+                    SourceIdentifier::Member(Box::new(id.clone()), struct_member.id.clone()),
                     &struct_member.ty,
                 )
             })
@@ -47,33 +59,36 @@ fn flatten_identifier_rec<'ast>(
             .iter()
             .enumerate()
             .flat_map(|(i, ty)| {
-                flatten_identifier_rec(zir::Identifier::Element(box id.clone(), i as u32), ty)
+                flatten_identifier_rec(
+                    SourceIdentifier::Element(Box::new(id.clone()), i as u32),
+                    ty,
+                )
             })
             .collect(),
     }
 }
 
 fn flatten_identifier_to_expression_rec<'ast, T: Field>(
-    id: zir::Identifier<'ast>,
+    id: zir::SourceIdentifier<'ast>,
     ty: &typed::types::ConcreteType,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
     match ty {
         typed::ConcreteType::Int => unreachable!(),
         typed::ConcreteType::FieldElement => {
-            vec![zir::FieldElementExpression::identifier(id).into()]
+            vec![zir::FieldElementExpression::identifier(zir::Identifier::Source(id)).into()]
         }
         typed::ConcreteType::Boolean => {
-            vec![zir::BooleanExpression::identifier(id).into()]
+            vec![zir::BooleanExpression::identifier(zir::Identifier::Source(id)).into()]
         }
         typed::ConcreteType::Uint(bitwidth) => {
-            vec![zir::UExpression::identifier(id)
+            vec![zir::UExpression::identifier(zir::Identifier::Source(id))
                 .annotate(bitwidth.to_usize())
                 .into()]
         }
         typed::ConcreteType::Array(array_type) => (0..*array_type.size)
             .flat_map(|i| {
                 flatten_identifier_to_expression_rec(
-                    zir::Identifier::Select(box id.clone(), i),
+                    SourceIdentifier::Select(box id.clone(), i),
                     &array_type.ty,
                 )
             })
@@ -82,7 +97,7 @@ fn flatten_identifier_to_expression_rec<'ast, T: Field>(
             .iter()
             .flat_map(|struct_member| {
                 flatten_identifier_to_expression_rec(
-                    zir::Identifier::Member(box id.clone(), struct_member.id.clone()),
+                    SourceIdentifier::Member(box id.clone(), struct_member.id.clone()),
                     &struct_member.ty,
                 )
             })
@@ -93,7 +108,7 @@ fn flatten_identifier_to_expression_rec<'ast, T: Field>(
             .enumerate()
             .flat_map(|(i, ty)| {
                 flatten_identifier_to_expression_rec(
-                    zir::Identifier::Element(box id.clone(), i as u32),
+                    SourceIdentifier::Element(box id.clone(), i as u32),
                     ty,
                 )
             })
@@ -196,8 +211,8 @@ impl<'ast, T: Field> Flattener<T> {
             .collect()
     }
 
-    fn fold_name(&mut self, n: typed::Identifier<'ast>) -> zir::Identifier<'ast> {
-        zir::Identifier::Basic(n)
+    fn fold_name(&mut self, n: typed::Identifier<'ast>) -> zir::SourceIdentifier<'ast> {
+        SourceIdentifier::Basic(n)
     }
 
     fn fold_variable(&mut self, v: typed::Variable<'ast, T>) -> Vec<zir::Variable<'ast>> {
@@ -496,7 +511,7 @@ impl<'ast, T: Field> Flattener<T> {
 // }
 #[derive(Default)]
 pub struct ArgumentFinder<'ast, T> {
-    pub identifiers: HashMap<zir::Identifier<'ast>, zir::Type>,
+    pub identifiers: BTreeMap<zir::Identifier<'ast>, zir::Type>,
     _phantom: PhantomData<T>,
 }
 

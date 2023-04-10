@@ -25,6 +25,7 @@ fn generate_proof() {
             Variable::new(0),
             None,
         )],
+        solvers: vec![],
     };
 
     let interpreter = Interpreter::default();

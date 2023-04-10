@@ -191,7 +191,7 @@ impl<'a, T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<'a,
         self.program
             .public_inputs_values(self.witness.as_ref().unwrap())
             .iter()
-            .map(|v| v.clone().into_bellman())
+            .map(|v| v.into_bellman())
             .collect()
     }
 
@@ -283,6 +283,7 @@ mod tests {
                     Variable::public(0),
                     None,
                 )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -309,6 +310,7 @@ mod tests {
                     Variable::public(0),
                     None,
                 )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -335,6 +337,7 @@ mod tests {
                     Variable::public(0),
                     None,
                 )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -370,6 +373,7 @@ mod tests {
                         None,
                     ),
                 ],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -395,6 +399,7 @@ mod tests {
                     Variable::public(0),
                     None,
                 )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -424,6 +429,7 @@ mod tests {
                     Variable::public(0),
                     None,
                 )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();

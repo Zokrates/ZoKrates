@@ -37,7 +37,7 @@ pub fn flat_expression_from_variable_summands<T: Field>(v: &[(T, usize)]) -> Fla
     match v.len() {
         0 => FlatExpression::value(T::zero()),
         1 => {
-            let (val, var) = v[0].clone();
+            let (val, var) = v[0];
             FlatExpression::mul(
                 FlatExpression::value(val),
                 FlatExpression::identifier(Variable::new(var)),

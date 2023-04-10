@@ -45,6 +45,7 @@ mod tests {
                     None,
                 ),
             ],
+            solvers: vec![],
         };
 
         let mut r1cs = vec![];

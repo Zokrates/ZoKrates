@@ -172,7 +172,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                                 left_max
                                     .checked_add(&range_max.clone())
                                     .map(|max| (false, true, max))
-                                    .unwrap_or_else(|| (true, true, range_max.clone() + range_max))
+                                    .unwrap_or_else(|| (true, true, range_max + range_max))
                             })
                     });
 
@@ -225,7 +225,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         left_max
                             .checked_add(&target_offset)
                             .map(|max| (false, true, max))
-                            .unwrap_or_else(|| (true, true, range_max.clone() + target_offset))
+                            .unwrap_or_else(|| (true, true, range_max + target_offset))
                     } else {
                         left_max
                             .checked_add(&offset)
@@ -296,7 +296,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                                 left_max
                                     .checked_mul(&range_max.clone())
                                     .map(|max| (false, true, max))
-                                    .unwrap_or_else(|| (true, true, range_max.clone() * range_max))
+                                    .unwrap_or_else(|| (true, true, range_max * range_max))
                             })
                     });
 

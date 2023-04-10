@@ -43,7 +43,7 @@ impl<'ast, T: Field> std::ops::Sub for LinQuadComb<'ast, T> {
             linear: {
                 let mut l = self.linear;
                 other.linear.iter_mut().for_each(|(c, _)| {
-                    *c = T::zero() - &*c;
+                    *c = T::zero() - *c;
                 });
                 l.append(&mut other.linear);
                 l
@@ -51,7 +51,7 @@ impl<'ast, T: Field> std::ops::Sub for LinQuadComb<'ast, T> {
             quadratic: {
                 let mut q = self.quadratic;
                 other.quadratic.iter_mut().for_each(|(c, _, _)| {
-                    *c = T::zero() - &*c;
+                    *c = T::zero() - *c;
                 });
                 q.append(&mut other.quadratic);
                 q
@@ -68,18 +68,18 @@ impl<'ast, T: Field> LinQuadComb<'ast, T> {
         }
 
         Ok(Self {
-            constant: self.constant.clone() * rhs.constant.clone(),
+            constant: self.constant * rhs.constant,
             linear: {
                 // lin0 * const1 + lin1 * const0
                 self.linear
                     .clone()
                     .into_iter()
-                    .map(|(c, i)| (c * rhs.constant.clone(), i))
+                    .map(|(c, i)| (c * rhs.constant, i))
                     .chain(
                         rhs.linear
                             .clone()
                             .into_iter()
-                            .map(|(c, i)| (c * self.constant.clone(), i)),
+                            .map(|(c, i)| (c * self.constant, i)),
                     )
                     .collect()
             },
@@ -87,16 +87,16 @@ impl<'ast, T: Field> LinQuadComb<'ast, T> {
                 // quad0 * const1 + quad1 * const0 + lin0 * lin1
                 self.quadratic
                     .into_iter()
-                    .map(|(c, i0, i1)| (c * rhs.constant.clone(), i0, i1))
+                    .map(|(c, i0, i1)| (c * rhs.constant, i0, i1))
                     .chain(
                         rhs.quadratic
                             .into_iter()
-                            .map(|(c, i0, i1)| (c * self.constant.clone(), i0, i1)),
+                            .map(|(c, i0, i1)| (c * self.constant, i0, i1)),
                     )
                     .chain(self.linear.iter().flat_map(|(cl, l)| {
                         rhs.linear
                             .iter()
-                            .map(|(cr, r)| (cl.clone() * cr.clone(), l.clone(), r.clone()))
+                            .map(|(cr, r)| (*cl * *cr, l.clone(), r.clone()))
                     }))
                     .collect()
             },

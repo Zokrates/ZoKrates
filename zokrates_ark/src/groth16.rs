@@ -125,6 +125,7 @@ mod tests {
                 Variable::public(0),
                 None,
             )],
+            solvers: vec![],
         };
 
         let rng = &mut StdRng::from_entropy();
@@ -155,6 +156,7 @@ mod tests {
                 Variable::public(0),
                 None,
             )],
+            solvers: vec![],
         };
 
         let rng = &mut StdRng::from_entropy();
