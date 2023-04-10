@@ -22,7 +22,7 @@ pub use self::position::{
     LocalSourceSpan, ModuleId, ModuleIdHash, ModuleMap, OwnedModuleId, Position, SourceSpan, Span,
     WithSpan,
 };
-pub use self::solvers::Solver;
+pub use self::solvers::{RefCall, Solver};
 pub use self::value::Value;
 pub use self::variable::Variable;
 pub use format_string::FormatString;

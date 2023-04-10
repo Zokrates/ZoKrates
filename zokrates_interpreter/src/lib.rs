@@ -50,7 +50,7 @@ impl Interpreter {
         witness.insert(Variable::one(), T::one());
 
         for (arg, value) in program.arguments.iter().zip(inputs.iter()) {
-            witness.insert(arg.id, value.clone());
+            witness.insert(arg.id, *value);
         }
 
         for statement in program.statements.into_iter() {
@@ -83,12 +83,12 @@ impl Interpreter {
                                 inputs.pop().unwrap(),
                             ))
                         }
-                        _ => Self::execute_solver(&d.solver, &inputs),
+                        _ => Self::execute_solver(&d.solver, &inputs, &program.solvers),
                     }
                     .map_err(Error::Solver)?;
 
                     for (i, o) in d.outputs.iter().enumerate() {
-                        witness.insert(*o, res[i].clone());
+                        witness.insert(*o, res[i]);
                     }
                 }
                 Statement::Log(s) => {
@@ -161,7 +161,18 @@ impl Interpreter {
         }
     }
 
-    pub fn execute_solver<T: Field>(solver: &Solver<T>, inputs: &[T]) -> Result<Vec<T>, String> {
+    pub fn execute_solver<'ast, T: Field>(
+        solver: &Solver<'ast, T>,
+        inputs: &[T],
+        solvers: &[Solver<'ast, T>],
+    ) -> Result<Vec<T>, String> {
+        let solver = match solver {
+            Solver::Ref(call) => solvers
+                .get(call.index)
+                .ok_or_else(|| format!("Could not get solver at index {}", call.index))?,
+            s => s,
+        };
+
         let (expected_input_count, expected_output_count) = solver.get_signature();
         assert_eq!(inputs.len(), expected_input_count);
 
@@ -177,7 +188,7 @@ impl Interpreter {
                     .map(|(a, v)| match &a.id.ty {
                         zir::Type::FieldElement => Ok((
                             a.id.id.clone(),
-                            zokrates_ast::zir::FieldElementExpression::value(v.clone()).into(),
+                            zokrates_ast::zir::FieldElementExpression::value(*v).into(),
                         )),
                         zir::Type::Boolean => match v {
                             v if *v == T::from(0) => Ok((
@@ -254,41 +265,38 @@ impl Interpreter {
                     .collect()
             }
             Solver::Xor => {
-                let x = inputs[0].clone();
-                let y = inputs[1].clone();
+                let x = inputs[0];
+                let y = inputs[1];
 
-                vec![x.clone() + y.clone() - T::from(2) * x * y]
+                vec![x + y - T::from(2) * x * y]
             }
             Solver::Or => {
-                let x = inputs[0].clone();
-                let y = inputs[1].clone();
+                let x = inputs[0];
+                let y = inputs[1];
 
-                vec![x.clone() + y.clone() - x * y]
+                vec![x + y - x * y]
             }
             // res = b * c - (2b * c - b - c) * (a)
             Solver::ShaAndXorAndXorAnd => {
-                let a = inputs[0].clone();
-                let b = inputs[1].clone();
-                let c = inputs[2].clone();
-                vec![b.clone() * c.clone() - (T::from(2) * b.clone() * c.clone() - b - c) * a]
+                let a = inputs[0];
+                let b = inputs[1];
+                let c = inputs[2];
+                vec![b * c - (T::from(2) * b * c - b - c) * a]
             }
             // res = a(b - c) + c
             Solver::ShaCh => {
-                let a = inputs[0].clone();
-                let b = inputs[1].clone();
-                let c = inputs[2].clone();
-                vec![a * (b - c.clone()) + c]
+                let a = inputs[0];
+                let b = inputs[1];
+                let c = inputs[2];
+                vec![a * (b - c) + c]
             }
 
-            Solver::Div => vec![inputs[0]
-                .clone()
-                .checked_div(&inputs[1])
-                .unwrap_or_else(T::one)],
+            Solver::Div => vec![inputs[0].checked_div(&inputs[1]).unwrap_or_else(T::one)],
             Solver::EuclideanDiv => {
                 use num::CheckedDiv;
 
-                let n = inputs[0].clone().to_biguint();
-                let d = inputs[1].clone().to_biguint();
+                let n = inputs[0].to_biguint();
+                let d = inputs[1].to_biguint();
 
                 let q = n.checked_div(&d).unwrap_or_else(|| 0u32.into());
                 let r = n - d * &q;
@@ -332,6 +340,7 @@ impl Interpreter {
                     &inputs[*n + 8usize..],
                 )
             }
+            _ => unreachable!("unexpected solver"),
         };
 
         assert_eq!(res.len(), expected_output_count);
@@ -352,15 +361,11 @@ pub enum Error {
 }
 
 fn evaluate_lin<T: Field>(w: &Witness<T>, l: &LinComb<T>) -> Result<T, EvaluationError> {
-    l.value
-        .iter()
-        .map(|(var, mult)| {
-            w.0.get(var)
-                .map(|v| v.clone() * mult)
-                .ok_or(EvaluationError)
-        }) // get each term
-        .collect::<Result<Vec<_>, _>>() // fail if any term isn't found
-        .map(|v| v.iter().fold(T::from(0), |acc, t| acc + t)) // return the sum
+    l.value.iter().try_fold(T::from(0), |acc, (var, mult)| {
+        w.0.get(var)
+            .map(|v| acc + (*v * mult))
+            .ok_or(EvaluationError) // fail if any term isn't found
+    })
 }
 
 pub fn evaluate_quad<T: Field>(w: &Witness<T>, q: &QuadComb<T>) -> Result<T, EvaluationError> {
@@ -433,6 +438,7 @@ mod tests {
                     .iter()
                     .map(|&i| Bn128Field::from(i))
                     .collect::<Vec<_>>(),
+                &[],
             )
             .unwrap();
             let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
@@ -449,6 +455,7 @@ mod tests {
                     .iter()
                     .map(|&i| Bn128Field::from(i))
                     .collect::<Vec<_>>(),
+                &[],
             )
             .unwrap();
             let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
@@ -459,9 +466,12 @@ mod tests {
     #[test]
     fn bits_of_one() {
         let inputs = vec![Bn128Field::from(1)];
-        let res =
-            Interpreter::execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
-                .unwrap();
+        let res = Interpreter::execute_solver(
+            &Solver::Bits(Bn128Field::get_required_bits()),
+            &inputs,
+            &[],
+        )
+        .unwrap();
         assert_eq!(res[253], Bn128Field::from(1));
         for r in &res[0..253] {
             assert_eq!(*r, Bn128Field::from(0));
@@ -471,9 +481,12 @@ mod tests {
     #[test]
     fn bits_of_42() {
         let inputs = vec![Bn128Field::from(42)];
-        let res =
-            Interpreter::execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
-                .unwrap();
+        let res = Interpreter::execute_solver(
+            &Solver::Bits(Bn128Field::get_required_bits()),
+            &inputs,
+            &[],
+        )
+        .unwrap();
         assert_eq!(res[253], Bn128Field::from(0));
         assert_eq!(res[252], Bn128Field::from(1));
         assert_eq!(res[251], Bn128Field::from(0));
@@ -486,11 +499,51 @@ mod tests {
     #[test]
     fn five_hundred_bits_of_1() {
         let inputs = vec![Bn128Field::from(1)];
-        let res = Interpreter::execute_solver(&Solver::Bits(500), &inputs).unwrap();
+        let res = Interpreter::execute_solver(&Solver::Bits(500), &inputs, &[]).unwrap();
 
         let mut expected = vec![Bn128Field::from(0); 500];
         expected[499] = Bn128Field::from(1);
 
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn solver_ref() {
+        use std::ops::Mul;
+        use zir::{
+            types::{Signature, Type},
+            FieldElementExpression, Identifier, IdentifierExpression, Parameter, Variable,
+            ZirFunction, ZirStatement,
+        };
+        use zokrates_ast::common::RefCall;
+
+        let id = IdentifierExpression::new(Identifier::internal(0usize));
+
+        // (field i0) -> i0 * i0
+        let solvers = vec![Solver::Zir(ZirFunction {
+            arguments: vec![Parameter::new(Variable::field_element(id.id.clone()), true)],
+            statements: vec![ZirStatement::ret(vec![FieldElementExpression::mul(
+                FieldElementExpression::Identifier(id.clone()),
+                FieldElementExpression::Identifier(id.clone()),
+            )
+            .into()])],
+            signature: Signature::new()
+                .inputs(vec![Type::FieldElement])
+                .outputs(vec![Type::FieldElement]),
+        })];
+
+        let inputs = vec![Bn128Field::from(2)];
+        let res = Interpreter::execute_solver(
+            &Solver::Ref(RefCall {
+                index: 0,
+                argument_count: 1,
+            }),
+            &inputs,
+            &solvers,
+        )
+        .unwrap();
+
+        let expected = vec![Bn128Field::from(4)];
         assert_eq!(res, expected);
     }
 }

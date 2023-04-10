@@ -1,3 +1,4 @@
+pub mod canonicalizer;
 pub mod folder;
 mod from_typed;
 mod identifier;
@@ -28,7 +29,7 @@ use derivative::Derivative;
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
-pub use self::identifier::Identifier;
+pub use self::identifier::{Identifier, SourceIdentifier};
 use serde::{Deserialize, Serialize};
 
 /// A typed program as a collection of modules, one of them being the main

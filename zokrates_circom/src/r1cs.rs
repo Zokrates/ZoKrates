@@ -297,6 +297,7 @@ mod tests {
                 Variable::public(0),
                 None,
             )],
+            solvers: vec![],
         };
 
         let mut buf = Vec::new();
@@ -367,6 +368,7 @@ mod tests {
                     None,
                 ),
             ],
+            solvers: vec![],
         };
 
         let mut buf = Vec::new();

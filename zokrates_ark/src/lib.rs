@@ -151,7 +151,7 @@ impl<'a, T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<'a, T>>
         self.program
             .public_inputs_values(self.witness.as_ref().unwrap())
             .iter()
-            .map(|v| v.clone().into_ark())
+            .map(|v| v.into_ark())
             .collect()
     }
 }

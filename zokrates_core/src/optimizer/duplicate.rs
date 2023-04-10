@@ -39,14 +39,22 @@ impl<'ast, T: Field> Folder<'ast, T> for DuplicateOptimizer {
     }
 
     fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
-        let hashed = hash(&s);
-        let result = match self.seen.get(&hashed) {
-            Some(_) => vec![],
-            None => vec![s],
-        };
-
-        self.seen.insert(hashed);
-        result
+        match s {
+            Statement::Block(s) => s
+                .inner
+                .into_iter()
+                .flat_map(|s| self.fold_statement(s))
+                .collect(),
+            s => {
+                let hashed = hash(&s);
+                let result = match self.seen.get(&hashed) {
+                    Some(_) => vec![],
+                    None => vec![s],
+                };
+                self.seen.insert(hashed);
+                result
+            }
+        }
     }
 }
 
@@ -80,6 +88,7 @@ mod tests {
             ],
             return_count: 0,
             arguments: vec![],
+            solvers: vec![],
         };
 
         let expected = p.clone();
@@ -119,6 +128,7 @@ mod tests {
             ],
             return_count: 0,
             arguments: vec![],
+            solvers: vec![],
         };
 
         let expected = Prog {
@@ -136,6 +146,7 @@ mod tests {
             ],
             return_count: 0,
             arguments: vec![],
+            solvers: vec![],
         };
 
         assert_eq!(

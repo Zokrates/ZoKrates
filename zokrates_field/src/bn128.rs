@@ -48,7 +48,7 @@ mod tests {
             );
             assert_eq!(
                 FieldPrime::from("65484493"),
-                FieldPrime::from("65416358") + &FieldPrime::from("68135")
+                FieldPrime::from("65416358") + FieldPrime::from("68135")
             );
         }
 
@@ -60,7 +60,7 @@ mod tests {
             );
             assert_eq!(
                 FieldPrime::from("3"),
-                FieldPrime::from("5") + &FieldPrime::from(-2)
+                FieldPrime::from("5") + FieldPrime::from(-2)
             );
         }
 
@@ -72,7 +72,7 @@ mod tests {
             );
             assert_eq!(
                 FieldPrime::from("65348223"),
-                FieldPrime::from("65416358") + &FieldPrime::from(-68135)
+                FieldPrime::from("65416358") + FieldPrime::from(-68135)
             );
         }
 
@@ -84,7 +84,7 @@ mod tests {
             );
             assert_eq!(
                 FieldPrime::from("65348223"),
-                FieldPrime::from("65416358") - &FieldPrime::from("68135")
+                FieldPrime::from("65416358") - FieldPrime::from("68135")
             );
         }
 
@@ -96,7 +96,7 @@ mod tests {
             );
             assert_eq!(
                 FieldPrime::from("65484493"),
-                FieldPrime::from("65416358") - &FieldPrime::from(-68135)
+                FieldPrime::from("65416358") - FieldPrime::from(-68135)
             );
         }
 
@@ -112,7 +112,7 @@ mod tests {
                 FieldPrime::from(
                     "21888242871839275222246405745257275088548364400416034343698204186575743147394"
                 ),
-                FieldPrime::from("68135") - &FieldPrime::from("65416358")
+                FieldPrime::from("68135") - FieldPrime::from("65416358")
             );
         }
 
@@ -124,7 +124,7 @@ mod tests {
             );
             assert_eq!(
                 FieldPrime::from("13472"),
-                FieldPrime::from("32") * &FieldPrime::from("421")
+                FieldPrime::from("32") * FieldPrime::from("421")
             );
         }
 
@@ -140,7 +140,7 @@ mod tests {
                 FieldPrime::from(
                     "21888242871839275222246405745257275088548364400416034343698204186575808014369"
                 ),
-                FieldPrime::from("54") * &FieldPrime::from(-8912)
+                FieldPrime::from("54") * FieldPrime::from(-8912)
             );
         }
 
@@ -152,7 +152,7 @@ mod tests {
             );
             assert_eq!(
                 FieldPrime::from("648"),
-                FieldPrime::from(-54) * &FieldPrime::from(-12)
+                FieldPrime::from(-54) * FieldPrime::from(-12)
             );
         }
 
@@ -172,7 +172,7 @@ mod tests {
                 ),
                 FieldPrime::from(
                     "21888242871839225222246405785257275088694311157297823662689037894645225727"
-                ) * &FieldPrime::from("218882428715392752222464057432572755886923")
+                ) * FieldPrime::from("218882428715392752222464057432572755886923")
             );
         }
 
@@ -184,7 +184,7 @@ mod tests {
             );
             assert_eq!(
                 FieldPrime::from(4),
-                FieldPrime::from(48) / &FieldPrime::from(12)
+                FieldPrime::from(48) / FieldPrime::from(12)
             );
         }
 
@@ -318,7 +318,7 @@ mod tests {
                 let a: Fr = rng.gen();
                 // now test idempotence
                 let a = FieldPrime::from_bellman(a);
-                assert_eq!(FieldPrime::from_bellman(a.clone().into_bellman()), a);
+                assert_eq!(FieldPrime::from_bellman(a.into_bellman()), a);
             }
         }
 
