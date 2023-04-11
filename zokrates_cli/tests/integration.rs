@@ -27,6 +27,67 @@ mod integration {
         to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17,
     };
 
+    mod helpers {
+        use super::*;
+        use zokrates_ast::common::Variable;
+        use zokrates_field::Field;
+
+        pub fn parse_variable(s: &str) -> Result<Variable, &str> {
+            if s == "~one" {
+                return Ok(Variable::one());
+            }
+
+            let mut public = s.split("~out_");
+            match public.nth(1) {
+                Some(v) => {
+                    let v = v.parse().map_err(|_| s)?;
+                    Ok(Variable::public(v))
+                }
+                None => {
+                    let mut private = s.split('_');
+                    match private.nth(1) {
+                        Some(v) => {
+                            let v = v.parse().map_err(|_| s)?;
+                            Ok(Variable::new(v))
+                        }
+                        None => Err(s),
+                    }
+                }
+            }
+        }
+
+        pub fn parse_witness_json<T: Field, R: Read>(reader: R) -> std::io::Result<Witness<T>> {
+            use std::io::{Error, ErrorKind};
+
+            let json: serde_json::Value = serde_json::from_reader(reader)?;
+            let object = json
+                .as_object()
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Witness must be an object"))?;
+
+            let mut witness = Witness::empty();
+            for (k, v) in object {
+                let variable = parse_variable(k).map_err(|why| {
+                    Error::new(
+                        ErrorKind::Other,
+                        format!("Invalid variable in witness: {}", why),
+                    )
+                })?;
+
+                let value = v
+                    .as_str()
+                    .ok_or_else(|| Error::new(ErrorKind::Other, "Witness value must be a string"))
+                    .and_then(|v| {
+                        T::try_from_dec_str(v).map_err(|_| {
+                            Error::new(ErrorKind::Other, format!("Invalid value in witness: {}", v))
+                        })
+                    })?;
+
+                witness.insert(variable, value);
+            }
+            Ok(witness)
+        }
+    }
+
     macro_rules! map(
     {
         $($key:expr => $value:expr),+ } => {
@@ -253,8 +314,8 @@ mod integration {
 
         // load the expected witness
         let expected_witness_file = File::open(&expected_witness_path).unwrap();
-        let expected_witness =
-            Witness::<zokrates_field::Bn128Field>::read_json(expected_witness_file).unwrap();
+        let expected_witness: Witness<zokrates_field::Bn128Field> =
+            helpers::parse_witness_json(expected_witness_file).unwrap();
 
         // load the actual witness
         let witness_file = File::open(&witness_path).unwrap();

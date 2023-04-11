@@ -47,30 +47,6 @@ impl Variable {
             id: isize::from_le_bytes(buf),
         })
     }
-
-    pub fn try_from_human_readable(s: &str) -> Result<Self, &str> {
-        if s == "~one" {
-            return Ok(Variable::one());
-        }
-
-        let mut public = s.split("~out_");
-        match public.nth(1) {
-            Some(v) => {
-                let v = v.parse().map_err(|_| s)?;
-                Ok(Variable::public(v))
-            }
-            None => {
-                let mut private = s.split('_');
-                match private.nth(1) {
-                    Some(v) => {
-                        let v = v.parse().map_err(|_| s)?;
-                        Ok(Variable::new(v))
-                    }
-                    None => Err(s),
-                }
-            }
-        }
-    }
 }
 
 impl fmt::Display for Variable {

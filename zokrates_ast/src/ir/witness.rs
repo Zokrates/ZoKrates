@@ -80,40 +80,6 @@ impl<T: Field> Witness<T> {
         serde_json::to_writer_pretty(writer, &map)?;
         Ok(())
     }
-
-    pub fn read_json<R: Read>(reader: R) -> io::Result<Self> {
-        let json: serde_json::Value = serde_json::from_reader(reader)?;
-        let object = json
-            .as_object()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Witness must be an object"))?;
-
-        let mut witness = Witness::empty();
-        for (k, v) in object {
-            let variable = Variable::try_from_human_readable(k).map_err(|why| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Invalid variable in witness: {}", why),
-                )
-            })?;
-
-            let value = v
-                .as_str()
-                .ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::Other, "Witness value must be a string")
-                })
-                .and_then(|v| {
-                    T::try_from_dec_str(v).map_err(|_| {
-                        io::Error::new(
-                            io::ErrorKind::Other,
-                            format!("Invalid value in witness: {}", v),
-                        )
-                    })
-                })?;
-
-            witness.insert(variable, value);
-        }
-        Ok(witness)
-    }
 }
 
 impl<T: Field> fmt::Display for Witness<T> {
@@ -159,6 +125,32 @@ mod tests {
             let r = Witness::read(buff).unwrap();
 
             assert_eq!(w, r);
+        }
+
+        #[test]
+        fn serialize_json() {
+            let w = Witness(
+                vec![
+                    (Variable::new(42), Bn128Field::from(42)),
+                    (Variable::public(8), Bn128Field::from(8)),
+                    (Variable::one(), Bn128Field::from(1)),
+                ]
+                .into_iter()
+                .collect(),
+            );
+
+            let mut buf = Cursor::new(vec![]);
+            w.write_json(&mut buf).unwrap();
+
+            let output = String::from_utf8(buf.into_inner()).unwrap();
+            assert_eq!(
+                output.as_str(),
+                r#"{
+  "~out_8": "8",
+  "~one": "1",
+  "_42": "42"
+}"#
+            )
         }
     }
 }
