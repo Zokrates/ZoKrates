@@ -20,14 +20,19 @@ use zokrates_proof_systems::groth16::{ProofPoints, VerificationKey, G16};
 use zokrates_proof_systems::Scheme;
 
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
-    fn generate_proof<'a, I: IntoIterator<Item = Statement<'a, T>>, R: RngCore + CryptoRng>(
+    fn generate_proof<
+        'a,
+        I: IntoIterator<Item = Statement<'a, T>>,
+        R: Read,
+        G: RngCore + CryptoRng,
+    >(
         program: ProgIterator<'a, T, I>,
         witness: Witness<T>,
-        proving_key: Vec<u8>,
-        rng: &mut R,
+        proving_key: R,
+        rng: &mut G,
     ) -> Proof<T, G16> {
         let computation = Computation::with_witness(program, witness);
-        let params = Parameters::read(proving_key.as_slice(), true).unwrap();
+        let params = Parameters::read(proving_key, true).unwrap();
 
         let public_inputs: Vec<String> = computation
             .public_inputs_values()
@@ -108,7 +113,7 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
     }
 
     fn contribute<R: Read, W: Write, G: RngCore + CryptoRng>(
-        params: &mut R,
+        params: R,
         rng: &mut G,
         output: &mut W,
     ) -> Result<[u8; 64], String> {
@@ -124,8 +129,8 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         Ok(hash)
     }
 
-    fn verify<'a, P: Read, R: Read, I: IntoIterator<Item = Statement<'a, T>>>(
-        params: &mut P,
+    fn verify<'a, R: Read, I: IntoIterator<Item = Statement<'a, T>>>(
+        params: R,
         program: ProgIterator<'a, T, I>,
         phase1_radix: &mut R,
     ) -> Result<Vec<[u8; 64]>, String> {
@@ -140,7 +145,7 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         Ok(hashes)
     }
 
-    fn export_keypair<R: Read>(params: &mut R) -> Result<SetupKeypair<T, G16>, String> {
+    fn export_keypair<R: Read>(params: R) -> Result<SetupKeypair<T, G16>, String> {
         let params =
             MPCParameters::<T::BellmanEngine>::read(params, true).map_err(|e| e.to_string())?;
 
@@ -227,7 +232,10 @@ mod tests {
             .unwrap();
 
         let proof = <Bellman as Backend<Bn128Field, G16>>::generate_proof(
-            program, witness, keypair.pk, rng,
+            program,
+            witness,
+            keypair.pk.as_slice(),
+            rng,
         );
         let ans = <Bellman as Backend<Bn128Field, G16>>::verify(keypair.vk, proof);
 

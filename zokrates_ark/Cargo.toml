@@ -28,7 +28,7 @@ ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = f
 ark-bw6-761 = { version = "^0.3.0", default-features = false }
 ark-gm17 = { version = "^0.3.0", default-features = false }
 ark-groth16 = { version = "^0.3.0", default-features = false }
-ark-serialize = { version = "^0.3.0", default-features = false }
+ark-serialize = { version = "^0.3.0", default-features = false, features = ["std"] }
 ark-relations = { version = "^0.3.0", default-features = false }
 ark-marlin = { git = "https://github.com/arkworks-rs/marlin", rev = "63cfd82", default-features = false }
 ark-poly = { version = "^0.3.0", default-features = false }

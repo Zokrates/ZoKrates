@@ -252,4 +252,12 @@ impl Field for FieldPrime {
     fn to_biguint(&self) -> num_bigint::BigUint {
         unimplemented!()
     }
+
+    fn read<R: std::io::Read>(_: R) -> std::io::Result<Self> {
+        unimplemented!()
+    }
+
+    fn write<W: std::io::Write>(&self, _: W) -> std::io::Result<()> {
+        unimplemented!()
+    }
 }
