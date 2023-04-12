@@ -564,23 +564,6 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssignee<'ast, T> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Hash, Eq, PartialOrd, Ord)]
-pub struct AssertionMetadata {
-    pub file: String,
-    pub span: Span,
-    pub message: Option<String>,
-}
-
-impl fmt::Display for AssertionMetadata {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Assertion failed at {}:{}", self.file, self.span)?;
-        match &self.message {
-            Some(m) => write!(f, ": \"{}\"", m),
-            None => write!(f, ""),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub enum RuntimeError {
     SourceAssertion(SourceMetadata),

@@ -3157,7 +3157,6 @@ dependencies = [
  "byteorder",
  "cfg-if 0.1.10",
  "derivative",
- "log",
  "num-bigint 0.2.6",
  "pairing_ce",
  "serde",

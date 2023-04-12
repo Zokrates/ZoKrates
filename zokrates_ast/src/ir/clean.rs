@@ -25,7 +25,7 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
 impl<'ast, T: Field> Folder<'ast, T> for Cleaner {
     fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
         if s.get_span().is_none() {
-            log::error!("Internal compiler warning: found a statement without source information. Please open an issue https://github.com/Zokrates/ZoKrates/issues/new?template=bug_report.md");
+            eprintln!("Internal compiler warning: found a statement without source information. Please open an issue https://github.com/Zokrates/ZoKrates/issues/new?template=bug_report.md");
         }
 
         match s {
