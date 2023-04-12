@@ -19,6 +19,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use digest::Digest;
 use rand_0_8::{CryptoRng, Error, RngCore, SeedableRng};
 use sha3::Keccak256;
+use std::io::Read;
 use std::marker::PhantomData;
 
 use zokrates_field::{ArkFieldExtensions, Field};
@@ -206,11 +207,16 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
 }
 
 impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
-    fn generate_proof<'a, I: IntoIterator<Item = Statement<'a, T>>, R: RngCore + CryptoRng>(
+    fn generate_proof<
+        'a,
+        I: IntoIterator<Item = Statement<'a, T>>,
+        R: Read,
+        G: RngCore + CryptoRng,
+    >(
         program: ProgIterator<'a, T, I>,
         witness: Witness<T>,
-        proving_key: Vec<u8>,
-        rng: &mut R,
+        proving_key: R,
+        rng: &mut G,
     ) -> Proof<T, marlin::Marlin> {
         let computation = Computation::with_witness(program, witness);
 
@@ -220,7 +226,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 T::ArkEngine,
                 DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
             >,
-        >::deserialize_unchecked(&mut proving_key.as_slice())
+        >::deserialize_unchecked(proving_key)
         .unwrap();
 
         let public_inputs = computation.public_inputs_values();
@@ -417,7 +423,10 @@ mod tests {
             .unwrap();
 
         let proof = <Ark as Backend<Bls12_377Field, Marlin>>::generate_proof(
-            program, witness, keypair.pk, rng,
+            program,
+            witness,
+            keypair.pk.as_slice(),
+            rng,
         );
         let ans = <Ark as Backend<Bls12_377Field, Marlin>>::verify(keypair.vk, proof);
 
@@ -452,7 +461,10 @@ mod tests {
             .unwrap();
 
         let proof = <Ark as Backend<Bw6_761Field, Marlin>>::generate_proof(
-            program, witness, keypair.pk, rng,
+            program,
+            witness,
+            keypair.pk.as_slice(),
+            rng,
         );
         let ans = <Ark as Backend<Bw6_761Field, Marlin>>::verify(keypair.vk, proof);
 

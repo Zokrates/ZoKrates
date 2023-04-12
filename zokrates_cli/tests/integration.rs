@@ -16,16 +16,77 @@ mod integration {
     use std::fs;
     use std::fs::File;
     use std::io::{BufReader, Read, Write};
-    use std::panic;
     use std::path::Path;
     use std::process::Command;
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
+    use zokrates_ast::ir::Witness;
     use zokrates_ast::typed::abi::Abi;
     use zokrates_field::Bn128Field;
     use zokrates_proof_systems::{
         to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17,
     };
+
+    mod helpers {
+        use super::*;
+        use zokrates_ast::common::Variable;
+        use zokrates_field::Field;
+
+        pub fn parse_variable(s: &str) -> Result<Variable, &str> {
+            if s == "~one" {
+                return Ok(Variable::one());
+            }
+
+            let mut public = s.split("~out_");
+            match public.nth(1) {
+                Some(v) => {
+                    let v = v.parse().map_err(|_| s)?;
+                    Ok(Variable::public(v))
+                }
+                None => {
+                    let mut private = s.split('_');
+                    match private.nth(1) {
+                        Some(v) => {
+                            let v = v.parse().map_err(|_| s)?;
+                            Ok(Variable::new(v))
+                        }
+                        None => Err(s),
+                    }
+                }
+            }
+        }
+
+        pub fn parse_witness_json<T: Field, R: Read>(reader: R) -> std::io::Result<Witness<T>> {
+            use std::io::{Error, ErrorKind};
+
+            let json: serde_json::Value = serde_json::from_reader(reader)?;
+            let object = json
+                .as_object()
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Witness must be an object"))?;
+
+            let mut witness = Witness::empty();
+            for (k, v) in object {
+                let variable = parse_variable(k).map_err(|why| {
+                    Error::new(
+                        ErrorKind::Other,
+                        format!("Invalid variable in witness: {}", why),
+                    )
+                })?;
+
+                let value = v
+                    .as_str()
+                    .ok_or_else(|| Error::new(ErrorKind::Other, "Witness value must be a string"))
+                    .and_then(|v| {
+                        T::try_from_dec_str(v).map_err(|_| {
+                            Error::new(ErrorKind::Other, format!("Invalid value in witness: {}", v))
+                        })
+                    })?;
+
+                witness.insert(variable, value);
+            }
+            Ok(witness)
+        }
+    }
 
     macro_rules! map(
     {
@@ -101,7 +162,9 @@ mod integration {
                 let program_name =
                     Path::new(Path::new(path.file_stem().unwrap()).file_stem().unwrap());
                 let prog = dir.join(program_name).with_extension("zok");
-                let witness = dir.join(program_name).with_extension("expected.witness");
+                let witness = dir
+                    .join(program_name)
+                    .with_extension("expected.witness.json");
                 let json_input = dir.join(program_name).with_extension("arguments.json");
 
                 test_compile_and_witness(
@@ -250,33 +313,24 @@ mod integration {
             .unwrap();
 
         // load the expected witness
-        let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
-        let mut expected_witness = String::new();
-        expected_witness_file
-            .read_to_string(&mut expected_witness)
-            .unwrap();
+        let expected_witness_file = File::open(&expected_witness_path).unwrap();
+        let expected_witness: Witness<zokrates_field::Bn128Field> =
+            helpers::parse_witness_json(expected_witness_file).unwrap();
 
         // load the actual witness
-        let mut witness_file = File::open(&witness_path).unwrap();
-        let mut witness = String::new();
-        witness_file.read_to_string(&mut witness).unwrap();
+        let witness_file = File::open(&witness_path).unwrap();
+        let witness = Witness::<zokrates_field::Bn128Field>::read(witness_file).unwrap();
 
         // load the actual inline witness
-        let mut inline_witness_file = File::open(&inline_witness_path).unwrap();
-        let mut inline_witness = String::new();
-        inline_witness_file
-            .read_to_string(&mut inline_witness)
-            .unwrap();
+        let inline_witness_file = File::open(&inline_witness_path).unwrap();
+        let inline_witness =
+            Witness::<zokrates_field::Bn128Field>::read(inline_witness_file).unwrap();
 
         assert_eq!(inline_witness, witness);
 
-        for line in expected_witness.as_str().split('\n') {
-            assert!(
-                witness.contains(line),
-                "Witness generation failed for {}\n\nLine \"{}\" not found in witness",
-                program_path.to_str().unwrap(),
-                line
-            );
+        for (k, v) in expected_witness.0 {
+            let value = witness.0.get(&k).expect("should contain key");
+            assert!(v.eq(value));
         }
 
         let backends = map! {
