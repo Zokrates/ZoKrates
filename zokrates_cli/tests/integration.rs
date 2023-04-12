@@ -29,7 +29,7 @@ mod integration {
 
     mod helpers {
         use super::*;
-        use zokrates_ast::common::Variable;
+        use zokrates_ast::common::flat::Variable;
         use zokrates_field::Field;
 
         pub fn parse_variable(s: &str) -> Result<Variable, &str> {
