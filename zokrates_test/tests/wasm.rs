@@ -17,9 +17,14 @@ use zokrates_proof_systems::groth16::G16;
 #[wasm_bindgen_test]
 fn generate_proof() {
     let program: Prog<Bn128Field> = Prog {
+        module_map: Default::default(),
         arguments: vec![Parameter::public(Variable::new(0))],
         return_count: 1,
-        statements: vec![Statement::constraint(Variable::new(0), Variable::new(0))],
+        statements: vec![Statement::constraint(
+            Variable::new(0),
+            Variable::new(0),
+            None,
+        )],
         solvers: vec![],
     };
 

@@ -5,7 +5,6 @@
 //
 // This makes the assumption that ~one has value 1, as should be guaranteed by the verifier
 
-use zokrates_ast::ir::folder::fold_statement;
 use zokrates_ast::ir::folder::Folder;
 use zokrates_ast::ir::*;
 use zokrates_field::Field;
@@ -14,19 +13,16 @@ use zokrates_field::Field;
 pub struct TautologyOptimizer;
 
 impl<'ast, T: Field> Folder<'ast, T> for TautologyOptimizer {
-    fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
-        match s {
-            Statement::Constraint(quad, lin, message) => match quad.try_linear() {
-                Ok(l) => {
-                    if l == lin {
-                        vec![]
-                    } else {
-                        vec![Statement::Constraint(l.into(), lin, message)]
-                    }
+    fn fold_constraint_statement(&mut self, s: ConstraintStatement<T>) -> Vec<Statement<'ast, T>> {
+        match s.quad.try_linear() {
+            Ok(l) => {
+                if l == s.lin {
+                    vec![]
+                } else {
+                    vec![Statement::constraint(l, s.lin, s.error)]
                 }
-                Err(quad) => vec![Statement::Constraint(quad, lin, message)],
-            },
-            _ => fold_statement(self, s),
+            }
+            Err(quad) => vec![Statement::constraint(quad, s.lin, s.error)],
         }
     }
 }

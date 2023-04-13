@@ -1,14 +1,14 @@
 {
   "entry_point": "./tests/tests/uint/ch.zok",
-  "max_constraint_count": 200,
+  "max_constraint_count": 132,
   "tests": [
     {
       "input": {
-        "values": ["0x00000000", "0x00000000", "0x00000000"]
+        "values": ["0x0000000f", "0x0000000f", "0x0000000f"]
       },
       "output": {
         "Ok": {
-          "value": "0x00000000"
+          "value": "0x0000000f"
         }
       }
     }

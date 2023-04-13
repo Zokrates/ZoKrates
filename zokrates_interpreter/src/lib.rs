@@ -5,7 +5,7 @@ use zokrates_abi::{Decode, Value};
 use zokrates_ast::ir::{
     LinComb, ProgIterator, QuadComb, RuntimeError, Solver, Statement, Variable, Witness,
 };
-use zokrates_ast::zir;
+use zokrates_ast::zir::{self, Expr};
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
@@ -56,16 +56,16 @@ impl Interpreter {
         for statement in program.statements.into_iter() {
             match statement {
                 Statement::Block(..) => unreachable!(),
-                Statement::Constraint(quad, lin, error) => match lin.is_assignee(&witness) {
+                Statement::Constraint(s) => match s.lin.is_assignee(&witness) {
                     true => {
-                        let val = evaluate_quad(&witness, &quad).unwrap();
-                        witness.insert(lin.0.get(0).unwrap().0, val);
+                        let val = evaluate_quad(&witness, &s.quad).unwrap();
+                        witness.insert(s.lin.value.get(0).unwrap().0, val);
                     }
                     false => {
-                        let lhs_value = evaluate_quad(&witness, &quad).unwrap();
-                        let rhs_value = evaluate_lin(&witness, &lin).unwrap();
+                        let lhs_value = evaluate_quad(&witness, &s.quad).unwrap();
+                        let rhs_value = evaluate_lin(&witness, &s.lin).unwrap();
                         if lhs_value != rhs_value {
-                            return Err(Error::UnsatisfiedConstraint { error });
+                            return Err(Error::UnsatisfiedConstraint { error: s.error });
                         }
                     }
                 },
@@ -91,13 +91,13 @@ impl Interpreter {
                         witness.insert(*o, res[i]);
                     }
                 }
-                Statement::Log(l, expressions) => {
-                    let mut parts = l.parts.into_iter();
+                Statement::Log(s) => {
+                    let mut parts = s.format_string.parts.into_iter();
 
                     write!(log_stream, "{}", parts.next().unwrap())
                         .map_err(|_| Error::LogStream)?;
 
-                    for ((t, e), part) in expressions.into_iter().zip(parts) {
+                    for ((t, e), part) in s.expressions.into_iter().zip(parts) {
                         let values: Vec<_> = e
                             .iter()
                             .map(|e| evaluate_lin(&witness, e).unwrap())
@@ -185,26 +185,26 @@ impl Interpreter {
                     .arguments
                     .iter()
                     .zip(inputs)
-                    .map(|(a, v)| match &a.id._type {
+                    .map(|(a, v)| match &a.id.ty {
                         zir::Type::FieldElement => Ok((
                             a.id.id.clone(),
-                            zokrates_ast::zir::FieldElementExpression::Number(*v).into(),
+                            zokrates_ast::zir::FieldElementExpression::value(*v).into(),
                         )),
                         zir::Type::Boolean => match v {
                             v if *v == T::from(0) => Ok((
                                 a.id.id.clone(),
-                                zokrates_ast::zir::BooleanExpression::Value(false).into(),
+                                zokrates_ast::zir::BooleanExpression::value(false).into(),
                             )),
                             v if *v == T::from(1) => Ok((
                                 a.id.id.clone(),
-                                zokrates_ast::zir::BooleanExpression::Value(true).into(),
+                                zokrates_ast::zir::BooleanExpression::value(true).into(),
                             )),
                             v => Err(format!("`{}` has unexpected value `{}`", a.id, v)),
                         },
                         zir::Type::Uint(bitwidth) => match v.bits() <= bitwidth.to_usize() as u32 {
                             true => Ok((
                                 a.id.id.clone(),
-                                zokrates_ast::zir::UExpressionInner::Value(
+                                zokrates_ast::zir::UExpression::value(
                                     v.to_dec_string().parse::<u128>().unwrap(),
                                 )
                                 .annotate(*bitwidth)
@@ -230,11 +230,12 @@ impl Interpreter {
                 if let zokrates_ast::zir::ZirStatement::Return(v) =
                     folded_function.statements[0].clone()
                 {
-                    v.into_iter()
+                    v.inner
+                        .into_iter()
                         .map(|v| match v {
                             zokrates_ast::zir::ZirExpression::FieldElement(
-                                zokrates_ast::zir::FieldElementExpression::Number(n),
-                            ) => n,
+                                zokrates_ast::zir::FieldElementExpression::Value(n),
+                            ) => n.value,
                             _ => unreachable!(),
                         })
                         .collect()
@@ -360,7 +361,7 @@ pub enum Error {
 }
 
 fn evaluate_lin<T: Field>(w: &Witness<T>, l: &LinComb<T>) -> Result<T, EvaluationError> {
-    l.0.iter().try_fold(T::from(0), |acc, (var, mult)| {
+    l.value.iter().try_fold(T::from(0), |acc, (var, mult)| {
         w.0.get(var)
             .map(|v| acc + (*v * mult))
             .ok_or(EvaluationError) // fail if any term isn't found
@@ -508,6 +509,7 @@ mod tests {
 
     #[test]
     fn solver_ref() {
+        use std::ops::Mul;
         use zir::{
             types::{Signature, Type},
             FieldElementExpression, Identifier, IdentifierExpression, Parameter, Variable,
@@ -519,13 +521,10 @@ mod tests {
 
         // (field i0) -> i0 * i0
         let solvers = vec![Solver::Zir(ZirFunction {
-            arguments: vec![Parameter {
-                id: Variable::field_element(id.id.clone()),
-                private: true,
-            }],
-            statements: vec![ZirStatement::Return(vec![FieldElementExpression::Mult(
-                Box::new(FieldElementExpression::Identifier(id.clone())),
-                Box::new(FieldElementExpression::Identifier(id.clone())),
+            arguments: vec![Parameter::new(Variable::field_element(id.id.clone()), true)],
+            statements: vec![ZirStatement::ret(vec![FieldElementExpression::mul(
+                FieldElementExpression::Identifier(id.clone()),
+                FieldElementExpression::Identifier(id.clone()),
             )
             .into()])],
             signature: Signature::new()

@@ -130,8 +130,8 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let arena = Arena::new();
 
-    let artifacts =
-        compile::<T, _>(source, path, Some(&resolver), config, &arena).map_err(|e| {
+    let artifacts = compile::<T, _>(source, path.clone(), Some(&resolver), config, &arena)
+        .map_err(|e| {
             format!(
                 "Compilation failed:\n\n{}",
                 e.0.iter()
@@ -154,7 +154,15 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut bin_writer = BufWriter::new(bin_output_file);
     let mut r1cs_writer = BufWriter::new(r1cs_output_file);
 
-    let program_flattened = program_flattened.collect();
+    let mut program_flattened = program_flattened.collect();
+
+    // hide user path
+    program_flattened.module_map = program_flattened
+        .module_map
+        .remap_prefix(path.parent().unwrap(), Path::new(""));
+    program_flattened.module_map = program_flattened
+        .module_map
+        .remap_prefix(Path::new(stdlib_path), Path::new("STDLIB"));
 
     write_r1cs(&mut r1cs_writer, program_flattened.clone()).unwrap();
 

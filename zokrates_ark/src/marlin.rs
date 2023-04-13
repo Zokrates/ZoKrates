@@ -398,17 +398,16 @@ mod tests {
     #[test]
     fn verify_bls12_377_field() {
         let program: Prog<Bls12_377Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![Parameter::private(Variable::new(0))],
             return_count: 1,
             statements: vec![
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
-                        Variable::new(0).into(),
-                        Variable::new(0).into(),
-                    ),
+                    QuadComb::new(Variable::new(0).into(), Variable::new(0).into()),
                     Variable::new(1),
+                    None,
                 ),
-                Statement::constraint(Variable::new(1), Variable::public(0)),
+                Statement::constraint(Variable::new(1), Variable::public(0), None),
             ],
             solvers: vec![],
         };
@@ -437,17 +436,16 @@ mod tests {
     #[test]
     fn verify_bw6_761_field() {
         let program: Prog<Bw6_761Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![Parameter::private(Variable::new(0))],
             return_count: 1,
             statements: vec![
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
-                        Variable::new(0).into(),
-                        Variable::new(0).into(),
-                    ),
+                    QuadComb::new(Variable::new(0).into(), Variable::new(0).into()),
                     Variable::new(1),
+                    None,
                 ),
-                Statement::constraint(Variable::new(1), Variable::public(0)),
+                Statement::constraint(Variable::new(1), Variable::public(0), None),
             ],
             solvers: vec![],
         };

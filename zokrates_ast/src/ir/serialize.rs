@@ -1,6 +1,7 @@
 use crate::ir::{check::UnconstrainedVariableDetector, solver_indexer::SolverIndexer};
 
 use super::{ProgIterator, Statement};
+use crate::ir::ModuleMap;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::Deserialize;
 use serde_cbor::{self, StreamDeserializer};
@@ -66,6 +67,7 @@ pub enum SectionType {
     Parameters = 1,
     Constraints = 2,
     Solvers = 3,
+    Modules = 4,
 }
 
 impl TryFrom<u32> for SectionType {
@@ -76,6 +78,7 @@ impl TryFrom<u32> for SectionType {
             1 => Ok(SectionType::Parameters),
             2 => Ok(SectionType::Constraints),
             3 => Ok(SectionType::Solvers),
+            4 => Ok(SectionType::Modules),
             _ => Err("invalid section type".to_string()),
         }
     }
@@ -113,7 +116,7 @@ pub struct ProgHeader {
     pub curve_id: [u8; 4],
     pub constraint_count: u32,
     pub return_count: u32,
-    pub sections: [Section; 3],
+    pub sections: [Section; 4],
 }
 
 impl ProgHeader {
@@ -149,6 +152,7 @@ impl ProgHeader {
         let parameters = Self::read_section(r.by_ref())?;
         let constraints = Self::read_section(r.by_ref())?;
         let solvers = Self::read_section(r.by_ref())?;
+        let module_map = Self::read_section(r.by_ref())?;
 
         Ok(ProgHeader {
             magic,
@@ -156,7 +160,7 @@ impl ProgHeader {
             curve_id,
             constraint_count,
             return_count,
-            sections: [parameters, constraints, solvers],
+            sections: [parameters, constraints, solvers, module_map],
         })
     }
 
@@ -231,13 +235,24 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
             section
         };
 
+        // write module map section
+        let module_map = {
+            let mut section = Section::new(SectionType::Solvers);
+            section.set_offset(w.stream_position()?);
+
+            serde_cbor::to_writer(&mut w, &self.module_map)?;
+
+            section.set_length(w.stream_position()? - section.offset);
+            section
+        };
+
         let header = ProgHeader {
             magic: *ZOKRATES_MAGIC,
             version: *FILE_VERSION,
             curve_id: T::id(),
             constraint_count: count as u32,
             return_count: self.return_count as u32,
-            sections: [parameters, constraints, solvers],
+            sections: [parameters, constraints, solvers, module_map],
         };
 
         // rewind to write the header
@@ -302,6 +317,16 @@ impl<'de, R: Read + Seek>
                 .unwrap()
         };
 
+        let module_map = {
+            let section = &header.sections[3];
+            r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
+
+            let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
+            ModuleMap::deserialize(&mut p)
+                .map_err(|_| String::from("Cannot read module map"))
+                .unwrap()
+        };
+
         let statements_deserializer = {
             let section = &header.sections[1];
             r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
@@ -316,6 +341,7 @@ impl<'de, R: Read + Seek>
             parameters,
             statements_deserializer,
             header.return_count as usize,
+            module_map,
             solvers,
         )
     }

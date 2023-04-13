@@ -18,7 +18,7 @@ use zokrates_ast::ir::{self, from_flat::from_flat};
 use zokrates_ast::typed::abi::Abi;
 use zokrates_ast::untyped::{Module, OwnedModuleId, Program};
 use zokrates_ast::zir::ZirProgram;
-use zokrates_codegen::from_function_and_config;
+use zokrates_codegen::from_program_and_config;
 use zokrates_common::{CompileConfig, Resolver};
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
@@ -155,15 +155,15 @@ impl fmt::Display for CompileErrorInner {
             CompileErrorInner::SemanticError(ref e) => {
                 let location = e
                     .pos()
-                    .map(|p| format!("{}", p.0))
+                    .map(|p| format!("{}", p.from))
                     .unwrap_or_else(|| "".to_string());
                 write!(f, "{}\n\t{}", location, e.message())
             }
             CompileErrorInner::ReadError(ref e) => write!(f, "\n\t{}", e),
             CompileErrorInner::ImportError(ref e) => {
                 let location = e
-                    .pos()
-                    .map(|p| format!("{}", p.0))
+                    .span()
+                    .map(|p| format!("{}", p.from))
                     .unwrap_or_else(|| "".to_string());
                 write!(f, "{}\n\t{}", location, e.message())
             }
@@ -189,7 +189,7 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
 
     // flatten input program
     log::debug!("Flatten");
-    let program_flattened = from_function_and_config(typed_ast.main, config);
+    let program_flattened = from_program_and_config(typed_ast, config);
 
     // convert to ir
     log::debug!("Convert to IR");

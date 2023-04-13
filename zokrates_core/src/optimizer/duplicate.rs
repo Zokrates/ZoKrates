@@ -40,7 +40,11 @@ impl<'ast, T: Field> Folder<'ast, T> for DuplicateOptimizer {
 
     fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
         match s {
-            Statement::Block(s) => s.into_iter().flat_map(|s| self.fold_statement(s)).collect(),
+            Statement::Block(s) => s
+                .inner
+                .into_iter()
+                .flat_map(|s| self.fold_statement(s))
+                .collect(),
             s => {
                 let hashed = hash(&s);
                 let result = match self.seen.get(&hashed) {
@@ -63,20 +67,23 @@ mod tests {
     #[test]
     fn identity() {
         let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             statements: vec![
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
+                    QuadComb::new(
                         LinComb::summand(3, Variable::new(3)),
                         LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::one(),
+                    None,
                 ),
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
+                    QuadComb::new(
                         LinComb::summand(3, Variable::new(42)),
                         LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::zero(),
+                    None,
                 ),
             ],
             return_count: 0,
@@ -95,23 +102,26 @@ mod tests {
     #[test]
     fn remove_duplicates() {
         let constraint = Statement::constraint(
-            QuadComb::from_linear_combinations(
+            QuadComb::new(
                 LinComb::summand(3, Variable::new(3)),
                 LinComb::summand(3, Variable::new(3)),
             ),
             LinComb::one(),
+            None,
         );
 
         let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             statements: vec![
                 constraint.clone(),
                 constraint.clone(),
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
+                    QuadComb::new(
                         LinComb::summand(3, Variable::new(42)),
                         LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::zero(),
+                    None,
                 ),
                 constraint.clone(),
                 constraint.clone(),
@@ -122,14 +132,16 @@ mod tests {
         };
 
         let expected = Prog {
+            module_map: Default::default(),
             statements: vec![
                 constraint,
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
+                    QuadComb::new(
                         LinComb::summand(3, Variable::new(42)),
                         LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::zero(),
+                    None,
                 ),
             ],
             return_count: 0,

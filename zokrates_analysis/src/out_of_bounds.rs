@@ -53,14 +53,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for OutOfBoundsChecker {
 
                 let size = match array.get_type() {
                     Type::Array(array_ty) => match array_ty.size.as_inner() {
-                        UExpressionInner::Value(size) => *size,
+                        UExpressionInner::Value(size) => size.value,
                         _ => unreachable!(),
                     },
                     _ => unreachable!(),
                 };
 
                 match index.as_inner() {
-                    UExpressionInner::Value(i) if i >= &size => Err(Error(format!(
+                    UExpressionInner::Value(i) if i.value >= size => Err(Error(format!(
                         "Out of bounds write to `{}` because `{}` has size {}",
                         TypedAssignee::Select(box array.clone(), box index),
                         array,

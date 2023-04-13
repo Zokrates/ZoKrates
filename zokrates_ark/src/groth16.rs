@@ -123,9 +123,14 @@ mod tests {
     #[test]
     fn verify_bls12_377_field() {
         let program: Prog<Bls12_377Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![Parameter::public(Variable::new(0))],
             return_count: 1,
-            statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+            statements: vec![Statement::constraint(
+                Variable::new(0),
+                Variable::public(0),
+                None,
+            )],
             solvers: vec![],
         };
 
@@ -152,9 +157,14 @@ mod tests {
     #[test]
     fn verify_bw6_761_field() {
         let program: Prog<Bw6_761Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![Parameter::public(Variable::new(0))],
             return_count: 1,
-            statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+            statements: vec![Statement::constraint(
+                Variable::new(0),
+                Variable::public(0),
+                None,
+            )],
             solvers: vec![],
         };
 

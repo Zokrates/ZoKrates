@@ -13,14 +13,14 @@ impl<'ast, T: Field> Folder<'ast, T> for ZirCanonicalizer<'ast> {
         self.identifier_map.insert(p.id.id.clone(), new_id);
 
         Parameter {
-            id: Variable::with_id_and_type(Identifier::internal(new_id), p.id._type),
+            id: Variable::with_id_and_type(Identifier::internal(new_id), p.id.ty),
             ..p
         }
     }
     fn fold_assignee(&mut self, a: ZirAssignee<'ast>) -> ZirAssignee<'ast> {
         let new_id = self.identifier_map.len();
         self.identifier_map.insert(a.id.clone(), new_id);
-        ZirAssignee::with_id_and_type(Identifier::internal(new_id), a._type)
+        ZirAssignee::with_id_and_type(Identifier::internal(new_id), a.ty)
     }
     fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
         match self.identifier_map.get(&n) {
@@ -43,17 +43,14 @@ mod tests {
     #[test]
     fn canonicalize() {
         let func = ZirFunction::<Bn128Field> {
-            arguments: vec![Parameter {
-                id: Variable::field_element("a"),
-                private: true,
-            }],
+            arguments: vec![Parameter::new(Variable::field_element("a"), true)],
             statements: vec![
-                ZirStatement::Definition(
+                ZirStatement::definition(
                     ZirAssignee::field_element("b"),
                     FieldElementExpression::Identifier(IdentifierExpression::new("a".into()))
                         .into(),
                 ),
-                ZirStatement::Return(vec![FieldElementExpression::Identifier(
+                ZirStatement::ret(vec![FieldElementExpression::Identifier(
                     IdentifierExpression::new("b".into()),
                 )
                 .into()]),
@@ -67,19 +64,19 @@ mod tests {
         let result = canonicalizer.fold_function(func);
 
         let expected = ZirFunction::<Bn128Field> {
-            arguments: vec![Parameter {
-                id: Variable::field_element(Identifier::internal(0usize)),
-                private: true,
-            }],
+            arguments: vec![Parameter::new(
+                Variable::field_element(Identifier::internal(0usize)),
+                true,
+            )],
             statements: vec![
-                ZirStatement::Definition(
+                ZirStatement::definition(
                     ZirAssignee::field_element(Identifier::internal(1usize)),
                     FieldElementExpression::Identifier(IdentifierExpression::new(
                         Identifier::internal(0usize),
                     ))
                     .into(),
                 ),
-                ZirStatement::Return(vec![FieldElementExpression::Identifier(
+                ZirStatement::ret(vec![FieldElementExpression::Identifier(
                     IdentifierExpression::new(Identifier::internal(1usize)),
                 )
                 .into()]),

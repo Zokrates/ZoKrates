@@ -8,7 +8,8 @@ use num_bigint::BigUint;
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
-use zokrates_ast::common::{FormatString, SourceMetadata};
+use zokrates_ast::common::expressions::ValueExpression;
+use zokrates_ast::common::{FormatString, ModuleMap, SourceMetadata, SourceSpan, WithSpan};
 use zokrates_ast::typed::types::{GGenericsAssignment, GTupleType, GenericsAssignment};
 use zokrates_ast::typed::SourceIdentifier;
 use zokrates_ast::typed::*;
@@ -16,6 +17,8 @@ use zokrates_ast::typed::{DeclarationParameter, DeclarationVariable, Variable};
 use zokrates_ast::untyped::Identifier;
 use zokrates_ast::untyped::*;
 use zokrates_field::Field;
+
+use std::ops::*;
 
 use zokrates_ast::untyped::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
@@ -29,7 +32,7 @@ use zokrates_ast::typed::types::{
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct ErrorInner {
-    pos: Option<(Position, Position)>,
+    span: Option<SourceSpan>,
     message: String,
 }
 
@@ -40,8 +43,8 @@ pub struct Error {
 }
 
 impl ErrorInner {
-    pub fn pos(&self) -> &Option<(Position, Position)> {
-        &self.pos
+    pub fn pos(&self) -> &Option<SourceSpan> {
+        &self.span
     }
 
     pub fn message(&self) -> &str {
@@ -369,6 +372,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         Ok(TypedProgram {
             main: program.main,
+            module_map: ModuleMap::new(state.typed_modules.iter().map(|(id, _)| id).cloned()),
             modules: state.typed_modules,
         })
     }
@@ -379,7 +383,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &State<'ast, T>,
     ) -> Result<UserDeclarationType<'ast, T>, Vec<ErrorInner>> {
-        let pos = ty.pos();
+        let span = ty.span().in_module(module_id);
         let ty = ty.value;
 
         let mut errors = vec![];
@@ -395,7 +399,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 .is_some()
             {
                 errors.push(ErrorInner {
-                    pos: Some(g.pos()),
+                    span: Some(g.span().in_module(module_id)),
                     message: format!(
                         "Generic parameter {p} conflicts with constant symbol {p}",
                         p = g.value
@@ -410,7 +414,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     false => {
                         errors.push(ErrorInner {
-                            pos: Some(g.pos()),
+                            span: Some(g.span().in_module(module_id)),
                             message: format!("Generic parameter {} is already declared", g.value),
                         });
                     }
@@ -432,7 +436,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 for declared_generic in generics_map.keys() {
                     if !used_generics.contains(declared_generic) {
                         errors.push(ErrorInner {
-                            pos: Some(pos),
+                            span: Some(span),
                             message: format!("Generic parameter {} must be used", declared_generic),
                         });
                     }
@@ -458,7 +462,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &State<'ast, T>,
     ) -> Result<TypedConstant<'ast, T>, ErrorInner> {
-        let pos = c.pos();
+        let span = c.span().in_module(module_id);
 
         let ty = self.check_declaration_type(
             c.value.ty.clone(),
@@ -492,7 +496,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             DeclarationType::Int => Err(checked_expr), // Integers cannot be assigned
         }
         .map_err(|e| ErrorInner {
-            pos: Some(pos),
+            span: Some(span),
             message: format!(
                 "Expression `{}` of type `{}` cannot be assigned to constant `{}` of type `{}`",
                 e,
@@ -511,7 +515,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &State<'ast, T>,
     ) -> Result<DeclarationStructType<'ast, T>, Vec<ErrorInner>> {
-        let pos = s.pos();
+        let span = s.span().in_module(module_id);
         let s = s.value;
 
         let mut errors = vec![];
@@ -529,7 +533,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 .is_some()
             {
                 errors.push(ErrorInner {
-                    pos: Some(g.pos()),
+                    span: Some(g.span().in_module(module_id)),
                     message: format!(
                         "Generic parameter {p} conflicts with constant symbol {p}",
                         p = g.value
@@ -544,7 +548,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     false => {
                         errors.push(ErrorInner {
-                            pos: Some(g.pos()),
+                            span: Some(g.span().in_module(module_id)),
                             message: format!("Generic parameter {} is already declared", g.value),
                         });
                     }
@@ -569,7 +573,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 Ok(f) => match fields_set.insert(f.0.clone()) {
                     true => fields.push(f),
                     false => errors.push(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!("Duplicate key {} in struct definition", f.0,),
                     }),
                 },
@@ -583,7 +587,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         for declared_generic in generics_map.keys() {
             if !used_generics.contains(declared_generic) {
                 errors.push(ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!("Generic parameter {} must be used", declared_generic),
                 });
             }
@@ -614,7 +618,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     ) -> Result<(), Vec<Error>> {
         let mut errors: Vec<Error> = vec![];
 
-        let pos = declaration.pos();
+        let span = declaration.span().in_module(module_id);
         let declaration = declaration.value;
 
         match declaration.symbol.clone() {
@@ -629,7 +633,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         match symbol_unifier.insert_type(declaration.id) {
                             false => errors.push(
                                 ErrorInner {
-                                    pos: Some(pos),
+                                    span: Some(span),
                                     message: format!(
                                         "{} conflicts with another symbol",
                                         declaration.id
@@ -671,7 +675,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         match symbol_unifier.insert_constant(declaration.id) {
                             false => errors.push(
                                 ErrorInner {
-                                    pos: Some(pos),
+                                    span: Some(span),
                                     message: format!(
                                         "{} conflicts with another symbol",
                                         declaration.id
@@ -722,7 +726,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         match symbol_unifier.insert_type(declaration.id) {
                             false => errors.push(
                                 ErrorInner {
-                                    pos: Some(pos),
+                                    span: Some(span),
                                     message: format!(
                                         "{} conflicts with another symbol",
                                         declaration.id,
@@ -753,7 +757,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         {
                             false => errors.push(
                                 ErrorInner {
-                                    pos: Some(pos),
+                                    span: Some(span),
                                     message: format!(
                                         "{} conflicts with another symbol",
                                         declaration.id
@@ -789,7 +793,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
             }
             Symbol::There(import) => {
-                let pos = import.pos();
+                let span = import.span().in_module(module_id);
                 let import = import.value;
 
                 match Checker::default().check_module(&import.module_id, state) {
@@ -850,7 +854,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         errors.push(Error {
                                             module_id: module_id.to_path_buf(),
                                             inner: ErrorInner {
-                                                pos: Some(pos),
+                                                span: Some(span),
                                                 message: format!(
                                                     "{} conflicts with another symbol",
                                                     declaration.id,
@@ -871,7 +875,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         errors.push(Error {
                                             module_id: module_id.to_path_buf(),
                                             inner: ErrorInner {
-                                                pos: Some(pos),
+                                                span: Some(span),
                                                 message: format!(
                                                     "{} conflicts with another symbol",
                                                     declaration.id,
@@ -909,7 +913,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             }
                             (0, None, None) => {
                                 errors.push(ErrorInner {
-                                    pos: Some(pos),
+                                    span: Some(span),
                                     message: format!(
                                         "Could not find symbol {} in module {}",
                                         import.symbol_id, import.module_id.display(),
@@ -923,7 +927,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     match symbol_unifier.insert_function(declaration.id, candidate.signature.clone()) {
                                         false => {
                                             errors.push(ErrorInner {
-                                                pos: Some(pos),
+                                                span: Some(span),
                                                 message: format!(
                                                     "{} conflicts with another symbol",
                                                     declaration.id,
@@ -957,7 +961,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     false => {
                         errors.push(
                             ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "{} conflicts with another symbol",
                                     declaration.id
@@ -1054,11 +1058,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
         {
             1 => Ok(()),
             0 => Err(ErrorInner {
-                pos: None,
+                span: None,
                 message: "No main function found".into(),
             }),
             n => Err(ErrorInner {
-                pos: None,
+                span: None,
                 message: format!("Only one main function allowed, found {}", n),
             }),
         }
@@ -1070,14 +1074,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<Variable<'ast, T>, Vec<ErrorInner>> {
-        let pos = var.pos();
+        let span = var.span().in_module(module_id);
 
         let var = self.check_variable(var, module_id, types)?;
 
         match var.get_type() {
             Type::Uint(UBitwidth::B32) => Ok(()),
             t => Err(vec![ErrorInner {
-                pos: Some(pos),
+                span: Some(span),
                 message: format!("Variable in for loop cannot have type {}", t),
             }]),
         }?;
@@ -1106,7 +1110,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         self.enter_scope();
 
-        let pos = funct_node.pos();
+        let span = funct_node.span().in_module(module_id);
 
         let mut errors = vec![];
         let funct = funct_node.value;
@@ -1142,14 +1146,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
 
                 for (arg, decl_ty) in funct.arguments.into_iter().zip(s.inputs.iter()) {
-                    let pos = arg.pos();
+                    let span = arg.span().in_module(module_id);
 
                     let arg = arg.value;
 
                     // parameters defined on a non-entrypoint function should not have visibility modifiers
                     if (state.main_id != module_id || id != "main") && arg.is_private.is_some() {
                         errors.push(ErrorInner {
-                            pos: Some(pos),
+                            span: Some(span),
                             message:
                                 "Visibility modifiers on arguments are only allowed on the entrypoint function"
                                     .into(),
@@ -1159,12 +1163,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let decl_v = DeclarationVariable::new(
                         self.id_in_this_scope(arg.id.value.id),
                         decl_ty.clone(),
-                        arg.id.value.is_mutable,
                     );
 
                     let is_mutable = arg.id.value.is_mutable;
 
-                    let ty = specialize_declaration_type(decl_v.clone()._type, &generics).unwrap();
+                    let ty = specialize_declaration_type(decl_v.clone().ty, &generics).unwrap();
 
                     assert_eq!(self.scope.level, 1);
 
@@ -1178,27 +1181,27 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         false => {}
                         true => {
                             errors.push(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!("Duplicate name in function definition: `{}` was previously declared as an argument, a generic parameter or a constant", arg.id.value.id)
                             });
                         }
                     };
 
-                    arguments_checked.push(DeclarationParameter {
-                        id: decl_v,
-                        private: arg.is_private.unwrap_or(false),
-                    });
+                    arguments_checked.push(
+                        DeclarationParameter::new(decl_v, arg.is_private.unwrap_or(false))
+                            .with_span(span),
+                    );
                 }
 
                 let mut found_return = false;
 
                 for stat in funct.statements.into_iter() {
-                    let pos = Some(stat.pos());
+                    let span = Some(stat.span().in_module(module_id));
 
                     if let Statement::Return(..) = stat.value {
                         if found_return {
                             errors.push(ErrorInner {
-                                pos,
+                                span,
                                 message: "Expected a single return statement".to_string(),
                             });
                         }
@@ -1218,11 +1221,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 if !found_return {
                     match (&*s.output).is_empty_tuple() {
-                        true => statements_checked
-                            .push(TypedStatement::Return(TypedExpression::empty_tuple())),
+                        true => statements_checked.push(
+                            TypedStatement::ret(TypedExpression::empty_tuple()).with_span(span),
+                        ),
                         false => {
                             errors.push(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: "Expected a return statement".to_string(),
                             });
                         }
@@ -1271,7 +1275,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 .is_some()
             {
                 errors.push(ErrorInner {
-                    pos: Some(g.pos()),
+                    span: Some(g.span().in_module(module_id)),
                     message: format!(
                         "Generic parameter {p} conflicts with constant symbol {p}",
                         p = g.value
@@ -1286,7 +1290,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     false => {
                         errors.push(ErrorInner {
-                            pos: Some(g.pos()),
+                            span: Some(g.span().in_module(module_id)),
                             message: format!("Generic parameter {} is already declared", g.value),
                         });
                     }
@@ -1348,7 +1352,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<Type<'ast, T>, ErrorInner> {
-        let pos = ty.pos();
+        let span = ty.span().in_module(module_id);
         let ty = ty.value;
 
         match ty {
@@ -1364,7 +1368,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     TypedExpression::Uint(e) => match e.bitwidth() {
                         UBitwidth::B32 => Ok(e),
                         _ => Err(ErrorInner {
-                            pos: Some(pos),
+                            span: Some(span),
                             message: format!(
                             "Expected array dimension to be a u32 constant, found {} of type {}",
                             e, ty
@@ -1374,7 +1378,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     TypedExpression::Int(v) => {
                         UExpression::try_from_int(v.clone(), &UBitwidth::B32).map_err(|_| {
                             ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                             "Expected array dimension to be a u32 constant, found {} of type {}",
                             v, ty
@@ -1383,7 +1387,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         })
                     }
                     _ => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Expected array dimension to be a u32 constant, found {} of type {}",
                             size, ty
@@ -1411,7 +1415,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         .get(&id)
                         .cloned()
                         .ok_or_else(|| ErrorInner {
-                            pos: Some(pos),
+                            span: Some(span),
                             message: format!("Undefined type {}", id),
                         })?;
 
@@ -1438,13 +1442,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             UExpression::try_from_typed(e, &UBitwidth::B32)
                                                 .map(|e| (GenericIdentifier::with_name(g).with_index(i), e))
                                                 .map_err(|e| ErrorInner {
-                                                    pos: Some(pos),
+                                                    span: Some(span),
                                                     message: format!("Expected u32 expression, but got expression of type {}", e.get_type()),
                                                 })
                                         })
                                 },
                                 None => Err(ErrorInner {
-                                    pos: Some(pos),
+                                    span: Some(span),
                                     message:
                                     "Expected u32 constant or identifier, but found `_`. Generic inference is not supported yet."
                                         .into(),
@@ -1456,7 +1460,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok(specialize_declaration_type(declaration_type, &assignment).unwrap())
                     }
                     false => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Expected {} generic argument{} on type {}, but got {}",
                             generic_identifiers.len(),
@@ -1481,7 +1485,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         generics_map: &BTreeMap<Identifier<'ast>, usize>,
         used_generics: &mut HashSet<Identifier<'ast>>,
     ) -> Result<DeclarationConstant<'ast, T>, ErrorInner> {
-        let pos = expr.pos();
+        let span = expr.span().in_module(module_id);
 
         match expr.value {
             Expression::U32Constant(c) => Ok(DeclarationConstant::from(c)),
@@ -1492,7 +1496,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     ))
                 } else {
                     Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                     "Expected array dimension to be a u32 constant or an identifier, found {}",
                     Expression::IntConstant(c)
@@ -1508,7 +1512,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         match ty {
                             DeclarationType::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Constant(CanonicalConstantIdentifier::new(name, module_id.into()))),
                             _ => Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "Expected array dimension to be a u32 constant or an identifier, found {} of type {}",
                                     name, ty
@@ -1518,13 +1522,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     (None, Some(index)) => Ok(DeclarationConstant::Generic(GenericIdentifier::with_name(name).with_index(*index))),
                     _ => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!("Undeclared symbol `{}`", name)
                     })
                 }
             }
             e => Err(ErrorInner {
-                pos: Some(pos),
+                span: Some(span),
                 message: format!(
                     "Expected array dimension to be a u32 constant or an identifier, found {}",
                     e
@@ -1541,7 +1545,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         generics_map: &BTreeMap<Identifier<'ast>, usize>,
         used_generics: &mut HashSet<Identifier<'ast>>,
     ) -> Result<DeclarationType<'ast, T>, ErrorInner> {
-        let pos = ty.pos();
+        let span = ty.span().in_module(module_id);
         let ty = ty.value;
 
         match ty {
@@ -1587,7 +1591,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .get(&id)
                     .cloned()
                     .ok_or_else(|| ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!("Undefined type {}", id),
                     })?;
 
@@ -1605,7 +1609,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             )
                             .map(Some),
                         None => Err(ErrorInner {
-                            pos: Some(pos),
+                            span: Some(span),
                             message: "Expected u32 constant or identifier, but found `_`".into(),
                         }),
                     })
@@ -1639,7 +1643,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok(res)
                     }
                     false => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Expected {} generic argument{} on type {}, but got {}",
                             ty.generics.len(),
@@ -1660,17 +1664,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
         types: &TypeMap<'ast, T>,
     ) -> Result<Variable<'ast, T>, Vec<ErrorInner>> {
         let ty = self
-            .check_type(v.value._type, module_id, types)
+            .check_type(v.value.ty, module_id, types)
             .map_err(|e| vec![e])?;
 
         // insert into the scope and ignore whether shadowing happened
         self.insert_into_scope(v.value.id, ty.clone(), v.value.is_mutable);
 
-        Ok(Variable::new(
-            self.id_in_this_scope(v.value.id),
-            ty,
-            v.value.is_mutable,
-        ))
+        Ok(Variable::new(self.id_in_this_scope(v.value.id), ty))
     }
 
     fn check_for_loop(
@@ -1678,7 +1678,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         var: zokrates_ast::untyped::VariableNode<'ast>,
         range: (ExpressionNode<'ast>, ExpressionNode<'ast>),
         statements: Vec<StatementNode<'ast>>,
-        pos: (Position, Position),
+        span: SourceSpan,
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
@@ -1693,7 +1693,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             TypedExpression::Uint(from) => match from.bitwidth() {
                 UBitwidth::B32 => Ok(from),
                 bitwidth => Err(ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Expected lower loop bound to be of type u32, found {}",
                         Type::<T>::Uint(bitwidth)
@@ -1702,7 +1702,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             },
             TypedExpression::Int(v) => {
                 UExpression::try_from_int(v, &UBitwidth::B32).map_err(|_| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Expected lower loop bound to be of type u32, found {}",
                         Type::<T>::Int
@@ -1710,7 +1710,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 })
             }
             from => Err(ErrorInner {
-                pos: Some(pos),
+                span: Some(span),
                 message: format!(
                     "Expected lower loop bound to be of type u32, found {}",
                     from.get_type()
@@ -1723,7 +1723,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             TypedExpression::Uint(to) => match to.bitwidth() {
                 UBitwidth::B32 => Ok(to),
                 bitwidth => Err(ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Expected upper loop bound to be of type u32, found {}",
                         Type::<T>::Uint(bitwidth)
@@ -1732,7 +1732,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             },
             TypedExpression::Int(v) => {
                 UExpression::try_from_int(v, &UBitwidth::B32).map_err(|_| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Expected upper loop bound to be of type u32, found {}",
                         Type::<T>::Int
@@ -1740,7 +1740,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 })
             }
             to => Err(ErrorInner {
-                pos: Some(pos),
+                span: Some(span),
                 message: format!(
                     "Expected upper loop bound to be of type u32, found {}",
                     to.get_type()
@@ -1756,7 +1756,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             .map(|s| self.check_statement(s, module_id, types))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(TypedStatement::For(var, from, to, checked_statements))
+        Ok(TypedStatement::for_(var, from, to, checked_statements).with_span(span))
     }
 
     // the assignee is already checked to be defined and mutable
@@ -1789,7 +1789,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, ErrorInner> {
-        let pos = stat.pos();
+        let span = stat.span().in_module(module_id);
 
         match stat.value {
             AssemblyStatement::Assignment(assignee, expression, constrained) => {
@@ -1797,7 +1797,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e = self.check_expression(expression, module_id, types)?;
 
                 let e = FieldElementExpression::try_from_typed(e).map_err(|e| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Expected right hand side of an assembly assignment to be of type field, found {}",
                         e.get_type(),
@@ -1809,25 +1809,29 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let e = FieldElementExpression::block(vec![], e);
                         match assignee.get_type() {
                             Type::FieldElement => Ok(vec![
-                                TypedAssemblyStatement::Assignment(
+                                TypedAssemblyStatement::assignment(
                                     assignee.clone(),
                                     e.clone().into(),
-                                ),
-                                TypedAssemblyStatement::Constraint(
+                                )
+                                .with_span(span),
+                                TypedAssemblyStatement::constraint(
                                     assignee.into(),
                                     e,
-                                    SourceMetadata::new(module_id.display().to_string(), pos.0),
-                                ),
+                                    SourceMetadata::new(module_id.display().to_string(), span.from),
+                                )
+                                .with_span(span),
                             ]),
                             ty => Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!("Assignee must be of type field, found {}", ty),
                             }),
                         }
                     }
                     false => {
                         let e = FieldElementExpression::block(vec![], e);
-                        Ok(vec![TypedAssemblyStatement::Assignment(assignee, e.into())])
+                        Ok(vec![
+                            TypedAssemblyStatement::assignment(assignee, e.into()).with_span(span)
+                        ])
                     }
                 }
             }
@@ -1836,7 +1840,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let rhs = self.check_expression(rhs, module_id, types)?;
 
                 let lhs = FieldElementExpression::try_from_typed(lhs).map_err(|e| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Expected left hand side of a constraint to be of type field, found {}",
                         e.get_type(),
@@ -1844,18 +1848,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 })?;
 
                 let rhs = FieldElementExpression::try_from_typed(rhs).map_err(|e| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Expected right hand side of a constraint to be of type field, found {}",
                         e.get_type(),
                     ),
                 })?;
 
-                Ok(vec![TypedAssemblyStatement::Constraint(
+                Ok(vec![TypedAssemblyStatement::constraint(
                     lhs,
                     rhs,
-                    SourceMetadata::new(module_id.display().to_string(), pos.0),
-                )])
+                    SourceMetadata::new(module_id.display().to_string(), span.from),
+                )
+                .with_span(span)])
             }
         }
     }
@@ -1866,7 +1871,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
-        let pos = stat.pos();
+        let span = stat.span().in_module(module_id);
 
         match stat.value {
             Statement::Assembly(statements) => {
@@ -1877,7 +1882,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .map_err(|e| vec![e])?,
                     );
                 }
-                Ok(TypedStatement::Assembly(checked_statements))
+                Ok(TypedStatement::Assembly(
+                    AssemblyBlockStatement::new(checked_statements).with_span(span),
+                ))
             }
             Statement::Log(l, expressions) => {
                 let l = FormatString::from(l);
@@ -1893,7 +1900,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 for e in &expressions {
                     if let TypedExpression::Int(e) = e {
                         errors.push(ErrorInner {
-                            pos: Some(pos),
+                            span: Some(span),
                             message: format!("Cannot determine type for expression `{}`", e),
                         });
                     }
@@ -1901,7 +1908,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 if expressions.len() != l.len() {
                     errors.push(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Wrong argument count in log call: expected {}, got {}",
                             l.len(),
@@ -1914,7 +1921,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     return Err(errors);
                 }
 
-                Ok(TypedStatement::Log(l, expressions))
+                Ok(TypedStatement::log(l, expressions).with_span(span))
             }
             Statement::Return(e) => {
                 let mut errors = vec![];
@@ -1954,7 +1961,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let res = match TypedExpression::align_to_type(e_checked.clone(), &return_type)
                     .map_err(|e| {
                         vec![ErrorInner {
-                            pos: Some(pos),
+                            span: Some(span),
                             message: format!(
                                 "Expected return value to be of type `{}`, found `{}` of type `{}`",
                                 e.1,
@@ -1967,7 +1974,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         match e.get_type() == return_type {
                             true => {}
                             false => errors.push(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "Expected `{}` in return statement, found `{}`",
                                     return_type,
@@ -1975,11 +1982,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 ),
                             }),
                         }
-                        TypedStatement::Return(e)
+                        TypedStatement::ret(e).with_span(span)
                     }
                     Err(err) => {
                         errors.extend(err);
-                        TypedStatement::Return(e_checked)
+                        TypedStatement::ret(e_checked).with_span(span)
                     }
                 };
 
@@ -1992,7 +1999,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Statement::Definition(var, expr) => {
                 // get the lhs type
                 let var_ty = self
-                    .check_type(var.value._type, module_id, types)
+                    .check_type(var.value.ty, module_id, types)
                     .map_err(|e| vec![e])?;
 
                 // check the rhs based on the lhs type
@@ -2003,11 +2010,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 // insert the lhs into the scope and ignore whether shadowing happened
                 self.insert_into_scope(var.value.id, var_ty.clone(), var.value.is_mutable);
 
-                let var = Variable::new(
-                    self.id_in_this_scope(var.value.id),
-                    var_ty.clone(),
-                    var.value.is_mutable,
-                );
+                let var = Variable::new(self.id_in_this_scope(var.value.id), var_ty.clone());
 
                 match var_ty {
                     Type::FieldElement => FieldElementExpression::try_from_typed(checked_expr)
@@ -2032,7 +2035,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Type::Int => Err(checked_expr), // Integers cannot be assigned
                 }
                 .map_err(|e| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Expression `{}` of type `{}` cannot be assigned to `{}` of type `{}`",
                         e,
@@ -2041,7 +2044,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         var_ty
                     ),
                 })
-                .map(|e| TypedStatement::Definition(var.into(), e.into()))
+                .map(|e| TypedStatement::definition(var.into(), e).with_span(span))
                 .map_err(|e| vec![e])
             }
             Statement::Assignment(assignee, expr) => {
@@ -2079,7 +2082,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Type::Int => Err(checked_expr), // Integers cannot be assigned
                 }
                 .map_err(|e| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Expression `{}` of type `{}` cannot be assigned to `{}` of type `{}`",
                         e,
@@ -2088,7 +2091,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         assignee_ty
                     ),
                 })
-                .map(|e| TypedStatement::Definition(assignee, e.into()))
+                .map(|e| TypedStatement::definition(assignee, e).with_span(span))
                 .map_err(|e| vec![e])
             }
             Statement::Assertion(e, message) => {
@@ -2097,15 +2100,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .map_err(|e| vec![e])?;
 
                 match e {
-                    TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(
+                    TypedExpression::Boolean(e) => Ok(TypedStatement::assertion(
                         e,
                         RuntimeError::SourceAssertion(
-                            SourceMetadata::new(module_id.display().to_string(), pos.0)
+                            SourceMetadata::new(module_id.display().to_string(), span.from)
                                 .message(message),
                         ),
-                    )),
+                    )
+                    .with_span(span)),
                     e => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Expected {} to be of type bool, found {}",
                             e,
@@ -2118,7 +2122,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Statement::For(var, from, to, statements) => {
                 self.enter_scope();
 
-                let res = self.check_for_loop(var, (from, to), statements, pos, module_id, types);
+                let res = self.check_for_loop(var, (from, to), statements, span, module_id, types);
 
                 self.exit_scope();
 
@@ -2133,23 +2137,22 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedAssignee<'ast, T>, ErrorInner> {
-        let pos = assignee.pos();
+        let span = assignee.span().in_module(module_id);
         // check that the assignee is declared
         match assignee.value {
             Assignee::Identifier(variable_name) => match self.scope.get(variable_name) {
                 Some(info) => match info.is_mutable {
                     false => Err(ErrorInner {
-                        pos: Some(assignee.pos()),
+                        span: Some(assignee.span().in_module(module_id)),
                         message: format!("Assignment to an immutable variable `{}`", variable_name),
                     }),
                     _ => Ok(TypedAssignee::Identifier(Variable::new(
                         info.id,
                         info.ty.clone(),
-                        info.is_mutable,
                     ))),
                 },
                 None => Err(ErrorInner {
-                    pos: Some(assignee.pos()),
+                    span: Some(assignee.span().in_module(module_id)),
                     message: format!("Variable `{}` is undeclared", variable_name),
                 }),
             },
@@ -2172,7 +2175,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let checked_typed_index =
                             UExpression::try_from_typed(checked_index, &UBitwidth::B32).map_err(
                                 |e| ErrorInner {
-                                    pos: Some(pos),
+                                    span: Some(span),
                                     message: format!(
                                         "Expected array {} index to have type u32, found {}",
                                         checked_assignee,
@@ -2187,7 +2190,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         ))
                     }
                     ty => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot access element at index {} on {} of type {}",
                             index, checked_assignee, ty,
@@ -2203,7 +2206,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Type::Struct(members) => match members.iter().find(|m| m.id == member) {
                         Some(_) => Ok(TypedAssignee::Member(box checked_assignee, member.into())),
                         None => Err(ErrorInner {
-                            pos: Some(pos),
+                            span: Some(span),
                             message: format!(
                                 "{} {{{}}} doesn't have member {}",
                                 ty,
@@ -2217,7 +2220,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }),
                     },
                     ty => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
 
                         message: format!(
                             "Cannot access field {} on {} of type {}",
@@ -2234,7 +2237,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Type::Tuple(tuple_ty) => match tuple_ty.elements.get(index as usize) {
                         Some(_) => Ok(TypedAssignee::Element(box checked_assignee, index)),
                         None => Err(ErrorInner {
-                            pos: Some(pos),
+                            span: Some(span),
                             message: format!(
                                 "Tuple of size {} cannot be accessed at index {}",
                                 tuple_ty.elements.len(),
@@ -2243,7 +2246,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }),
                     },
                     ty => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
 
                         message: format!(
                             "Cannot access element {} on {} of type {}",
@@ -2263,7 +2266,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     ) -> Result<TypedExpressionOrSpread<'ast, T>, ErrorInner> {
         match spread_or_expression {
             SpreadOrExpression::Spread(s) => {
-                let pos = s.pos();
+                let span = s.span().in_module(module_id);
 
                 let checked_expression =
                     self.check_expression(s.value.expression, module_id, types)?;
@@ -2271,7 +2274,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match checked_expression {
                     TypedExpression::Array(a) => Ok(TypedExpressionOrSpread::Spread(a.into())),
                     e => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Expected spread operator to apply on array, found {}",
                             e.get_type()
@@ -2294,11 +2297,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
-        let pos = function_id.pos();
+        let span = function_id.span().in_module(module_id);
         let fun_id = match function_id.value {
             Expression::Identifier(id) => Ok(id),
             e => Err(ErrorInner {
-                pos: Some(pos),
+                span: Some(span),
                 message: format!(
                     "Expected function in function call to be an identifier, found `{}`",
                     e
@@ -2313,11 +2316,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .into_iter()
                     .map(|g| {
                         g.map(|g| {
-                            let pos = g.pos();
+                            let span = g.span().in_module(module_id);
                             self.check_expression(g, module_id, types).and_then(|g| {
                                 UExpression::try_from_typed(g, &UBitwidth::B32).map_err(|e| {
                                     ErrorInner {
-                                        pos: Some(pos),
+                                        span: Some(span),
                                         message: format!(
                                             "Expected {} to be of type u32, found {}",
                                             e,
@@ -2361,7 +2364,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let signature = f.signature;
 
                 let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.iter()).map(|(a, t)| TypedExpression::align_to_type(a, t)).collect::<Result<Vec<_>, _>>().map_err(|e| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!("Expected function call argument to be of type `{}`, found `{}` of type `{}`", e.1, e.0, e.0.get_type())
                 })?;
 
@@ -2371,7 +2374,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     generics_checked.clone(),
                     arguments_checked.iter().map(|a| a.get_type()).collect()
                 ).map_err(|e| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Failed to infer value for generic parameter `{}`, try providing an explicit value",
                         e,
@@ -2384,7 +2387,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     signature: signature.clone(),
                 };
 
-                match output_type {
+                let res: Result<TypedExpression<'ast, T>, _> = match output_type {
                     Type::Int => unreachable!(),
                     Type::FieldElement => Ok(FieldElementExpression::function_call(
                         function_key,
@@ -2416,17 +2419,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         generics_checked,
                         arguments_checked,
                     ).annotate(tuple_ty).into()),
-                }
+                };
+
+                res.map(|e| e.with_span(span))
             }
             0 => Err(ErrorInner {
-                pos: Some(pos),
+                span: Some(span),
                 message: format!(
                     "Function definition for function {} with signature {} not found.",
                     fun_id, query
                 ),
             }),
             n => Err(ErrorInner {
-                pos: Some(pos),
+                span: Some(span),
                 message: format!("Ambiguous call to function {}, {} candidates were found. Please be more explicit.", fun_id, n)
             }),
         }
@@ -2438,11 +2443,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
-        let pos = expr.pos();
+        let span: SourceSpan = expr.span().in_module(module_id);
 
         match expr.value {
-            Expression::IntConstant(v) => Ok(IntExpression::Value(v).into()),
-            Expression::BooleanConstant(b) => Ok(BooleanExpression::Value(b).into()),
+            Expression::IntConstant(v) => Ok(IntExpression::value(v).with_span(span).into()),
+            Expression::BooleanConstant(b) => Ok(BooleanExpression::value(b).with_span(span).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
                 match self.scope.get(name) {
@@ -2469,7 +2474,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                     }
                     None => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!("Identifier \"{}\" is undefined", name),
                     }),
                 }
@@ -2484,14 +2489,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!("Cannot apply `+` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
-                    (Int(e1), Int(e2)) => Ok(IntExpression::Add(box e1, box e2).into()),
+                    (Int(e1), Int(e2)) => Ok(IntExpression::add(e1, e2).into()),
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(FieldElementExpression::Add(box e1, box e2).into())
+                        Ok(FieldElementExpression::add(e1, e2)
+                            .into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
@@ -2499,7 +2505,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok((e1 + e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
 
                         message: format!(
                             "Cannot apply `+` to {}, {}",
@@ -2519,18 +2525,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!("Cannot apply `-` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
-                    (Int(e1), Int(e2)) => Ok(IntExpression::Sub(box e1, box e2).into()),
-                    (FieldElement(e1), FieldElement(e2)) => {
-                        Ok(FieldElementExpression::Sub(box e1, box e2).into())
-                    }
+                    (Int(e1), Int(e2)) => Ok(IntExpression::sub(e1, e2).into()),
+                    (FieldElement(e1), FieldElement(e2)) => Ok((e1 - e2).into()),
                     (Uint(e1), Uint(e2)) if e1.get_type() == e2.get_type() => Ok((e1 - e2).into()),
                     (t1, t2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
 
                         message: format!(
                             "Expected only field elements, found {}, {}",
@@ -2550,14 +2554,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!("Cannot apply `*` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
-                    (Int(e1), Int(e2)) => Ok(IntExpression::Mult(box e1, box e2).into()),
+                    (Int(e1), Int(e2)) => Ok(IntExpression::mul(e1, e2).into()),
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(FieldElementExpression::Mult(box e1, box e2).into())
+                        Ok((e1 * e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
@@ -2565,7 +2569,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok((e1 * e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
 
                         message: format!(
                             "Cannot apply `*` to {}, {}",
@@ -2585,22 +2589,20 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!("Cannot apply `/` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
-                    (Int(e1), Int(e2)) => Ok(IntExpression::Div(box e1, box e2).into()),
-                    (FieldElement(e1), FieldElement(e2)) => {
-                        Ok(FieldElementExpression::Div(box e1, box e2).into())
-                    }
+                    (Int(e1), Int(e2)) => Ok(IntExpression::div(e1, e2).into()),
+                    (FieldElement(e1), FieldElement(e2)) => Ok((e1 / e2).into()),
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
                     {
                         Ok((e1 / e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
 
                         message: format!(
                             "Cannot apply `/` to {}, {}",
@@ -2618,7 +2620,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!("Cannot apply `%` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
@@ -2629,7 +2631,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok((e1 % e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
 
                         message: format!(
                             "Cannot apply `%` to {}, {}",
@@ -2654,10 +2656,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::Uint(e2)) => Ok(
-                        TypedExpression::FieldElement(FieldElementExpression::Pow(box e1, box e2)),
+                        TypedExpression::FieldElement(FieldElementExpression::pow(e1, e2)),
                     ),
                     (t1, t2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
 
                         message: format!(
                             "Expected `field` and `u32`, found {}, {}",
@@ -2671,13 +2673,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e = self.check_expression(e, module_id, types)?;
 
                 match e {
-                    TypedExpression::Int(e) => Ok(IntExpression::Neg(box e).into()),
+                    TypedExpression::Int(e) => Ok(IntExpression::neg(e).into()),
                     TypedExpression::FieldElement(e) => {
-                        Ok(FieldElementExpression::Neg(box e).into())
+                        Ok(FieldElementExpression::neg(e).into())
                     }
                     TypedExpression::Uint(e) => Ok((-e).into()),
                     e => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Unary operator `-` cannot be applied to {} of type {}",
                             e,
@@ -2690,13 +2692,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e = self.check_expression(e, module_id, types)?;
 
                 match e {
-                    TypedExpression::Int(e) => Ok(IntExpression::Pos(box e).into()),
+                    TypedExpression::Int(e) => Ok(IntExpression::pos(e).into()),
                     TypedExpression::FieldElement(e) => {
-                        Ok(FieldElementExpression::Pos(box e).into())
+                        Ok(FieldElementExpression::pos(e).into())
                     }
                     TypedExpression::Uint(e) => Ok(UExpression::pos(e).into()),
                     e => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Unary operator `+` cannot be applied to {} of type {}",
                             e,
@@ -2713,7 +2715,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     || !conditional.alternative_statements.is_empty()
                 {
                     return Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: "Statements are not supported in conditional branches".to_string(),
                     });
                 }
@@ -2729,7 +2731,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         alternative_checked,
                     )
                     .map_err(|(e1, e2)| ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!("{{consequence}} and {{alternative}} in conditional expression should have the same type, found {}, {}", e1.get_type(), e2.get_type()),
                     })?;
 
@@ -2767,13 +2769,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Ok(IntExpression::conditional(condition, consequence, alternative, kind).into())
                             },
                             (c, a) => Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!("{{consequence}} and {{alternative}} in conditional expression should have the same type, found {}, {}", c.get_type(), a.get_type())
                             })
                         }
                     }
                     c => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "{{condition}} should be a boolean, found {}",
                             c.get_type()
@@ -2781,21 +2783,23 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }
             }
-            Expression::FieldConstant(n) => Ok(FieldElementExpression::Number(
-                T::try_from(n).map_err(|_| ErrorInner {
-                    pos: Some(pos),
-                    message: format!(
-                        "Field constant not in the representable range [{}, {}]",
-                        T::min_value(),
-                        T::max_value()
-                    ),
-                })?,
-            )
+            Expression::FieldConstant(n) => Ok(FieldElementExpression::Value(
+                T::try_from(n)
+                    .map(ValueExpression::new)
+                    .map_err(|_| ErrorInner {
+                        span: Some(span),
+                        message: format!(
+                            "Field constant not in the representable range [{}, {}]",
+                            T::min_value(),
+                            T::max_value()
+                        ),
+                    })?,
+            ).with_span(span)
             .into()),
-            Expression::U8Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(8).into()),
-            Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
-            Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
-            Expression::U64Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(64).into()),
+            Expression::U8Constant(n) => Ok(UExpression::value(n.into()).annotate(8).with_span(span).into()),
+            Expression::U16Constant(n) => Ok(UExpression::value(n.into()).annotate(16).with_span(span).into()),
+            Expression::U32Constant(n) => Ok(UExpression::value(n.into()).annotate(32).with_span(span).into()),
+            Expression::U64Constant(n) => Ok(UExpression::value(n.into()).annotate(64).with_span(span).into()),
             Expression::FunctionCall(box fun_id_expression, generics, arguments) => self
                 .check_function_call_expression(
                     fun_id_expression,
@@ -2813,7 +2817,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Cannot compare {} of type {} to {} of type {}",
                         e1,
@@ -2825,14 +2829,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldLt(box e1, box e2).into())
+                        Ok(BooleanExpression::field_lt(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintLt(box e1, box e2).into())
+                            Ok(BooleanExpression::uint_lt(e1, e2).into())
                         } else {
                             Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "Cannot compare {} of type {} to {} of type {}",
                                     e1,
@@ -2844,7 +2848,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                     }
                     (e1, e2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot compare {} of type {} to {} of type {}",
                             e1,
@@ -2863,7 +2867,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Cannot compare {} of type {} to {} of type {}",
                         e1,
@@ -2875,14 +2879,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldLe(box e1, box e2).into())
+                        Ok(BooleanExpression::field_le(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintLe(box e1, box e2).into())
+                            Ok(BooleanExpression::uint_le(e1, e2).into())
                         } else {
                             Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "Cannot compare {} of type {} to {} of type {}",
                                     e1,
@@ -2894,7 +2898,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                     }
                     (e1, e2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot compare {} of type {} to {} of type {}",
                             e1,
@@ -2913,7 +2917,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Cannot compare {} of type {} to {} of type {}",
                         e1,
@@ -2925,27 +2929,27 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::field_eq(e1, e2).into())
                     }
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::BoolEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::bool_eq(e1, e2).into())
                     }
                     (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
-                        Ok(BooleanExpression::ArrayEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::array_eq(e1, e2).into())
                     }
                     (TypedExpression::Struct(e1), TypedExpression::Struct(e2)) => {
-                        Ok(BooleanExpression::StructEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::struct_eq(e1, e2).into())
                     }
                     (TypedExpression::Tuple(e1), TypedExpression::Tuple(e2)) => {
-                        Ok(BooleanExpression::TupleEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::tuple_eq(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
                     {
-                        Ok(BooleanExpression::UintEq(EqExpression::new(e1, e2)).into())
+                        Ok(BooleanExpression::uint_eq(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot compare {} of type {} to {} of type {}",
                             e1,
@@ -2964,7 +2968,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Cannot compare {} of type {} to {} of type {}",
                         e1,
@@ -2976,14 +2980,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldGe(box e1, box e2).into())
+                        Ok(BooleanExpression::field_ge(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintGe(box e1, box e2).into())
+                            Ok(BooleanExpression::uint_ge(e1, e2).into())
                         } else {
                             Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "Cannot compare {} of type {} to {} of type {}",
                                     e1,
@@ -2995,7 +2999,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                     }
                     (e1, e2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot compare {} of type {} to {} of type {}",
                             e1,
@@ -3014,7 +3018,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Cannot compare {} of type {} to {} of type {}",
                         e1,
@@ -3026,14 +3030,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldGt(box e1, box e2).into())
+                        Ok(BooleanExpression::field_gt(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintGt(box e1, box e2).into())
+                            Ok(BooleanExpression::uint_gt(e1, e2).into())
                         } else {
                             Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "Cannot compare {} of type {} to {} of type {}",
                                     e1,
@@ -3045,7 +3049,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                     }
                     (e1, e2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot compare {} of type {} to {} of type {}",
                             e1,
@@ -3081,7 +3085,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .unwrap_or_else(|| Ok(array_size.clone().into()))?;
 
                                 let from = UExpression::try_from_typed(from, &UBitwidth::B32).map_err(|e| ErrorInner {
-                                                    pos: Some(pos),
+                                                    span: Some(span),
                                                     message: format!(
                                                         "Expected the lower bound of the range to be a u32, found {} of type {}",
                                                         e,
@@ -3090,7 +3094,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                                 })?;
 
                                 let to = UExpression::try_from_typed(to, &UBitwidth::B32).map_err(|e| ErrorInner {
-                                                    pos: Some(pos),
+                                                    span: Some(span),
                                                     message: format!(
                                                         "Expected the upper bound of the range to be a u32, found {} of type {}",
                                                         e,
@@ -3099,15 +3103,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                                 })?;
 
                                 Ok(ArrayExpressionInner::Slice(
-                                    box array,
-                                    box from.clone(),
-                                    box to.clone(),
-                                )
+                                    SliceExpression::new(
+                                    array,
+                                    from.clone(),
+                                    to.clone(),
+                                    ))
                                 .annotate(inner_type, UExpression::floor_sub(to, from))
                                 .into())
                             }
                             e => Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "Cannot access slice of expression {} of type {}",
                                     e,
@@ -3122,7 +3127,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let index =
                             UExpression::try_from_typed(index, &UBitwidth::B32).map_err(|e| {
                                 ErrorInner {
-                                    pos: Some(pos),
+                                    span: Some(span),
                                     message: format!(
                                         "Expected index to be of type u32, found {}",
                                         e
@@ -3145,7 +3150,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 }
                             }
                             a => Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "Cannot access element at index {} of type {} on expression {} of type {}",
                                     index,
@@ -3177,7 +3182,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Type::Tuple(..) => Ok(TupleExpression::element(t, index).into()),
                             },
                             None => Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "Tuple of size {} cannot be accessed at index {}",
                                     t.ty().elements.len(),
@@ -3187,7 +3192,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                     }
                     e => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot access tuple element {} on expression of type {}",
                             index,
@@ -3225,7 +3230,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 }
                             },
                             None => Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "{} {{{}}} doesn't have member {}",
                                     s.get_type(),
@@ -3241,7 +3246,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                     }
                     e => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot access member {} on expression of type {}",
                             id,
@@ -3260,7 +3265,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 if expressions_or_spreads_checked.is_empty() {
                     return Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: "Empty arrays are not allowed".to_string(),
                     });
                 }
@@ -3280,14 +3285,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Type::Int => expressions_or_spreads_checked,
                     t => {
                         let target_array_ty =
-                            ArrayType::new(t, UExpressionInner::Value(0).annotate(UBitwidth::B32));
+                            ArrayType::new(t, UExpression::value(0).annotate(UBitwidth::B32));
 
                         expressions_or_spreads_checked
                             .into_iter()
                             .map(|e| {
                                 TypedExpressionOrSpread::align_to_type(e, &target_array_ty).map_err(
                                     |(e, ty)| ErrorInner {
-                                        pos: Some(pos),
+                                        span: Some(span),
                                         message: format!("Expected {} to have type {}", e, ty,),
                                     },
                                 )
@@ -3308,11 +3313,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .map(|e| e.size())
                     .fold(None, |acc, e| match acc {
                         Some((c_acc, e_acc)) => match e.as_inner() {
-                            UExpressionInner::Value(e) => Some(((c_acc + *e as u32), e_acc)),
+                            UExpressionInner::Value(e) => Some(((c_acc + e.value as u32), e_acc)),
                             _ => Some((c_acc, e_acc + e)),
                         },
                         None => match e.as_inner() {
-                            UExpressionInner::Value(e) => Some((*e as u32, 0u32.into())),
+                            UExpressionInner::Value(e) => Some((e.value as u32, 0u32.into())),
                             _ => Some((0u32, e)),
                         },
                     })
@@ -3320,7 +3325,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .unwrap_or_else(|| 0u32.into());
 
                 Ok(
-                    ArrayExpressionInner::Value(unwrapped_expressions_or_spreads.into())
+                    ArrayExpression::value(unwrapped_expressions_or_spreads)
                         .annotate(inferred_type, size)
                         .into(),
                 )
@@ -3331,7 +3336,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .map(|e| self.check_expression(e, module_id, types))
                     .collect::<Result<_, _>>()?;
                 let ty = TupleType::new(elements.iter().map(|e| e.get_type()).collect());
-                Ok(TupleExpressionInner::Value(elements).annotate(ty).into())
+                Ok(TupleExpression::value(elements).annotate(ty).into())
             }
             Expression::ArrayInitializer(box e, box count) => {
                 let e = self.check_expression(e, module_id, types)?;
@@ -3341,7 +3346,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 let count = UExpression::try_from_typed(count, &UBitwidth::B32).map_err(|e| {
                     ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Expected array initializer count to be a u32, found {} of type {}",
                             e,
@@ -3350,14 +3355,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                 })?;
 
-                Ok(ArrayExpressionInner::Repeat(box e, box count.clone())
+                Ok(ArrayExpressionInner::Repeat(RepeatExpression::new(e, count.clone()))
                     .annotate(ty, count)
                     .into())
             }
             Expression::InlineStruct(id, inline_members) => {
                 let ty = match types.get(module_id).unwrap().get(&id).cloned() {
                     None => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!("Undefined type `{}`", id),
                     }),
                     Some(ty) => Ok(ty),
@@ -3379,7 +3384,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 // check that we provided the required number of values
                 if declared_struct_type.members_count() != inline_members.len() {
                     return Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Inline struct {} does not match {} {{{}}}",
                             Expression::InlineStruct(id, inline_members),
@@ -3414,7 +3419,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 let expression_checked =
                                     TypedExpression::align_to_type(expression_checked, &*member.ty)
                                         .map_err(|e| ErrorInner {
-                                            pos: Some(pos),
+                                            span: Some(span),
                                             message: format!(
                                         "Member {} of struct {} has type {}, found {} of type {}",
                                         member.id,
@@ -3428,7 +3433,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Ok(expression_checked)
                             }
                             None => Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "Member {} of struct {} {{{}}} not found in value {}",
                                     member.id,
@@ -3454,7 +3459,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .map(|(m, v)| {
                         if !check_type(&m.ty, &v.get_type(), &mut generics_map) {
                             Err(ErrorInner {
-                                pos: Some(pos),
+                                span: Some(span),
                                 message: format!(
                                     "Value `{}` doesn't match the expected type `{}` because of conflict in generic values",
                                     Expression::InlineStruct(id.clone(), inline_members.clone()),
@@ -3479,7 +3484,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     members,
                 };
 
-                Ok(StructExpressionInner::Value(inferred_values)
+                Ok(StructExpression::value(inferred_values)
                     .annotate(inferred_struct_type)
                     .into())
             }
@@ -3491,7 +3496,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!(
                         "Cannot apply boolean operators to {} and {}",
                         e1.get_type(),
@@ -3501,13 +3506,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
-                        Ok(IntExpression::And(box e1, box e2).into())
+                        Ok(IntExpression::and(e1, e2).into())
                     }
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::And(box e1, box e2).into())
+                        Ok(BooleanExpression::bitand(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
 
                         message: format!(
                             "Cannot apply boolean operators to {} and {}",
@@ -3522,10 +3527,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e2_checked = self.check_expression(e2, module_id, types)?;
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::Or(box e1, box e2).into())
+                        Ok(BooleanExpression::bitor(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot apply `||` to {}, {}",
                             e1.get_type(),
@@ -3540,7 +3545,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 let e2 =
                     UExpression::try_from_typed(e2, &UBitwidth::B32).map_err(|e| ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Expected the left shift right operand to have type `u32`, found {}",
                             e
@@ -3548,13 +3553,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     })?;
 
                 match e1 {
-                    TypedExpression::Int(e1) => Ok(IntExpression::LeftShift(box e1, box e2).into()),
+                    TypedExpression::Int(e1) => Ok(IntExpression::left_shift(e1, e2).into()),
                     TypedExpression::Uint(e1) => Ok(UExpression::left_shift(e1, e2).into()),
                     TypedExpression::FieldElement(e1) => {
-                        Ok(FieldElementExpression::LeftShift(box e1, box e2).into())
+                        Ok(FieldElementExpression::left_shift(e1, e2).into())
                     }
                     e1 => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot left-shift {} by {}",
                             e1.get_type(),
@@ -3569,7 +3574,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 let e2 =
                     UExpression::try_from_typed(e2, &UBitwidth::B32).map_err(|e| ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Expected the right shift right operand to be of type `u32`, found {}",
                             e
@@ -3578,14 +3583,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match e1 {
                     TypedExpression::Int(e1) => {
-                        Ok(IntExpression::RightShift(box e1, box e2).into())
+                        Ok(IntExpression::right_shift(e1, e2).into())
                     }
                     TypedExpression::Uint(e1) => Ok(UExpression::right_shift(e1, e2).into()),
                     TypedExpression::FieldElement(e1) => {
-                        Ok(FieldElementExpression::RightShift(box e1, box e2).into())
+                        Ok(FieldElementExpression::right_shift(e1, e2).into())
                     }
                     e1 => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot right-shift {} by {}",
                             e1.get_type(),
@@ -3602,16 +3607,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!("Cannot apply `|` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
-                        Ok(IntExpression::Or(box e1, box e2).into())
+                        Ok(IntExpression::or(e1, e2).into())
                     }
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(FieldElementExpression::Or(box e1, box e2).into())
+                        Ok(FieldElementExpression::bitor(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
@@ -3619,7 +3624,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok(UExpression::or(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot apply `|` to {}, {}",
                             e1.get_type(),
@@ -3636,16 +3641,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!("Cannot apply `&` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
-                        Ok(IntExpression::And(box e1, box e2).into())
+                        Ok(IntExpression::and(e1, e2).into())
                     }
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(FieldElementExpression::And(box e1, box e2).into())
+                        Ok(FieldElementExpression::bitand(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
@@ -3653,7 +3658,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok(UExpression::and(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot apply `&` to {}, {}",
                             e1.get_type(),
@@ -3670,16 +3675,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     e1_checked, e2_checked,
                 )
                 .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
+                    span: Some(span),
                     message: format!("Cannot apply `^` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
-                        Ok(IntExpression::Xor(box e1, box e2).into())
+                        Ok(IntExpression::xor(e1, e2).into())
                     }
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(FieldElementExpression::Xor(box e1, box e2).into())
+                        Ok(FieldElementExpression::bitxor(e1, e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.bitwidth() == e2.bitwidth() =>
@@ -3687,7 +3692,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok(UExpression::xor(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!(
                             "Cannot apply `^` to {}, {}",
                             e1.get_type(),
@@ -3699,16 +3704,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::Not(box e) => {
                 let e_checked = self.check_expression(e, module_id, types)?;
                 match e_checked {
-                    TypedExpression::Int(e) => Ok(IntExpression::Not(box e).into()),
-                    TypedExpression::Boolean(e) => Ok(BooleanExpression::Not(box e).into()),
+                    TypedExpression::Int(e) => Ok(IntExpression::not(e).into()),
+                    TypedExpression::Boolean(e) => Ok(BooleanExpression::not(e).into()),
                     TypedExpression::Uint(e) => Ok((!e).into()),
                     e => Err(ErrorInner {
-                        pos: Some(pos),
+                        span: Some(span),
                         message: format!("Cannot negate {}", e.get_type()),
                     }),
                 }
             }
-        }
+        }.map(|e| e.with_span(span))
     }
 
     fn insert_into_scope<I: Clone + Into<SourceIdentifier<'ast>>>(
@@ -3751,12 +3756,10 @@ mod tests {
     use zokrates_field::Bn128Field;
 
     lazy_static! {
-        static ref MODULE_ID: OwnedModuleId = OwnedModuleId::from("");
+        static ref MODULE_ID: OwnedModuleId = OwnedModuleId::default();
     }
     mod constants {
         use super::*;
-
-        use std::ops::Add;
 
         #[test]
         fn field_in_range() {
@@ -3994,7 +3997,7 @@ mod tests {
             let mut checker: Checker<Bn128Field> = Checker::default();
 
             assert_eq!(
-                checker.check_module(&OwnedTypedModuleId::from("bar"), &mut state),
+                checker.check_module(&OwnedModuleId::from("bar"), &mut state),
                 Ok(())
             );
             assert_eq!(
@@ -4502,7 +4505,7 @@ mod tests {
             assert_eq!(
                 Checker::<Bn128Field>::default().check_signature(signature, &*MODULE_ID, &state),
                 Err(vec![ErrorInner {
-                    pos: Some((Position::mock(), Position::mock())),
+                    span: Some(SourceSpan::mock()),
                     message: "Undeclared symbol `K`".to_string()
                 }])
             );
@@ -4574,7 +4577,7 @@ mod tests {
         assert_eq!(
             checker.check_statement(statement, &*MODULE_ID, &TypeMap::new()),
             Err(vec![ErrorInner {
-                pos: Some((Position::mock(), Position::mock())),
+                span: Some(SourceSpan::mock()),
                 message: "Identifier \"b\" is undefined".into()
             }])
         );
@@ -4675,7 +4678,7 @@ mod tests {
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![Error {
                 inner: ErrorInner {
-                    pos: Some((Position::mock(), Position::mock())),
+                    span: Some(SourceSpan::mock()),
                     message: "Identifier \"a\" is undefined".into()
                 },
                 module_id: (*MODULE_ID).clone()
@@ -4804,7 +4807,7 @@ mod tests {
         assert_eq!(
             checker.check_function("foo", foo, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                pos: Some((Position::mock(), Position::mock())),
+                span: Some(SourceSpan::mock()),
                 message: "Identifier \"i\" is undefined".into()
             }])
         );
@@ -4851,7 +4854,7 @@ mod tests {
         )];
 
         let foo_statements_checked = vec![
-            TypedStatement::For(
+            TypedStatement::for_(
                 typed::Variable::uint(
                     CoreIdentifier::Source(ShadowedIdentifier::shadow("i".into(), 1)),
                     UBitwidth::B32,
@@ -4860,7 +4863,7 @@ mod tests {
                 10u32.into(),
                 for_statements_checked,
             ),
-            TypedStatement::Return(TypedExpression::empty_tuple()),
+            TypedStatement::ret(TypedExpression::empty_tuple()),
         ];
 
         let foo = Function {
@@ -4930,7 +4933,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                pos: Some((Position::mock(), Position::mock())),
+                span: Some(SourceSpan::mock()),
                 message:
                     "Function definition for function foo with signature () -> field not found."
                         .into()
@@ -4969,7 +4972,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                pos: Some((Position::mock(), Position::mock())),
+                span: Some(SourceSpan::mock()),
 
                 message:
                     "Function definition for function foo with signature () -> field not found."
@@ -5045,7 +5048,7 @@ mod tests {
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![Error {
                 inner: ErrorInner {
-                    pos: Some((Position::mock(), Position::mock())),
+                    span: Some(SourceSpan::mock()),
                     message: "Variable `a` is undeclared".into()
                 },
                 module_id: (*MODULE_ID).clone()
@@ -5182,7 +5185,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                pos: Some((Position::mock(), Position::mock())),
+                span: Some(SourceSpan::mock()),
 
                 message: "Function definition for function foo with signature () -> _ not found."
                     .into()
@@ -5215,7 +5218,7 @@ mod tests {
         assert_eq!(
             checker.check_function("bar", bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
-                pos: Some((Position::mock(), Position::mock())),
+                span: Some(SourceSpan::mock()),
                 message: "Identifier \"a\" is undefined".into()
             }])
         );
@@ -5326,7 +5329,7 @@ mod tests {
             checker.check_program(program),
             Err(vec![Error {
                 inner: ErrorInner {
-                    pos: None,
+                    span: None,
                     message: "Only one main function allowed, found 2".into()
                 },
                 module_id: (*MODULE_ID).clone()
@@ -5459,16 +5462,14 @@ mod tests {
                     typed::Variable::new(
                         CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
                         Type::FieldElement,
-                        true,
                     )
                     .into(),
-                    FieldElementExpression::Number(2u32.into()).into(),
+                    FieldElementExpression::value(2u32.into()).into(),
                 ),
-                TypedStatement::For(
+                TypedStatement::for_(
                     typed::Variable::new(
                         CoreIdentifier::from(ShadowedIdentifier::shadow("i".into(), 1)),
                         Type::Uint(UBitwidth::B32),
-                        false,
                     ),
                     0u32.into(),
                     0u32.into(),
@@ -5477,19 +5478,17 @@ mod tests {
                             typed::Variable::new(
                                 CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
                                 Type::FieldElement,
-                                true,
                             )
                             .into(),
-                            FieldElementExpression::Number(3u32.into()).into(),
+                            FieldElementExpression::value(3u32.into()).into(),
                         ),
                         TypedStatement::definition(
                             typed::Variable::new(
                                 CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 1)),
                                 Type::FieldElement,
-                                false,
                             )
                             .into(),
-                            FieldElementExpression::Number(4u32.into()).into(),
+                            FieldElementExpression::value(4u32.into()).into(),
                         ),
                     ],
                 ),
@@ -5497,10 +5496,9 @@ mod tests {
                     typed::Variable::new(
                         CoreIdentifier::from(ShadowedIdentifier::shadow("a".into(), 0)),
                         Type::FieldElement,
-                        true,
                     )
                     .into(),
-                    FieldElementExpression::Number(5u32.into()).into(),
+                    FieldElementExpression::value(5u32.into()).into(),
                 ),
             ];
 
@@ -5941,7 +5939,7 @@ mod tests {
                         &state.types
                     ),
                     Ok(FieldElementExpression::member(
-                        StructExpressionInner::Value(vec![FieldElementExpression::Number(
+                        StructExpression::value(vec![FieldElementExpression::value(
                             Bn128Field::from(42u32)
                         )
                         .into()])
@@ -6065,9 +6063,9 @@ mod tests {
                         &*MODULE_ID,
                         &state.types
                     ),
-                    Ok(StructExpressionInner::Value(vec![
-                        FieldElementExpression::Number(Bn128Field::from(42u32)).into(),
-                        BooleanExpression::Value(true).into()
+                    Ok(StructExpression::value(vec![
+                        FieldElementExpression::value(Bn128Field::from(42u32)).into(),
+                        BooleanExpression::value(true).into()
                     ])
                     .annotate(StructType::new(
                         "".into(),
@@ -6118,9 +6116,9 @@ mod tests {
                         &*MODULE_ID,
                         &state.types
                     ),
-                    Ok(StructExpressionInner::Value(vec![
-                        FieldElementExpression::Number(Bn128Field::from(42u32)).into(),
-                        BooleanExpression::Value(true).into()
+                    Ok(StructExpression::value(vec![
+                        FieldElementExpression::value(Bn128Field::from(42u32)).into(),
+                        BooleanExpression::value(true).into()
                     ])
                     .annotate(StructType::new(
                         "".into(),
@@ -6366,7 +6364,6 @@ mod tests {
                 Ok(TypedAssignee::Identifier(typed::Variable::new(
                     "a",
                     Type::FieldElement,
-                    true
                 )))
             );
         }
@@ -6419,7 +6416,6 @@ mod tests {
                     box TypedAssignee::Identifier(typed::Variable::new(
                         "a",
                         Type::array((Type::FieldElement, 3u32)),
-                        true,
                     )),
                     box 2u32.into()
                 ))
@@ -6481,7 +6477,6 @@ mod tests {
                         box TypedAssignee::Identifier(typed::Variable::new(
                             "a",
                             Type::array((Type::array((Type::FieldElement, 1u32)), 1u32)),
-                            true,
                         )),
                         box 0u32.into()
                     ),

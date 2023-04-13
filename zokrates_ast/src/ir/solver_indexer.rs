@@ -1,12 +1,14 @@
 use crate::common::RefCall;
 use crate::ir::folder::Folder;
-use crate::ir::Directive;
 use crate::ir::Solver;
 use crate::zir::ZirFunction;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use zokrates_field::Field;
+
+use super::DirectiveStatement;
+use super::Statement;
 
 type Hash = u64;
 
@@ -25,8 +27,11 @@ pub struct SolverIndexer<'ast, T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for SolverIndexer<'ast, T> {
-    fn fold_directive(&mut self, d: Directive<'ast, T>) -> Directive<'ast, T> {
-        match d.solver {
+    fn fold_directive_statement(
+        &mut self,
+        d: DirectiveStatement<'ast, T>,
+    ) -> Vec<Statement<'ast, T>> {
+        let res = match d.solver {
             Solver::Zir(f) => {
                 let argument_count = f.arguments.len();
                 let h = hash(&f);
@@ -39,16 +44,17 @@ impl<'ast, T: Field> Folder<'ast, T> for SolverIndexer<'ast, T> {
                         index
                     }
                 };
-                Directive {
-                    inputs: d.inputs,
-                    outputs: d.outputs,
-                    solver: Solver::Ref(RefCall {
+                DirectiveStatement::new(
+                    d.outputs,
+                    Solver::Ref(RefCall {
                         index,
                         argument_count,
                     }),
-                }
+                    d.inputs,
+                )
             }
             _ => d,
-        }
+        };
+        vec![Statement::Directive(res)]
     }
 }
