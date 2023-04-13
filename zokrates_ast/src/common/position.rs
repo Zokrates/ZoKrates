@@ -31,6 +31,23 @@ impl ModuleMap {
             modules: i.into_iter().map(|id| (hash(&id), id)).collect(),
         }
     }
+
+    pub fn remap_prefix(self, prefix: &Path, to: &Path) -> Self {
+        Self {
+            modules: self
+                .modules
+                .into_iter()
+                .map(|(id, path)| {
+                    (
+                        id,
+                        path.strip_prefix(prefix)
+                            .map(|path| to.join(path))
+                            .unwrap_or(path),
+                    )
+                })
+                .collect(),
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Copy, Hash, Default, PartialOrd, Ord, Deserialize, Serialize)]

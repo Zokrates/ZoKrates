@@ -931,6 +931,7 @@ mod tests {
         let t_a: ArrayExpression<Bn128Field> =
             ArrayExpressionInner::Value(ValueExpression::new(vec![t.clone().into()]))
                 .annotate(ArrayType::new(Type::FieldElement, 1u32));
+
         let i: UExpression<Bn128Field> = 42u32.into();
         let c: BooleanExpression<Bn128Field> = true.into();
 

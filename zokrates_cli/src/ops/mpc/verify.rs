@@ -73,7 +73,7 @@ fn cli_mpc_verify<
     let file =
         File::open(path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
-    let mut reader = BufReader::new(file);
+    let reader = BufReader::new(file);
 
     let radix_path = Path::new(sub_matches.value_of("radix-path").unwrap());
     let radix_file = File::open(radix_path)
@@ -81,7 +81,7 @@ fn cli_mpc_verify<
 
     let mut radix_reader = BufReader::new(radix_file);
 
-    let result = B::verify(&mut reader, program, &mut radix_reader)
+    let result = B::verify(reader, program, &mut radix_reader)
         .map_err(|e| format!("Verification failed: {}", e))?;
 
     let contribution_count = result.len();

@@ -25,7 +25,6 @@ pub fn a<
     let ty = values[0].get_type();
 
     let array_ty = GArrayType::new(ty, N as u32);
-
     ArrayExpression::value(
         values
             .into_iter()

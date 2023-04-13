@@ -2,7 +2,7 @@ use crate::common::{
     flat::{Parameter, Variable},
     RuntimeError, Solver,
 };
-use crate::flat::{flat_expression_from_bits, flat_expression_from_variable_summands};
+use crate::flat::flat_expression_from_bits;
 use crate::flat::{FlatDirective, FlatExpression, FlatFunctionIterator, FlatStatement};
 use crate::typed::types::{
     ConcreteGenericsAssignment, DeclarationConstant, DeclarationSignature, DeclarationType,
@@ -23,6 +23,7 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "bellman")] {
         use pairing_ce::bn256::Bn256;
         use zokrates_embed::{bellman::{from_bellman, generate_sha256_round_constraints}};
+        use crate::flat::flat_expression_from_variable_summands;
     }
 }
 

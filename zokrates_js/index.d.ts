@@ -42,7 +42,7 @@ declare module "zokrates-js" {
   }
 
   export interface ComputationResult {
-    witness: string;
+    witness: Uint8Array;
     output: string;
     snarkjs?: {
       witness: Uint8Array;
@@ -90,7 +90,7 @@ declare module "zokrates-js" {
     setupWithSrs(srs: Uint8Array, program: Uint8Array): SetupKeypair;
     generateProof(
       program: Uint8Array,
-      witness: string,
+      witness: Uint8Array,
       provingKey: Uint8Array,
       entropy?: string
     ): Proof;

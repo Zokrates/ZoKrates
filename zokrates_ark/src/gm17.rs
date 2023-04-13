@@ -40,11 +40,16 @@ impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, GM17> for Ark {
 }
 
 impl<T: Field + ArkFieldExtensions> Backend<T, GM17> for Ark {
-    fn generate_proof<'a, I: IntoIterator<Item = Statement<'a, T>>, R: RngCore + CryptoRng>(
+    fn generate_proof<
+        'a,
+        I: IntoIterator<Item = Statement<'a, T>>,
+        R: std::io::Read,
+        G: RngCore + CryptoRng,
+    >(
         program: ProgIterator<'a, T, I>,
         witness: Witness<T>,
-        proving_key: Vec<u8>,
-        rng: &mut R,
+        proving_key: R,
+        rng: &mut G,
     ) -> Proof<T, GM17> {
         let computation = Computation::with_witness(program, witness);
 
@@ -54,10 +59,9 @@ impl<T: Field + ArkFieldExtensions> Backend<T, GM17> for Ark {
             .map(parse_fr::<T>)
             .collect::<Vec<_>>();
 
-        let pk = ProvingKey::<<T as ArkFieldExtensions>::ArkEngine>::deserialize_unchecked(
-            &mut proving_key.as_slice(),
-        )
-        .unwrap();
+        let pk =
+            ProvingKey::<<T as ArkFieldExtensions>::ArkEngine>::deserialize_unchecked(proving_key)
+                .unwrap();
 
         let proof = ArkGM17::<T::ArkEngine>::prove(&pk, computation, rng).unwrap();
         let proof_points = ProofPoints {
@@ -141,7 +145,10 @@ mod tests {
             .unwrap();
 
         let proof = <Ark as Backend<Bls12_377Field, GM17>>::generate_proof(
-            program, witness, keypair.pk, rng,
+            program,
+            witness,
+            keypair.pk.as_slice(),
+            rng,
         );
         let ans = <Ark as Backend<Bls12_377Field, GM17>>::verify(keypair.vk, proof);
 
@@ -170,8 +177,12 @@ mod tests {
             .execute(program.clone(), &[Bw6_761Field::from(42)])
             .unwrap();
 
-        let proof =
-            <Ark as Backend<Bw6_761Field, GM17>>::generate_proof(program, witness, keypair.pk, rng);
+        let proof = <Ark as Backend<Bw6_761Field, GM17>>::generate_proof(
+            program,
+            witness,
+            keypair.pk.as_slice(),
+            rng,
+        );
         let ans = <Ark as Backend<Bw6_761Field, GM17>>::verify(keypair.vk, proof);
 
         assert!(ans);
