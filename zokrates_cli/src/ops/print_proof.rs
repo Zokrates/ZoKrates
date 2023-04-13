@@ -38,7 +38,7 @@ pub fn subcommand() -> App<'static, 'static> {
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
-    let proof_file = File::open(&proof_path)
+    let proof_file = File::open(proof_path)
         .map_err(|why| format!("Could not open {}: {}", proof_path.display(), why))?;
 
     // deserialize proof to JSON

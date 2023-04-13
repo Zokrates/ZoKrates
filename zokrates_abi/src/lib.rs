@@ -1,5 +1,3 @@
-#![feature(box_patterns, box_syntax)]
-
 pub enum Inputs<T> {
     Raw(Vec<T>),
     Abi(Values<T>),

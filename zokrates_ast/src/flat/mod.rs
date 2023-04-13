@@ -386,16 +386,10 @@ impl<T> FlatExpression<T> {
             FlatExpression::Add(ref e) => e.left.is_linear() && e.right.is_linear(),
             FlatExpression::Sub(ref e) => e.left.is_linear() && e.right.is_linear(),
             FlatExpression::Mult(ref e) => matches!(
-                (&e.left, &e.right),
-                (box FlatExpression::Value(_), box FlatExpression::Value(_))
-                    | (
-                        box FlatExpression::Value(_),
-                        box FlatExpression::Identifier(_)
-                    )
-                    | (
-                        box FlatExpression::Identifier(_),
-                        box FlatExpression::Value(_)
-                    )
+                (&*e.left, &*e.right),
+                (FlatExpression::Value(_), FlatExpression::Value(_))
+                    | (FlatExpression::Value(_), FlatExpression::Identifier(_))
+                    | (FlatExpression::Identifier(_), FlatExpression::Value(_))
             ),
         }
     }

@@ -63,7 +63,6 @@ impl<T: Field> RedefinitionOptimizer<T> {
                 .into_iter()
                 .chain(p.arguments.iter().map(|p| p.id))
                 .chain(p.returns())
-                .into_iter()
                 .collect(),
         }
     }

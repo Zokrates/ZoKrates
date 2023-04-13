@@ -153,18 +153,12 @@ impl fmt::Display for CompileErrorInner {
             CompileErrorInner::ParserError(ref e) => write!(f, "\n\t{}", e),
             CompileErrorInner::MacroError(ref e) => write!(f, "\n\t{}", e),
             CompileErrorInner::SemanticError(ref e) => {
-                let location = e
-                    .pos()
-                    .map(|p| format!("{}", p.from))
-                    .unwrap_or_else(|| "".to_string());
+                let location = e.pos().map(|p| format!("{}", p.from)).unwrap_or_default();
                 write!(f, "{}\n\t{}", location, e.message())
             }
             CompileErrorInner::ReadError(ref e) => write!(f, "\n\t{}", e),
             CompileErrorInner::ImportError(ref e) => {
-                let location = e
-                    .span()
-                    .map(|p| format!("{}", p.from))
-                    .unwrap_or_else(|| "".to_string());
+                let location = e.span().map(|p| format!("{}", p.from)).unwrap_or_default();
                 write!(f, "{}\n\t{}", location, e.message())
             }
             CompileErrorInner::AnalysisError(ref e) => write!(f, "\n\t{}", e),
@@ -327,7 +321,7 @@ mod test {
         assert!(e.0[0]
             .value()
             .to_string()
-            .contains(&"Cannot resolve import without a resolver"));
+            .contains("Cannot resolve import without a resolver"));
     }
 
     #[test]
@@ -448,15 +442,15 @@ struct Bar { field a; }
                             vec![],
                             vec![ConcreteStructMember {
                                 id: "b".into(),
-                                ty: box ConcreteType::Struct(ConcreteStructType::new(
+                                ty: Box::new(ConcreteType::Struct(ConcreteStructType::new(
                                     "bar".into(),
                                     "Bar".into(),
                                     vec![],
-                                    vec![ConcreteStructMember {
-                                        id: "a".into(),
-                                        ty: box ConcreteType::FieldElement
-                                    }]
-                                ))
+                                    vec![ConcreteStructMember::new(
+                                        "a".into(),
+                                        ConcreteType::FieldElement
+                                    )]
+                                )))
                             }]
                         ))
                     }],

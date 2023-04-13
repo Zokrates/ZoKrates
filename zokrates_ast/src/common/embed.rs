@@ -301,7 +301,7 @@ impl FlatEmbed {
         );
 
         assert_eq!(gen.len(), assignment.0.len());
-        gen.map(|g| *assignment.0.get(&g).unwrap() as u32).collect()
+        gen.map(|g| *assignment.0.get(&g).unwrap()).collect()
     }
 
     pub fn id(&self) -> &'static str {
@@ -355,15 +355,11 @@ pub fn sha256_round<'ast, T: Field>(
     let cs_indices = 0..variable_count;
     // indices of the arguments to the function
     // apply an offset of `variable_count` to get the indice of our dummy `input` argument
-    let input_argument_indices: Vec<_> = input_indices
-        .clone()
-        .into_iter()
-        .map(|i| i + variable_count)
-        .collect();
+    let input_argument_indices: Vec<_> =
+        input_indices.clone().map(|i| i + variable_count).collect();
     // apply an offset of `variable_count` to get the indice of our dummy `current_hash` argument
     let current_hash_argument_indices: Vec<_> = current_hash_indices
         .clone()
-        .into_iter()
         .map(|i| i + variable_count)
         .collect();
     // define parameters to the function based on the variables

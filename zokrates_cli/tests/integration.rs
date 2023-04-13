@@ -313,7 +313,7 @@ mod integration {
             .unwrap();
 
         // load the expected witness
-        let expected_witness_file = File::open(&expected_witness_path).unwrap();
+        let expected_witness_file = File::open(expected_witness_path).unwrap();
         let expected_witness: Witness<zokrates_field::Bn128Field> =
             helpers::parse_witness_json(expected_witness_file).unwrap();
 
@@ -638,7 +638,7 @@ mod integration {
             .unwrap();
 
         // load the expected smtlib2
-        let mut expected_smtlib2_file = File::open(&expected_smtlib2_path).unwrap();
+        let mut expected_smtlib2_file = File::open(expected_smtlib2_path).unwrap();
         let mut expected_smtlib2 = String::new();
         expected_smtlib2_file
             .read_to_string(&mut expected_smtlib2)

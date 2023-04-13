@@ -1,6 +1,6 @@
 use super::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, Conditional, ConditionalKind, Expr,
-    FieldElementExpression, Id, Identifier, Select, Typed, TypedExpression,
+    FieldElementExpression, GArrayType, Id, Identifier, Select, Typed, TypedExpression,
     TypedExpressionOrSpread, UBitwidth, UExpression, ValueExpression,
 };
 
@@ -23,13 +23,15 @@ pub fn a<
     values: [E; N],
 ) -> ArrayExpression<'ast, T> {
     let ty = values[0].get_type();
+
+    let array_ty = GArrayType::new(ty, N as u32);
     ArrayExpression::value(
         values
             .into_iter()
             .map(|e| TypedExpressionOrSpread::Expression(e.into()))
             .collect(),
     )
-    .annotate(ty, N as u32)
+    .annotate(array_ty)
 }
 
 pub fn u_32<'ast, T: Field, U: TryInto<u32>>(v: U) -> UExpression<'ast, T> {

@@ -26,6 +26,20 @@ impl<'ast> Identifier<'ast> {
     }
 }
 
+impl<'ast> SourceIdentifier<'ast> {
+    pub fn select(self, index: u32) -> Self {
+        Self::Select(Box::new(self), index)
+    }
+
+    pub fn member(self, member: MemberId) -> Self {
+        Self::Member(Box::new(self), member)
+    }
+
+    pub fn element(self, index: u32) -> Self {
+        Self::Element(Box::new(self), index)
+    }
+}
+
 impl<'ast> fmt::Display for Identifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -39,9 +53,9 @@ impl<'ast> fmt::Display for SourceIdentifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             SourceIdentifier::Basic(i) => write!(f, "{}", i),
-            SourceIdentifier::Select(box i, index) => write!(f, "{}~{}", i, index),
-            SourceIdentifier::Member(box i, m) => write!(f, "{}.{}", i, m),
-            SourceIdentifier::Element(box i, index) => write!(f, "{}.{}", i, index),
+            SourceIdentifier::Select(i, index) => write!(f, "{}~{}", i, index),
+            SourceIdentifier::Member(i, m) => write!(f, "{}.{}", i, m),
+            SourceIdentifier::Element(i, index) => write!(f, "{}.{}", i, index),
         }
     }
 }

@@ -153,7 +153,7 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
             Some(Component::Normal(_)) => {
                 let path_normalized = normalize_path(path);
                 let source = STDLIB
-                    .get(&path_normalized.to_str().unwrap())
+                    .get(path_normalized.to_str().unwrap())
                     .ok_or_else(|| {
                         Error::new(format!(
                             "module `{}` not found in stdlib",

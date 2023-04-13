@@ -1,8 +1,8 @@
 use zokrates_ast::{
     common::WithSpan,
     typed::{
-        folder::*, ArrayExpression, BooleanExpression, Conditional, ConditionalKind, Expr,
-        FieldElementExpression, Select, Type, TypedExpression, TypedProgram, UExpression,
+        folder::*, ArrayExpression, ArrayType, BooleanExpression, Conditional, ConditionalKind,
+        Expr, FieldElementExpression, Select, Type, TypedExpression, TypedProgram, UExpression,
         UExpressionInner,
     },
 };
@@ -42,7 +42,7 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
                         _ => unreachable!("array size should be known"),
                     };
 
-                    let chunk_size = T::get_required_bits() as usize - 1;
+                    let chunk_size = T::get_required_bits() - 1;
 
                     let left_elements: Vec<_> = (0..len)
                         .map(|i| BooleanExpression::select(*e.left.clone(), i as u32).span(span))
@@ -91,10 +91,10 @@ impl<'ast, T: Field> Folder<'ast, T> for BooleanArrayComparator {
 
                     BooleanExpression::array_eq(
                         ArrayExpression::value(left)
-                            .annotate(Type::FieldElement, chunk_count as u32)
+                            .annotate(ArrayType::new(Type::FieldElement, chunk_count as u32))
                             .span(span),
                         ArrayExpression::value(right)
-                            .annotate(Type::FieldElement, chunk_count as u32)
+                            .annotate(ArrayType::new(Type::FieldElement, chunk_count as u32))
                             .span(span),
                     )
                 }
@@ -124,8 +124,8 @@ mod tests {
         // [x[0] ? 2**1 : 0 + x[1] ? 2**0 : 0] == [y[0] ? 2**1 : 0 + y[1] ? 2**0 : 0]
         // a single field is sufficient, as the prime we're working with is 3 bits long, so we can pack up to 2 bits
 
-        let x = a_id("x").annotate(Type::Boolean, 2u32);
-        let y = a_id("y").annotate(Type::Boolean, 2u32);
+        let x = a_id("x").annotate(ArrayType::new(Type::Boolean, 2u32));
+        let y = a_id("y").annotate(ArrayType::new(Type::Boolean, 2u32));
 
         let e: BooleanExpression<DummyCurveField> =
             BooleanExpression::ArrayEq(BinaryExpression::new(x.clone(), y.clone()));
@@ -152,8 +152,8 @@ mod tests {
         // should become
         // [x[0] ? 2**2 : 0 + x[1] ? 2**1 : 0, x[2] ? 2**0 : 0] == [y[0] ? 2**2 : 0 + y[1] ? 2**1 : 0 y[2] ? 2**0 : 0]
 
-        let x = a_id("x").annotate(Type::Boolean, 3u32);
-        let y = a_id("y").annotate(Type::Boolean, 3u32);
+        let x = a_id("x").annotate(ArrayType::new(Type::Boolean, 3u32));
+        let y = a_id("y").annotate(ArrayType::new(Type::Boolean, 3u32));
 
         let e: BooleanExpression<DummyCurveField> =
             BooleanExpression::ArrayEq(BinaryExpression::new(x.clone(), y.clone()));

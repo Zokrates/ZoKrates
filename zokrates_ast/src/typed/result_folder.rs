@@ -334,8 +334,8 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         t: ArrayType<'ast, T>,
     ) -> Result<ArrayType<'ast, T>, Self::Error> {
         Ok(ArrayType {
-            ty: box self.fold_type(*t.ty)?,
-            size: box self.fold_uint_expression(*t.size)?,
+            ty: Box::new(self.fold_type(*t.ty)?),
+            size: Box::new(self.fold_uint_expression(*t.size)?),
         })
     }
 
@@ -367,8 +367,10 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
                 .into_iter()
                 .map(|m| {
                     let id = m.id;
-                    self.fold_type(*m.ty)
-                        .map(|ty| StructMember { ty: box ty, id })
+                    self.fold_type(*m.ty).map(|ty| StructMember {
+                        ty: Box::new(ty),
+                        id,
+                    })
                 })
                 .collect::<Result<_, _>>()?,
             ..t
@@ -394,8 +396,8 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         t: DeclarationArrayType<'ast, T>,
     ) -> Result<DeclarationArrayType<'ast, T>, Self::Error> {
         Ok(DeclarationArrayType {
-            ty: box self.fold_declaration_type(*t.ty)?,
-            size: box self.fold_declaration_constant(*t.size)?,
+            ty: Box::new(self.fold_declaration_type(*t.ty)?),
+            size: Box::new(self.fold_declaration_constant(*t.size)?),
         })
     }
 
@@ -428,7 +430,10 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
                 .map(|m| {
                     let id = m.id;
                     self.fold_declaration_type(*m.ty)
-                        .map(|ty| DeclarationStructMember { ty: box ty, id })
+                        .map(|ty| DeclarationStructMember {
+                            ty: Box::new(ty),
+                            id,
+                        })
                 })
                 .collect::<Result<_, _>>()?,
             ..t
@@ -958,14 +963,15 @@ pub fn fold_assignee<'ast, T: Field, F: ResultFolder<'ast, T>>(
 ) -> Result<TypedAssignee<'ast, T>, F::Error> {
     match a {
         TypedAssignee::Identifier(v) => Ok(TypedAssignee::Identifier(f.fold_variable(v)?)),
-        TypedAssignee::Select(box a, box index) => Ok(TypedAssignee::Select(
-            box f.fold_assignee(a)?,
-            box f.fold_uint_expression(index)?,
+        TypedAssignee::Select(a, index) => Ok(TypedAssignee::Select(
+            Box::new(f.fold_assignee(*a)?),
+            Box::new(f.fold_uint_expression(*index)?),
         )),
-        TypedAssignee::Member(box s, m) => Ok(TypedAssignee::Member(box f.fold_assignee(s)?, m)),
-        TypedAssignee::Element(box s, index) => {
-            Ok(TypedAssignee::Element(box f.fold_assignee(s)?, index))
-        }
+        TypedAssignee::Member(s, m) => Ok(TypedAssignee::Member(Box::new(f.fold_assignee(*s)?), m)),
+        TypedAssignee::Element(s, index) => Ok(TypedAssignee::Element(
+            Box::new(f.fold_assignee(*s)?),
+            index,
+        )),
     }
 }
 
@@ -1683,7 +1689,7 @@ pub fn fold_signature<'ast, T: Field, F: ResultFolder<'ast, T>>(
             .into_iter()
             .map(|o| f.fold_declaration_type(o))
             .collect::<Result<_, _>>()?,
-        output: box f.fold_declaration_type(*s.output)?,
+        output: Box::new(f.fold_declaration_type(*s.output)?),
     })
 }
 
@@ -1725,7 +1731,7 @@ pub fn fold_array_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
     Ok(ArrayExpression {
         inner: f.fold_array_expression_inner(&ty, e.inner)?,
-        ty: box ty,
+        ty: Box::new(ty),
     })
 }
 

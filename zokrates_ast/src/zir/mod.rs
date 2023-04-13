@@ -490,9 +490,9 @@ impl<'ast, T, E> ConditionalExpression<'ast, T, E> {
     pub fn new(condition: BooleanExpression<'ast, T>, consequence: E, alternative: E) -> Self {
         ConditionalExpression {
             span: None,
-            condition: box condition,
-            consequence: box consequence,
-            alternative: box alternative,
+            condition: Box::new(condition),
+            consequence: Box::new(consequence),
+            alternative: Box::new(alternative),
         }
     }
 }
@@ -534,7 +534,7 @@ impl<'ast, T, E> SelectExpression<'ast, T, E> {
         SelectExpression {
             span: None,
             array,
-            index: box index,
+            index: Box::new(index),
         }
     }
 }

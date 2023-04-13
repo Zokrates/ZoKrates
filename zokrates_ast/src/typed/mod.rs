@@ -405,6 +405,20 @@ pub enum TypedAssignee<'ast, T> {
     Element(Box<TypedAssignee<'ast, T>>, u32),
 }
 
+impl<'ast, T> TypedAssignee<'ast, T> {
+    pub fn select(self, index: UExpression<'ast, T>) -> Self {
+        Self::Select(Box::new(self), Box::new(index))
+    }
+
+    pub fn member(self, member: MemberId) -> Self {
+        Self::Member(Box::new(self), member)
+    }
+
+    pub fn element(self, index: u32) -> Self {
+        Self::Element(Box::new(self), index)
+    }
+}
+
 #[derive(Clone, PartialEq, Hash, Eq, Debug, PartialOrd, Ord)]
 pub struct TypedSpread<'ast, T> {
     pub array: ArrayExpression<'ast, T>,
@@ -1072,7 +1086,7 @@ impl<'ast, T, E> BlockExpression<'ast, T, E> {
         BlockExpression {
             span: None,
             statements,
-            value: box value,
+            value: Box::new(value),
         }
     }
 }
@@ -1172,7 +1186,7 @@ impl<'ast, T, E> MemberExpression<'ast, T, E> {
     pub fn new(struc: StructExpression<'ast, T>, id: MemberId) -> Self {
         MemberExpression {
             span: None,
-            struc: box struc,
+            struc: Box::new(struc),
             id,
             ty: PhantomData,
         }
@@ -1200,8 +1214,8 @@ impl<'ast, T, E> SelectExpression<'ast, T, E> {
     pub fn new(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
         SelectExpression {
             span: None,
-            array: box array,
-            index: box index,
+            array: Box::new(array),
+            index: Box::new(index),
             ty: PhantomData,
         }
     }
@@ -1228,7 +1242,7 @@ impl<'ast, T, E> ElementExpression<'ast, T, E> {
     pub fn new(tuple: TupleExpression<'ast, T>, index: u32) -> Self {
         ElementExpression {
             span: None,
-            tuple: box tuple,
+            tuple: Box::new(tuple),
             index,
             ty: PhantomData,
         }
@@ -1268,9 +1282,9 @@ impl<'ast, T, E> ConditionalExpression<'ast, T, E> {
     ) -> Self {
         ConditionalExpression {
             span: None,
-            condition: box condition,
-            consequence: box consequence,
-            alternative: box alternative,
+            condition: Box::new(condition),
+            consequence: Box::new(consequence),
+            alternative: Box::new(alternative),
             kind,
         }
     }
@@ -1387,9 +1401,9 @@ impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for TupleExpression<'ast, T> {
                     _ => unreachable!(),
                 }
             }
-            TypedAssignee::Select(box a, box index) => TupleExpression::select(a.into(), index),
-            TypedAssignee::Member(box a, id) => TupleExpression::member(a.into(), id),
-            TypedAssignee::Element(box a, index) => TupleExpression::element(a.into(), index),
+            TypedAssignee::Select(a, index) => TupleExpression::select((*a).into(), *index),
+            TypedAssignee::Member(a, id) => TupleExpression::member((*a).into(), id),
+            TypedAssignee::Element(a, index) => TupleExpression::element((*a).into(), index),
         }
     }
 }
@@ -1404,9 +1418,9 @@ impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for StructExpression<'ast, T> 
                     _ => unreachable!(),
                 }
             }
-            TypedAssignee::Select(box a, box index) => StructExpression::select(a.into(), index),
-            TypedAssignee::Member(box a, id) => StructExpression::member(a.into(), id),
-            TypedAssignee::Element(box a, index) => StructExpression::element(a.into(), index),
+            TypedAssignee::Select(a, index) => StructExpression::select((*a).into(), *index),
+            TypedAssignee::Member(a, id) => StructExpression::member((*a).into(), id),
+            TypedAssignee::Element(a, index) => StructExpression::element((*a).into(), index),
         }
     }
 }
@@ -1417,13 +1431,13 @@ impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for ArrayExpression<'ast, T> {
             TypedAssignee::Identifier(v) => {
                 let inner = ArrayExpression::identifier(v.id);
                 match v.ty {
-                    GType::Array(array_ty) => inner.annotate(*array_ty.ty, *array_ty.size),
+                    GType::Array(array_ty) => inner.annotate(array_ty),
                     _ => unreachable!(),
                 }
             }
-            TypedAssignee::Select(box a, box index) => ArrayExpression::select(a.into(), index),
-            TypedAssignee::Member(box a, id) => ArrayExpression::member(a.into(), id),
-            TypedAssignee::Element(box a, index) => ArrayExpression::element(a.into(), index),
+            TypedAssignee::Select(a, index) => ArrayExpression::select((*a).into(), *index),
+            TypedAssignee::Member(a, id) => ArrayExpression::member((*a).into(), id),
+            TypedAssignee::Element(a, index) => ArrayExpression::element((*a).into(), index),
         }
     }
 }
@@ -1432,13 +1446,9 @@ impl<'ast, T: Field> From<TypedAssignee<'ast, T>> for FieldElementExpression<'as
     fn from(assignee: TypedAssignee<'ast, T>) -> Self {
         match assignee {
             TypedAssignee::Identifier(v) => FieldElementExpression::identifier(v.id),
-            TypedAssignee::Element(box a, index) => {
-                FieldElementExpression::element(a.into(), index)
-            }
-            TypedAssignee::Member(box a, id) => FieldElementExpression::member(a.into(), id),
-            TypedAssignee::Select(box a, box index) => {
-                FieldElementExpression::select(a.into(), index)
-            }
+            TypedAssignee::Element(a, index) => FieldElementExpression::element((*a).into(), index),
+            TypedAssignee::Member(a, id) => FieldElementExpression::member((*a).into(), id),
+            TypedAssignee::Select(a, index) => FieldElementExpression::select((*a).into(), *index),
         }
     }
 }
@@ -1737,11 +1747,7 @@ impl<'ast, T: Field> ArrayValueExpression<'ast, T> {
                         }
                         a => (0..size.value)
                             .map(|i| {
-                                Some(U::select(
-                                    a.clone()
-                                        .annotate(*array_ty.ty.clone(), *array_ty.size.clone()),
-                                    i as u32,
-                                ))
+                                Some(U::select(a.clone().annotate(array_ty.clone()), i as u32))
                             })
                             .collect(),
                     }
@@ -1780,13 +1786,9 @@ pub enum ArrayExpressionInner<'ast, T> {
 }
 
 impl<'ast, T> ArrayExpressionInner<'ast, T> {
-    pub fn annotate<S: Into<UExpression<'ast, T>>>(
-        self,
-        ty: Type<'ast, T>,
-        size: S,
-    ) -> ArrayExpression<'ast, T> {
+    pub fn annotate(self, ty: ArrayType<'ast, T>) -> ArrayExpression<'ast, T> {
         ArrayExpression {
-            ty: box (ty, size.into()).into(),
+            ty: Box::new(ty),
             inner: self,
         }
     }
@@ -1808,13 +1810,15 @@ impl<'ast, T: Clone> ArrayExpression<'ast, T> {
     ) -> Self {
         let inner = array.inner_type().clone();
         let size = to.clone() - from.clone();
-        ArrayExpressionInner::Slice(SliceExpression::new(array, from, to)).annotate(inner, size)
+        let array_ty = ArrayType::new(inner, size);
+        ArrayExpressionInner::Slice(SliceExpression::new(array, from, to)).annotate(array_ty)
     }
 
     pub fn repeat(e: TypedExpression<'ast, T>, count: UExpression<'ast, T>) -> Self {
         let inner = e.get_type().clone();
         let size = count.clone();
-        ArrayExpressionInner::Repeat(RepeatExpression::new(e, count)).annotate(inner, size)
+        let array_ty = ArrayType::new(inner, size);
+        ArrayExpressionInner::Repeat(RepeatExpression::new(e, count)).annotate(array_ty)
     }
 }
 
@@ -2205,9 +2209,7 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
         match v.get_type() {
             Type::FieldElement => FieldElementExpression::identifier(v.id).into(),
             Type::Boolean => BooleanExpression::identifier(v.id).into(),
-            Type::Array(ty) => ArrayExpression::identifier(v.id)
-                .annotate(*ty.ty, *ty.size)
-                .into(),
+            Type::Array(ty) => ArrayExpression::identifier(v.id).annotate(ty).into(),
             Type::Struct(ty) => StructExpression::identifier(v.id).annotate(ty).into(),
             Type::Tuple(ty) => TupleExpression::identifier(v.id).annotate(ty).into(),
             Type::Uint(w) => UExpression::identifier(v.id).annotate(w).into(),
@@ -2835,7 +2837,7 @@ impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for StructExpression<'ast, T> 
     }
 }
 
-impl<'ast, T: fmt::Display + Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: Clone + fmt::Display> Expr<'ast, T> for ArrayExpression<'ast, T> {
     type Inner = ArrayExpressionInner<'ast, T>;
     type Ty = ArrayType<'ast, T>;
     type ConcreteTy = ConcreteArrayType;
@@ -3040,22 +3042,21 @@ impl<'ast, T> Conditional<'ast, T> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> Conditional<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: Clone + fmt::Display> Conditional<'ast, T> for ArrayExpression<'ast, T> {
     fn conditional(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
         kind: ConditionalKind,
     ) -> Self {
-        let ty = consequence.inner_type().clone();
-        let size = consequence.size();
+        let ty = consequence.ty().clone();
         ArrayExpressionInner::Conditional(ConditionalExpression::new(
             condition,
             consequence,
             alternative,
             kind,
         ))
-        .annotate(ty, size)
+        .annotate(ty)
     }
 }
 
@@ -3144,13 +3145,9 @@ impl<'ast, T: Clone> Select<'ast, T> for UExpression<'ast, T> {
 
 impl<'ast, T: Clone> Select<'ast, T> for ArrayExpression<'ast, T> {
     fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
-        let (ty, size) = match array.inner_type() {
-            Type::Array(array_type) => (array_type.ty.clone(), array_type.size.clone()),
-            _ => unreachable!(),
-        };
+        let array_ty = array.inner_type().clone().try_into().unwrap();
 
-        ArrayExpressionInner::Select(SelectExpression::new(array, index.into()))
-            .annotate(*ty, *size)
+        ArrayExpressionInner::Select(SelectExpression::new(array, index.into())).annotate(array_ty)
     }
 }
 
@@ -3194,56 +3191,60 @@ impl<'ast, T> Member<'ast, T> for BooleanExpression<'ast, T> {
 
 impl<'ast, T: Clone> Member<'ast, T> for UExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, id: MemberId) -> Self {
-        let ty = s.ty().members.iter().find(|member| id == member.id);
-        let bitwidth = match ty {
-            Some(crate::typed::types::StructMember {
-                ty: box Type::Uint(bitwidth),
-                ..
-            }) => *bitwidth,
-            _ => unreachable!(),
-        };
+        let ty = *s
+            .ty()
+            .members
+            .iter()
+            .find(|member| id == member.id)
+            .unwrap()
+            .ty
+            .clone();
+        let bitwidth: UBitwidth = ty.try_into().unwrap();
         UExpressionInner::Member(MemberExpression::new(s, id)).annotate(bitwidth)
     }
 }
 
 impl<'ast, T: Clone> Member<'ast, T> for ArrayExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, id: MemberId) -> Self {
-        let ty = s.ty().members.iter().find(|member| id == member.id);
-        let (ty, size) = match ty {
-            Some(crate::typed::types::StructMember {
-                ty: box Type::Array(array_ty),
-                ..
-            }) => (*array_ty.ty.clone(), array_ty.size.clone()),
-            _ => unreachable!(),
-        };
-        ArrayExpressionInner::Member(MemberExpression::new(s, id)).annotate(ty, *size)
+        let ty = *s
+            .ty()
+            .members
+            .iter()
+            .find(|member| id == member.id)
+            .unwrap()
+            .ty
+            .clone();
+        let array_ty: ArrayType<'ast, T> = ty.try_into().unwrap();
+        ArrayExpressionInner::Member(MemberExpression::new(s, id)).annotate(array_ty)
     }
 }
 
 impl<'ast, T: Clone> Member<'ast, T> for StructExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, id: MemberId) -> Self {
-        let ty = s.ty().members.iter().find(|member| id == member.id);
-        let struct_ty = match ty {
-            Some(crate::typed::types::StructMember {
-                ty: box Type::Struct(struct_ty),
-                ..
-            }) => struct_ty.clone(),
-            _ => unreachable!(),
-        };
+        let ty = *s
+            .ty()
+            .members
+            .iter()
+            .find(|member| id == member.id)
+            .unwrap()
+            .ty
+            .clone();
+        let struct_ty = ty.try_into().unwrap();
         StructExpressionInner::Member(MemberExpression::new(s, id)).annotate(struct_ty)
     }
 }
 
 impl<'ast, T: Clone> Member<'ast, T> for TupleExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, id: MemberId) -> Self {
-        let ty = s.ty().members.iter().find(|member| id == member.id);
-        let tuple_ty = match ty {
-            Some(crate::typed::types::StructMember {
-                ty: box Type::Tuple(tuple_ty),
-                ..
-            }) => tuple_ty.clone(),
-            _ => unreachable!(),
-        };
+        let ty = *s
+            .ty()
+            .members
+            .iter()
+            .find(|member| id == member.id)
+            .unwrap()
+            .ty
+            .clone();
+        let tuple_ty = ty.try_into().unwrap();
         TupleExpressionInner::Member(MemberExpression::new(s, id)).annotate(tuple_ty)
     }
 }
@@ -3277,12 +3278,9 @@ impl<'ast, T: Clone> Element<'ast, T> for UExpression<'ast, T> {
 
 impl<'ast, T: Clone> Element<'ast, T> for ArrayExpression<'ast, T> {
     fn element(s: TupleExpression<'ast, T>, id: u32) -> Self {
-        let ty = &s.ty().elements[id as usize];
-        let (ty, size) = match ty {
-            Type::Array(array_ty) => (*array_ty.ty.clone(), array_ty.size.clone()),
-            _ => unreachable!(),
-        };
-        ArrayExpressionInner::Element(ElementExpression::new(s, id)).annotate(ty, *size)
+        let ty = s.ty().elements[id as usize].clone();
+        let array_ty = ty.try_into().unwrap();
+        ArrayExpressionInner::Element(ElementExpression::new(s, id)).annotate(array_ty)
     }
 }
 
@@ -3442,8 +3440,7 @@ impl<'ast, T: Field> Block<'ast, T> for UExpression<'ast, T> {
 impl<'ast, T: Field> Block<'ast, T> for ArrayExpression<'ast, T> {
     fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
         let array_ty = value.ty().clone();
-        ArrayExpressionInner::Block(BlockExpression::new(statements, value))
-            .annotate(*array_ty.ty, *array_ty.size)
+        ArrayExpressionInner::Block(BlockExpression::new(statements, value)).annotate(array_ty)
     }
 }
 
@@ -3561,7 +3558,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                     .map(|e| e.into())
                     .collect::<Vec<_>>(),
             )
-            .annotate(*array_ty.ty, *array_ty.size),
+            .annotate(array_ty),
             ArrayExpressionInner::Slice(e) => {
                 let from = match e.from.into_inner() {
                     UExpressionInner::Value(from) => from.value as usize,
@@ -3586,7 +3583,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                         .take(to - from)
                         .collect::<Vec<_>>(),
                 )
-                .annotate(*array_ty.ty, *array_ty.size)
+                .annotate(array_ty)
             }
             ArrayExpressionInner::Repeat(e) => {
                 let count = match e.count.into_inner() {
@@ -3597,7 +3594,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                 let e = e.e.into_canonical_constant();
 
                 ArrayExpression::value(vec![TypedExpressionOrSpread::Expression(e); count])
-                    .annotate(*array_ty.ty, *array_ty.size)
+                    .annotate(array_ty)
             }
             _ => unreachable!(),
         }

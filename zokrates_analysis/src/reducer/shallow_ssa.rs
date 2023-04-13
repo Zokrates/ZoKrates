@@ -103,15 +103,15 @@ impl<'ast> ShallowTransformer<'ast> {
     ) -> TypedAssignee<'ast, T> {
         match a {
             TypedAssignee::Identifier(v) => TypedAssignee::Identifier(self.fold_variable(v)),
-            TypedAssignee::Select(box a, box index) => TypedAssignee::Select(
-                box self.fold_assignee_no_ssa_increase(a),
-                box self.fold_uint_expression(index),
+            TypedAssignee::Select(a, index) => TypedAssignee::select(
+                self.fold_assignee_no_ssa_increase(*a),
+                self.fold_uint_expression(*index),
             ),
-            TypedAssignee::Member(box s, m) => {
-                TypedAssignee::Member(box self.fold_assignee_no_ssa_increase(s), m)
+            TypedAssignee::Member(s, m) => {
+                TypedAssignee::member(self.fold_assignee_no_ssa_increase(*s), m)
             }
-            TypedAssignee::Element(box s, index) => {
-                TypedAssignee::Element(box self.fold_assignee_no_ssa_increase(s), index)
+            TypedAssignee::Element(s, index) => {
+                TypedAssignee::element(self.fold_assignee_no_ssa_increase(*s), index)
             }
         }
     }
@@ -409,7 +409,7 @@ mod tests {
                     FieldElementExpression::value(Bn128Field::from(1)).into(),
                     FieldElementExpression::value(Bn128Field::from(1)).into(),
                 ])
-                .annotate(Type::FieldElement, 2u32)
+                .annotate(ArrayType::new(Type::FieldElement, 2u32))
                 .into(),
             );
 
@@ -425,15 +425,19 @@ mod tests {
                         FieldElementExpression::value(Bn128Field::from(1)).into(),
                         FieldElementExpression::value(Bn128Field::from(1)).into()
                     ])
-                    .annotate(Type::FieldElement, 2u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 2u32))
                     .into()
                 )]
             );
 
             let s: TypedStatement<Bn128Field> = TypedStatement::definition(
                 TypedAssignee::Select(
-                    box TypedAssignee::Identifier(Variable::array("a", Type::FieldElement, 2u32)),
-                    box UExpression::from(1u32),
+                    Box::new(TypedAssignee::Identifier(Variable::array(
+                        "a",
+                        Type::FieldElement,
+                        2u32,
+                    ))),
+                    Box::new(UExpression::from(1u32)),
                 ),
                 FieldElementExpression::value(Bn128Field::from(2)).into(),
             );
@@ -461,16 +465,19 @@ mod tests {
                         FieldElementExpression::value(Bn128Field::from(0)).into(),
                         FieldElementExpression::value(Bn128Field::from(1)).into(),
                     ])
-                    .annotate(Type::FieldElement, 2u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 2u32))
                     .into(),
                     ArrayExpression::value(vec![
                         FieldElementExpression::value(Bn128Field::from(2)).into(),
                         FieldElementExpression::value(Bn128Field::from(3)).into(),
                     ])
-                    .annotate(Type::FieldElement, 2u32)
+                    .annotate(ArrayType::new(Type::FieldElement, 2u32))
                     .into(),
                 ])
-                .annotate(Type::array((Type::FieldElement, 2u32)), 2u32)
+                .annotate(ArrayType::new(
+                    Type::array((Type::FieldElement, 2u32)),
+                    2u32,
+                ))
                 .into(),
             );
 
@@ -486,30 +493,33 @@ mod tests {
                             FieldElementExpression::value(Bn128Field::from(0)).into(),
                             FieldElementExpression::value(Bn128Field::from(1)).into(),
                         ])
-                        .annotate(Type::FieldElement, 2u32)
+                        .annotate(ArrayType::new(Type::FieldElement, 2u32))
                         .into(),
                         ArrayExpression::value(vec![
                             FieldElementExpression::value(Bn128Field::from(2)).into(),
                             FieldElementExpression::value(Bn128Field::from(3)).into(),
                         ])
-                        .annotate(Type::FieldElement, 2u32)
+                        .annotate(ArrayType::new(Type::FieldElement, 2u32))
                         .into(),
                     ])
-                    .annotate(Type::array((Type::FieldElement, 2u32)), 2u32)
+                    .annotate(ArrayType::new(
+                        Type::array((Type::FieldElement, 2u32)),
+                        2u32
+                    ))
                     .into(),
                 )]
             );
 
             let s: TypedStatement<Bn128Field> = TypedStatement::definition(
-                TypedAssignee::Select(
-                    box TypedAssignee::Identifier(Variable::new("a", array_of_array_ty.clone())),
-                    box UExpression::from(1u32),
+                TypedAssignee::select(
+                    TypedAssignee::Identifier(Variable::new("a", array_of_array_ty.clone())),
+                    UExpression::from(1u32),
                 ),
                 ArrayExpression::value(vec![
                     FieldElementExpression::value(Bn128Field::from(4)).into(),
                     FieldElementExpression::value(Bn128Field::from(5)).into(),
                 ])
-                .annotate(Type::FieldElement, 2u32)
+                .annotate(ArrayType::new(Type::FieldElement, 2u32))
                 .into(),
             );
 

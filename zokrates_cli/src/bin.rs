@@ -1,5 +1,3 @@
-#![feature(panic_info_message)]
-#![feature(backtrace)]
 //
 // @file bin.rs
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
@@ -86,21 +84,8 @@ fn cli() -> Result<(), String> {
 }
 
 fn panic_hook(pi: &std::panic::PanicInfo) {
-    let location = pi
-        .location()
-        .map(|l| format!("({})", l))
-        .unwrap_or_default();
-
-    let message = pi
-        .message()
-        .map(|m| format!("{}", m))
-        .or_else(|| pi.payload().downcast_ref::<&str>().map(|p| p.to_string()));
-
-    if let Some(s) = message {
-        println!("{} {}", s, location);
-    } else {
-        println!("The compiler unexpectedly panicked {}", location);
-    }
+    println!("The compiler unexpectedly panicked");
+    println!("{}", pi);
 
     #[cfg(debug_assertions)]
     {

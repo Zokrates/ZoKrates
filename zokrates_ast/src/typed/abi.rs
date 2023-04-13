@@ -22,7 +22,7 @@ impl Abi {
         ConcreteSignature {
             generics: vec![],
             inputs: self.inputs.iter().map(|i| i.ty.clone()).collect(),
-            output: box self.output.clone(),
+            output: Box::new(self.output.clone()),
         }
     }
 }

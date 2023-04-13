@@ -46,7 +46,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("circuit").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
@@ -71,7 +71,7 @@ fn cli_mpc_verify<
 
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let reader = BufReader::new(file);
 
