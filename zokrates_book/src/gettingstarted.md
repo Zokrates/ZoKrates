@@ -25,7 +25,7 @@ You can build ZoKrates from [source](https://github.com/ZoKrates/ZoKrates/) with
 git clone https://github.com/ZoKrates/ZoKrates
 cd ZoKrates
 export ZOKRATES_STDLIB=$PWD/zokrates_stdlib/stdlib
-cargo +nightly build -p zokrates_cli --release
+cargo build -p zokrates_cli --release
 cd target/release
 ```
 
