@@ -96,11 +96,16 @@ impl ToString for G2AffineFq2 {
 }
 
 pub trait Backend<T: Field, S: Scheme<T>> {
-    fn generate_proof<'a, I: IntoIterator<Item = ir::Statement<'a, T>>, R: RngCore + CryptoRng>(
+    fn generate_proof<
+        'a,
+        I: IntoIterator<Item = ir::Statement<'a, T>>,
+        R: Read,
+        G: RngCore + CryptoRng,
+    >(
         program: ir::ProgIterator<'a, T, I>,
         witness: ir::Witness<T>,
-        proving_key: Vec<u8>,
-        rng: &mut R,
+        proving_key: R,
+        rng: &mut G,
     ) -> Proof<T, S>;
 
     fn verify(vk: S::VerificationKey, proof: Proof<T, S>) -> bool;
@@ -129,16 +134,16 @@ pub trait MpcBackend<T: Field, S: Scheme<T>> {
     ) -> Result<(), String>;
 
     fn contribute<R: Read, W: Write, G: RngCore + CryptoRng>(
-        params: &mut R,
+        params: R,
         rng: &mut G,
         output: &mut W,
     ) -> Result<[u8; 64], String>;
 
-    fn verify<'a, P: Read, R: Read, I: IntoIterator<Item = ir::Statement<'a, T>>>(
-        params: &mut P,
+    fn verify<'a, R: Read, I: IntoIterator<Item = ir::Statement<'a, T>>>(
+        params: R,
         program: ir::ProgIterator<'a, T, I>,
         phase1_radix: &mut R,
     ) -> Result<Vec<[u8; 64]>, String>;
 
-    fn export_keypair<R: Read>(params: &mut R) -> Result<SetupKeypair<T, S>, String>;
+    fn export_keypair<R: Read>(params: R) -> Result<SetupKeypair<T, S>, String>;
 }

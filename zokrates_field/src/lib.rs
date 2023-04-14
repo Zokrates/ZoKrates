@@ -6,7 +6,6 @@
 
 #[cfg(feature = "bellman_extensions")]
 use bellman_ce::pairing::{ff::ScalarEngine, Engine};
-
 use num_bigint::BigUint;
 use num_traits::{CheckedDiv, One, Zero};
 use serde::{Deserialize, Serialize};
@@ -14,6 +13,7 @@ use std::convert::{From, TryFrom};
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
+use std::io::{Read, Write};
 use std::ops::{Add, Div, Mul, Sub};
 
 #[cfg(feature = "bellperson_extensions")]
@@ -85,6 +85,7 @@ pub trait Field:
     + Zero
     + One
     + Clone
+    + Copy
     + PartialEq
     + Eq
     + Hash
@@ -110,6 +111,10 @@ pub trait Field:
     + num_traits::CheckedMul
 {
     const G2_TYPE: G2Type = G2Type::Fq2;
+    // Read field from the reader
+    fn read<R: Read>(reader: R) -> std::io::Result<Self>;
+    // Write field to the writer
+    fn write<W: Write>(&self, writer: W) -> std::io::Result<()>;
     /// Returns this `Field`'s contents as little-endian byte vector
     fn to_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
@@ -159,11 +164,12 @@ mod prime_field {
             use std::convert::TryFrom;
             use std::fmt;
             use std::fmt::{Debug, Display};
+            use std::io::{Read, Write};
             use std::ops::{Add, Div, Mul, Sub};
 
             type Fr = $v;
 
-            #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash)]
+            #[derive(PartialEq, PartialOrd, Clone, Copy, Eq, Ord, Hash)]
             pub struct FieldPrime {
                 v: Fr,
             }
@@ -201,9 +207,21 @@ mod prime_field {
                     self.v.into_repr().to_bytes_le()
                 }
 
+                fn read<R: Read>(reader: R) -> std::io::Result<Self> {
+                    use ark_ff::FromBytes;
+                    Ok(FieldPrime {
+                        v: Fr::read(reader)?,
+                    })
+                }
+
+                fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+                    use ark_ff::ToBytes;
+                    self.v.write(&mut writer)?;
+                    Ok(())
+                }
+
                 fn from_byte_vector(bytes: Vec<u8>) -> Self {
                     use ark_ff::FromBytes;
-
                     FieldPrime {
                         v: Fr::from(<Fr as PrimeField>::BigInt::read(&bytes[..]).unwrap()),
                     }
@@ -606,9 +624,12 @@ mod prime_field {
                 }
 
                 fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr {
-                    use bellman_ce::pairing::ff::PrimeField;
-                    let s = self.to_dec_string();
-                    <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
+                    use bellman_ce::pairing::ff::{PrimeField, PrimeFieldRepr};
+                    let bytes = self.to_byte_vector();
+                    let mut repr =
+                        <<Self::BellmanEngine as ScalarEngine>::Fr as PrimeField>::Repr::default();
+                    repr.read_le(bytes.as_slice()).unwrap();
+                    <Self::BellmanEngine as ScalarEngine>::Fr::from_repr(repr).unwrap()
                 }
 
                 fn new_fq2(

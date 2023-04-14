@@ -134,8 +134,8 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let arena = Arena::new();
 
-    let artifacts =
-        compile::<T, _>(source, path, Some(&resolver), config, &arena).map_err(|e| {
+    let artifacts = compile::<T, _>(source, path.clone(), Some(&resolver), config, &arena)
+        .map_err(|e| {
             format!(
                 "Compilation failed:\n\n{}",
                 e.0.iter()
@@ -149,16 +149,24 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     // serialize flattened program and write to binary file
     log::debug!("Serialize program");
-    let bin_output_file = File::create(&bin_output_path)
+    let bin_output_file = File::create(bin_output_path)
         .map_err(|why| format!("Could not create {}: {}", bin_output_path.display(), why))?;
 
-    let r1cs_output_file = File::create(&r1cs_output_path)
+    let r1cs_output_file = File::create(r1cs_output_path)
         .map_err(|why| format!("Could not create {}: {}", r1cs_output_path.display(), why))?;
 
     let mut bin_writer = BufWriter::new(bin_output_file);
     let mut r1cs_writer = BufWriter::new(r1cs_output_file);
 
-    let program_flattened = program_flattened.collect();
+    let mut program_flattened = program_flattened.collect();
+
+    // hide user path
+    program_flattened.module_map = program_flattened
+        .module_map
+        .remap_prefix(path.parent().unwrap(), Path::new(""));
+    program_flattened.module_map = program_flattened
+        .module_map
+        .remap_prefix(Path::new(stdlib_path), Path::new("STDLIB"));
 
     write_r1cs(&mut r1cs_writer, program_flattened.clone()).unwrap();
 
@@ -166,7 +174,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         Ok(constraint_count) => {
             // serialize ABI spec and write to JSON file
             log::debug!("Serialize ABI");
-            let abi_spec_file = File::create(&abi_spec_path)
+            let abi_spec_file = File::create(abi_spec_path)
                 .map_err(|why| format!("Could not create {}: {}", abi_spec_path.display(), why))?;
 
             let mut writer = BufWriter::new(abi_spec_file);

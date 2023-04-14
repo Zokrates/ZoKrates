@@ -68,13 +68,25 @@ const initialize = async () => {
       return result;
     },
     setup: (program, entropy, options) => {
-      return wasmExports.setup(program, entropy, options);
+      const ptr = wasmExports.setup(program, entropy, options);
+      const result = {
+        vk: ptr.vk(),
+        pk: ptr.pk(),
+      };
+      ptr.free();
+      return result;
     },
     universalSetup: (curve, size, entropy) => {
       return wasmExports.universal_setup(curve, size, entropy);
     },
     setupWithSrs: (srs, program, options) => {
-      return wasmExports.setup_with_srs(srs, program, options);
+      const ptr = wasmExports.setup_with_srs(srs, program, options);
+      const result = {
+        vk: ptr.vk(),
+        pk: ptr.pk(),
+      };
+      ptr.free();
+      return result;
     },
     generateProof: (program, witness, provingKey, entropy, options) => {
       return wasmExports.generate_proof(

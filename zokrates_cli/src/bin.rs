@@ -1,5 +1,3 @@
-#![feature(panic_info_message)]
-#![feature(backtrace)]
 //
 // @file bin.rs
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
@@ -59,7 +57,9 @@ fn cli() -> Result<(), String> {
             generate_smtlib2::subcommand(),
             print_proof::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark"))]
-            verify::subcommand()])
+            verify::subcommand(),
+            profile::subcommand()
+        ])
         .get_matches();
 
     match matches.subcommand() {
@@ -82,26 +82,14 @@ fn cli() -> Result<(), String> {
         ("print-proof", Some(sub_matches)) => print_proof::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark"))]
         ("verify", Some(sub_matches)) => verify::exec(sub_matches),
+        ("profile", Some(sub_matches)) => profile::exec(sub_matches),
         _ => unreachable!(),
     }
 }
 
 fn panic_hook(pi: &std::panic::PanicInfo) {
-    let location = pi
-        .location()
-        .map(|l| format!("({})", l))
-        .unwrap_or_default();
-
-    let message = pi
-        .message()
-        .map(|m| format!("{}", m))
-        .or_else(|| pi.payload().downcast_ref::<&str>().map(|p| p.to_string()));
-
-    if let Some(s) = message {
-        println!("{} {}", s, location);
-    } else {
-        println!("The compiler unexpectedly panicked {}", location);
-    }
+    println!("The compiler unexpectedly panicked");
+    println!("{}", pi);
 
     #[cfg(debug_assertions)]
     {

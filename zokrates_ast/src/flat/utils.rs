@@ -1,4 +1,5 @@
 use crate::flat::{FlatExpression, Variable};
+use std::ops::*;
 use zokrates_field::Field;
 
 // util to convert a vector of `(coefficient, expression)` to a flat_expression
@@ -7,16 +8,16 @@ pub fn flat_expression_from_expression_summands<T: Field, U: Clone + Into<FlatEx
     v: &[(T, U)],
 ) -> FlatExpression<T> {
     match v.len() {
-        0 => FlatExpression::Number(T::zero()),
+        0 => FlatExpression::value(T::zero()),
         1 => {
             let (val, var) = v[0].clone();
-            FlatExpression::Mult(box FlatExpression::Number(val), box var.into())
+            FlatExpression::mul(FlatExpression::value(val), var.into())
         }
         n => {
             let (u, v) = v.split_at(n / 2);
-            FlatExpression::Add(
-                box flat_expression_from_expression_summands(u),
-                box flat_expression_from_expression_summands(v),
+            FlatExpression::add(
+                flat_expression_from_expression_summands(u),
+                flat_expression_from_expression_summands(v),
             )
         }
     }
@@ -34,19 +35,19 @@ pub fn flat_expression_from_bits<T: Field>(v: Vec<FlatExpression<T>>) -> FlatExp
 
 pub fn flat_expression_from_variable_summands<T: Field>(v: &[(T, usize)]) -> FlatExpression<T> {
     match v.len() {
-        0 => FlatExpression::Number(T::zero()),
+        0 => FlatExpression::value(T::zero()),
         1 => {
-            let (val, var) = v[0].clone();
-            FlatExpression::Mult(
-                box FlatExpression::Number(val),
-                box FlatExpression::Identifier(Variable::new(var)),
+            let (val, var) = v[0];
+            FlatExpression::mul(
+                FlatExpression::value(val),
+                FlatExpression::identifier(Variable::new(var)),
             )
         }
         n => {
             let (u, v) = v.split_at(n / 2);
-            FlatExpression::Add(
-                box flat_expression_from_variable_summands(u),
-                box flat_expression_from_variable_summands(v),
+            FlatExpression::add(
+                flat_expression_from_variable_summands(u),
+                flat_expression_from_variable_summands(v),
             )
         }
     }

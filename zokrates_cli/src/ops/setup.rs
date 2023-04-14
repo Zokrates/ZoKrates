@@ -95,7 +95,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
     let prog = ProgEnum::deserialize(&mut reader)?;
@@ -148,7 +148,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => {
             let setup_path = Path::new(sub_matches.value_of("universal-setup-path").unwrap());
-            let setup_file = File::open(&setup_path)
+            let setup_file = File::open(setup_path)
                 .map_err(|why| format!("Couldn't open {}: {}\nExpected an universal setup, make sure `zokrates universal-setup` was run`", setup_path.display(), why))?;
 
             let mut reader = BufReader::new(setup_file);

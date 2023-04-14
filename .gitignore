@@ -15,6 +15,7 @@ verifier.sol
 proof.json
 universal_setup.dat
 witness
+witness.json
 
 # ZoKrates source files at the root of the repository
 /*.zok

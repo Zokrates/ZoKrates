@@ -39,7 +39,7 @@ ark-bls12-381 = { version = "^0.3.0", features = ["curve"] }
 ark-bw6-761 = { version = "^0.3.0", default-features = false }
 ark-pallas = { version = "^0.3.0", features = ["curve"] }
 ark-vesta = { version = "^0.3.0" }
-ark-serialize = { version = "^0.3.0", default-features = false }
+ark-serialize = { version = "^0.3.0", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 rand = "0.4"

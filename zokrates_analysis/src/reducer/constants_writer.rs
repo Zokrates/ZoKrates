@@ -3,18 +3,17 @@
 use crate::reducer::{
     constants_reader::ConstantsReader, reduce_function, ConstantDefinitions, Error,
 };
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use zokrates_ast::typed::{
-    result_folder::*, types::ConcreteGenericsAssignment, Constant, OwnedTypedModuleId, Typed,
-    TypedConstant, TypedConstantSymbol, TypedConstantSymbolDeclaration, TypedModuleId,
-    TypedProgram, TypedSymbolDeclaration, UExpression,
+    result_folder::*, Constant, ModuleId, OwnedModuleId, Typed, TypedConstant, TypedConstantSymbol,
+    TypedConstantSymbolDeclaration, TypedProgram, TypedSymbolDeclaration, UExpression,
 };
 use zokrates_field::Field;
 
 pub struct ConstantsWriter<'ast, T> {
-    treated: HashSet<OwnedTypedModuleId>,
+    treated: HashSet<OwnedModuleId>,
     constants: ConstantDefinitions<'ast, T>,
-    location: OwnedTypedModuleId,
+    location: OwnedModuleId,
     program: TypedProgram<'ast, T>,
 }
 
@@ -28,22 +27,19 @@ impl<'ast, T: Field> ConstantsWriter<'ast, T> {
         }
     }
 
-    fn change_location(&mut self, location: OwnedTypedModuleId) -> OwnedTypedModuleId {
+    fn change_location(&mut self, location: OwnedModuleId) -> OwnedModuleId {
         let prev = self.location.clone();
         self.location = location;
         self.treated.insert(self.location.clone());
         prev
     }
 
-    fn treated(&self, id: &TypedModuleId) -> bool {
+    fn treated(&self, id: &ModuleId) -> bool {
         self.treated.contains(id)
     }
 
     fn update_program(&mut self) {
-        let mut p = TypedProgram {
-            main: "".into(),
-            modules: BTreeMap::default(),
-        };
+        let mut p = TypedProgram::default();
         std::mem::swap(&mut self.program, &mut p);
         self.program = ConstantsReader::with_constants(&self.constants).read_into_program(p);
     }
@@ -59,10 +55,7 @@ impl<'ast, T: Field> ConstantsWriter<'ast, T> {
 impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
     type Error = Error;
 
-    fn fold_module_id(
-        &mut self,
-        id: OwnedTypedModuleId,
-    ) -> Result<OwnedTypedModuleId, Self::Error> {
+    fn fold_module_id(&mut self, id: OwnedModuleId) -> Result<OwnedModuleId, Self::Error> {
         // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
         if !self.treated(&id) {
             let current_m_id = self.change_location(id.clone());
@@ -114,19 +107,15 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
                 // wrap this expression in a function
                 let wrapper = TypedFunction {
                     arguments: vec![],
-                    statements: vec![TypedStatement::Return(c.expression)],
+                    statements: vec![TypedStatement::ret(c.expression)],
                     signature: DeclarationSignature::new().output(c.ty.clone()),
                 };
 
-                let mut inlined_wrapper = reduce_function(
-                    wrapper,
-                    ConcreteGenericsAssignment::default(),
-                    &self.program,
-                )?;
+                let mut inlined_wrapper = reduce_function(wrapper, &self.program)?;
 
-                if let TypedStatement::Return(expression) =
-                    inlined_wrapper.statements.pop().unwrap()
-                {
+                if let TypedStatement::Return(ret) = inlined_wrapper.statements.pop().unwrap() {
+                    let expression = ret.inner;
+
                     if !expression.is_constant() {
                         return Err(Error::ConstantReduction(id.id.to_string(), id.module));
                     };

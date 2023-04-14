@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_ast"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 
 [features]
@@ -10,11 +10,12 @@ ark = ["ark-bls12-377", "zokrates_embed/ark"]
 bellperson = ["zokrates_field/bellperson_extensions"]
 
 [dependencies]
+log = "0.4"
+byteorder = "1.4.3"
 zokrates_pest_ast = { version = "0.3.0", path = "../zokrates_pest_ast" }
 cfg-if = "0.1"
 zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
-csv = "1"
 serde_cbor = "0.11.2"
 num-bigint = { version = "0.2", default-features = false }
 serde_json = { version = "1.0", features = ["preserve_order"] }

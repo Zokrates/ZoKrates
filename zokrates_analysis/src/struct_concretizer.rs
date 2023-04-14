@@ -70,7 +70,7 @@ impl<'ast, T: Field> Folder<'ast, T> for StructConcretizer<'ast, T> {
                 .collect(),
             generics: concrete_generics
                 .into_iter()
-                .map(|g| Some(DeclarationConstant::Concrete(g as u32)))
+                .map(|g| Some(DeclarationConstant::Concrete(g)))
                 .collect(),
             ..ty
         }
@@ -82,9 +82,9 @@ impl<'ast, T: Field> Folder<'ast, T> for StructConcretizer<'ast, T> {
     ) -> DeclarationArrayType<'ast, T> {
         let size = ty.size.map_concrete(&self.generics).unwrap();
 
-        DeclarationArrayType {
-            size: box DeclarationConstant::Concrete(size),
-            ty: box self.fold_declaration_type(*ty.ty),
-        }
+        DeclarationArrayType::new(
+            self.fold_declaration_type(*ty.ty),
+            DeclarationConstant::Concrete(size),
+        )
     }
 }
