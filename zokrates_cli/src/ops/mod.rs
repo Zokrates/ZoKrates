@@ -9,6 +9,7 @@ pub mod inspect;
 #[cfg(feature = "bellman")]
 pub mod mpc;
 pub mod print_proof;
+pub mod profile;
 #[cfg(any(feature = "bellman", feature = "ark"))]
 pub mod setup;
 #[cfg(feature = "ark")]

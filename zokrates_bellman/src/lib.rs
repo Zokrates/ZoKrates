@@ -10,8 +10,8 @@ use bellman::{
     Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable as BellmanVariable,
 };
 use std::collections::BTreeMap;
-use zokrates_ast::common::Variable;
-use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
+use zokrates_ast::common::flat::Variable;
+use zokrates_ast::ir::{LinComb, ProgIterator, Statement, Witness};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
@@ -45,12 +45,13 @@ impl<'a, T: Field, I: IntoIterator<Item = Statement<'a, T>>> Computation<'a, T, 
 }
 
 fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::BellmanEngine>>(
-    l: CanonicalLinComb<T>,
+    l: LinComb<T>,
     cs: &mut CS,
     symbols: &mut BTreeMap<Variable, BellmanVariable>,
     witness: &mut Witness<T>,
 ) -> LinearCombination<T::BellmanEngine> {
-    l.0.into_iter()
+    l.value
+        .into_iter()
         .map(|(k, v)| {
             (
                 v.into_bellman(),
@@ -126,20 +127,10 @@ impl<'a, T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<'a,
         }));
 
         for statement in self.program.statements {
-            if let Statement::Constraint(quad, lin, _) = statement {
-                let a = &bellman_combination(
-                    quad.left.into_canonical(),
-                    cs,
-                    &mut symbols,
-                    &mut witness,
-                );
-                let b = &bellman_combination(
-                    quad.right.into_canonical(),
-                    cs,
-                    &mut symbols,
-                    &mut witness,
-                );
-                let c = &bellman_combination(lin.into_canonical(), cs, &mut symbols, &mut witness);
+            if let Statement::Constraint(s) = statement {
+                let a = &bellman_combination(s.quad.left, cs, &mut symbols, &mut witness);
+                let b = &bellman_combination(s.quad.right, cs, &mut symbols, &mut witness);
+                let c = &bellman_combination(s.lin, cs, &mut symbols, &mut witness);
 
                 cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
             }
@@ -189,7 +180,7 @@ impl<'a, T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<'a,
         self.program
             .public_inputs_values(self.witness.as_ref().unwrap())
             .iter()
-            .map(|v| v.clone().into_bellman())
+            .map(|v| v.into_bellman())
             .collect()
     }
 
@@ -273,9 +264,15 @@ mod tests {
         #[test]
         fn identity() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![Parameter::private(Variable::new(0))],
                 return_count: 1,
-                statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+                statements: vec![Statement::constraint(
+                    Variable::new(0),
+                    Variable::public(0),
+                    None,
+                )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -294,9 +291,15 @@ mod tests {
         #[test]
         fn public_identity() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![Parameter::public(Variable::new(0))],
                 return_count: 1,
-                statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+                statements: vec![Statement::constraint(
+                    Variable::new(0),
+                    Variable::public(0),
+                    None,
+                )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -315,9 +318,15 @@ mod tests {
         #[test]
         fn no_arguments() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![],
                 return_count: 1,
-                statements: vec![Statement::constraint(Variable::one(), Variable::public(0))],
+                statements: vec![Statement::constraint(
+                    Variable::one(),
+                    Variable::public(0),
+                    None,
+                )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -335,6 +344,7 @@ mod tests {
             // public variables must be ordered from 0
             // private variables can be unordered
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![
                     Parameter::private(Variable::new(42)),
                     Parameter::public(Variable::new(51)),
@@ -344,12 +354,15 @@ mod tests {
                     Statement::constraint(
                         LinComb::from(Variable::new(42)) + LinComb::from(Variable::new(51)),
                         Variable::public(0),
+                        None,
                     ),
                     Statement::constraint(
                         LinComb::from(Variable::one()) + LinComb::from(Variable::new(42)),
                         Variable::public(1),
+                        None,
                     ),
                 ],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -367,12 +380,15 @@ mod tests {
         #[test]
         fn one() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![Parameter::public(Variable::new(42))],
                 return_count: 1,
                 statements: vec![Statement::constraint(
                     LinComb::from(Variable::new(42)) + LinComb::one(),
                     Variable::public(0),
+                    None,
                 )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
@@ -391,6 +407,7 @@ mod tests {
         #[test]
         fn with_directives() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![
                     Parameter::private(Variable::new(42)),
                     Parameter::public(Variable::new(51)),
@@ -399,7 +416,9 @@ mod tests {
                 statements: vec![Statement::constraint(
                     LinComb::from(Variable::new(42)) + LinComb::from(Variable::new(51)),
                     Variable::public(0),
+                    None,
                 )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();

@@ -43,20 +43,14 @@ As a next step we can create a witness file using the following command:
 
 Using the flag `-a` we pass arguments to the program. Recall that our goal is to compute the hash for the number `5`. Consequently we set `a`, `b` and `c` to `0` and  `d` to  `5`.
 
-Still here? Great! At this point, we can check the `witness` file for the return values:
+Still here? Great! At this point we can check the return values. We should see the following output:
 
 ```
-{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:13}}
+Witness: 
+["263561599766550617289250058199814760685","65303172752238645975888084098459749904"]
 ```
 
-which should lead to the following output:
-
-```sh
-~out_0 263561599766550617289250058199814760685
-~out_1 65303172752238645975888084098459749904
-```
-
-Hence, by concatenating the outputs as 128 bit numbers, we arrive at the following value as the hash for our selected pre-image :
+By concatenating the outputs as 128 bit numbers, we arrive at the following value as the hash for our selected pre-image :
 `0xc6481e22c5ff4164af680b8cfaa5e8ed3120eeff89c4f307c4a6faaae059ce10`
 
 ## Prove knowledge of pre-image
@@ -78,13 +72,13 @@ Note that we now compare the result of `sha256packed` with the hard-coded correc
 So, having defined the program, Victor is now ready to compile the code:
 
 ```
-{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:17}}
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:15}}
 ```
 
 Based on that Victor can run the setup phase and export a verifier smart contract as a Solidity file:
 
 ```
-{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:18:19}}
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:16:17}}
 ```
 
 `setup` creates a `verification.key` file and a `proving.key` file. Victor gives the proving key to Peggy.
@@ -94,13 +88,13 @@ Based on that Victor can run the setup phase and export a verifier smart contrac
 Peggy provides the correct pre-image as an argument to the program.
 
 ```
-{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:20}}
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:18}}
 ```
 
 Finally, Peggy can run the command to construct the proof:
 
 ```
-{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:21}}
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:19}}
 ```
 
 As the inputs were declared as private in the program, they do not appear in the proof thanks to the zero-knowledge property of the protocol.

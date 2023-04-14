@@ -8,8 +8,8 @@ use super::{
 /// Helper methods for parsing group structure
 pub fn encode_g1_element(g: &G1Affine) -> (U256, U256) {
     (
-        U256::from(&hex::decode(&g.0.trim_start_matches("0x")).unwrap()[..]),
-        U256::from(&hex::decode(&g.1.trim_start_matches("0x")).unwrap()[..]),
+        U256::from(&hex::decode(g.0.trim_start_matches("0x")).unwrap()[..]),
+        U256::from(&hex::decode(g.1.trim_start_matches("0x")).unwrap()[..]),
     )
 }
 
@@ -17,12 +17,12 @@ pub fn encode_g2_element(g: &G2Affine) -> ((U256, U256), (U256, U256)) {
     match g {
         G2Affine::Fq2(g) => (
             (
-                U256::from(&hex::decode(&g.0 .0.trim_start_matches("0x")).unwrap()[..]),
-                U256::from(&hex::decode(&g.0 .1.trim_start_matches("0x")).unwrap()[..]),
+                U256::from(&hex::decode(g.0 .0.trim_start_matches("0x")).unwrap()[..]),
+                U256::from(&hex::decode(g.0 .1.trim_start_matches("0x")).unwrap()[..]),
             ),
             (
-                U256::from(&hex::decode(&g.1 .0.trim_start_matches("0x")).unwrap()[..]),
-                U256::from(&hex::decode(&g.1 .1.trim_start_matches("0x")).unwrap()[..]),
+                U256::from(&hex::decode(g.1 .0.trim_start_matches("0x")).unwrap()[..]),
+                U256::from(&hex::decode(g.1 .1.trim_start_matches("0x")).unwrap()[..]),
             ),
         ),
         _ => unreachable!(),
@@ -30,7 +30,7 @@ pub fn encode_g2_element(g: &G2Affine) -> ((U256, U256), (U256, U256)) {
 }
 
 pub fn encode_fr_element(f: &Fr) -> U256 {
-    U256::from(&hex::decode(&f.trim_start_matches("0x")).unwrap()[..])
+    U256::from(&hex::decode(f.trim_start_matches("0x")).unwrap()[..])
 }
 
 pub trait ToToken<T: SolidityCompatibleField>: SolidityCompatibleScheme<T> {

@@ -8,9 +8,7 @@ function zokrates() {
 }
 
 zokrates compile -i hashexample.zok
-zokrates compute-witness -a 0 0 0 5
-
-grep '~out' witness
+zokrates compute-witness -a 0 0 0 5 --verbose
 
 cp -f hashexample_updated.zok hashexample.zok
 

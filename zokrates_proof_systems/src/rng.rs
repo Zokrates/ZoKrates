@@ -5,7 +5,7 @@ use rand_0_8::{rngs::StdRng, SeedableRng};
 pub fn get_rng_from_entropy(entropy: &str) -> StdRng {
     let h = {
         let mut h = Blake2b::default();
-        h.input(&entropy.as_bytes());
+        h.input(entropy.as_bytes());
         h.result()
     };
 

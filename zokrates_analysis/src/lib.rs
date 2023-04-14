@@ -1,5 +1,3 @@
-#![feature(box_patterns, box_syntax)]
-
 //! Module containing static analysis
 //!
 //! @file mod.rs

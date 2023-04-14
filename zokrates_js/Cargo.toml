@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_js"
-version = "1.1.6"
+version = "1.1.7"
 authors = ["Darko Macesic"]
 edition = "2018"
 
@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 js-sys = "0.3.33"
 serde = { version = "^1.0.59", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
-wasm-bindgen = { version = "0.2.46", features = ["serde-serialize"] }
+wasm-bindgen = { version = "=0.2.81", features = ["serde-serialize"] }
 typed-arena = "1.4.1"
 lazy_static = "1.4.0"
 zokrates_field = { path = "../zokrates_field" }

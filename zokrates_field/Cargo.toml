@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_field"
-version = "0.5.3"
+version = "0.5.4"
 authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>", "Guillaume Ballet <gballet@gmail.com>"]
 edition = "2018"
 
@@ -29,7 +29,7 @@ ark-bn254 = { version = "^0.3.0", features = ["curve"], default-features = false
 ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = false }
 ark-bls12-381 = { version = "^0.3.0", features = ["curve"] }
 ark-bw6-761 = { version = "^0.3.0", default-features = false }
-ark-serialize = { version = "^0.3.0", default-features = false }
+ark-serialize = { version = "^0.3.0", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 rand = "0.4"

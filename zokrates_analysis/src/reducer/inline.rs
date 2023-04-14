@@ -91,7 +91,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         .map(|g| {
             g.as_ref()
                 .map(|g| match g.as_inner() {
-                    UExpressionInner::Value(v) => Ok(*v as u32),
+                    UExpressionInner::Value(v) => Ok(v.value as u32),
                     _ => Err(()),
                 })
                 .transpose()
@@ -143,12 +143,12 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     assert_eq!(f.arguments.len(), arguments.len());
 
     let generic_bindings = assignment.0.into_iter().map(|(identifier, value)| {
-        TypedStatement::Definition(
+        TypedStatement::definition(
             TypedAssignee::Identifier(Variable::uint(
                 CoreIdentifier::from(identifier),
                 UBitwidth::B32,
             )),
-            TypedExpression::from(UExpression::from(value)).into(),
+            TypedExpression::from(UExpression::from(value)),
         )
     });
 
@@ -156,7 +156,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         .arguments
         .into_iter()
         .zip(inferred_signature.inputs.clone())
-        .map(|(p, t)| ConcreteVariable::new(p.id.id, t, false))
+        .map(|(p, t)| ConcreteVariable::new(p.id.id, t))
         .map(Variable::from)
         .collect();
 
@@ -167,7 +167,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     assert_eq!(returns.len(), 1);
 
     let return_value = match returns.pop().unwrap() {
-        TypedStatement::Return(e) => e,
+        TypedStatement::Return(e) => e.inner,
         _ => unreachable!(),
     };
 

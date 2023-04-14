@@ -19,7 +19,9 @@ members = [
     "zokrates_bellman",
     "zokrates_proof_systems",
     "zokrates_js",
-    "zokrates_circom"
+    "zokrates_circom",
+    "zokrates_profiler",
 ]
 
-exclude = []
+[profile.dev]
+opt-level = 1

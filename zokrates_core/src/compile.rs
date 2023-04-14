@@ -18,7 +18,7 @@ use zokrates_ast::ir::{self, from_flat::from_flat};
 use zokrates_ast::typed::abi::Abi;
 use zokrates_ast::untyped::{Module, OwnedModuleId, Program};
 use zokrates_ast::zir::ZirProgram;
-use zokrates_codegen::from_function_and_config;
+use zokrates_codegen::from_program_and_config;
 use zokrates_common::{CompileConfig, Resolver};
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
@@ -153,18 +153,12 @@ impl fmt::Display for CompileErrorInner {
             CompileErrorInner::ParserError(ref e) => write!(f, "\n\t{}", e),
             CompileErrorInner::MacroError(ref e) => write!(f, "\n\t{}", e),
             CompileErrorInner::SemanticError(ref e) => {
-                let location = e
-                    .pos()
-                    .map(|p| format!("{}", p.0))
-                    .unwrap_or_else(|| "".to_string());
+                let location = e.pos().map(|p| format!("{}", p.from)).unwrap_or_default();
                 write!(f, "{}\n\t{}", location, e.message())
             }
             CompileErrorInner::ReadError(ref e) => write!(f, "\n\t{}", e),
             CompileErrorInner::ImportError(ref e) => {
-                let location = e
-                    .pos()
-                    .map(|p| format!("{}", p.0))
-                    .unwrap_or_else(|| "".to_string());
+                let location = e.span().map(|p| format!("{}", p.from)).unwrap_or_default();
                 write!(f, "{}\n\t{}", location, e.message())
             }
             CompileErrorInner::AnalysisError(ref e) => write!(f, "\n\t{}", e),
@@ -189,7 +183,7 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
 
     // flatten input program
     log::debug!("Flatten");
-    let program_flattened = from_function_and_config(typed_ast.main, config);
+    let program_flattened = from_program_and_config(typed_ast, config);
 
     // convert to ir
     log::debug!("Convert to IR");
@@ -327,7 +321,7 @@ mod test {
         assert!(e.0[0]
             .value()
             .to_string()
-            .contains(&"Cannot resolve import without a resolver"));
+            .contains("Cannot resolve import without a resolver"));
     }
 
     #[test]
@@ -448,15 +442,15 @@ struct Bar { field a; }
                             vec![],
                             vec![ConcreteStructMember {
                                 id: "b".into(),
-                                ty: box ConcreteType::Struct(ConcreteStructType::new(
+                                ty: Box::new(ConcreteType::Struct(ConcreteStructType::new(
                                     "bar".into(),
                                     "Bar".into(),
                                     vec![],
-                                    vec![ConcreteStructMember {
-                                        id: "a".into(),
-                                        ty: box ConcreteType::FieldElement
-                                    }]
-                                ))
+                                    vec![ConcreteStructMember::new(
+                                        "a".into(),
+                                        ConcreteType::FieldElement
+                                    )]
+                                )))
                             }]
                         ))
                     }],

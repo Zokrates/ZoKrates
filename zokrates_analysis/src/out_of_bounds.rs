@@ -46,29 +46,29 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for OutOfBoundsChecker {
         a: TypedAssignee<'ast, T>,
     ) -> Result<TypedAssignee<'ast, T>, Error> {
         match a {
-            TypedAssignee::Select(box array, box index) => {
+            TypedAssignee::Select(array, index) => {
                 use zokrates_ast::typed::Typed;
 
-                let array = self.fold_assignee(array)?;
+                let array = self.fold_assignee(*array)?;
 
                 let size = match array.get_type() {
                     Type::Array(array_ty) => match array_ty.size.as_inner() {
-                        UExpressionInner::Value(size) => *size,
+                        UExpressionInner::Value(size) => size.value,
                         _ => unreachable!(),
                     },
                     _ => unreachable!(),
                 };
 
                 match index.as_inner() {
-                    UExpressionInner::Value(i) if i >= &size => Err(Error(format!(
+                    UExpressionInner::Value(i) if i.value >= size => Err(Error(format!(
                         "Out of bounds write to `{}` because `{}` has size {}",
-                        TypedAssignee::Select(box array.clone(), box index),
+                        TypedAssignee::select(array.clone(), *index),
                         array,
                         size
                     ))),
-                    _ => Ok(TypedAssignee::Select(
-                        box self.fold_assignee(array)?,
-                        box self.fold_uint_expression(index)?,
+                    _ => Ok(TypedAssignee::select(
+                        array,
+                        self.fold_uint_expression(*index)?,
                     )),
                 }
             }

@@ -37,8 +37,9 @@
 //     - otherwise return `c_0`
 
 use std::collections::{HashMap, HashSet};
+use zokrates_ast::common::WithSpan;
 use zokrates_ast::flat::Variable;
-use zokrates_ast::ir::folder::{fold_statement, Folder};
+use zokrates_ast::ir::folder::{fold_statement_cases, Folder};
 use zokrates_ast::ir::LinComb;
 use zokrates_ast::ir::*;
 use zokrates_field::Field;
@@ -62,29 +63,28 @@ impl<T: Field> RedefinitionOptimizer<T> {
                 .into_iter()
                 .chain(p.arguments.iter().map(|p| p.id))
                 .chain(p.returns())
-                .into_iter()
                 .collect(),
         }
     }
 
-    fn fold_statement<'ast>(
+    fn fold_statement_cases<'ast>(
         &mut self,
         s: Statement<'ast, T>,
         aggressive: bool,
     ) -> Vec<Statement<'ast, T>> {
         match s {
-            Statement::Constraint(quad, lin, message) => {
-                let quad = self.fold_quadratic_combination(quad);
-                let lin = self.fold_linear_combination(lin);
+            Statement::Constraint(s) => {
+                let quad = self.fold_quadratic_combination(s.quad);
+                let lin = self.fold_linear_combination(s.lin);
 
                 if lin.is_zero() {
-                    return vec![Statement::Constraint(quad, lin, message)];
+                    return vec![Statement::constraint(quad, lin, s.error)];
                 }
 
-                let (constraint, to_insert, to_ignore) = match self.ignore.contains(&lin.0[0].0)
-                    || self.substitution.contains_key(&lin.0[0].0)
+                let (constraint, to_insert, to_ignore) = match self.ignore.contains(&lin.value[0].0)
+                    || self.substitution.contains_key(&lin.value[0].0)
                 {
-                    true => (Some(Statement::Constraint(quad, lin, message)), None, None),
+                    true => (Some(Statement::constraint(quad, lin, s.error)), None, None),
                     false => match lin.try_summand() {
                         // if the right side is a single variable
                         Ok((variable, coefficient)) => match quad.try_linear() {
@@ -92,16 +92,16 @@ impl<T: Field> RedefinitionOptimizer<T> {
                             Ok(l) => (None, Some((variable, l / &coefficient)), None),
                             // if the left side isn't linear
                             Err(quad) => (
-                                Some(Statement::Constraint(
+                                Some(Statement::constraint(
                                     quad,
                                     LinComb::summand(coefficient, variable),
-                                    message,
+                                    s.error,
                                 )),
                                 None,
                                 Some(variable),
                             ),
                         },
-                        Err(l) => (Some(Statement::Constraint(quad, l, message)), None, None),
+                        Err(l) => (Some(Statement::constraint(quad, l, s.error)), None, None),
                     },
                 };
 
@@ -122,7 +122,19 @@ impl<T: Field> RedefinitionOptimizer<T> {
                 }
             }
             Statement::Directive(d) => {
-                let d = self.fold_directive(d);
+                let d = DirectiveStatement {
+                    inputs: d
+                        .inputs
+                        .into_iter()
+                        .map(|e| self.fold_quadratic_combination(e))
+                        .collect(),
+                    outputs: d
+                        .outputs
+                        .into_iter()
+                        .map(|o| self.fold_variable(o))
+                        .collect(),
+                    ..d
+                };
 
                 // check if the inputs are constants, ie reduce to the form `coeff * ~one`
                 let inputs: Vec<_> = d
@@ -146,7 +158,7 @@ impl<T: Field> RedefinitionOptimizer<T> {
                         // unwrap inputs to their constant value
                         let inputs: Vec<_> = inputs.into_iter().map(|i| i.unwrap()).collect();
                         // run the solver
-                        let outputs = Interpreter::execute_solver(&d.solver, &inputs).unwrap();
+                        let outputs = Interpreter::execute_solver(&d.solver, &inputs, &[]).unwrap();
                         assert_eq!(outputs.len(), d.outputs.len());
 
                         // insert the results in the substitution
@@ -171,24 +183,30 @@ impl<T: Field> RedefinitionOptimizer<T> {
                                 self.ignore.insert(o);
                             }
                         }
-                        vec![Statement::Directive(Directive { inputs, ..d })]
+                        vec![Statement::directive(d.outputs, d.solver, inputs)]
                     }
                 }
             }
-            s => fold_statement(self, s),
+            s => fold_statement_cases(self, s),
         }
     }
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<T> {
-    fn fold_statement(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
+    fn fold_statement_cases(&mut self, s: Statement<'ast, T>) -> Vec<Statement<'ast, T>> {
         match s {
             Statement::Block(statements) => {
                 #[allow(clippy::needless_collect)]
                 // optimize aggressively and clean up in a second pass (we need to collect here)
                 let statements: Vec<_> = statements
+                    .inner
                     .into_iter()
-                    .flat_map(|s| self.fold_statement(s, true))
+                    .flat_map(|s| {
+                        let span = s.get_span();
+                        self.fold_statement_cases(s, true)
+                            .into_iter()
+                            .map(move |s| s.span(span))
+                    })
                     .collect();
 
                 // clean up
@@ -203,22 +221,23 @@ impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<T> {
                     })
                     .collect();
 
-                vec![Statement::Block(statements)]
+                vec![Statement::block(statements)]
             }
-            s => self.fold_statement(s, false),
+            s => self.fold_statement_cases(s, false),
         }
     }
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
         match lc
-            .0
+            .value
             .iter()
             .any(|(variable, _)| self.substitution.get(variable).is_some())
         {
             true =>
             // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
             {
-                lc.0.into_iter()
+                lc.value
+                    .into_iter()
                     .map(|(variable, coefficient)| {
                         self.substitution
                             .get(&variable)
@@ -250,18 +269,22 @@ mod tests {
         let out = Variable::public(0);
 
         let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![x],
             statements: vec![
                 Statement::definition(y, x.id),
                 Statement::definition(out, y),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let optimized: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![x],
             statements: vec![Statement::definition(out, x.id)],
             return_count: 1,
+            solvers: vec![],
         };
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
@@ -277,9 +300,11 @@ mod tests {
         let x = Parameter::public(Variable::new(0));
 
         let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![x],
             statements: vec![Statement::definition(one, x.id)],
             return_count: 1,
+            solvers: vec![],
         };
 
         let optimized = p.clone();
@@ -308,23 +333,27 @@ mod tests {
         let out = Variable::public(0);
 
         let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![x],
             statements: vec![
                 Statement::definition(y, x.id),
                 Statement::definition(z, y),
-                Statement::constraint(z, y),
+                Statement::constraint(z, y, None),
                 Statement::definition(out, z),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let optimized: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![x],
             statements: vec![
-                Statement::constraint(x.id, x.id),
+                Statement::constraint(x.id, x.id, None),
                 Statement::definition(out, x.id),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
@@ -355,6 +384,7 @@ mod tests {
         let out_0 = Variable::public(1);
 
         let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![x],
             statements: vec![
                 Statement::definition(y, x.id),
@@ -365,15 +395,18 @@ mod tests {
                 Statement::definition(out_1, w),
             ],
             return_count: 2,
+            solvers: vec![],
         };
 
         let optimized: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![x],
             statements: vec![
                 Statement::definition(out_0, x.id),
                 Statement::definition(out_1, Bn128Field::from(1)),
             ],
             return_count: 2,
+            solvers: vec![],
         };
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
@@ -404,6 +437,7 @@ mod tests {
         let r = Variable::public(0);
 
         let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![x, y],
             statements: vec![
                 Statement::definition(a, LinComb::from(x.id) + LinComb::from(y.id)),
@@ -418,18 +452,22 @@ mod tests {
                 Statement::constraint(
                     LinComb::summand(2, c),
                     LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
+                    None,
                 ),
                 Statement::definition(r, LinComb::from(a) + LinComb::from(b) + LinComb::from(c)),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let expected: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![x, y],
             statements: vec![
                 Statement::constraint(
                     LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
                     LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
+                    None,
                 ),
                 Statement::definition(
                     r,
@@ -442,6 +480,7 @@ mod tests {
                 ),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
@@ -470,15 +509,14 @@ mod tests {
         let z = Variable::new(2);
 
         let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![x, y],
             statements: vec![
-                Statement::definition(
-                    z,
-                    QuadComb::from_linear_combinations(LinComb::from(x.id), LinComb::from(y.id)),
-                ),
+                Statement::definition(z, QuadComb::new(LinComb::from(x.id), LinComb::from(y.id))),
                 Statement::definition(z, LinComb::from(x.id)),
             ],
             return_count: 0,
+            solvers: vec![],
         };
 
         let optimized = p.clone();
@@ -501,12 +539,14 @@ mod tests {
         let x = Parameter::public(Variable::new(0));
 
         let p: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![x],
             statements: vec![
-                Statement::constraint(x.id, Bn128Field::from(1)),
-                Statement::constraint(x.id, Bn128Field::from(2)),
+                Statement::constraint(x.id, Bn128Field::from(1), None),
+                Statement::constraint(x.id, Bn128Field::from(2), None),
             ],
             return_count: 1,
+            solvers: vec![],
         };
 
         let optimized = p.clone();

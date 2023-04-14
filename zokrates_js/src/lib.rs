@@ -79,15 +79,17 @@ pub struct ResolverResult {
 
 #[wasm_bindgen]
 pub struct ComputationResult {
-    witness: String,
+    witness: Vec<u8>,
     output: String,
     snarkjs_witness: Option<Vec<u8>>,
 }
 
 #[wasm_bindgen]
 impl ComputationResult {
-    pub fn witness(&self) -> JsValue {
-        JsValue::from_str(&self.witness)
+    pub fn witness(&self) -> js_sys::Uint8Array {
+        let arr = js_sys::Uint8Array::new_with_length(self.witness.len() as u32);
+        arr.copy_from(&self.witness);
+        arr
     }
 
     pub fn output(&self) -> JsValue {
@@ -151,7 +153,7 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
             Some(Component::Normal(_)) => {
                 let path_normalized = normalize_path(path);
                 let source = STDLIB
-                    .get(&path_normalized.to_str().unwrap())
+                    .get(path_normalized.to_str().unwrap())
                     .ok_or_else(|| {
                         Error::new(format!(
                             "module `{}` not found in stdlib",
@@ -360,8 +362,14 @@ mod internal {
             buffer.into_inner()
         });
 
+        let witness = {
+            let mut buffer = Cursor::new(vec![]);
+            witness.write(&mut buffer).unwrap();
+            buffer.into_inner()
+        };
+
         Ok(ComputationResult {
-            witness: format!("{}", witness),
+            witness,
             output: to_string_pretty(&return_values).unwrap(),
             snarkjs_witness,
         })
@@ -416,15 +424,14 @@ mod internal {
 
     pub fn generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>, R: RngCore + CryptoRng>(
         prog: ir::Prog<T>,
-        witness: JsValue,
+        witness: &[u8],
         pk: &[u8],
         rng: &mut R,
     ) -> Result<JsValue, JsValue> {
-        let str_witness = witness.as_string().unwrap();
-        let ir_witness: ir::Witness<T> = ir::Witness::read(str_witness.as_bytes())
+        let ir_witness: ir::Witness<T> = ir::Witness::read(witness)
             .map_err(|err| JsValue::from_str(&format!("Could not read witness: {}", err)))?;
 
-        let proof = B::generate_proof(prog, ir_witness, pk.to_vec(), rng);
+        let proof = B::generate_proof(prog, ir_witness, pk, rng);
         Ok(JsValue::from_serde(&TaggedProof::<T, S>::new(proof.proof, proof.inputs)).unwrap())
     }
 
@@ -513,7 +520,8 @@ pub fn compute_witness(
     config: JsValue,
     log_callback: &js_sys::Function,
 ) -> Result<ComputationResult, JsValue> {
-    let prog = ir::ProgEnum::deserialize(program)
+    let cursor = Cursor::new(program);
+    let prog = ir::ProgEnum::deserialize(cursor)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
     match prog {
@@ -575,7 +583,8 @@ pub fn setup(program: &[u8], entropy: JsValue, options: JsValue) -> Result<Keypa
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
-    let prog = ir::ProgEnum::deserialize(program)
+    let cursor = Cursor::new(program);
+    let prog = ir::ProgEnum::deserialize(cursor)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
 
@@ -637,7 +646,8 @@ pub fn setup_with_srs(srs: &[u8], program: &[u8], options: JsValue) -> Result<Ke
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
-    let prog = ir::ProgEnum::deserialize(program)
+    let cursor = Cursor::new(program);
+    let prog = ir::ProgEnum::deserialize(cursor)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
 
@@ -693,7 +703,7 @@ pub fn universal_setup(curve: JsValue, size: u32, entropy: JsValue) -> Result<Ve
 #[wasm_bindgen]
 pub fn generate_proof(
     program: &[u8],
-    witness: JsValue,
+    witness: &[u8],
     pk: &[u8],
     entropy: JsValue,
     options: JsValue,
@@ -714,7 +724,8 @@ pub fn generate_proof(
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
-    let prog = ir::ProgEnum::deserialize(program)
+    let cursor = Cursor::new(program);
+    let prog = ir::ProgEnum::deserialize(cursor)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
 

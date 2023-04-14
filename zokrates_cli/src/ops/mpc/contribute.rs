@@ -70,12 +70,12 @@ pub fn cli_mpc_contribute<
 ) -> Result<(), String> {
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
-    let output_file = File::create(&output_path)
+    let output_file = File::create(output_path)
         .map_err(|why| format!("Could not create `{}`: {}", output_path.display(), why))?;
 
     let mut writer = BufWriter::new(output_file);
