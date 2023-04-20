@@ -29,8 +29,3 @@ zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", defa
 zokrates_codegen = { version = "0.1", path = "../zokrates_codegen", default-features = false }
 zokrates_analysis = { version = "0.1", path = "../zokrates_analysis", default-features = false }
 zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
-csv = "1"
-
-[dev-dependencies]
-pretty_assertions = "0.6.1"
-zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
