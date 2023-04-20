@@ -3090,7 +3090,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_abi"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "serde",
  "serde_derive",
@@ -3101,7 +3101,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_analysis"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "cfg-if 0.1.10",
  "csv",
@@ -3124,7 +3124,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_ark"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "ark-bls12-377",
  "ark-bn254",
@@ -3151,7 +3151,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_ast"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "ark-bls12-377",
  "byteorder",
@@ -3170,7 +3170,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_bellman"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bellman_ce",
  "getrandom",
@@ -3187,7 +3187,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_circom"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "bellman_ce",
  "byteorder",
@@ -3200,7 +3200,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "assert_cli",
  "blake2 0.8.1",
@@ -3243,7 +3243,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_codegen"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "zokrates_ast",
  "zokrates_common",
@@ -3261,7 +3261,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_core"
-version = "0.7.4"
+version = "0.7.5"
 dependencies = [
  "cfg-if 0.1.10",
  "csv",
@@ -3286,7 +3286,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_core_test"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "zokrates_test",
  "zokrates_test_derive",
@@ -3294,7 +3294,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_embed"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "ark-bls12-377",
  "ark-bw6-761",
@@ -3312,7 +3312,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_field"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -3344,7 +3344,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_interpreter"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "ark-bls12-377",
  "num",
@@ -3360,7 +3360,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_js"
-version = "1.1.6"
+version = "1.1.7"
 dependencies = [
  "console_error_panic_hook",
  "getrandom",
@@ -3390,7 +3390,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_parser"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "glob 0.2.11",
  "pest",
@@ -3399,7 +3399,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_pest_ast"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "from-pest",
  "glob 0.2.11",
@@ -3418,7 +3418,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_proof_systems"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "blake2 0.8.1",
  "byteorder",
@@ -3444,7 +3444,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_test"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "getrandom",
  "rand 0.8.5",
@@ -3466,7 +3466,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_test_derive"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "glob 0.3.1",
 ]
