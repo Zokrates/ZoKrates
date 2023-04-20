@@ -106,6 +106,15 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             program,
         }
     }
+
+    fn push_call_frame(&mut self) {
+        self.ssa.push_call_frame();
+    }
+
+    fn pop_call_frame(&mut self) {
+        self.propagator.clear_call_frame(self.ssa.latest_frame);
+        self.ssa.pop_call_frame();
+    }
 }
 
 impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
@@ -159,7 +168,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             })
             .collect::<Result<_, _>>()?;
 
-        self.ssa.push_call_frame();
+        self.push_call_frame();
 
         let res = inline_call::<_, E>(&e.function_key, &generics, &arguments, ty, self.program);
 
@@ -236,7 +245,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             }
         };
 
-        self.ssa.pop_call_frame();
+        self.pop_call_frame();
 
         res
     }
