@@ -208,10 +208,8 @@ impl<'ast, T: Field> fmt::Display for Statement<'ast, T> {
     }
 }
 
-pub type ProgIterator<'ast, T, I> = GProgIterator<'ast, T, Statement<'ast, T>, I>;
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct GProgIterator<'ast, T, S, I: IntoIterator<Item = S>> {
+pub struct ProgIterator<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> {
     pub module_map: ModuleMap,
     pub arguments: Vec<Parameter>,
     pub return_count: usize,
@@ -276,6 +274,7 @@ impl<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, 
             .map(|a| a.id)
             .collect()
     }
+
     pub fn public_inputs_values(&self, witness: &Witness<T>) -> Vec<T>
     where
         T: Field,

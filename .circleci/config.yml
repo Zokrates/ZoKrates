@@ -22,6 +22,7 @@ jobs:
       - restore-sccache-cache
       - run:
           name: Build
+          no_output_timeout: "30m"
           command: RUSTFLAGS="-D warnings" ./build.sh
       - save-sccache-cache
   test:
