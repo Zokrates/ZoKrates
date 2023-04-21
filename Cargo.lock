@@ -1947,18 +1947,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "merlin"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58c38e2799fc0978b65dfff8023ec7843e2330bb462f19198840b34b6582397d"
-dependencies = [
- "byteorder",
- "keccak",
- "rand_core 0.6.4",
- "zeroize",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1995,9 +1983,9 @@ checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
 
 [[package]]
 name = "nova-snark"
-version = "0.13.0"
+version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77651083c7aecec78b063779fe6271f5f6cf98252f4b584f7f58010dbca7c0ca"
+checksum = "b09c8cf02c93500dee9244cd73547f20d133ca6d3fbbe9eae0205e5b2db05f36"
 dependencies = [
  "bellperson",
  "bincode 1.3.3",
@@ -2010,13 +1998,12 @@ dependencies = [
  "generic-array 0.14.7",
  "itertools 0.9.0",
  "lurk-pasta-msm",
- "merlin",
  "neptune",
  "num-bigint 0.4.3",
  "num-integer",
  "num-traits 0.2.15",
  "rand_chacha",
- "rand_core 0.5.1",
+ "rand_core 0.6.4",
  "rayon",
  "serde",
  "sha3 0.8.2",
@@ -2480,12 +2467,6 @@ name = "rand_core"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c33a3c44ca05fa6f1807d8e6743f3824e8509beca625669633be0acbdf509dc"
-
-[[package]]
-name = "rand_core"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90bde5296fc891b0cef12a6d03ddccc162ce7b2aff54160af9338f8d40df6d19"
 
 [[package]]
 name = "rand_core"

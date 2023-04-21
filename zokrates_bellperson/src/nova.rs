@@ -11,6 +11,7 @@ use nova_snark::traits::Group;
 use nova_snark::CompressedSNARK as GCompressedSNARK;
 pub use nova_snark::PublicParams as GPublicParams;
 pub use nova_snark::RecursiveSNARK as GRecursiveSNARK;
+use nova_snark::VerifierKey as GVerifierKey;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use zokrates_ast::ir::*;
@@ -116,8 +117,8 @@ pub fn verify<T: NovaField>(
 #[derive(Serialize, Debug, Deserialize)]
 pub struct RecursiveSNARKWithStepCount<'ast, T: NovaField> {
     #[serde(bound = "T: NovaField")]
-    proof: RecursiveSNARK<'ast, T>,
-    steps: usize,
+    pub proof: RecursiveSNARK<'ast, T>,
+    pub steps: usize,
 }
 
 type EE1<T> = nova_snark::provider::ipa_pc::EvaluationEngine<G1<T>>;
@@ -125,13 +126,34 @@ type EE2<T> = nova_snark::provider::ipa_pc::EvaluationEngine<G2<T>>;
 type S1<T> = nova_snark::spartan::RelaxedR1CSSNARK<G1<T>, EE1<T>>;
 type S2<T> = nova_snark::spartan::RelaxedR1CSSNARK<G2<T>, EE2<T>>;
 
-type CompressedSNARK<'ast, T> = GCompressedSNARK<G1<T>, G2<T>, C1<'ast, T>, C2<T>, S1<T>, S2<T>>;
+pub type CompressedSNARK<'ast, T> =
+    GCompressedSNARK<G1<T>, G2<T>, C1<'ast, T>, C2<T>, S1<T>, S2<T>>;
+pub type VerifierKey<'ast, T> = GVerifierKey<G1<T>, G2<T>, C1<'ast, T>, C2<T>, S1<T>, S2<T>>;
 
 pub fn compress<'ast, T: NovaField>(
     public_parameters: &PublicParams<'ast, T>,
     instance: RecursiveSNARKWithStepCount<'ast, T>,
-) -> CompressedSNARK<'ast, T> {
-    CompressedSNARK::prove(public_parameters, &instance.proof).unwrap()
+) -> (CompressedSNARK<'ast, T>, VerifierKey<'ast, T>) {
+    let (pk, vk) = CompressedSNARK::<'ast, T>::setup(public_parameters).unwrap();
+
+    (
+        CompressedSNARK::prove(public_parameters, &pk, &instance.proof).unwrap(),
+        vk,
+    )
+}
+
+pub fn verify_compressed<'ast, T: NovaField>(
+    proof: &CompressedSNARK<'ast, T>,
+    vk: &VerifierKey<'ast, T>,
+    arguments: Vec<T>,
+    step_count: usize,
+) -> bool {
+    let z0_primary: Vec<_> = arguments.into_iter().map(|a| a.into_bellperson()).collect();
+    let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::one()];
+
+    proof
+        .verify(vk, step_count, z0_primary, z0_secondary)
+        .is_ok()
 }
 
 pub fn prove<'ast, T: NovaField>(

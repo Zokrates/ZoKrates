@@ -6,6 +6,7 @@
 
 #[cfg(feature = "bellman_extensions")]
 use bellman_ce::pairing::{ff::ScalarEngine, Engine};
+use nova_snark::provider::pedersen::CommitmentEngine;
 use num_bigint::BigUint;
 use num_traits::{CheckedDiv, One, Zero};
 use serde::{Deserialize, Serialize};
@@ -27,7 +28,10 @@ pub trait Pow<RHS> {
 #[cfg(feature = "bellperson_extensions")]
 pub trait Cycle {
     type Other: Field + BellpersonFieldExtensions + Cycle<Other = Self>;
-    type Point: Group<Base = <<Self::Other as Cycle>::Point as Group>::Scalar>;
+    type Point: Group<
+        Base = <<Self::Other as Cycle>::Point as Group>::Scalar,
+        CE = CommitmentEngine<Self::Point>,
+    >;
 }
 
 #[cfg(feature = "bellman_extensions")]

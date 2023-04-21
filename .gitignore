@@ -17,6 +17,7 @@ universal_setup.dat
 witness
 witness.json
 nova.params
+running_instance.json
 
 # ZoKrates source files at the root of the repository
 /*.zok

@@ -52,6 +52,12 @@ Once we're done, we compress the proof to a compressed snark:
 zokrates nova compress
 ```
 
+Finally, we can verify this proof
+
+```
+zokrates nova verify
+```
+
 ### Limitations
 
 - The step circuit must be compiled with `--curve pallas`

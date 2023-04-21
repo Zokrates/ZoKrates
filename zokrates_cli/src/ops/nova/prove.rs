@@ -13,7 +13,7 @@ use zokrates_bellperson::nova::{self, NovaField};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("prove")
-        .about("Proves a many steps of an incremental computation")
+        .about("Proves many steps of an incremental computation")
         .arg(
             Arg::with_name("init")
                 .long("init")
@@ -99,7 +99,9 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
 ) -> Result<(), String> {
     let proof_path = Path::new(sub_matches.value_of("instance-path").unwrap());
 
+    println!("Reading step program...");
     let program = program.collect();
+    println!("Done");
 
     let path = Path::new(sub_matches.value_of("abi-spec").unwrap());
     let file =
@@ -153,6 +155,8 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
         serde_json::from_reader(BufReader::new(File::open(path).unwrap())).unwrap()
     });
 
+    println!("Reading parameters...");
+
     let params_path = Path::new(sub_matches.value_of("params-path").unwrap());
     let params_file = File::open(params_path)
         .map_err(|why| format!("Could not open {}: {}", params_path.display(), why))?;
@@ -161,12 +165,16 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
     let params = serde_cbor::from_reader(params_reader)
         .map_err(|why| format!("Could not deserialize {}: {}", params_path.display(), why))?;
 
+    println!("Done");
+
     let mut proof_file = File::create(proof_path)
         .map_err(|why| format!("Could not create {}: {}", proof_path.display(), why))?;
 
     println!("Generating proof...");
     let proof = nova::prove(&params, &program, init.clone(), from, steps)
         .map_err(|e| format!("Error `{:#?}` during proving", e))?;
+
+    println!("Done");
 
     let proof_json = serde_json::to_string_pretty(&proof).unwrap();
 

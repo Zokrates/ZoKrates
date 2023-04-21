@@ -39,6 +39,16 @@ pub fn subcommand() -> App<'static, 'static> {
                 .required(false)
                 .default_value(cli_constants::JSON_PROOF_PATH),
         )
+        .arg(
+            Arg::with_name("verification-key-path")
+                .short("v")
+                .long("verification-key-path")
+                .help("Path of the generated verification key file")
+                .value_name("FILE")
+                .takes_value(true)
+                .required(false)
+                .default_value(cli_constants::VERIFICATION_KEY_DEFAULT_PATH),
+        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -66,8 +76,9 @@ fn cli_nova_compress<T: NovaField>(
         .map_err(|why| format!("Could not deserialize {}: {}", params_path.display(), why))?;
 
     let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
+    let verification_key_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
 
-    let proof = nova::compress(&params, instance);
+    let (proof, vk) = nova::compress(&params, instance);
 
     let proof_json = serde_json::to_string_pretty(&proof).unwrap();
 
@@ -77,6 +88,33 @@ fn cli_nova_compress<T: NovaField>(
     proof_file
         .write(proof_json.as_bytes())
         .map_err(|why| format!("Could not write to {}: {}", proof_path.display(), why))?;
+
+    println!("Compressed SNARK written to '{}'", proof_path.display());
+
+    let verification_key_json = serde_json::to_string_pretty(&vk).unwrap();
+
+    let mut verification_key_file = File::create(verification_key_path).map_err(|why| {
+        format!(
+            "Could not create {}: {}",
+            verification_key_path.display(),
+            why
+        )
+    })?;
+
+    verification_key_file
+        .write(verification_key_json.as_bytes())
+        .map_err(|why| {
+            format!(
+                "Could not write to {}: {}",
+                verification_key_path.display(),
+                why
+            )
+        })?;
+
+    println!(
+        "Verification key written to '{}'",
+        verification_key_path.display()
+    );
 
     Ok(())
 }

@@ -15,7 +15,7 @@ getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
 hex = "0.4.2"
 pairing = "0.22"
 ff = { version = "0.12.0", default-features = false }
-nova-snark = { version = "0.13.0" }
+nova-snark = { version = "0.20.3" }
 zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter" }
 serde = { version = "1.0", features = ["derive"] }
 
