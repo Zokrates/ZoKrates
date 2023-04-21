@@ -233,7 +233,12 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(program.clone(), &[Bn128Field::from(42)])
+            .execute(
+                &[Bn128Field::from(42)],
+                program.statements.iter(),
+                &program.arguments,
+                &program.solvers,
+            )
             .unwrap();
 
         let proof = <Bellman as Backend<Bn128Field, G16>>::generate_proof(

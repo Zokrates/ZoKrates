@@ -123,6 +123,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
             ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
             ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
+            _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
@@ -130,6 +131,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
             ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
             ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
+            _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
@@ -141,6 +143,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
                 cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches)
             }
             ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches),
+            _ => unreachable!(),
         },
         _ => unreachable!(),
     }

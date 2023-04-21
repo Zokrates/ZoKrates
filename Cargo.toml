@@ -17,6 +17,7 @@ members = [
     "zokrates_interpreter",
     "zokrates_embed",
     "zokrates_bellman",
+    "zokrates_bellperson",
     "zokrates_proof_systems",
     "zokrates_js",
     "zokrates_circom",

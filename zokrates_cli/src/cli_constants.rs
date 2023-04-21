@@ -1,6 +1,9 @@
 use zokrates_common::constants::*;
 
 pub const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
+pub const NOVA_STEPS_PRIVATE_INPUTS: &str = "steps.json";
+pub const NOVA_PUBLIC_INIT: &str = "init.json";
+pub const JSON_NOVA_RUNNING_INSTANCE: &str = "running_instance.json";
 pub const CIRCOM_R1CS_DEFAULT_PATH: &str = "out.r1cs";
 pub const CIRCOM_WITNESS_DEFAULT_PATH: &str = "out.wtns";
 pub const ABI_SPEC_DEFAULT_PATH: &str = "abi.json";
@@ -13,6 +16,7 @@ pub const UNIVERSAL_SETUP_DEFAULT_PATH: &str = "universal_setup.dat";
 pub const UNIVERSAL_SETUP_DEFAULT_SIZE: &str = "10";
 pub const SMTLIB2_DEFAULT_PATH: &str = "out.smt2";
 pub const MPC_DEFAULT_PATH: &str = "mpc.params";
+pub const NOVA_PARAMS_DEFAULT_PATH: &str = "nova.params";
 
 lazy_static! {
     pub static ref DEFAULT_STDLIB_PATH: String = dirs::home_dir()
@@ -36,7 +40,7 @@ pub const BACKENDS: &[&str] = if cfg!(feature = "ark") {
     &[]
 };
 
-pub const CURVES: &[&str] = &[BN128, BLS12_381, BLS12_377, BW6_761];
+pub const CURVES: &[&str] = &[BN128, BLS12_381, BLS12_377, BW6_761, PALLAS, VESTA];
 
 pub const SCHEMES: &[&str] = &[G16, GM17, MARLIN];
 

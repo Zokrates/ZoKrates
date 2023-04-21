@@ -141,7 +141,12 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(program.clone(), &[Bls12_377Field::from(42)])
+            .execute(
+                &[Bls12_377Field::from(42)],
+                program.statements.iter(),
+                &program.arguments,
+                &program.solvers,
+            )
             .unwrap();
 
         let proof = <Ark as Backend<Bls12_377Field, GM17>>::generate_proof(
@@ -174,7 +179,12 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(program.clone(), &[Bw6_761Field::from(42)])
+            .execute(
+                &[Bw6_761Field::from(42)],
+                program.statements.iter(),
+                &program.arguments,
+                &program.solvers,
+            )
             .unwrap();
 
         let proof = <Ark as Backend<Bw6_761Field, GM17>>::generate_proof(

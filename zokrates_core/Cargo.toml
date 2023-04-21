@@ -7,9 +7,10 @@ repository = "https://github.com/Zokrates/ZoKrates"
 readme = "README.md"
 
 [features]
-default = ["ark", "bellman"]
+default = ["ark", "bellman", "bellperson"]
 ark = ["zokrates_ast/ark", "zokrates_embed/ark", "zokrates_common/ark", "zokrates_interpreter/ark", "zokrates_codegen/ark", "zokrates_analysis/ark"]
 bellman = ["zokrates_ast/bellman", "zokrates_embed/bellman", "zokrates_common/bellman", "zokrates_interpreter/bellman", "zokrates_codegen/bellman", "zokrates_analysis/bellman"]
+bellperson = ["zokrates_ast/bellperson", "zokrates_common/bellperson"]
 
 [dependencies]
 log = "0.4"

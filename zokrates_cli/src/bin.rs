@@ -47,6 +47,8 @@ fn cli() -> Result<(), String> {
             universal_setup::subcommand(),
             #[cfg(feature = "bellman")]
             mpc::subcommand(),
+            #[cfg(feature = "bellperson")]
+            nova::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
@@ -69,6 +71,8 @@ fn cli() -> Result<(), String> {
         ("universal-setup", Some(sub_matches)) => universal_setup::exec(sub_matches),
         #[cfg(feature = "bellman")]
         ("mpc", Some(sub_matches)) => mpc::exec(sub_matches),
+        #[cfg(feature = "bellperson")]
+        ("nova", Some(sub_matches)) => nova::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark"))]
         ("setup", Some(sub_matches)) => setup::exec(sub_matches),
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),
@@ -206,9 +210,15 @@ mod tests {
             .unwrap();
 
             let interpreter = zokrates_interpreter::Interpreter::default();
+            let prog = artifacts.prog();
 
             let _ = interpreter
-                .execute(artifacts.prog(), &[Bn128Field::from(0u32)])
+                .execute(
+                    &[Bn128Field::from(0u32)],
+                    prog.statements.into_iter(),
+                    &prog.arguments,
+                    &prog.solvers,
+                )
                 .unwrap();
         }
     }
@@ -246,8 +256,14 @@ mod tests {
             .unwrap();
 
             let interpreter = zokrates_interpreter::Interpreter::default();
+            let prog = artifacts.prog();
 
-            let res = interpreter.execute(artifacts.prog(), &[Bn128Field::from(0)]);
+            let res = interpreter.execute(
+                &[Bn128Field::from(0)],
+                prog.statements.into_iter(),
+                &prog.arguments,
+                &prog.solvers,
+            );
 
             assert!(res.is_err());
         }
