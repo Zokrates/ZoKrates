@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.8.6] - 2023-04-13
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.6 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Make ZoKrates build on stable rust (#1288, @schaeff)
+- Introduce sourcemaps, introduce `inspect` command to identify costly parts of the source (#1285, @schaeff)
+- Change witness format to binary, optimize backend integration code to improve proving time (#1289, @dark64)
+- Fixed precedence issue on Sudoku example. (#1287, @Turupawn)
+- Reduce compiled program size by deduplicating assembly solvers (#1268, @dark64)
+
 ## [0.8.5] - 2023-03-28
 
 ### Release

@@ -32,6 +32,7 @@ pub enum Error {
     AssertionFailed(RuntimeError),
     InvalidValue(String),
     OutOfBounds(u128, u128),
+    VariableLength(String),
 }
 
 impl fmt::Display for Error {
@@ -45,6 +46,7 @@ impl fmt::Display for Error {
                 "Out of bounds index ({} >= {}) found during static analysis",
                 index, size
             ),
+            Error::VariableLength(message) => write!(f, "{}", message),
         }
     }
 }
@@ -59,6 +61,10 @@ pub struct Propagator<'ast, T> {
 impl<'ast, T: Field> Propagator<'ast, T> {
     pub fn propagate(p: TypedProgram<'ast, T>) -> Result<TypedProgram<'ast, T>, Error> {
         Propagator::default().fold_program(p)
+    }
+
+    pub fn clear_call_frame(&mut self, frame: usize) {
+        self.constants.retain(|id, _| id.id.frame != frame);
     }
 
     // get a mutable reference to the constant corresponding to a given assignee if any, otherwise
@@ -1153,57 +1159,91 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
         _: &E::Ty,
         e: SelectExpression<'ast, T, E>,
     ) -> Result<SelectOrExpression<'ast, T, E>, Self::Error> {
-        let array = self.fold_array_expression(*e.array)?;
         let index = self.fold_uint_expression(*e.index)?;
+        let array = *e.array;
 
-        let inner_type = array.inner_type().clone();
-        let size = array.size();
+        let ty = self.fold_array_type(*array.ty)?;
+        let size = match ty.size.as_inner() {
+            UExpressionInner::Value(v) => Ok(v),
+            _ => unreachable!("array size was checked when folding array type"),
+        }?;
 
-        match size.into_inner() {
-            UExpressionInner::Value(size) => match (array.into_inner(), index.into_inner()) {
-                (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
-                    if n < size {
-                        Ok(SelectOrExpression::Expression(
-                            v.expression_at::<E>(n.value as usize).unwrap().into_inner(),
-                        ))
-                    } else {
-                        Err(Error::OutOfBounds(n.value, size.value))
-                    }
-                }
-                (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
-                    match self.constants.get(&id.id) {
-                        Some(a) => match a {
+        match (array.inner, index.into_inner()) {
+            // special case if the array is an identifier: check the cache and only clone the element, not the whole array
+            (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
+                match self.constants.get(&id.id) {
+                    Some(v) => {
+                        // get the constant array. it was guaranteed to be a value when it was inserted
+                        let v = match v {
                             TypedExpression::Array(a) => match a.as_inner() {
-                                ArrayExpressionInner::Value(v) => {
-                                    Ok(SelectOrExpression::Expression(
-                                        v.expression_at::<E>(n.value as usize)
-                                            .unwrap()
-                                            .into_inner(),
-                                    ))
-                                }
-                                _ => unreachable!("should be an array value"),
+                                ArrayExpressionInner::Value(v) => v,
+                                _ => unreachable!(),
                             },
-                            _ => unreachable!("should be an array expression"),
-                        },
-                        None => Ok(SelectOrExpression::Expression(
-                            E::select(
-                                ArrayExpressionInner::Identifier(id)
-                                    .annotate(ArrayType::new(inner_type, size.value as u32)),
-                                UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                            )
-                            .into_inner(),
-                        )),
+                            _ => unreachable!(),
+                        };
+
+                        // sanity check that the value does not contain spreads
+                        assert!(v
+                            .value
+                            .iter()
+                            .all(|e| matches!(e, TypedExpressionOrSpread::Expression(_))));
+
+                        if n.value < size.value {
+                            Ok(SelectOrExpression::Expression(
+                                // clone only the element
+                                match v.value[n.value as usize].clone() {
+                                    TypedExpressionOrSpread::Expression(e) => {
+                                        E::try_from(e).unwrap().into_inner()
+                                    }
+                                    _ => unreachable!(),
+                                },
+                            ))
+                        } else {
+                            Err(Error::OutOfBounds(n.value, size.value))
+                        }
                     }
+                    _ => Ok(SelectOrExpression::Select(SelectExpression::new(
+                        ArrayExpressionInner::Identifier(id).annotate(ty),
+                        UExpressionInner::Value(n).annotate(UBitwidth::B32),
+                    ))),
                 }
-                (a, i) => Ok(SelectOrExpression::Select(SelectExpression::new(
-                    a.annotate(ArrayType::new(inner_type, size.value as u32)),
-                    i.annotate(UBitwidth::B32),
-                ))),
-            },
-            _ => Ok(SelectOrExpression::Select(SelectExpression::new(
-                array, index,
-            ))),
+            }
+            (array, index) => {
+                let array = self.fold_array_expression_inner(&ty, array)?;
+
+                match (array, index) {
+                    (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
+                        if n.value < size.value {
+                            Ok(SelectOrExpression::Expression(
+                                v.expression_at::<E>(n.value as usize).into_inner(),
+                            ))
+                        } else {
+                            Err(Error::OutOfBounds(n.value, size.value))
+                        }
+                    }
+                    (a, i) => Ok(SelectOrExpression::Select(SelectExpression::new(
+                        a.annotate(ty),
+                        i.annotate(UBitwidth::B32),
+                    ))),
+                }
+            }
         }
+    }
+
+    fn fold_array_type(
+        &mut self,
+        t: ArrayType<'ast, T>,
+    ) -> Result<ArrayType<'ast, T>, Self::Error> {
+        let size = self.fold_uint_expression(*t.size)?;
+
+        if !size.is_constant() {
+            return Err(Error::VariableLength(format!(
+                "Array length should be fixed, found {}",
+                size
+            )));
+        }
+
+        Ok(ArrayType::new(self.fold_type(*t.ty)?, size))
     }
 
     fn fold_array_expression_cases(
