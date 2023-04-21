@@ -1230,10 +1230,10 @@ mod tests {
             lhs: pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
                 id: pest::IdentifierExpression {
                     value: String::from("a"),
-                    span: span,
+                    span,
                 },
                 accesses: vec![],
-                span: span,
+                span,
             }),
             expression: pest::Expression::Literal(pest::LiteralExpression::DecimalLiteral(
                 pest::DecimalLiteralExpression {
@@ -1241,10 +1241,10 @@ mod tests {
                         span: Span::new("1", 0, 1).unwrap(),
                     },
                     suffix: None,
-                    span: span,
+                    span,
                 },
             )),
-            span: span,
+            span,
         };
 
         let statement = untyped::StatementNode::from(definition);
@@ -1261,30 +1261,30 @@ mod tests {
 
         let definition = pest::DefinitionStatement {
             lhs: pest::TypedIdentifierOrAssignee::TypedIdentifier(pest::TypedIdentifier {
-                ty: pest::Type::Basic(pest::BasicType::Field(pest::FieldType { span: span })),
+                ty: pest::Type::Basic(pest::BasicType::Field(pest::FieldType { span })),
                 identifier: pest::IdentifierExpression {
                     value: String::from("a"),
-                    span: span,
+                    span,
                 },
                 mutable: None,
-                span: span,
+                span,
             }),
             expression: pest::Expression::Postfix(pest::PostfixExpression {
                 base: Box::new(pest::Expression::Identifier(pest::IdentifierExpression {
                     value: String::from("foo"),
-                    span: span,
+                    span,
                 })),
                 accesses: vec![pest::Access::Call(pest::CallAccess {
                     explicit_generics: None,
                     arguments: pest::Arguments {
                         expressions: vec![],
-                        span: span,
+                        span,
                     },
-                    span: span,
+                    span,
                 })],
-                span: span,
+                span,
             }),
-            span: span,
+            span,
         };
 
         let statement = untyped::StatementNode::from(definition);

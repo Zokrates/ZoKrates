@@ -3727,6 +3727,7 @@ dependencies = [
  "nova-snark",
  "pairing",
  "rand 0.4.6",
+ "serde",
  "typed-arena",
  "zokrates_ast",
  "zokrates_core",

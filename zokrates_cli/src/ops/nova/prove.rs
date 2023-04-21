@@ -22,6 +22,14 @@ pub fn subcommand() -> App<'static, 'static> {
                 .default_value(NOVA_PUBLIC_INIT),
         )
         .arg(
+            Arg::with_name("continue")
+                .short("c")
+                .long("continue")
+                .help("Start from an existing proof")
+                .takes_value(false)
+                .required(false),
+        )
+        .arg(
             Arg::with_name("steps")
                 .long("steps")
                 .help("Path to the value of the private input for each step")
@@ -59,14 +67,14 @@ pub fn subcommand() -> App<'static, 'static> {
                 .default_value(cli_constants::NOVA_PARAMS_DEFAULT_PATH),
         )
         .arg(
-            Arg::with_name("proof-path")
+            Arg::with_name("instance-path")
                 .short("j")
-                .long("proof-path")
-                .help("Path of the JSON proof file")
+                .long("instance-path")
+                .help("Path of the JSON running instance file")
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(cli_constants::JSON_PROOF_PATH),
+                .default_value(cli_constants::JSON_NOVA_RUNNING_INSTANCE),
         )
 }
 
@@ -89,7 +97,7 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
     program: ir::ProgIterator<'ast, T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
-    let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
+    let proof_path = Path::new(sub_matches.value_of("instance-path").unwrap());
 
     let program = program.collect();
 
@@ -140,7 +148,10 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
         .collect()
     };
 
-    let step_count = steps.len();
+    let from = sub_matches.is_present("continue").then(|| {
+        let path = Path::new(sub_matches.value_of("instance-path").unwrap());
+        serde_json::from_reader(BufReader::new(File::open(path).unwrap())).unwrap()
+    });
 
     let params_path = Path::new(sub_matches.value_of("params-path").unwrap());
     let params_file = File::open(params_path)
@@ -154,10 +165,11 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
         .map_err(|why| format!("Could not create {}: {}", proof_path.display(), why))?;
 
     println!("Generating proof...");
-    let proof = nova::prove(&params, &program, init.clone(), steps)
+    let proof = nova::prove(&params, &program, init.clone(), from, steps)
         .map_err(|e| format!("Error `{:#?}` during proving", e))?;
 
     let proof_json = serde_json::to_string_pretty(&proof).unwrap();
+
     proof_file
         .write(proof_json.as_bytes())
         .map_err(|why| format!("Could not write to {}: {}", proof_path.display(), why))?;
@@ -167,7 +179,7 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
         Some(ref proof) => {
             // verify the recursive SNARK
             println!("Verifying the final proof...");
-            let res = nova::verify(&params, proof, step_count, init);
+            let res = nova::verify(&params, proof, init);
 
             match res {
                 Ok(_) => {

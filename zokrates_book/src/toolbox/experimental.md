@@ -38,8 +38,21 @@ zokrates nova prove
 
 The proof created at `proof.json` proves the statement `0 + 1 + 7 + 42 == 50`.
 
+We can extend it by running more steps, for example with the same intermediate inputs:
+
+```
+zokrates nova prove --continue
+```
+
+The proof updated at `proof.json` proves the statement `50 + (0 + 1 + 7 + 42) == 100`.
+
+Once we're done, we compress the proof to a compressed snark:
+
+```
+zokrates nova compress
+```
+
 ### Limitations
 
 - The step circuit must be compiled with `--curve pallas`
 - The resulting recursive proof cannot currently be verified on the EVM
-- The public parameters are currently computed for each proof

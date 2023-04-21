@@ -8,8 +8,10 @@ use nova_snark::errors::NovaError;
 pub use nova_snark::traits::circuit::StepCircuit;
 pub use nova_snark::traits::circuit::TrivialTestCircuit;
 use nova_snark::traits::Group;
+use nova_snark::CompressedSNARK as GCompressedSNARK;
 pub use nova_snark::PublicParams as GPublicParams;
 pub use nova_snark::RecursiveSNARK as GRecursiveSNARK;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use zokrates_ast::ir::*;
 use zokrates_field::{BellpersonFieldExtensions, Cycle, Field};
@@ -59,7 +61,7 @@ type C1<'ast, T> = NovaComputation<'ast, T>;
 type C2<T> = TrivialTestCircuit<<<T as Cycle>::Point as Group>::Base>;
 
 type PublicParams<'ast, T> = GPublicParams<G1<T>, G2<T>, C1<'ast, T>, C2<T>>;
-type RecursiveSNARK<'ast, T> = GRecursiveSNARK<G1<T>, G2<T>, C1<'ast, T>, C2<T>>;
+pub type RecursiveSNARK<'ast, T> = GRecursiveSNARK<G1<T>, G2<T>, C1<'ast, T>, C2<T>>;
 
 #[derive(Debug)]
 pub enum Error {
@@ -98,44 +100,69 @@ pub fn generate_public_parameters<
 
 pub fn verify<T: NovaField>(
     params: &PublicParams<T>,
-    proof: &RecursiveSNARK<T>,
-    steps_count: usize,
+    proof: &RecursiveSNARKWithStepCount<T>,
     arguments: Vec<T>,
 ) -> Result<Vec<T>, Error> {
     let z0_primary: Vec<_> = arguments.into_iter().map(|a| a.into_bellperson()).collect();
     let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::one()];
 
     proof
-        .verify(params, steps_count, z0_primary, z0_secondary)
+        .proof
+        .verify(params, proof.steps, z0_primary, z0_secondary)
         .map_err(Error::Internal)
         .map(|(primary, _)| primary.into_iter().map(T::from_bellperson).collect())
+}
+
+#[derive(Serialize, Debug, Deserialize)]
+pub struct RecursiveSNARKWithStepCount<'ast, T: NovaField> {
+    #[serde(bound = "T: NovaField")]
+    proof: RecursiveSNARK<'ast, T>,
+    steps: usize,
+}
+
+type EE1<T> = nova_snark::provider::ipa_pc::EvaluationEngine<G1<T>>;
+type EE2<T> = nova_snark::provider::ipa_pc::EvaluationEngine<G2<T>>;
+type S1<T> = nova_snark::spartan::RelaxedR1CSSNARK<G1<T>, EE1<T>>;
+type S2<T> = nova_snark::spartan::RelaxedR1CSSNARK<G2<T>, EE2<T>>;
+
+type CompressedSNARK<'ast, T> = GCompressedSNARK<G1<T>, G2<T>, C1<'ast, T>, C2<T>, S1<T>, S2<T>>;
+
+pub fn compress<'ast, T: NovaField>(
+    public_parameters: &PublicParams<'ast, T>,
+    instance: RecursiveSNARKWithStepCount<'ast, T>,
+) -> CompressedSNARK<'ast, T> {
+    CompressedSNARK::prove(public_parameters, &instance.proof).unwrap()
 }
 
 pub fn prove<'ast, T: NovaField>(
     public_parameters: &PublicParams<'ast, T>,
     program: &'ast Prog<'ast, T>,
     arguments: Vec<T>,
+    mut proof: Option<RecursiveSNARKWithStepCount<'ast, T>>,
     steps: impl IntoIterator<Item = Vec<T>>,
-) -> Result<Option<RecursiveSNARK<'ast, T>>, Error> {
+) -> Result<Option<RecursiveSNARKWithStepCount<'ast, T>>, Error> {
     let c_primary = NovaComputation::try_from(Computation::without_witness(program))?;
     let c_secondary = TrivialTestCircuit::default();
     let z0_primary: Vec<_> = arguments.into_iter().map(|a| a.into_bellperson()).collect();
     let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::one()];
 
-    let mut proof = None;
-
     for steps_private in steps {
         let mut c_primary = c_primary.clone();
         c_primary.step_private = Some(steps_private);
 
-        proof = Some(RecursiveSNARK::prove_step(
-            public_parameters,
-            proof,
-            c_primary,
-            c_secondary.clone(),
-            z0_primary.clone(),
-            z0_secondary.clone(),
-        )?);
+        let steps = proof.as_ref().map(|proof| proof.steps).unwrap_or_default() + 1;
+
+        proof = Some(RecursiveSNARKWithStepCount {
+            proof: RecursiveSNARK::prove_step(
+                public_parameters,
+                proof.map(|proof| proof.proof),
+                c_primary,
+                c_secondary.clone(),
+                z0_primary.clone(),
+                z0_secondary.clone(),
+            )?,
+            steps,
+        });
     }
 
     Ok(proof)
@@ -270,13 +297,18 @@ mod tests {
             step_privates: Vec<Vec<T>>,
             expected_final_state: Vec<T>,
         ) {
-            let steps_count = step_privates.len();
             let params = generate_public_parameters(&program).unwrap();
-            let proof = prove(&params, &program, initial_state.clone(), step_privates)
-                .unwrap()
-                .unwrap();
+            let proof = prove(
+                &params,
+                &program,
+                initial_state.clone(),
+                None,
+                step_privates,
+            )
+            .unwrap()
+            .unwrap();
             assert_eq!(
-                verify(&params, &proof, steps_count, initial_state).unwrap(),
+                verify(&params, &proof, initial_state).unwrap(),
                 expected_final_state
             );
         }

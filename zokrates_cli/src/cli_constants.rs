@@ -3,6 +3,7 @@ use zokrates_common::constants::*;
 pub const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
 pub const NOVA_STEPS_PRIVATE_INPUTS: &str = "steps.json";
 pub const NOVA_PUBLIC_INIT: &str = "init.json";
+pub const JSON_NOVA_RUNNING_INSTANCE: &str = "running_instance.json";
 pub const CIRCOM_R1CS_DEFAULT_PATH: &str = "out.r1cs";
 pub const CIRCOM_WITNESS_DEFAULT_PATH: &str = "out.wtns";
 pub const ABI_SPEC_DEFAULT_PATH: &str = "abi.json";
