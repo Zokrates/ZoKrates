@@ -6,6 +6,7 @@
 
 #[cfg(feature = "bellman_extensions")]
 use bellman_ce::pairing::{ff::ScalarEngine, Engine};
+#[cfg(feature = "bellperson_extensions")]
 use nova_snark::provider::pedersen::CommitmentEngine;
 use num_bigint::BigUint;
 use num_traits::{CheckedDiv, One, Zero};
