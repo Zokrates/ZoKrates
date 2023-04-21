@@ -1731,28 +1731,31 @@ impl<'ast, T> std::iter::FromIterator<TypedExpressionOrSpread<'ast, T>>
 
 impl<'ast, T: Field> ArrayValueExpression<'ast, T> {
     fn expression_at_aux<
+        'a,
         U: Select<'ast, T> + From<TypedExpression<'ast, T>> + Into<TypedExpression<'ast, T>>,
     >(
         v: TypedExpressionOrSpread<'ast, T>,
-    ) -> Vec<Option<U>> {
+    ) -> Vec<TypedExpression<'ast, T>> {
         match v {
-            TypedExpressionOrSpread::Expression(e) => vec![Some(e.into())],
+            TypedExpressionOrSpread::Expression(e) => vec![e],
             TypedExpressionOrSpread::Spread(s) => match s.array.size().into_inner() {
                 UExpressionInner::Value(size) => {
                     let array_ty = s.array.ty().clone();
 
                     match s.array.into_inner() {
-                        ArrayExpressionInner::Value(v) => {
-                            v.into_iter().flat_map(Self::expression_at_aux).collect()
-                        }
+                        ArrayExpressionInner::Value(v) => v
+                            .value
+                            .into_iter()
+                            .flat_map(Self::expression_at_aux::<U>)
+                            .collect(),
                         a => (0..size.value)
                             .map(|i| {
-                                Some(U::select(a.clone().annotate(array_ty.clone()), i as u32))
+                                U::select(a.clone().annotate(array_ty.clone()), i as u32).into()
                             })
                             .collect(),
                     }
                 }
-                _ => vec![None],
+                _ => unreachable!(),
             },
         }
     }
@@ -1760,14 +1763,16 @@ impl<'ast, T: Field> ArrayValueExpression<'ast, T> {
     pub fn expression_at<
         U: Select<'ast, T> + From<TypedExpression<'ast, T>> + Into<TypedExpression<'ast, T>>,
     >(
-        &self,
+        self,
         index: usize,
-    ) -> Option<U> {
-        self.iter()
-            .flat_map(|v| Self::expression_at_aux(v.clone()))
-            .take_while(|e| e.is_some())
-            .map(|e| e.unwrap())
+    ) -> U {
+        self.into_iter()
+            .flat_map(|v| Self::expression_at_aux::<U>(v))
             .nth(index)
+            .unwrap()
+            .clone()
+            .try_into()
+            .unwrap()
     }
 }
 
