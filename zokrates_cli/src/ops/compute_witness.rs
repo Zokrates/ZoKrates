@@ -86,6 +86,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         ProgEnum::Bls12_377Program(p) => cli_compute(p, sub_matches),
         ProgEnum::Bls12_381Program(p) => cli_compute(p, sub_matches),
         ProgEnum::Bw6_761Program(p) => cli_compute(p, sub_matches),
+        ProgEnum::PallasProgram(p) => cli_compute(p, sub_matches),
+        ProgEnum::VestaProgram(p) => cli_compute(p, sub_matches),
     }
 }
 
@@ -172,11 +174,16 @@ fn cli_compute<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
     .map_err(|e| format!("Could not parse argument: {}", e))?;
 
     let interpreter = zokrates_interpreter::Interpreter::default();
-
     let public_inputs = ir_prog.public_inputs();
 
     let witness = interpreter
-        .execute_with_log_stream(ir_prog, &arguments.encode(), &mut std::io::stdout())
+        .execute_with_log_stream(
+            &arguments.encode(),
+            ir_prog.statements,
+            &ir_prog.arguments,
+            &ir_prog.solvers,
+            &mut std::io::stdout(),
+        )
         .map_err(|e| format!("Execution failed: {}", e))?;
 
     use zokrates_abi::Decode;

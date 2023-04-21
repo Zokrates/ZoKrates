@@ -27,6 +27,7 @@
     - [ZIR](toolbox/ir.md)
     - [JSON ABI](toolbox/abi.md)
     - [zokrates.js](toolbox/zokrates_js.md)
+    - [Experimental](toolbox/experimental.md)
 
 - [Examples](examples/index.md)
     - [A SNARK Powered RNG](examples/rng_tutorial.md)

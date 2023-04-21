@@ -129,6 +129,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             ProgEnum::Bw6_761Program(p) => {
                 cli_setup_non_universal::<_, _, G16, Ark>(p, sub_matches)
             }
+            _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
@@ -142,6 +143,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             ProgEnum::Bw6_761Program(p) => {
                 cli_setup_non_universal::<_, _, GM17, Ark>(p, sub_matches)
             }
+            _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => {
@@ -171,6 +173,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
                 ProgEnum::Bw6_761Program(p) => {
                     cli_setup_universal::<_, _, Marlin, Ark>(p, setup, sub_matches)
                 }
+                _ => unreachable!(),
             }
         }
         _ => unreachable!(),

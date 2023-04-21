@@ -238,7 +238,7 @@ impl<T: Field> Values<T> {
     }
 }
 
-fn parse_value<T: Field>(
+pub fn parse_value<T: Field>(
     value: serde_json::Value,
     expected_type: ConcreteType,
 ) -> Result<Value<T>, Error> {

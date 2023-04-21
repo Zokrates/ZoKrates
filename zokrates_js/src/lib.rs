@@ -24,7 +24,9 @@ use zokrates_common::helpers::{BackendParameter, CurveParameter, SchemeParameter
 use zokrates_common::{CompileConfig, Resolver};
 use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, CompileError};
 use zokrates_core::imports::Error;
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_field::{
+    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField, VestaField,
+};
 use zokrates_proof_systems::groth16::G16;
 use zokrates_proof_systems::rng::get_rng_from_entropy;
 use zokrates_proof_systems::{
@@ -344,12 +346,18 @@ mod internal {
         };
 
         let interpreter = zokrates_interpreter::Interpreter::default();
-
         let public_inputs = program.public_inputs();
 
         let mut writer = LogWriter::new(log_callback);
+
         let witness = interpreter
-            .execute_with_log_stream(program, &inputs.encode(), &mut writer)
+            .execute_with_log_stream(
+                &inputs.encode(),
+                program.statements.into_iter(),
+                &program.arguments,
+                &program.solvers,
+                &mut writer,
+            )
             .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
 
         let return_values: serde_json::Value =
@@ -509,6 +517,12 @@ pub fn compile(
         CurveParameter::Bw6_761 => {
             internal::compile::<Bw6_761Field>(source, location, resolve_callback, config)
         }
+        CurveParameter::Pallas => {
+            internal::compile::<PallasField>(source, location, resolve_callback, config)
+        }
+        CurveParameter::Vesta => {
+            internal::compile::<VestaField>(source, location, resolve_callback, config)
+        }
     }
 }
 
@@ -529,6 +543,8 @@ pub fn compute_witness(
         ProgEnum::Bls12_381Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
         ProgEnum::Bls12_377Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
         ProgEnum::Bw6_761Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
+        ProgEnum::PallasProgram(p) => internal::compute::<_>(p, abi, args, config, log_callback),
+        ProgEnum::VestaProgram(p) => internal::compute::<_>(p, abi, args, config, log_callback),
     }
 }
 
@@ -616,6 +632,7 @@ pub fn setup(program: &[u8], entropy: JsValue, options: JsValue) -> Result<Keypa
             ProgEnum::Bw6_761Program(p) => {
                 Ok(internal::setup_non_universal::<_, G16, Ark, _>(p, &mut rng))
             }
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::GM17) => match prog {
             ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark, _>(
@@ -630,6 +647,7 @@ pub fn setup(program: &[u8], entropy: JsValue, options: JsValue) -> Result<Keypa
             ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark, _>(
                 p, &mut rng,
             )),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         _ => Err(JsValue::from_str("Unsupported options")),
     }
@@ -657,6 +675,7 @@ pub fn setup_with_srs(srs: &[u8], program: &[u8], options: JsValue) -> Result<Ke
             ProgEnum::Bls12_381Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
             ProgEnum::Bls12_377Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
             ProgEnum::Bw6_761Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         _ => Err(JsValue::from_str("Given scheme is not universal")),
     }
@@ -697,6 +716,10 @@ pub fn universal_setup(curve: JsValue, size: u32, entropy: JsValue) -> Result<Ve
             Ark,
             _,
         >(size, &mut rng)),
+        c => Err(JsValue::from(format!(
+            "Curve `{}` is not supported for universal setups",
+            c
+        ))),
     }
 }
 
@@ -757,6 +780,7 @@ pub fn generate_proof(
             ProgEnum::Bw6_761Program(p) => {
                 internal::generate_proof::<_, G16, Ark, _>(p, witness, pk, &mut rng)
             }
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::GM17) => match prog {
             ProgEnum::Bn128Program(p) => {
@@ -771,6 +795,7 @@ pub fn generate_proof(
             ProgEnum::Bw6_761Program(p) => {
                 internal::generate_proof::<_, GM17, Ark, _>(p, witness, pk, &mut rng)
             }
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::MARLIN) => match prog {
             ProgEnum::Bn128Program(p) => {
@@ -785,6 +810,7 @@ pub fn generate_proof(
             ProgEnum::Bw6_761Program(p) => {
                 internal::generate_proof::<_, Marlin, Ark, _>(p, witness, pk, &mut rng)
             }
+            _ => Err(JsValue::from_str("Not supported")),
         },
         _ => Err(JsValue::from_str("Unsupported options")),
     }
@@ -857,18 +883,21 @@ pub fn verify(vk: JsValue, proof: JsValue, options: JsValue) -> Result<JsValue, 
             CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, G16, Ark>(vk, proof),
             CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, G16, Ark>(vk, proof),
             CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, G16, Ark>(vk, proof),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::GM17) => match curve {
             CurveParameter::Bn128 => internal::verify::<Bn128Field, GM17, Ark>(vk, proof),
             CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, GM17, Ark>(vk, proof),
             CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, GM17, Ark>(vk, proof),
             CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, GM17, Ark>(vk, proof),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::MARLIN) => match curve {
             CurveParameter::Bn128 => internal::verify::<Bn128Field, Marlin, Ark>(vk, proof),
             CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, Marlin, Ark>(vk, proof),
             CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, Marlin, Ark>(vk, proof),
             CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, Marlin, Ark>(vk, proof),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         _ => Err(JsValue::from_str("Unsupported options")),
     }

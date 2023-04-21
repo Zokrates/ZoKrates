@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.8.7] - 2023-04-22
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.7 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Reduce memory usage of compilation (#1296, @schaeff)
+- Add initial support for the Nova proving scheme (#1235, @schaeff)
+
 ## [0.8.6] - 2023-04-13
 
 ### Release

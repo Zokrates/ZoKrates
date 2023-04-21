@@ -20,11 +20,15 @@ pub enum ProgEnum<
     Bn128I: IntoIterator<Item = Statement<'ast, Bn128Field>>,
     Bls12_377I: IntoIterator<Item = Statement<'ast, Bls12_377Field>>,
     Bw6_761I: IntoIterator<Item = Statement<'ast, Bw6_761Field>>,
+    PallasI: IntoIterator<Item = Statement<'ast, PallasField>>,
+    VestaI: IntoIterator<Item = Statement<'ast, VestaField>>,
 > {
     Bls12_381Program(ProgIterator<'ast, Bls12_381Field, Bls12_381I>),
     Bn128Program(ProgIterator<'ast, Bn128Field, Bn128I>),
     Bls12_377Program(ProgIterator<'ast, Bls12_377Field, Bls12_377I>),
     Bw6_761Program(ProgIterator<'ast, Bw6_761Field, Bw6_761I>),
+    PallasProgram(ProgIterator<'ast, PallasField, PallasI>),
+    VestaProgram(ProgIterator<'ast, VestaField, VestaI>),
 }
 
 type MemoryProgEnum<'ast> = ProgEnum<
@@ -33,6 +37,8 @@ type MemoryProgEnum<'ast> = ProgEnum<
     Vec<Statement<'ast, Bn128Field>>,
     Vec<Statement<'ast, Bls12_377Field>>,
     Vec<Statement<'ast, Bw6_761Field>>,
+    Vec<Statement<'ast, PallasField>>,
+    Vec<Statement<'ast, VestaField>>,
 >;
 
 impl<
@@ -41,7 +47,9 @@ impl<
         Bn128I: IntoIterator<Item = Statement<'ast, Bn128Field>>,
         Bls12_377I: IntoIterator<Item = Statement<'ast, Bls12_377Field>>,
         Bw6_761I: IntoIterator<Item = Statement<'ast, Bw6_761Field>>,
-    > ProgEnum<'ast, Bls12_381I, Bn128I, Bls12_377I, Bw6_761I>
+        PallasI: IntoIterator<Item = Statement<'ast, PallasField>>,
+        VestaI: IntoIterator<Item = Statement<'ast, VestaField>>,
+    > ProgEnum<'ast, Bls12_381I, Bn128I, Bls12_377I, Bw6_761I, PallasI, VestaI>
 {
     pub fn collect(self) -> MemoryProgEnum<'ast> {
         match self {
@@ -49,6 +57,8 @@ impl<
             ProgEnum::Bn128Program(p) => ProgEnum::Bn128Program(p.collect()),
             ProgEnum::Bls12_377Program(p) => ProgEnum::Bls12_377Program(p.collect()),
             ProgEnum::Bw6_761Program(p) => ProgEnum::Bw6_761Program(p.collect()),
+            ProgEnum::PallasProgram(p) => ProgEnum::PallasProgram(p.collect()),
+            ProgEnum::VestaProgram(p) => ProgEnum::VestaProgram(p.collect()),
         }
     }
     pub fn curve(&self) -> &'static str {
@@ -57,6 +67,8 @@ impl<
             ProgEnum::Bls12_381Program(_) => Bls12_381Field::name(),
             ProgEnum::Bls12_377Program(_) => Bls12_377Field::name(),
             ProgEnum::Bw6_761Program(_) => Bw6_761Field::name(),
+            ProgEnum::PallasProgram(_) => Bls12_377Field::name(),
+            ProgEnum::VestaProgram(_) => Bw6_761Field::name(),
         }
     }
 }
@@ -287,6 +299,8 @@ impl<'de, R: Read + Seek>
         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bn128Field>>,
         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bls12_377Field>>,
         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bw6_761Field>>,
+        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, PallasField>>,
+        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, VestaField>>,
     >
 {
     fn read<T: Field>(
@@ -368,6 +382,8 @@ impl<'de, R: Read + Seek>
                 Ok(ProgEnum::Bls12_377Program(Self::read(r, &header)))
             }
             m if m == Bw6_761Field::id() => Ok(ProgEnum::Bw6_761Program(Self::read(r, &header))),
+            m if m == PallasField::id() => Ok(ProgEnum::PallasProgram(Self::read(r, &header))),
+            m if m == VestaField::id() => Ok(ProgEnum::VestaProgram(Self::read(r, &header))),
             _ => Err(String::from("Unknown curve identifier")),
         }
     }

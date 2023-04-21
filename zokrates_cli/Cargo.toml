@@ -1,14 +1,15 @@
 [package]
 name = "zokrates_cli"
-version = "0.8.6"
+version = "0.8.7"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>", "Thibaut Schaeffer <thibaut@schaeff.fr>"]
 repository = "https://github.com/Zokrates/ZoKrates.git"
 edition = "2018"
 
 [features]
-default = ["bellman", "ark"]
+default = ["bellman", "ark", "bellperson"]
 bellman = ["zokrates_bellman", "zokrates_core/bellman", "zokrates_common/bellman"]
 ark = ["zokrates_ark", "zokrates_core/ark", "zokrates_common/ark"]
+bellperson = ["zokrates_bellperson", "zokrates_core/bellperson", "zokrates_common/bellperson"]
 
 [dependencies]
 log = "0.4"
@@ -43,6 +44,7 @@ sha2 = "0.10.0"
 zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
 zokrates_ark = { version = "0.1", path = "../zokrates_ark", features = ["multicore"], optional = true }
 zokrates_bellman = { version = "0.1", path = "../zokrates_bellman", features = ["multicore"], optional = true }
+zokrates_bellperson = { version = "0.1", path = "../zokrates_bellperson", default-features = false, optional = true }
 
 [dev-dependencies]
 glob = "0.2.11"

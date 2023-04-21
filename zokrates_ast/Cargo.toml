@@ -1,15 +1,15 @@
 [package]
 name = "zokrates_ast"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 
 [features]
 default = ["bellman", "ark"]
-bellman = ["zokrates_field/bellman", "pairing_ce", "zokrates_embed/bellman"]
+bellman = ["zokrates_field/bellman_extensions", "pairing_ce", "zokrates_embed/bellman"]
 ark = ["ark-bls12-377", "zokrates_embed/ark"]
+bellperson = ["zokrates_field/bellperson_extensions"]
 
 [dependencies]
-log = "0.4"
 byteorder = "1.4.3"
 zokrates_pest_ast = { version = "0.3.0", path = "../zokrates_pest_ast" }
 cfg-if = "0.1"

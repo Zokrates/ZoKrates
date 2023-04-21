@@ -208,9 +208,7 @@ impl<'ast, T: Field> fmt::Display for Statement<'ast, T> {
     }
 }
 
-pub type Prog<'ast, T> = ProgIterator<'ast, T, Vec<Statement<'ast, T>>>;
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ProgIterator<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> {
     pub module_map: ModuleMap,
     pub arguments: Vec<Parameter>,
@@ -218,6 +216,20 @@ pub struct ProgIterator<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> {
     pub statements: I,
     #[serde(borrow)]
     pub solvers: Vec<Solver<'ast, T>>,
+}
+
+pub type Prog<'ast, T> = ProgIterator<'ast, T, Vec<Statement<'ast, T>>>;
+
+impl<'ast, T> Default for Prog<'ast, T> {
+    fn default() -> Self {
+        Self {
+            module_map: Default::default(),
+            arguments: Default::default(),
+            return_count: Default::default(),
+            statements: Default::default(),
+            solvers: Default::default(),
+        }
+    }
 }
 
 impl<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, I> {
@@ -237,9 +249,9 @@ impl<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, 
         }
     }
 
-    pub fn collect(self) -> ProgIterator<'ast, T, Vec<Statement<'ast, T>>> {
+    pub fn collect(self) -> Prog<'ast, T> {
         ProgIterator {
-            statements: self.statements.into_iter().collect::<Vec<_>>(),
+            statements: self.statements.into_iter().collect(),
             arguments: self.arguments,
             return_count: self.return_count,
             module_map: self.module_map,
@@ -262,10 +274,11 @@ impl<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, 
             .map(|a| a.id)
             .collect()
     }
-}
 
-impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'ast, T, I> {
-    pub fn public_inputs_values(&self, witness: &Witness<T>) -> Vec<T> {
+    pub fn public_inputs_values(&self, witness: &Witness<T>) -> Vec<T>
+    where
+        T: Field,
+    {
         self.arguments
             .iter()
             .filter(|p| !p.private)
@@ -281,18 +294,6 @@ impl<'ast, T> Prog<'ast, T> {
             .iter()
             .filter(|s| matches!(s, Statement::Constraint(..)))
             .count()
-    }
-
-    pub fn into_prog_iter(
-        self,
-    ) -> ProgIterator<'ast, T, impl IntoIterator<Item = Statement<'ast, T>>> {
-        ProgIterator {
-            statements: self.statements.into_iter(),
-            arguments: self.arguments,
-            return_count: self.return_count,
-            module_map: self.module_map,
-            solvers: self.solvers,
-        }
     }
 }
 
