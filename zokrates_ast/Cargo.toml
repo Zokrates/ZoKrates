@@ -9,7 +9,6 @@ bellman = ["zokrates_field/bellman", "pairing_ce", "zokrates_embed/bellman"]
 ark = ["ark-bls12-377", "zokrates_embed/ark"]
 
 [dependencies]
-log = "0.4"
 byteorder = "1.4.3"
 zokrates_pest_ast = { version = "0.3.0", path = "../zokrates_pest_ast" }
 cfg-if = "0.1"
