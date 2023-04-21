@@ -210,9 +210,15 @@ mod tests {
             .unwrap();
 
             let interpreter = zokrates_interpreter::Interpreter::default();
+            let prog = artifacts.prog();
 
             let _ = interpreter
-                .execute(artifacts.prog(), &[Bn128Field::from(0u32)])
+                .execute(
+                    &[Bn128Field::from(0u32)],
+                    prog.statements.into_iter(),
+                    &prog.arguments,
+                    &prog.solvers,
+                )
                 .unwrap();
         }
     }
@@ -250,8 +256,14 @@ mod tests {
             .unwrap();
 
             let interpreter = zokrates_interpreter::Interpreter::default();
+            let prog = artifacts.prog();
 
-            let res = interpreter.execute(artifacts.prog(), &[Bn128Field::from(0)]);
+            let res = interpreter.execute(
+                &[Bn128Field::from(0)],
+                prog.statements.into_iter(),
+                &prog.arguments,
+                &prog.solvers,
+            );
 
             assert!(res.is_err());
         }

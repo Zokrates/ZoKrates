@@ -49,6 +49,16 @@ pub fn subcommand() -> App<'static, 'static> {
                 .default_value(cli_constants::ABI_SPEC_DEFAULT_PATH),
         )
         .arg(
+            Arg::with_name("params-path")
+                .short("p")
+                .long("params-path")
+                .help("Path of the nova public parameters")
+                .value_name("FILE")
+                .takes_value(true)
+                .required(false)
+                .default_value(cli_constants::NOVA_PARAMS_DEFAULT_PATH),
+        )
+        .arg(
             Arg::with_name("proof-path")
                 .short("j")
                 .long("proof-path")
@@ -64,7 +74,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
@@ -85,11 +95,11 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
 
     let path = Path::new(sub_matches.value_of("abi-spec").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
+
     let mut reader = BufReader::new(file);
 
     let abi: Abi = from_reader(&mut reader).map_err(|why| why.to_string())?;
-
     let signature = abi.signature();
 
     let init_type = signature.inputs[0].clone();
@@ -132,12 +142,20 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
 
     let step_count = steps.len();
 
-    let params = nova::generate_public_parameters(program.clone()).map_err(|e| e.to_string())?;
+    let params_path = Path::new(sub_matches.value_of("params-path").unwrap());
+    let params_file = File::open(params_path)
+        .map_err(|why| format!("Could not open {}: {}", params_path.display(), why))?;
 
-    let proof = nova::prove(&params, program, init.clone(), steps)
+    let params_reader = BufReader::new(params_file);
+    let params = serde_cbor::from_reader(params_reader)
+        .map_err(|why| format!("Could not deserialize {}: {}", params_path.display(), why))?;
+
+    let mut proof_file = File::create(proof_path)
+        .map_err(|why| format!("Could not create {}: {}", proof_path.display(), why))?;
+
+    println!("Generating proof...");
+    let proof = nova::prove(&params, &program, init.clone(), steps)
         .map_err(|e| format!("Error `{:#?}` during proving", e))?;
-
-    let mut proof_file = File::create(proof_path).unwrap();
 
     let proof_json = serde_json::to_string_pretty(&proof).unwrap();
     proof_file
@@ -149,15 +167,14 @@ fn cli_nova_prove_step<'ast, T: NovaField, I: Iterator<Item = ir::Statement<'ast
         Some(ref proof) => {
             // verify the recursive SNARK
             println!("Verifying the final proof...");
-
-            let res = nova::verify(&params, proof.clone(), step_count, init);
+            let res = nova::verify(&params, proof, step_count, init);
 
             match res {
                 Ok(_) => {
-                    println!("Final proof verified succesfully");
+                    println!("Final proof verified successfully");
                 }
                 Err(e) => {
-                    println!("Error `{:#?}` while verifying the final proof", e);
+                    println!("Error while verifying the final proof: {}", e);
                 }
             }
         }

@@ -6,28 +6,28 @@ use bellperson::{
 };
 
 use std::collections::BTreeMap;
-use zokrates_ast::common::Variable;
-use zokrates_ast::ir::{LinComb, ProgIterator, Statement, Witness};
+use zokrates_ast::common::flat::Variable;
+use zokrates_ast::ir::{LinComb, Prog, Statement, Witness};
 use zokrates_field::BellpersonFieldExtensions;
 use zokrates_field::Field;
 
 pub struct Bellperson;
 
 #[derive(Clone, Debug)]
-pub struct Computation<'ast, T, I: IntoIterator<Item = Statement<'ast, T>>> {
-    pub program: ProgIterator<'ast, T, I>,
+pub struct Computation<'ast, T> {
+    pub program: &'ast Prog<'ast, T>,
     pub witness: Option<Witness<T>>,
 }
 
-impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> Computation<'ast, T, I> {
-    pub fn with_witness(program: ProgIterator<'ast, T, I>, witness: Witness<T>) -> Self {
+impl<'ast, T: Field> Computation<'ast, T> {
+    pub fn with_witness(program: &'ast Prog<'ast, T>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
         }
     }
 
-    pub fn without_witness(program: ProgIterator<'ast, T, I>) -> Self {
+    pub fn without_witness(program: &'ast Prog<'ast, T>) -> Self {
         Computation {
             program,
             witness: None,
@@ -44,11 +44,12 @@ fn bellperson_combination<
     symbols: &mut BTreeMap<Variable, BellpersonVariable>,
     witness: &mut Witness<T>,
 ) -> LinearCombination<T::BellpersonField> {
-    l.0.iter()
+    l.value
+        .iter()
         .map(|(k, v)| {
             (
-                v.clone().into_bellperson(),
-                *symbols.entry(k.clone()).or_insert_with(|| {
+                v.into_bellperson(),
+                *symbols.entry(*k).or_insert_with(|| {
                     match k.is_output() {
                         true => {
                             unreachable!("outputs should already have been allocated, found {}", k)
@@ -56,7 +57,7 @@ fn bellperson_combination<
                         false => AllocatedNum::alloc(cs.namespace(|| format!("{}", k)), || {
                             Ok(witness
                                 .0
-                                .remove(&k)
+                                .remove(k)
                                 .ok_or(SynthesisError::AssignmentMissing)?
                                 .into_bellperson())
                         }),
@@ -70,7 +71,7 @@ fn bellperson_combination<
 }
 
 impl<'ast, T: BellpersonFieldExtensions + Field> Circuit<T::BellpersonField>
-    for Computation<'ast, T, Vec<Statement<'ast, T>>>
+    for Computation<'ast, T>
 {
     fn synthesize<CS: ConstraintSystem<T::BellpersonField>>(
         self,
@@ -128,7 +129,7 @@ impl<'ast, T: BellpersonFieldExtensions + Field> Circuit<T::BellpersonField>
     }
 }
 
-impl<'ast, T: BellpersonFieldExtensions + Field> Computation<'ast, T, Vec<Statement<'ast, T>>> {
+impl<'ast, T: BellpersonFieldExtensions + Field> Computation<'ast, T> {
     pub fn synthesize_input_to_output<CS: ConstraintSystem<T::BellpersonField>>(
         &self,
         cs: &mut CS,
@@ -136,10 +137,10 @@ impl<'ast, T: BellpersonFieldExtensions + Field> Computation<'ast, T, Vec<Statem
         witness: &mut Witness<T>,
     ) -> Result<(), SynthesisError> {
         for (i, statement) in self.program.statements.iter().enumerate() {
-            if let Statement::Constraint(quad, lin, _) = statement {
-                let a = &bellperson_combination(&quad.left, cs, symbols, witness);
-                let b = &bellperson_combination(&quad.right, cs, symbols, witness);
-                let c = &bellperson_combination(lin, cs, symbols, witness);
+            if let Statement::Constraint(constraint) = statement {
+                let a = &bellperson_combination(&constraint.quad.left, cs, symbols, witness);
+                let b = &bellperson_combination(&constraint.quad.right, cs, symbols, witness);
+                let c = &bellperson_combination(&constraint.lin, cs, symbols, witness);
 
                 cs.enforce(
                     || format!("Constraint {}", i),
@@ -157,7 +158,7 @@ impl<'ast, T: BellpersonFieldExtensions + Field> Computation<'ast, T, Vec<Statem
         self.program
             .public_inputs_values(self.witness.as_ref().unwrap())
             .iter()
-            .map(|v| v.clone().into_bellperson())
+            .map(|v| v.into_bellperson())
             .collect()
     }
 }

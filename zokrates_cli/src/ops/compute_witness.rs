@@ -174,15 +174,14 @@ fn cli_compute<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
     .map_err(|e| format!("Could not parse argument: {}", e))?;
 
     let interpreter = zokrates_interpreter::Interpreter::default();
-
     let public_inputs = ir_prog.public_inputs();
-
-    let ir_prog = ir_prog.collect();
 
     let witness = interpreter
         .execute_with_log_stream(
-            ir_prog.to_ref_iterator(),
             &arguments.encode(),
+            ir_prog.statements,
+            &ir_prog.arguments,
+            &ir_prog.solvers,
             &mut std::io::stdout(),
         )
         .map_err(|e| format!("Execution failed: {}", e))?;

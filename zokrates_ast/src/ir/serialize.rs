@@ -382,6 +382,8 @@ impl<'de, R: Read + Seek>
                 Ok(ProgEnum::Bls12_377Program(Self::read(r, &header)))
             }
             m if m == Bw6_761Field::id() => Ok(ProgEnum::Bw6_761Program(Self::read(r, &header))),
+            m if m == PallasField::id() => Ok(ProgEnum::PallasProgram(Self::read(r, &header))),
+            m if m == VestaField::id() => Ok(ProgEnum::VestaProgram(Self::read(r, &header))),
             _ => Err(String::from("Unknown curve identifier")),
         }
     }

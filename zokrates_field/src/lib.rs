@@ -661,8 +661,8 @@ mod prime_field {
 
                 fn into_bellperson(self) -> Self::BellpersonField {
                     use ff::PrimeField;
-                    let s = self.to_dec_string();
-                    Self::BellpersonField::from_str_vartime(&s).unwrap()
+                    let bytes = self.to_byte_vector();
+                    Self::BellpersonField::from_repr_vartime(bytes.try_into().unwrap()).unwrap()
                 }
             }
         };

@@ -36,7 +36,7 @@ fn main() {
 
     let prog = artifacts.prog().collect();
 
-    let circuit_primary = NovaComputation::try_from(Computation::without_witness(prog)).unwrap();
+    let circuit_primary = NovaComputation::try_from(Computation::without_witness(&prog)).unwrap();
     let circuit_secondary = TrivialTestCircuit::default();
 
     type C1<'a> = NovaComputation<'a, PallasField>;

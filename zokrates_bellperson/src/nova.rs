@@ -33,17 +33,17 @@ impl<
 #[derive(Clone, Debug)]
 pub struct NovaComputation<'ast, T> {
     step_private: Option<Vec<T>>,
-    computation: Computation<'ast, T, Vec<Statement<'ast, T>>>,
+    computation: Computation<'ast, T>,
 }
 
-impl<'ast, T> TryFrom<Computation<'ast, T, Vec<Statement<'ast, T>>>> for NovaComputation<'ast, T> {
+impl<'ast, T> TryFrom<Computation<'ast, T>> for NovaComputation<'ast, T> {
     type Error = Error;
-    fn try_from(c: Computation<'ast, T, Vec<Statement<'ast, T>>>) -> Result<Self, Self::Error> {
+    fn try_from(c: Computation<'ast, T>) -> Result<Self, Self::Error> {
         let return_count = c.program.return_count;
         let public_input_count = c.program.public_count() - return_count;
 
         if public_input_count != return_count {
-            return Err(Error::User(format!("Number of return values must match number of public input values for Nova circuits, found `{} != {}`", c.program.return_count, c.program.arguments.len())));
+            return Err(Error::User(format!("Number of return values must match number of public input values for Nova circuits, found `{} != {}`", c.program.return_count, public_input_count)));
         }
 
         Ok(NovaComputation {
@@ -83,12 +83,13 @@ impl From<NovaError> for Error {
 }
 
 pub fn generate_public_parameters<
+    'ast,
     T: Field
         + BellpersonFieldExtensions<BellpersonField = <<T as Cycle>::Point as Group>::Scalar>
         + Cycle,
 >(
-    program: Prog<T>,
-) -> Result<PublicParams<T>, Error> {
+    program: &'ast Prog<'ast, T>,
+) -> Result<PublicParams<'ast, T>, Error> {
     Ok(GPublicParams::setup(
         NovaComputation::try_from(Computation::without_witness(program))?,
         TrivialTestCircuit::default(),
@@ -97,7 +98,7 @@ pub fn generate_public_parameters<
 
 pub fn verify<T: NovaField>(
     params: &PublicParams<T>,
-    proof: RecursiveSNARK<T>,
+    proof: &RecursiveSNARK<T>,
     steps_count: usize,
     arguments: Vec<T>,
 ) -> Result<Vec<T>, Error> {
@@ -112,14 +113,13 @@ pub fn verify<T: NovaField>(
 
 pub fn prove<'ast, T: NovaField>(
     public_parameters: &PublicParams<'ast, T>,
-    program: Prog<'ast, T>,
+    program: &'ast Prog<'ast, T>,
     arguments: Vec<T>,
     steps: impl IntoIterator<Item = Vec<T>>,
 ) -> Result<Option<RecursiveSNARK<'ast, T>>, Error> {
     let c_primary = NovaComputation::try_from(Computation::without_witness(program))?;
     let c_secondary = TrivialTestCircuit::default();
     let z0_primary: Vec<_> = arguments.into_iter().map(|a| a.into_bellperson()).collect();
-
     let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::one()];
 
     let mut proof = None;
@@ -131,7 +131,7 @@ pub fn prove<'ast, T: NovaField>(
         proof = Some(RecursiveSNARK::prove_step(
             public_parameters,
             proof,
-            c_primary.clone(),
+            c_primary,
             c_secondary.clone(),
             z0_primary.clone(),
             z0_secondary.clone(),
@@ -182,8 +182,15 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
                 .map(|v| T::from_bellperson(v.get_value().unwrap()))
                 .chain(self.step_private.clone().into_iter().flatten())
                 .collect();
+
+            let program = self.computation.program;
             witness = interpreter
-                .execute(self.computation.program.to_ref_iterator(), &inputs)
+                .execute(
+                    &inputs,
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
                 .unwrap();
         }
 
@@ -227,9 +234,17 @@ impl<'ast, T: Field + BellpersonFieldExtensions + Cycle> StepCircuit<T::Bellpers
             .map(|v| T::from_bellperson(*v))
             .chain(self.step_private.clone().unwrap())
             .collect();
+
+        let program = self.computation.program;
         let output = interpreter
-            .execute(self.computation.program.to_ref_iterator(), &inputs)
+            .execute(
+                &inputs,
+                program.statements.iter(),
+                &program.arguments,
+                &program.solvers,
+            )
             .unwrap();
+
         output
             .return_values()
             .into_iter()
@@ -256,28 +271,19 @@ mod tests {
             expected_final_state: Vec<T>,
         ) {
             let steps_count = step_privates.len();
-            let params = generate_public_parameters(program.clone()).unwrap();
-            let proof = prove(
-                &params,
-                program.clone(),
-                initial_state.clone(),
-                step_privates,
-            )
-            .unwrap()
-            .unwrap();
+            let params = generate_public_parameters(&program).unwrap();
+            let proof = prove(&params, &program, initial_state.clone(), step_privates)
+                .unwrap()
+                .unwrap();
             assert_eq!(
-                verify(&params, proof, steps_count, initial_state).unwrap(),
+                verify(&params, &proof, steps_count, initial_state).unwrap(),
                 expected_final_state
             );
         }
 
         #[test]
         fn empty() {
-            let program: Prog<PallasField> = Prog {
-                arguments: vec![],
-                return_count: 0,
-                statements: vec![],
-            };
+            let program: Prog<PallasField> = Prog::default();
             test(program, vec![], vec![vec![]; 3], vec![]);
         }
 
@@ -286,7 +292,13 @@ mod tests {
             let program: Prog<PallasField> = Prog {
                 arguments: vec![Parameter::public(Variable::new(0))],
                 return_count: 1,
-                statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+                statements: vec![Statement::constraint(
+                    Variable::new(0),
+                    Variable::public(0),
+                    None,
+                )],
+                module_map: Default::default(),
+                solvers: vec![],
             };
 
             test(
@@ -305,7 +317,10 @@ mod tests {
                 statements: vec![Statement::constraint(
                     LinComb::from(Variable::new(42)) + LinComb::one(),
                     Variable::public(0),
+                    None,
                 )],
+                module_map: Default::default(),
+                solvers: vec![],
             };
 
             test(
@@ -328,12 +343,16 @@ mod tests {
                     Statement::constraint(
                         LinComb::from(Variable::new(42)) + LinComb::from(Variable::new(51)),
                         Variable::public(0),
+                        None,
                     ),
                     Statement::constraint(
                         LinComb::from(Variable::new(51)) + LinComb::from(Variable::new(42)),
                         Variable::public(1),
+                        None,
                     ),
                 ],
+                module_map: Default::default(),
+                solvers: vec![],
             };
 
             test(
@@ -362,7 +381,10 @@ mod tests {
                 statements: vec![Statement::constraint(
                     LinComb::from(Variable::new(0)) + LinComb::from(Variable::new(1)),
                     Variable::public(0),
+                    None,
                 )],
+                module_map: Default::default(),
+                solvers: vec![],
             };
 
             test(
@@ -398,12 +420,16 @@ mod tests {
                     Statement::constraint(
                         LinComb::from(Variable::new(0)) + LinComb::from(Variable::new(2)),
                         Variable::public(0),
+                        None,
                     ),
                     Statement::constraint(
                         LinComb::from(Variable::new(1)) + LinComb::from(Variable::new(3)),
                         Variable::public(1),
+                        None,
                     ),
                 ],
+                module_map: Default::default(),
+                solvers: vec![],
             };
 
             test(

@@ -250,10 +250,16 @@ mod tests {
         #[test]
         fn empty() {
             let program: Prog<Bn128Field> = Prog::default();
-
             let interpreter = Interpreter::default();
 
-            let witness = interpreter.execute(program.clone(), &[]).unwrap();
+            let witness = interpreter
+                .execute(
+                    &[],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
+                .unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let rng = &mut StdRng::from_entropy();
@@ -278,7 +284,12 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone(), &[Bn128Field::from(0)])
+                .execute(
+                    &[Bn128Field::from(0)],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
                 .unwrap();
 
             let computation = Computation::with_witness(program, witness);
@@ -305,7 +316,12 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone(), &[Bn128Field::from(0)])
+                .execute(
+                    &[Bn128Field::from(0)],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
                 .unwrap();
 
             let computation = Computation::with_witness(program, witness);
@@ -331,7 +347,14 @@ mod tests {
 
             let interpreter = Interpreter::default();
 
-            let witness = interpreter.execute(program.clone(), &[]).unwrap();
+            let witness = interpreter
+                .execute(
+                    &[],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
+                .unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let rng = &mut StdRng::from_entropy();
@@ -368,7 +391,12 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone(), &[Bn128Field::from(3), Bn128Field::from(4)])
+                .execute(
+                    &[Bn128Field::from(3), Bn128Field::from(4)],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
@@ -394,7 +422,12 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone(), &[Bn128Field::from(3)])
+                .execute(
+                    &[Bn128Field::from(3)],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
                 .unwrap();
 
             let computation = Computation::with_witness(program, witness);
@@ -424,7 +457,12 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone(), &[Bn128Field::from(3), Bn128Field::from(4)])
+                .execute(
+                    &[Bn128Field::from(3), Bn128Field::from(4)],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 

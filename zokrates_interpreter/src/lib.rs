@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_abi::{Decode, Value};
 use zokrates_ast::ir::{
-    LinComb, ProgRefIterator, QuadComb, RuntimeError, Solver, Statement, Variable, Witness,
+    LinComb, Parameter, QuadComb, RuntimeError, Solver, Statement, Variable, Witness,
 };
 use zokrates_ast::zir::{self, Expr};
 use zokrates_field::Field;
@@ -26,12 +27,14 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<'ast, 'a, T: Field, I: IntoIterator<Item = &'a Statement<'ast, T>>>(
+    pub fn execute<'ast, T: Field, S: Borrow<Statement<'ast, T>>>(
         &self,
-        program: ProgRefIterator<'ast, 'a, T, I>,
         inputs: &[T],
+        statements: impl Iterator<Item = S>,
+        arguments: &[Parameter],
+        solvers: &[Solver<'ast, T>],
     ) -> ExecutionResult<T> {
-        self.execute_with_log_stream(program, inputs, &mut std::io::sink())
+        self.execute_with_log_stream(inputs, statements, arguments, solvers, &mut std::io::sink())
     }
 
     pub fn execute_with_log_stream<
@@ -39,23 +42,31 @@ impl Interpreter {
         'a,
         W: std::io::Write,
         T: Field,
-        I: IntoIterator<Item = &'a Statement<'ast, T>>,
+        S: Borrow<Statement<'ast, T>>,
     >(
         &self,
-        program: ProgRefIterator<'ast, 'a, T, I>,
         inputs: &[T],
+        statements: impl Iterator<Item = S>,
+        arguments: &[Parameter],
+        solvers: &[Solver<'ast, T>],
         log_stream: &mut W,
     ) -> ExecutionResult<T> {
-        self.check_inputs(&program, inputs)?;
+        if arguments.len() != inputs.len() {
+            return Err(Error::WrongInputCount {
+                expected: arguments.len(),
+                received: inputs.len(),
+            });
+        };
+
         let mut witness = Witness::default();
         witness.insert(Variable::one(), T::one());
 
-        for (arg, value) in program.arguments.iter().zip(inputs.iter()) {
+        for (arg, value) in arguments.iter().zip(inputs.iter()) {
             witness.insert(arg.id, *value);
         }
 
-        for statement in program.statements.into_iter() {
-            match statement {
+        for statement in statements {
+            match statement.borrow() {
                 Statement::Block(..) => unreachable!(),
                 Statement::Constraint(s) => match s.lin.is_assignee(&witness) {
                     true => {
@@ -66,7 +77,9 @@ impl Interpreter {
                         let lhs_value = evaluate_quad(&witness, &s.quad).unwrap();
                         let rhs_value = evaluate_lin(&witness, &s.lin).unwrap();
                         if lhs_value != rhs_value {
-                            return Err(Error::UnsatisfiedConstraint { error: s.error });
+                            return Err(Error::UnsatisfiedConstraint {
+                                error: s.error.clone(),
+                            });
                         }
                     }
                 },
@@ -84,7 +97,7 @@ impl Interpreter {
                                 inputs.pop().unwrap(),
                             ))
                         }
-                        _ => Self::execute_solver(&d.solver, &inputs, &program.solvers),
+                        _ => Self::execute_solver(&d.solver, &inputs, solvers),
                     }
                     .map_err(Error::Solver)?;
 
@@ -93,12 +106,12 @@ impl Interpreter {
                     }
                 }
                 Statement::Log(s) => {
-                    let mut parts = s.format_string.parts.into_iter();
+                    let mut parts = s.format_string.parts.iter();
 
                     write!(log_stream, "{}", parts.next().unwrap())
                         .map_err(|_| Error::LogStream)?;
 
-                    for ((t, e), part) in s.expressions.into_iter().zip(parts) {
+                    for ((t, e), part) in s.expressions.iter().zip(parts) {
                         let values: Vec<_> = e
                             .iter()
                             .map(|e| evaluate_lin(&witness, e).unwrap())
@@ -149,21 +162,6 @@ impl Interpreter {
                 }
             }))
             .collect()
-    }
-
-    fn check_inputs<'ast, 'a, T: Field, I: IntoIterator<Item = &'a Statement<'ast, T>>, U>(
-        &self,
-        program: &ProgRefIterator<'ast, 'a, T, I>,
-        inputs: &[U],
-    ) -> Result<(), Error> {
-        if program.arguments.len() == inputs.len() {
-            Ok(())
-        } else {
-            Err(Error::WrongInputCount {
-                expected: program.arguments.len(),
-                received: inputs.len(),
-            })
-        }
     }
 
     pub fn execute_solver<'ast, T: Field>(

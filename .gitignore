@@ -16,6 +16,7 @@ proof.json
 universal_setup.dat
 witness
 witness.json
+nova.params
 
 # ZoKrates source files at the root of the repository
 /*.zok

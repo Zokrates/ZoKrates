@@ -30,7 +30,12 @@ fn generate_proof() {
 
     let interpreter = Interpreter::default();
     let witness = interpreter
-        .execute(program.clone(), &[Bn128Field::from(42)])
+        .execute(
+            &[Bn128Field::from(42)],
+            program.statements.iter(),
+            &program.arguments,
+            &program.solvers,
+        )
         .unwrap();
 
     let rng = &mut StdRng::from_entropy();

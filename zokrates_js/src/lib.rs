@@ -250,7 +250,6 @@ impl<'a> Write for LogWriter<'a> {
 mod internal {
     use super::*;
     use rand_0_8::{CryptoRng, RngCore};
-    use zokrates_ast::ir::ProgRefIterator;
 
     pub fn compile<T: Field>(
         source: JsValue,
@@ -347,19 +346,18 @@ mod internal {
         };
 
         let interpreter = zokrates_interpreter::Interpreter::default();
-
         let public_inputs = program.public_inputs();
 
         let mut writer = LogWriter::new(log_callback);
 
-        let program = ProgRefIterator {
-            arguments: program.arguments,
-            return_count: program.return_count,
-            statements: program.statements.iter(),
-        };
-
         let witness = interpreter
-            .execute_with_log_stream(program, &inputs.encode(), &mut writer)
+            .execute_with_log_stream(
+                &inputs.encode(),
+                program.statements.into_iter(),
+                &program.arguments,
+                &program.solvers,
+                &mut writer,
+            )
             .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
 
         let return_values: serde_json::Value =

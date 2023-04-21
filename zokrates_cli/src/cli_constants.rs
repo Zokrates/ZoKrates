@@ -15,6 +15,7 @@ pub const UNIVERSAL_SETUP_DEFAULT_PATH: &str = "universal_setup.dat";
 pub const UNIVERSAL_SETUP_DEFAULT_SIZE: &str = "10";
 pub const SMTLIB2_DEFAULT_PATH: &str = "out.smt2";
 pub const MPC_DEFAULT_PATH: &str = "mpc.params";
+pub const NOVA_PARAMS_DEFAULT_PATH: &str = "nova.params";
 
 lazy_static! {
     pub static ref DEFAULT_STDLIB_PATH: String = dirs::home_dir()

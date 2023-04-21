@@ -5,7 +5,6 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-use zokrates_ast::ir::ProgRefIterator;
 use zokrates_ast::typed::types::GTupleType;
 use zokrates_ast::typed::ConcreteSignature;
 use zokrates_ast::typed::ConcreteType;
@@ -179,13 +178,8 @@ fn compile_and_run<T: Field>(t: Tests) {
                 .unwrap()
         };
 
-        let bin = ProgRefIterator {
-            arguments: bin.arguments.clone(),
-            return_count: bin.return_count,
-            statements: bin.statements.iter(),
-        };
-
-        let output = interpreter.execute(bin, &input);
+        let output =
+            interpreter.execute(&input, bin.statements.iter(), &bin.arguments, &bin.solvers);
 
         use zokrates_abi::Decode;
 
