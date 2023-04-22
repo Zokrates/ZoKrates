@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_cli"
-version = "0.8.6"
+version = "0.8.7"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>", "Thibaut Schaeffer <thibaut@schaeff.fr>"]
 repository = "https://github.com/Zokrates/ZoKrates.git"
 edition = "2018"
