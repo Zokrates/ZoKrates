@@ -1,4 +1,4 @@
-from "bigint" import bigint, bigint_lshift_limb;
+from "algebra/bigint" import bigint, bigint_lshift_limb;
 
 def main(bigint<2> a) -> bigint<2> {
     bigint<2> c = bigint_lshift_limb(a, 1);

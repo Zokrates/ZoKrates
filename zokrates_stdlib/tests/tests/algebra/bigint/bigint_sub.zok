@@ -1,4 +1,4 @@
-from "bigint" import bigint, bigint_sub;
+from "algebra/bigint" import bigint, bigint_sub;
 
 def main(bigint<2> a, bigint<2> b) -> bigint<2> {
     bigint<2> c = bigint_sub::<2, 8>(a, b);

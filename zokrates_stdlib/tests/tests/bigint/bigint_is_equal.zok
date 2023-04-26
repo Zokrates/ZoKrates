@@ -1,5 +1,0 @@
-from "bigint" import bigint, bigint_is_equal;
-
-def main(bigint<2> a, bigint<2> b) -> bool {
-    return bigint_is_equal(a, b);
-}

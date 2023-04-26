@@ -1,0 +1,5 @@
+from "algebra/bigint" import bigint, bigint_eq;
+
+def main(bigint<2> a, bigint<2> b) -> bool {
+    return bigint_eq(a, b);
+}
