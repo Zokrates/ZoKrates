@@ -1,0 +1,7 @@
+def main(field a, field b) -> field {
+    field mut c = 0;
+    asm {
+        c <== a * b;
+    }
+    return c;
+}

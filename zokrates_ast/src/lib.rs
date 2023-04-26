@@ -1,5 +1,3 @@
-#![feature(box_patterns, box_syntax)]
-
 pub mod common;
 pub mod flat;
 pub mod ir;

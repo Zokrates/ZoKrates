@@ -1,0 +1,14 @@
+from "EMBED" import field_to_bool_unsafe;
+from "field" import FIELD_SIZE_IN_BITS;
+from "./bitify" import bitify;
+
+def less_than<N>(field a, field b) -> bool {
+    assert(N < FIELD_SIZE_IN_BITS - 1);
+    field[N + 1] bits = bitify(a + 2**N - b);
+    bool out = field_to_bool_unsafe(1 - bits[0]);
+    return out;
+}
+
+def main(field a, field b) -> bool {
+    return less_than::<4>(a, b);
+}

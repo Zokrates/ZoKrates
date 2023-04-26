@@ -1,3 +1,4 @@
+pub mod rng;
 pub mod to_token;
 
 mod scheme;
@@ -10,9 +11,8 @@ pub use tagged::{TaggedKeypair, TaggedProof, TaggedVerificationKey};
 
 use zokrates_ast::ir;
 
+use rand_0_8::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
-
-use rand_0_4::Rng;
 use std::io::{Read, Write};
 
 use zokrates_field::Field;
@@ -45,7 +45,7 @@ pub type Fr = String;
 pub type Fq = String;
 pub type Fq2 = (String, String);
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct G1Affine(pub Fq, pub Fq);
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -96,47 +96,54 @@ impl ToString for G2AffineFq2 {
 }
 
 pub trait Backend<T: Field, S: Scheme<T>> {
-    fn generate_proof<I: IntoIterator<Item = ir::Statement<T>>>(
-        program: ir::ProgIterator<T, I>,
+    fn generate_proof<
+        'a,
+        I: IntoIterator<Item = ir::Statement<'a, T>>,
+        R: Read,
+        G: RngCore + CryptoRng,
+    >(
+        program: ir::ProgIterator<'a, T, I>,
         witness: ir::Witness<T>,
-        proving_key: Vec<u8>,
+        proving_key: R,
+        rng: &mut G,
     ) -> Proof<T, S>;
 
     fn verify(vk: S::VerificationKey, proof: Proof<T, S>) -> bool;
 }
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
-    fn setup<I: IntoIterator<Item = ir::Statement<T>>>(
-        program: ir::ProgIterator<T, I>,
+    fn setup<'a, I: IntoIterator<Item = ir::Statement<'a, T>>, R: RngCore + CryptoRng>(
+        program: ir::ProgIterator<'a, T, I>,
+        rng: &mut R,
     ) -> SetupKeypair<T, S>;
 }
 
 pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
-    fn universal_setup(size: u32) -> Vec<u8>;
+    fn universal_setup<R: RngCore + CryptoRng>(size: u32, rng: &mut R) -> Vec<u8>;
 
-    fn setup<I: IntoIterator<Item = ir::Statement<T>>>(
+    fn setup<'a, I: IntoIterator<Item = ir::Statement<'a, T>>>(
         srs: Vec<u8>,
-        program: ir::ProgIterator<T, I>,
+        program: ir::ProgIterator<'a, T, I>,
     ) -> Result<SetupKeypair<T, S>, String>;
 }
 
 pub trait MpcBackend<T: Field, S: Scheme<T>> {
-    fn initialize<R: Read, W: Write, I: IntoIterator<Item = ir::Statement<T>>>(
-        program: ir::ProgIterator<T, I>,
+    fn initialize<'a, R: Read, W: Write, I: IntoIterator<Item = ir::Statement<'a, T>>>(
+        program: ir::ProgIterator<'a, T, I>,
         phase1_radix: &mut R,
         output: &mut W,
     ) -> Result<(), String>;
 
-    fn contribute<R: Read, W: Write, G: Rng>(
-        params: &mut R,
+    fn contribute<R: Read, W: Write, G: RngCore + CryptoRng>(
+        params: R,
         rng: &mut G,
         output: &mut W,
     ) -> Result<[u8; 64], String>;
 
-    fn verify<P: Read, R: Read, I: IntoIterator<Item = ir::Statement<T>>>(
-        params: &mut P,
-        program: ir::ProgIterator<T, I>,
+    fn verify<'a, R: Read, I: IntoIterator<Item = ir::Statement<'a, T>>>(
+        params: R,
+        program: ir::ProgIterator<'a, T, I>,
         phase1_radix: &mut R,
     ) -> Result<Vec<[u8; 64]>, String>;
 
-    fn export_keypair<R: Read>(params: &mut R) -> Result<SetupKeypair<T, S>, String>;
+    fn export_keypair<R: Read>(params: R) -> Result<SetupKeypair<T, S>, String>;
 }

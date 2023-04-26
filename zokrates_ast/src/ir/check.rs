@@ -1,5 +1,5 @@
 use crate::ir::folder::Folder;
-use crate::ir::Directive;
+use crate::ir::DirectiveStatement;
 use crate::ir::Parameter;
 use crate::ir::ProgIterator;
 use crate::ir::Statement;
@@ -13,7 +13,9 @@ pub struct UnconstrainedVariableDetector {
 }
 
 impl UnconstrainedVariableDetector {
-    pub fn new<T: Field, I: IntoIterator<Item = Statement<T>>>(p: &ProgIterator<T, I>) -> Self {
+    pub fn new<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>>(
+        p: &ProgIterator<'ast, T, I>,
+    ) -> Self {
         UnconstrainedVariableDetector {
             variables: p
                 .arguments
@@ -32,7 +34,7 @@ impl UnconstrainedVariableDetector {
     }
 }
 
-impl<T: Field> Folder<T> for UnconstrainedVariableDetector {
+impl<'ast, T: Field> Folder<'ast, T> for UnconstrainedVariableDetector {
     fn fold_argument(&mut self, p: Parameter) -> Parameter {
         p
     }
@@ -40,8 +42,11 @@ impl<T: Field> Folder<T> for UnconstrainedVariableDetector {
         self.variables.remove(&v);
         v
     }
-    fn fold_directive(&mut self, d: Directive<T>) -> Directive<T> {
+    fn fold_directive_statement(
+        &mut self,
+        d: DirectiveStatement<'ast, T>,
+    ) -> Vec<Statement<'ast, T>> {
         self.variables.extend(d.outputs.iter());
-        d
+        vec![Statement::Directive(d)]
     }
 }

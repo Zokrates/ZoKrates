@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_proof_systems"
-version = "0.1.0"
+version = "0.1.3"
 edition = "2021"
 
 [dependencies]
@@ -12,5 +12,6 @@ regex = "0.2"
 cfg-if = "0.1"
 ethabi = "17.0.0"
 primitive-types = { version = "0.11", features = ["rlp"] }
-rand_0_4 = { version = "0.4", package = "rand" }
-getrandom = { version = "0.2", features = ["js"] }
+rand_0_8 = { version = "0.8", package = "rand" }
+blake2 = "0.8.1"
+byteorder = "1"

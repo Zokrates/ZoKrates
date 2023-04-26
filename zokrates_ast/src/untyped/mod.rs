@@ -8,17 +8,17 @@
 mod from_ast;
 mod node;
 pub mod parameter;
-mod position;
 pub mod types;
 pub mod variable;
 
 pub use self::node::{Node, NodeValue};
 pub use self::parameter::{Parameter, ParameterNode};
-pub use self::position::Position;
 use self::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use self::variable::{Variable, VariableNode};
 use crate::common::FlatEmbed;
-use std::path::{Path, PathBuf};
+pub use crate::common::Position;
+pub use crate::common::{ModuleId, OwnedModuleId};
+use std::path::Path;
 
 use std::fmt;
 
@@ -27,10 +27,6 @@ use std::collections::HashMap;
 
 /// An identifier of a function or a variable
 pub type Identifier<'ast> = &'ast str;
-
-/// The identifier of a `Module`, typically a path or uri
-pub type OwnedModuleId = PathBuf;
-pub type ModuleId = Path;
 
 /// A collection of `Module`s
 pub type Modules<'ast> = HashMap<OwnedModuleId, Module<'ast>>;
@@ -382,6 +378,33 @@ impl<'ast> fmt::Display for Assignee<'ast> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum AssemblyStatement<'ast> {
+    Assignment(AssigneeNode<'ast>, ExpressionNode<'ast>, bool),
+    Constraint(ExpressionNode<'ast>, ExpressionNode<'ast>),
+}
+
+pub type AssemblyStatementNode<'ast> = Node<AssemblyStatement<'ast>>;
+
+impl<'ast> fmt::Display for AssemblyStatement<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            AssemblyStatement::Assignment(ref lhs, ref rhs, ref constrained) => {
+                write!(
+                    f,
+                    "{} <{} {}",
+                    lhs,
+                    if *constrained { "==" } else { "--" },
+                    rhs
+                )
+            }
+            AssemblyStatement::Constraint(ref lhs, ref rhs) => {
+                write!(f, "{} === {}", lhs, rhs)
+            }
+        }
+    }
+}
+
 /// A statement in a `Function`
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq)]
@@ -397,6 +420,7 @@ pub enum Statement<'ast> {
         Vec<StatementNode<'ast>>,
     ),
     Log(&'ast str, Vec<ExpressionNode<'ast>>),
+    Assembly(Vec<AssemblyStatementNode<'ast>>),
 }
 
 pub type StatementNode<'ast> = Node<Statement<'ast>>;
@@ -431,7 +455,7 @@ impl<'ast> fmt::Display for Statement<'ast> {
             }
             Statement::Log(ref l, ref expressions) => write!(
                 f,
-                "log({}, {})",
+                "log({}, {});",
                 l,
                 expressions
                     .iter()
@@ -439,6 +463,13 @@ impl<'ast> fmt::Display for Statement<'ast> {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            Statement::Assembly(ref statements) => {
+                writeln!(f, "asm {{")?;
+                for s in statements {
+                    writeln!(f, "\t\t{};", s)?;
+                }
+                write!(f, "\t}}")
+            }
         }
     }
 }

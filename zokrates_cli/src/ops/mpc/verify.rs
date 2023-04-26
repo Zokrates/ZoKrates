@@ -46,7 +46,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("circuit").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
@@ -58,21 +58,22 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 }
 
 fn cli_mpc_verify<
+    'a,
     T: Field + BellmanFieldExtensions,
-    I: Iterator<Item = ir::Statement<T>>,
+    I: Iterator<Item = ir::Statement<'a, T>>,
     S: MpcScheme<T>,
     B: MpcBackend<T, S>,
 >(
-    program: ir::ProgIterator<T, I>,
+    program: ir::ProgIterator<'a, T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Verifying contributions...");
 
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
-    let mut reader = BufReader::new(file);
+    let reader = BufReader::new(file);
 
     let radix_path = Path::new(sub_matches.value_of("radix-path").unwrap());
     let radix_file = File::open(radix_path)
@@ -80,7 +81,7 @@ fn cli_mpc_verify<
 
     let mut radix_reader = BufReader::new(radix_file);
 
-    let result = B::verify(&mut reader, program, &mut radix_reader)
+    let result = B::verify(reader, program, &mut radix_reader)
         .map_err(|e| format!("Verification failed: {}", e))?;
 
     let contribution_count = result.len();

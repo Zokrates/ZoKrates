@@ -1,26 +1,25 @@
+use crate::common::LocalSourceSpan as Span;
 use std::fmt;
-use zokrates_pest_ast::Span;
+use zokrates_pest_ast::Span as PestSpan;
 
 #[derive(Clone)]
 pub struct Node<T> {
-    pub start: Position,
-    pub end: Position,
+    pub span: Span,
     pub value: T,
 }
 
 impl<T> Node<T> {
     pub fn mock(e: T) -> Self {
         Self {
-            start: Position::mock(),
-            end: Position::mock(),
+            span: Span::mock(),
             value: e,
         }
     }
 }
 
 impl<T: fmt::Display> Node<T> {
-    pub fn pos(&self) -> (Position, Position) {
-        (self.start, self.end)
+    pub fn span(&self) -> Span {
+        self.span
     }
 }
 
@@ -37,8 +36,11 @@ impl<T: fmt::Debug> fmt::Debug for Node<T> {
 }
 
 impl<T: fmt::Display> Node<T> {
-    pub fn new(start: Position, end: Position, value: T) -> Node<T> {
-        Node { start, end, value }
+    pub fn new(from: Position, to: Position, value: T) -> Node<T> {
+        Node {
+            span: Span { from, to },
+            value,
+        }
     }
 }
 
@@ -56,7 +58,7 @@ pub trait NodeValue: fmt::Display + fmt::Debug + Sized + PartialEq {
         Node::new(Position::mock(), Position::mock(), self)
     }
 
-    fn span(self, span: Span) -> Node<Self> {
+    fn span(self, span: PestSpan) -> Node<Self> {
         let from = span.start_pos().line_col();
         let to = span.end_pos().line_col();
 
@@ -84,6 +86,7 @@ use super::*;
 impl<'ast> NodeValue for Expression<'ast> {}
 impl<'ast> NodeValue for Assignee<'ast> {}
 impl<'ast> NodeValue for Statement<'ast> {}
+impl<'ast> NodeValue for AssemblyStatement<'ast> {}
 impl<'ast> NodeValue for SymbolDeclaration<'ast> {}
 impl<'ast> NodeValue for UnresolvedType<'ast> {}
 impl<'ast> NodeValue for StructDefinition<'ast> {}

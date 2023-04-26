@@ -5,9 +5,11 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use zokrates_common::constants::BN128;
-use zokrates_common::helpers::CurveParameter;
-use zokrates_core::compile::{check, CompileConfig, CompileError};
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_common::{helpers::CurveParameter, CompileConfig};
+use zokrates_core::compile::{check, CompileError};
+use zokrates_field::{
+    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField, VestaField,
+};
 use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -56,6 +58,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         CurveParameter::Bls12_377 => cli_check::<Bls12_377Field>(sub_matches),
         CurveParameter::Bls12_381 => cli_check::<Bls12_381Field>(sub_matches),
         CurveParameter::Bw6_761 => cli_check::<Bw6_761Field>(sub_matches),
+        CurveParameter::Pallas => cli_check::<PallasField>(sub_matches),
+        CurveParameter::Vesta => cli_check::<VestaField>(sub_matches),
     }
 }
 

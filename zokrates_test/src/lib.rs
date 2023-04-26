@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use zokrates_ast::typed::types::GTupleType;
 use zokrates_ast::typed::ConcreteSignature;
 use zokrates_ast::typed::ConcreteType;
-use zokrates_core::compile::{compile, CompileConfig};
+use zokrates_common::CompileConfig;
+use zokrates_core::compile::compile;
 
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
@@ -177,7 +178,8 @@ fn compile_and_run<T: Field>(t: Tests) {
                 .unwrap()
         };
 
-        let output = interpreter.execute(bin.clone(), &input);
+        let output =
+            interpreter.execute(&input, bin.statements.iter(), &bin.arguments, &bin.solvers);
 
         use zokrates_abi::Decode;
 

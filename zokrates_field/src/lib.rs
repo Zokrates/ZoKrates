@@ -4,11 +4,10 @@
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 
-extern crate num_bigint;
-
-#[cfg(feature = "bellman")]
+#[cfg(feature = "bellman_extensions")]
 use bellman_ce::pairing::{ff::ScalarEngine, Engine};
-
+#[cfg(feature = "bellperson_extensions")]
+use nova_snark::provider::pedersen::CommitmentEngine;
 use num_bigint::BigUint;
 use num_traits::{CheckedDiv, One, Zero};
 use serde::{Deserialize, Serialize};
@@ -16,14 +15,27 @@ use std::convert::{From, TryFrom};
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
+use std::io::{Read, Write};
 use std::ops::{Add, Div, Mul, Sub};
+
+#[cfg(feature = "bellperson_extensions")]
+use nova_snark::traits::Group;
 
 pub trait Pow<RHS> {
     type Output;
     fn pow(self, _: RHS) -> Self::Output;
 }
 
-#[cfg(feature = "bellman")]
+#[cfg(feature = "bellperson_extensions")]
+pub trait Cycle {
+    type Other: Field + BellpersonFieldExtensions + Cycle<Other = Self>;
+    type Point: Group<
+        Base = <<Self::Other as Cycle>::Point as Group>::Scalar,
+        CE = CommitmentEngine<Self::Point>,
+    >;
+}
+
+#[cfg(feature = "bellman_extensions")]
 pub trait BellmanFieldExtensions {
     /// An associated type to be able to operate with Bellman ff traits
     type BellmanEngine: Engine;
@@ -33,6 +45,14 @@ pub trait BellmanFieldExtensions {
     fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
 }
 
+#[cfg(feature = "bellperson_extensions")]
+pub trait BellpersonFieldExtensions {
+    /// An associated type to be able to operate with Bellperson ff traits
+    type BellpersonField: ff::PrimeField;
+
+    fn from_bellperson(e: Self::BellpersonField) -> Self;
+    fn into_bellperson(self) -> Self::BellpersonField;
+}
 pub trait ArkFieldExtensions {
     /// An associated type to be able to operate with ark ff traits
     type ArkEngine: ark_ec::PairingEngine;
@@ -70,6 +90,7 @@ pub trait Field:
     + Zero
     + One
     + Clone
+    + Copy
     + PartialEq
     + Eq
     + Hash
@@ -95,6 +116,10 @@ pub trait Field:
     + num_traits::CheckedMul
 {
     const G2_TYPE: G2Type = G2Type::Fq2;
+    // Read field from the reader
+    fn read<R: Read>(reader: R) -> std::io::Result<Self>;
+    // Write field to the writer
+    fn write<W: Write>(&self, writer: W) -> std::io::Result<()>;
     /// Returns this `Field`'s contents as little-endian byte vector
     fn to_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
@@ -144,11 +169,12 @@ mod prime_field {
             use std::convert::TryFrom;
             use std::fmt;
             use std::fmt::{Debug, Display};
+            use std::io::{Read, Write};
             use std::ops::{Add, Div, Mul, Sub};
 
-            type Fr = <$v as ark_ec::PairingEngine>::Fr;
+            type Fr = $v;
 
-            #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash)]
+            #[derive(PartialEq, PartialOrd, Clone, Copy, Eq, Ord, Hash)]
             pub struct FieldPrime {
                 v: Fr,
             }
@@ -186,9 +212,21 @@ mod prime_field {
                     self.v.into_repr().to_bytes_le()
                 }
 
+                fn read<R: Read>(reader: R) -> std::io::Result<Self> {
+                    use ark_ff::FromBytes;
+                    Ok(FieldPrime {
+                        v: Fr::read(reader)?,
+                    })
+                }
+
+                fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+                    use ark_ff::ToBytes;
+                    self.v.write(&mut writer)?;
+                    Ok(())
+                }
+
                 fn from_byte_vector(bytes: Vec<u8>) -> Self {
                     use ark_ff::FromBytes;
-
                     FieldPrime {
                         v: Fr::from(<Fr as PrimeField>::BigInt::read(&bytes[..]).unwrap()),
                     }
@@ -574,7 +612,7 @@ mod prime_field {
         };
     }
 
-    #[cfg(feature = "bellman")]
+    #[cfg(feature = "bellman_extensions")]
     macro_rules! bellman_extensions {
         ($bellman_type:ty, $fq2_type:ident) => {
             use crate::BellmanFieldExtensions;
@@ -591,9 +629,12 @@ mod prime_field {
                 }
 
                 fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr {
-                    use bellman_ce::pairing::ff::PrimeField;
-                    let s = self.to_dec_string();
-                    <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
+                    use bellman_ce::pairing::ff::{PrimeField, PrimeFieldRepr};
+                    let bytes = self.to_byte_vector();
+                    let mut repr =
+                        <<Self::BellmanEngine as ScalarEngine>::Fr as PrimeField>::Repr::default();
+                    repr.read_le(bytes.as_slice()).unwrap();
+                    <Self::BellmanEngine as ScalarEngine>::Fr::from_repr(repr).unwrap()
                 }
 
                 fn new_fq2(
@@ -604,6 +645,29 @@ mod prime_field {
                         c0: bellman_ce::pairing::from_hex(c0).unwrap(),
                         c1: bellman_ce::pairing::from_hex(c1).unwrap(),
                     }
+                }
+            }
+        };
+    }
+
+    #[cfg(feature = "bellperson")]
+    macro_rules! bellperson_extensions {
+        ($bellperson_type:ty) => {
+            use crate::BellpersonFieldExtensions;
+
+            impl BellpersonFieldExtensions for FieldPrime {
+                type BellpersonField = $bellperson_type;
+
+                fn from_bellperson(e: Self::BellpersonField) -> Self {
+                    use ff::PrimeField;
+                    let res = e.to_repr().to_vec();
+                    Self::from_byte_vector(res)
+                }
+
+                fn into_bellperson(self) -> Self::BellpersonField {
+                    use ff::PrimeField;
+                    let bytes = self.to_byte_vector();
+                    Self::BellpersonField::from_repr_vartime(bytes.try_into().unwrap()).unwrap()
                 }
             }
         };
@@ -633,9 +697,13 @@ pub mod bls12_381;
 pub mod bn128;
 pub mod bw6_761;
 pub mod dummy_curve;
+pub mod pallas;
+pub mod vesta;
 
 pub use bls12_377::FieldPrime as Bls12_377Field;
 pub use bls12_381::FieldPrime as Bls12_381Field;
 pub use bn128::FieldPrime as Bn128Field;
 pub use bw6_761::FieldPrime as Bw6_761Field;
 pub use dummy_curve::FieldPrime as DummyCurveField;
+pub use pallas::FieldPrime as PallasField;
+pub use vesta::FieldPrime as VestaField;

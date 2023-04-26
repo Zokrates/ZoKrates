@@ -42,7 +42,7 @@ declare module "zokrates-js" {
   }
 
   export interface ComputationResult {
-    witness: string;
+    witness: Uint8Array;
     output: string;
     snarkjs?: {
       witness: Uint8Array;
@@ -60,6 +60,7 @@ declare module "zokrates-js" {
     snarkjs?: {
       program: Uint8Array;
     };
+    constraintCount?: number;
   }
 
   export interface SetupKeypair {
@@ -84,13 +85,14 @@ declare module "zokrates-js" {
       args: any[],
       options?: ComputeOptions
     ): ComputationResult;
-    setup(program: Uint8Array): SetupKeypair;
-    universalSetup(size: number): Uint8Array;
+    setup(program: Uint8Array, entropy?: string): SetupKeypair;
+    universalSetup(size: number, entropy?: string): Uint8Array;
     setupWithSrs(srs: Uint8Array, program: Uint8Array): SetupKeypair;
     generateProof(
       program: Uint8Array,
-      witness: string,
-      provingKey: Uint8Array
+      witness: Uint8Array,
+      provingKey: Uint8Array,
+      entropy?: string
     ): Proof;
     verify(verificationKey: VerificationKey, proof: Proof): boolean;
     exportSolidityVerifier(verificationKey: VerificationKey): string;

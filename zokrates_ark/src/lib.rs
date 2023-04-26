@@ -8,8 +8,8 @@ use ark_relations::r1cs::{
     SynthesisError, Variable as ArkVariable,
 };
 use std::collections::BTreeMap;
-use zokrates_ast::common::Variable;
-use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
+use zokrates_ast::common::flat::Variable;
+use zokrates_ast::ir::{LinComb, ProgIterator, Statement, Witness};
 use zokrates_field::{ArkFieldExtensions, Field};
 
 pub use self::parse::*;
@@ -17,20 +17,20 @@ pub use self::parse::*;
 pub struct Ark;
 
 #[derive(Clone)]
-pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
-    program: ProgIterator<T, I>,
+pub struct Computation<'a, T, I: IntoIterator<Item = Statement<'a, T>>> {
+    program: ProgIterator<'a, T, I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
-    pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
+impl<'a, T, I: IntoIterator<Item = Statement<'a, T>>> Computation<'a, T, I> {
+    pub fn with_witness(program: ProgIterator<'a, T, I>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
         }
     }
 
-    pub fn without_witness(program: ProgIterator<T, I>) -> Self {
+    pub fn without_witness(program: ProgIterator<'a, T, I>) -> Self {
         Computation {
             program,
             witness: None,
@@ -39,12 +39,13 @@ impl<T, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
 }
 
 fn ark_combination<T: Field + ArkFieldExtensions>(
-    l: CanonicalLinComb<T>,
+    l: LinComb<T>,
     cs: &mut ConstraintSystem<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
     symbols: &mut BTreeMap<Variable, ArkVariable>,
     witness: &mut Witness<T>,
 ) -> LinearCombination<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr> {
-    l.0.into_iter()
+    l.value
+        .into_iter()
         .map(|(k, v)| {
             (
                 v.into_ark(),
@@ -72,9 +73,9 @@ fn ark_combination<T: Field + ArkFieldExtensions>(
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
+impl<'a, T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<'a, T>>>
     ConstraintSynthesizer<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>
-    for Computation<T, I>
+    for Computation<'a, T, I>
 {
     fn generate_constraints(
         self,
@@ -112,25 +113,10 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
                 }));
 
                 for statement in self.program.statements {
-                    if let Statement::Constraint(quad, lin, _) = statement {
-                        let a = ark_combination(
-                            quad.left.clone().into_canonical(),
-                            &mut cs,
-                            &mut symbols,
-                            &mut witness,
-                        );
-                        let b = ark_combination(
-                            quad.right.clone().into_canonical(),
-                            &mut cs,
-                            &mut symbols,
-                            &mut witness,
-                        );
-                        let c = ark_combination(
-                            lin.into_canonical(),
-                            &mut cs,
-                            &mut symbols,
-                            &mut witness,
-                        );
+                    if let Statement::Constraint(s) = statement {
+                        let a = ark_combination(s.quad.left, &mut cs, &mut symbols, &mut witness);
+                        let b = ark_combination(s.quad.right, &mut cs, &mut symbols, &mut witness);
+                        let c = ark_combination(s.lin, &mut cs, &mut symbols, &mut witness);
 
                         cs.enforce_constraint(a, b, c)?;
                     }
@@ -143,12 +129,14 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
     }
 }
 
-impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+impl<'a, T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<'a, T>>>
+    Computation<'a, T, I>
+{
     pub fn public_inputs_values(&self) -> Vec<<T::ArkEngine as PairingEngine>::Fr> {
         self.program
             .public_inputs_values(self.witness.as_ref().unwrap())
             .iter()
-            .map(|v| v.clone().into_ark())
+            .map(|v| v.into_ark())
             .collect()
     }
 }

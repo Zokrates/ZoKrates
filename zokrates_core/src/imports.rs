@@ -13,43 +13,43 @@ use std::path::{Path, PathBuf};
 use zokrates_ast::untyped::*;
 
 use typed_arena::Arena;
-use zokrates_ast::common::FlatEmbed;
+use zokrates_ast::common::{FlatEmbed, SourceSpan};
 use zokrates_ast::untyped::types::UnresolvedType;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Error {
-    pos: Option<(Position, Position)>,
+    span: Option<SourceSpan>,
     message: String,
 }
 
 impl Error {
     pub fn new<T: Into<String>>(message: T) -> Error {
         Error {
-            pos: None,
+            span: None,
             message: message.into(),
         }
     }
 
-    pub fn pos(&self) -> &Option<(Position, Position)> {
-        &self.pos
+    pub fn span(&self) -> &Option<SourceSpan> {
+        &self.span
     }
 
     pub fn message(&self) -> &str {
         &self.message
     }
 
-    fn with_pos(self, pos: Option<(Position, Position)>) -> Error {
-        Error { pos, ..self }
+    fn with_span(self, span: Option<SourceSpan>) -> Error {
+        Error { span, ..self }
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let location = self
-            .pos
-            .map(|p| format!("{}", p.0))
+            .span
+            .map(|p| format!("{}", p.from))
             .unwrap_or_else(|| "?".to_string());
         write!(f, "{}\n\t{}", location, self.message)
     }
@@ -58,7 +58,7 @@ impl fmt::Display for Error {
 impl From<io::Error> for Error {
     fn from(error: io::Error) -> Self {
         Error {
-            pos: None,
+            span: None,
             message: format!("I/O Error: {}", error),
         }
     }
@@ -95,7 +95,7 @@ impl Importer {
         modules: &mut HashMap<OwnedModuleId, Module<'ast>>,
         arena: &'ast Arena<String>,
     ) -> Result<SymbolDeclarationNode<'ast>, CompileErrors> {
-        let pos = import.pos();
+        let span = import.span().in_module(location);
         let module_id = import.value.source;
         let symbol = import.value.id;
 
@@ -111,7 +111,7 @@ impl Importer {
                                 Bn128Field::name(),
                                 T::name()
                             ))
-                            .with_pos(Some(pos)),
+                            .with_span(Some(span)),
                         )
                         .in_file(location)
                         .into());
@@ -132,7 +132,7 @@ impl Importer {
                                 Bw6_761Field::name(),
                                 T::name()
                             ))
-                            .with_pos(Some(pos)),
+                            .with_span(Some(span)),
                         )
                         .in_file(location)
                         .into());
@@ -146,6 +146,10 @@ impl Importer {
                 "unpack" => SymbolDeclaration {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::Unpack),
+                },
+                "field_to_bool_unsafe" => SymbolDeclaration {
+                    id: symbol.get_alias(),
+                    symbol: Symbol::Flat(FlatEmbed::FieldToBoolUnsafe),
                 },
                 "bit_array_le" => SymbolDeclaration {
                     id: symbol.get_alias(),
@@ -191,12 +195,12 @@ impl Importer {
                             expression: Expression::U32Constant(T::get_required_bits() as u32)
                                 .into(),
                         }
-                        .start_end(pos.0, pos.1),
+                        .start_end(span.from, span.to),
                     )),
                 },
                 s => {
                     return Err(CompileErrorInner::ImportError(
-                        Error::new(format!("Embed {} not found", s)).with_pos(Some(pos)),
+                        Error::new(format!("Embed {} not found", s)).with_span(Some(span)),
                     )
                     .in_file(location)
                     .into());
@@ -241,16 +245,16 @@ impl Importer {
                             id: alias,
                             symbol: Symbol::There(
                                 SymbolImport::with_id_in_module(symbol.id, new_location)
-                                    .start_end(pos.0, pos.1),
+                                    .start_end(span.from, span.to),
                             ),
                         }
                     }
                     Err(err) => {
-                        return Err(
-                            CompileErrorInner::ImportError(err.into().with_pos(Some(pos)))
-                                .in_file(location)
-                                .into(),
-                        );
+                        return Err(CompileErrorInner::ImportError(
+                            err.into().with_span(Some(span)),
+                        )
+                        .in_file(location)
+                        .into());
                     }
                 },
                 None => {
@@ -263,6 +267,6 @@ impl Importer {
             },
         };
 
-        Ok(symbol_declaration.start_end(pos.0, pos.1))
+        Ok(symbol_declaration.start_end(span.from, span.to))
     }
 }

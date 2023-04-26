@@ -1,0 +1,4 @@
+def main(u32 N) {
+    field[N] a = [0; N];
+    return;
+}

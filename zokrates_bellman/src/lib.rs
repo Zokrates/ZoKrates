@@ -10,32 +10,33 @@ use bellman::{
     Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable as BellmanVariable,
 };
 use std::collections::BTreeMap;
-use zokrates_ast::common::Variable;
-use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
+use zokrates_ast::common::flat::Variable;
+use zokrates_ast::ir::{LinComb, ProgIterator, Statement, Witness};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
 use rand_0_4::ChaChaRng;
+use rand_0_8::{CryptoRng, RngCore};
 
 pub use self::parse::*;
 
 pub struct Bellman;
 
 #[derive(Clone)]
-pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
-    program: ProgIterator<T, I>,
+pub struct Computation<'a, T, I: IntoIterator<Item = Statement<'a, T>>> {
+    program: ProgIterator<'a, T, I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T: Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
-    pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
+impl<'a, T: Field, I: IntoIterator<Item = Statement<'a, T>>> Computation<'a, T, I> {
+    pub fn with_witness(program: ProgIterator<'a, T, I>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
         }
     }
 
-    pub fn without_witness(program: ProgIterator<T, I>) -> Self {
+    pub fn without_witness(program: ProgIterator<'a, T, I>) -> Self {
         Computation {
             program,
             witness: None,
@@ -44,12 +45,13 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
 }
 
 fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::BellmanEngine>>(
-    l: CanonicalLinComb<T>,
+    l: LinComb<T>,
     cs: &mut CS,
     symbols: &mut BTreeMap<Variable, BellmanVariable>,
     witness: &mut Witness<T>,
 ) -> LinearCombination<T::BellmanEngine> {
-    l.0.into_iter()
+    l.value
+        .into_iter()
         .map(|(k, v)| {
             (
                 v.into_bellman(),
@@ -83,8 +85,8 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
-    Circuit<T::BellmanEngine> for Computation<T, I>
+impl<'a, T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<'a, T>>>
+    Circuit<T::BellmanEngine> for Computation<'a, T, I>
 {
     fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
@@ -125,20 +127,10 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
         }));
 
         for statement in self.program.statements {
-            if let Statement::Constraint(quad, lin, _) = statement {
-                let a = &bellman_combination(
-                    quad.left.into_canonical(),
-                    cs,
-                    &mut symbols,
-                    &mut witness,
-                );
-                let b = &bellman_combination(
-                    quad.right.into_canonical(),
-                    cs,
-                    &mut symbols,
-                    &mut witness,
-                );
-                let c = &bellman_combination(lin.into_canonical(), cs, &mut symbols, &mut witness);
+            if let Statement::Constraint(s) = statement {
+                let a = &bellman_combination(s.quad.left, cs, &mut symbols, &mut witness);
+                let b = &bellman_combination(s.quad.right, cs, &mut symbols, &mut witness);
+                let c = &bellman_combination(s.lin, cs, &mut symbols, &mut witness);
 
                 cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
             }
@@ -148,22 +140,28 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
     }
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
-    fn get_random_seed(&self) -> Result<[u32; 8], getrandom::Error> {
-        let mut seed = [0u8; 32];
-        getrandom::getrandom(&mut seed)?;
+pub fn get_random_seed<R: RngCore + CryptoRng>(rng: &mut R) -> [u32; 8] {
+    let mut seed = [0u8; 32];
+    rng.fill_bytes(&mut seed);
 
-        use std::mem::transmute;
-        // This is safe because we are just reinterpreting the bytes (u8[32] -> u32[8]),
-        // byte order or the actual content does not matter here as this is used
-        // as a random seed for the rng.
-        let seed: [u32; 8] = unsafe { transmute(seed) };
-        Ok(seed)
-    }
+    use std::mem::transmute;
+    // This is safe because we are just reinterpreting the bytes (u8[32] -> u32[8]),
+    // byte order or the actual content does not matter here as this is used
+    // as a random seed for the rng (rand 0.4)
+    let seed: [u32; 8] = unsafe { transmute(seed) };
+    seed
+}
 
-    pub fn prove(self, params: &Parameters<T::BellmanEngine>) -> Proof<T::BellmanEngine> {
+impl<'a, T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<'a, T>>>
+    Computation<'a, T, I>
+{
+    pub fn prove<R: RngCore + CryptoRng>(
+        self,
+        params: &Parameters<T::BellmanEngine>,
+        rng: &mut R,
+    ) -> Proof<T::BellmanEngine> {
         use rand_0_4::SeedableRng;
-        let seed = self.get_random_seed().unwrap();
+        let seed = get_random_seed(rng);
         let rng = &mut ChaChaRng::from_seed(seed.as_ref());
 
         // extract public inputs
@@ -182,13 +180,13 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Co
         self.program
             .public_inputs_values(self.witness.as_ref().unwrap())
             .iter()
-            .map(|v| v.clone().into_bellman())
+            .map(|v| v.into_bellman())
             .collect()
     }
 
-    pub fn setup(self) -> Parameters<T::BellmanEngine> {
+    pub fn setup<R: RngCore + CryptoRng>(self, rng: &mut R) -> Parameters<T::BellmanEngine> {
         use rand_0_4::SeedableRng;
-        let seed = self.get_random_seed().unwrap();
+        let seed = get_random_seed(rng);
         let rng = &mut ChaChaRng::from_seed(seed.as_ref());
         // run setup phase
         generate_random_parameters(self, rng).unwrap()
@@ -244,77 +242,124 @@ mod tests {
 
     mod prove {
         use super::*;
+        use rand_0_8::rngs::StdRng;
+        use rand_0_8::SeedableRng;
         use zokrates_ast::flat::Parameter;
         use zokrates_ast::ir::Prog;
 
         #[test]
         fn empty() {
             let program: Prog<Bn128Field> = Prog::default();
-
             let interpreter = Interpreter::default();
 
-            let witness = interpreter.execute(program.clone(), &[]).unwrap();
+            let witness = interpreter
+                .execute(
+                    &[],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
+                .unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
         fn identity() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![Parameter::private(Variable::new(0))],
                 return_count: 1,
-                statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+                statements: vec![Statement::constraint(
+                    Variable::new(0),
+                    Variable::public(0),
+                    None,
+                )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone(), &[Bn128Field::from(0)])
+                .execute(
+                    &[Bn128Field::from(0)],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
                 .unwrap();
 
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
         fn public_identity() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![Parameter::public(Variable::new(0))],
                 return_count: 1,
-                statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+                statements: vec![Statement::constraint(
+                    Variable::new(0),
+                    Variable::public(0),
+                    None,
+                )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone(), &[Bn128Field::from(0)])
+                .execute(
+                    &[Bn128Field::from(0)],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
                 .unwrap();
 
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
         fn no_arguments() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![],
                 return_count: 1,
-                statements: vec![Statement::constraint(Variable::one(), Variable::public(0))],
+                statements: vec![Statement::constraint(
+                    Variable::one(),
+                    Variable::public(0),
+                    None,
+                )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
 
-            let witness = interpreter.execute(program.clone(), &[]).unwrap();
+            let witness = interpreter
+                .execute(
+                    &[],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
+                .unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
@@ -322,6 +367,7 @@ mod tests {
             // public variables must be ordered from 0
             // private variables can be unordered
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![
                     Parameter::private(Variable::new(42)),
                     Parameter::public(Variable::new(51)),
@@ -331,51 +377,70 @@ mod tests {
                     Statement::constraint(
                         LinComb::from(Variable::new(42)) + LinComb::from(Variable::new(51)),
                         Variable::public(0),
+                        None,
                     ),
                     Statement::constraint(
                         LinComb::from(Variable::one()) + LinComb::from(Variable::new(42)),
                         Variable::public(1),
+                        None,
                     ),
                 ],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone(), &[Bn128Field::from(3), Bn128Field::from(4)])
+                .execute(
+                    &[Bn128Field::from(3), Bn128Field::from(4)],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
         fn one() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![Parameter::public(Variable::new(42))],
                 return_count: 1,
                 statements: vec![Statement::constraint(
                     LinComb::from(Variable::new(42)) + LinComb::one(),
                     Variable::public(0),
+                    None,
                 )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone(), &[Bn128Field::from(3)])
+                .execute(
+                    &[Bn128Field::from(3)],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
                 .unwrap();
 
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
 
         #[test]
         fn with_directives() {
             let program: Prog<Bn128Field> = Prog {
+                module_map: Default::default(),
                 arguments: vec![
                     Parameter::private(Variable::new(42)),
                     Parameter::public(Variable::new(51)),
@@ -384,18 +449,26 @@ mod tests {
                 statements: vec![Statement::constraint(
                     LinComb::from(Variable::new(42)) + LinComb::from(Variable::new(51)),
                     Variable::public(0),
+                    None,
                 )],
+                solvers: vec![],
             };
 
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone(), &[Bn128Field::from(3), Bn128Field::from(4)])
+                .execute(
+                    &[Bn128Field::from(3), Bn128Field::from(4)],
+                    program.statements.iter(),
+                    &program.arguments,
+                    &program.solvers,
+                )
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
+            let rng = &mut StdRng::from_entropy();
+            let params = computation.clone().setup(rng);
+            let _proof = computation.prove(&params, rng);
         }
     }
 }

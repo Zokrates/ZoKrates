@@ -4,8 +4,8 @@ extern crate zokrates_field;
 
 use std::io;
 use typed_arena::Arena;
+use zokrates_common::CompileConfig;
 use zokrates_common::Resolver;
-use zokrates_core::compile::CompileConfig;
 use zokrates_core::compile::{compile, CompilationArtifacts};
 use zokrates_field::Bn128Field;
 use zokrates_fs_resolver::FileSystemResolver;
@@ -38,11 +38,14 @@ fn lt_field() {
     .unwrap();
 
     let interpreter = Interpreter::try_out_of_range();
+    let prog = res.prog();
 
     assert!(interpreter
         .execute(
-            res.prog(),
-            &[Bn128Field::from(10000), Bn128Field::from(5555)]
+            &[Bn128Field::from(10000), Bn128Field::from(5555)],
+            prog.statements.into_iter(),
+            &prog.arguments,
+            &prog.solvers
         )
         .is_err());
 }
@@ -74,11 +77,14 @@ fn lt_uint() {
     .unwrap();
 
     let interpreter = Interpreter::try_out_of_range();
+    let prog = res.prog();
 
     assert!(interpreter
         .execute(
-            res.prog(),
-            &[Bn128Field::from(10000), Bn128Field::from(5555)]
+            &[Bn128Field::from(10000), Bn128Field::from(5555)],
+            prog.statements.into_iter(),
+            &prog.arguments,
+            &prog.solvers
         )
         .is_err());
 }
@@ -121,9 +127,15 @@ fn unpack256() {
     .unwrap();
 
     let interpreter = Interpreter::try_out_of_range();
+    let prog = res.prog();
 
     assert!(interpreter
-        .execute(res.prog(), &[Bn128Field::from(0)])
+        .execute(
+            &[Bn128Field::from(0)],
+            prog.statements.into_iter(),
+            &prog.arguments,
+            &prog.solvers
+        )
         .is_err());
 }
 
@@ -165,8 +177,14 @@ fn unpack256_unchecked() {
     .unwrap();
 
     let interpreter = Interpreter::try_out_of_range();
+    let prog = res.prog();
 
     assert!(interpreter
-        .execute(res.prog(), &[Bn128Field::from(0)])
+        .execute(
+            &[Bn128Field::from(0)],
+            prog.statements.into_iter(),
+            &prog.arguments,
+            &prog.solvers
+        )
         .is_ok());
 }

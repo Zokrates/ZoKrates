@@ -31,7 +31,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
@@ -40,17 +40,22 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         ProgEnum::Bls12_377Program(p) => cli_inspect(p, sub_matches),
         ProgEnum::Bls12_381Program(p) => cli_inspect(p, sub_matches),
         ProgEnum::Bw6_761Program(p) => cli_inspect(p, sub_matches),
+        ProgEnum::PallasProgram(p) => cli_inspect(p, sub_matches),
+        ProgEnum::VestaProgram(p) => cli_inspect(p, sub_matches),
     }
 }
 
-fn cli_inspect<T: Field, I: Iterator<Item = ir::Statement<T>>>(
-    ir_prog: ir::ProgIterator<T, I>,
+fn cli_inspect<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
+    ir_prog: ir::ProgIterator<'a, T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     let ir_prog: ir::Prog<T> = ir_prog.collect();
 
     let curve = format!("{:<17} {}", "curve:", T::name());
     let constraint_count = format!("{:<17} {}", "constraint_count:", ir_prog.constraint_count());
+
+    println!("{}", curve);
+    println!("{}", constraint_count);
 
     if sub_matches.is_present("ztf") {
         let output_path =

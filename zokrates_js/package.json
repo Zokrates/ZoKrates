@@ -1,8 +1,8 @@
 {
   "name": "zokrates-js",
-  "version": "1.1.4",
+  "version": "1.1.8",
   "module": "index.js",
-  "main": "node/index.js",
+  "main": "index-node.js",
   "description": "JavaScript bindings for ZoKrates",
   "contributors": [
     "Darko Macesic <darem966@gmail.com>",
@@ -15,38 +15,46 @@
   ],
   "license": "GPLv3",
   "files": [
-    "node",
-    "pkg",
     "index.js",
+    "index-node.js",
     "index.d.ts",
-    "lib.js",
-    "metadata.js"
+    "wasm.js",
+    "metadata.js",
+    "umd.min.js"
   ],
   "types": "index.d.ts",
+  "type": "module",
   "exports": {
-    "node": "./node/index.js",
+    "node": "./index-node.js",
     "default": "./index.js"
   },
   "scripts": {
-    "wasm-pack": "wasm-pack build --out-name index",
+    "wasm-pack": "wasm-pack build --out-name index --target web",
     "prebuild": "npm install",
-    "build": "npm run build:bundler && npm run build:node",
-    "build:dev": "npm run build:bundler:dev && npm run build:node:dev",
-    "build:bundler": "rimraf pkg && npm run wasm-pack -- --target bundler --release && npm run clean-pkg",
-    "build:bundler:dev": "rimraf pkg && npm run wasm-pack -- --target bundler --dev && npm run clean-pkg",
-    "build:node": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --release && npm run clean-node-pkg",
-    "build:node:dev": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --dev && npm run clean-node-pkg",
-    "clean-pkg": "rimraf pkg/README.md pkg/.gitignore pkg/package.json pkg/*.d.ts",
-    "clean-node-pkg": "rimraf node/pkg/README.md node/pkg/.gitignore node/pkg/package.json node/pkg/*.d.ts",
-    "pretest": "npm run build:node:dev",
+    "build": "npm run wasm-pack -- --release && npm run patch && npm run bundle",
+    "build:dev": "npm run wasm-pack -- --dev && npm run patch && npm run bundle",
+    "pretest": "npm run build:dev",
     "test": "npm run run-tests",
-    "run-tests": "mocha --timeout 100000 --recursive tests"
+    "run-tests": "mocha --timeout 100000 --recursive tests",
+    "patch": "node patch.js",
+    "bundle": "browserify ./index.js --standalone zokrates -t [ babelify --presets [ @babel/preset-env ] ] | uglifyjs --compress --mangle > umd.min.js"
   },
   "devDependencies": {
-    "dree": "^2.6.1",
+    "@babel/core": "^7.20.12",
+    "@babel/preset-env": "^7.20.2",
+    "acorn": "^8.8.1",
+    "astring": "^1.8.4",
+    "babelify": "^10.0.0",
+    "browserify": "^17.0.0",
+    "dree": "^3.4.3",
     "mocha": "^9.2.0",
+    "puppeteer": "^19.6.0",
     "rimraf": "^3.0.2",
     "snarkjs": "^0.4.25",
+    "uglify-js": "^3.17.4",
     "wasm-pack": "^0.10.2"
+  },
+  "dependencies": {
+    "pako": "^2.1.0"
   }
 }

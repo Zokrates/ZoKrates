@@ -1,0 +1,3 @@
+def main(public field sum, private field element) -> field {
+    return sum + element;
+}

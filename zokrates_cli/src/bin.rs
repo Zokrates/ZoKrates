@@ -1,5 +1,3 @@
-#![feature(panic_info_message)]
-#![feature(backtrace)]
 //
 // @file bin.rs
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
@@ -49,6 +47,8 @@ fn cli() -> Result<(), String> {
             universal_setup::subcommand(),
             #[cfg(feature = "bellman")]
             mpc::subcommand(),
+            #[cfg(feature = "bellperson")]
+            nova::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
@@ -57,7 +57,9 @@ fn cli() -> Result<(), String> {
             generate_smtlib2::subcommand(),
             print_proof::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark"))]
-            verify::subcommand()])
+            verify::subcommand(),
+            profile::subcommand()
+        ])
         .get_matches();
 
     match matches.subcommand() {
@@ -69,6 +71,8 @@ fn cli() -> Result<(), String> {
         ("universal-setup", Some(sub_matches)) => universal_setup::exec(sub_matches),
         #[cfg(feature = "bellman")]
         ("mpc", Some(sub_matches)) => mpc::exec(sub_matches),
+        #[cfg(feature = "bellperson")]
+        ("nova", Some(sub_matches)) => nova::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark"))]
         ("setup", Some(sub_matches)) => setup::exec(sub_matches),
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),
@@ -78,26 +82,14 @@ fn cli() -> Result<(), String> {
         ("print-proof", Some(sub_matches)) => print_proof::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark"))]
         ("verify", Some(sub_matches)) => verify::exec(sub_matches),
+        ("profile", Some(sub_matches)) => profile::exec(sub_matches),
         _ => unreachable!(),
     }
 }
 
 fn panic_hook(pi: &std::panic::PanicInfo) {
-    let location = pi
-        .location()
-        .map(|l| format!("({})", l))
-        .unwrap_or_default();
-
-    let message = pi
-        .message()
-        .map(|m| format!("{}", m))
-        .or_else(|| pi.payload().downcast_ref::<&str>().map(|p| p.to_string()));
-
-    if let Some(s) = message {
-        println!("{} {}", s, location);
-    } else {
-        println!("The compiler unexpectedly panicked {}", location);
-    }
+    println!("The compiler unexpectedly panicked");
+    println!("{}", pi);
 
     #[cfg(debug_assertions)]
     {
@@ -121,7 +113,8 @@ mod tests {
     use std::io::{BufReader, Read};
     use std::string::String;
     use typed_arena::Arena;
-    use zokrates_core::compile::{compile, CompilationArtifacts, CompileConfig};
+    use zokrates_common::CompileConfig;
+    use zokrates_core::compile::{compile, CompilationArtifacts};
     use zokrates_field::Bn128Field;
     use zokrates_fs_resolver::FileSystemResolver;
 
@@ -217,9 +210,15 @@ mod tests {
             .unwrap();
 
             let interpreter = zokrates_interpreter::Interpreter::default();
+            let prog = artifacts.prog();
 
             let _ = interpreter
-                .execute(artifacts.prog(), &[Bn128Field::from(0)])
+                .execute(
+                    &[Bn128Field::from(0u32)],
+                    prog.statements.into_iter(),
+                    &prog.arguments,
+                    &prog.solvers,
+                )
                 .unwrap();
         }
     }
@@ -257,8 +256,14 @@ mod tests {
             .unwrap();
 
             let interpreter = zokrates_interpreter::Interpreter::default();
+            let prog = artifacts.prog();
 
-            let res = interpreter.execute(artifacts.prog(), &[Bn128Field::from(0)]);
+            let res = interpreter.execute(
+                &[Bn128Field::from(0)],
+                prog.statements.into_iter(),
+                &prog.arguments,
+                &prog.solvers,
+            );
 
             assert!(res.is_err());
         }

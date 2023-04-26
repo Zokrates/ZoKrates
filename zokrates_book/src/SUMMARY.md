@@ -16,6 +16,7 @@
 	- [Comments](language/comments.md)
 	- [Macros](language/macros.md)
     - [Logging](language/logging.md)
+    - [Assembly](language/assembly.md)
 
 - [Toolbox](toolbox/index.md)
     - [CLI](toolbox/cli.md)
@@ -26,6 +27,7 @@
     - [ZIR](toolbox/ir.md)
     - [JSON ABI](toolbox/abi.md)
     - [zokrates.js](toolbox/zokrates_js.md)
+    - [Experimental](toolbox/experimental.md)
 
 - [Examples](examples/index.md)
     - [A SNARK Powered RNG](examples/rng_tutorial.md)

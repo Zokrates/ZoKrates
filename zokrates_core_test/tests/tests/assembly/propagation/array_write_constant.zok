@@ -1,0 +1,9 @@
+def main() -> field[2] {
+    field[2] mut a = [1, 2];
+    u32 i = 0;
+    asm {
+        a[i] <-- 0;
+        a[i] === 0;
+    }
+    return a;
+}

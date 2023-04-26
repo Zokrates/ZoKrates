@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_embed"
-version = "0.1.8"
+version = "0.1.10"
 authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
@@ -8,8 +8,17 @@ edition = "2018"
 default = ["ark", "bellman"]
 ark = ["ark-bls12-377", "ark-bw6-761", "ark-gm17", "ark-relations", "ark-crypto-primitives", "ark-r1cs-std", "ark-std", "ark-ec", "ark-ff", "sapling-crypto_ce"]
 bellman = ["bellman_ce"]
-wasm = ["bellman_ce/wasm", "sapling-crypto_ce/wasm"]
-multicore = ["bellman_ce/multicore", "sapling-crypto_ce/multicore"]
+wasm = ["bellman_ce/nolog", "bellman_ce/wasm", "sapling-crypto_ce/wasm"]
+multicore = [
+    "bellman_ce/multicore",
+    "sapling-crypto_ce/multicore",
+    "ark-gm17/parallel",
+    "ark-crypto-primitives/parallel",
+    "ark-r1cs-std/parallel",
+    "ark-std/parallel",
+    "ark-ec/parallel",
+    "ark-ff/parallel"
+]
 
 [dependencies]
 zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-features = false }

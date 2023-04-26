@@ -1,0 +1,36 @@
+{
+  "curves": ["Bn128"],
+  "max_constraint_count": 7,
+  "tests": [
+    {
+      "input": {
+        "values": ["2", "2"]
+      },
+      "output": {
+        "Ok": {
+          "value": false
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["4", "2"]
+      },
+      "output": {
+        "Ok": {
+          "value": false
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2", "4"]
+      },
+      "output": {
+        "Ok": {
+          "value": true
+        }
+      }
+    }
+  ]
+}

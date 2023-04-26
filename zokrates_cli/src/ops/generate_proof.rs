@@ -1,8 +1,10 @@
 use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use rand_0_8::rngs::StdRng;
+use rand_0_8::SeedableRng;
 use std::convert::TryFrom;
 use std::fs::File;
-use std::io::{BufReader, Read, Write};
+use std::io::{BufReader, Write};
 use std::path::Path;
 #[cfg(feature = "ark")]
 use zokrates_ark::Ark;
@@ -12,6 +14,7 @@ use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::Field;
+use zokrates_proof_systems::rng::get_rng_from_entropy;
 #[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
 
@@ -79,11 +82,19 @@ pub fn subcommand() -> App<'static, 'static> {
                 .possible_values(cli_constants::SCHEMES)
                 .default_value(constants::G16),
         )
+        .arg(
+            Arg::with_name("entropy")
+                .short("e")
+                .long("entropy")
+                .help("User provided randomness")
+                .takes_value(true)
+                .required(false),
+        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let program_path = Path::new(sub_matches.value_of("input").unwrap());
-    let program_file = File::open(&program_path)
+    let program_file = File::open(program_path)
         .map_err(|why| format!("Could not open {}: {}", program_path.display(), why))?;
 
     let mut reader = BufReader::new(program_file);
@@ -112,6 +123,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
             ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
             ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
+            _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
@@ -119,6 +131,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
             ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
             ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
+            _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
@@ -130,43 +143,48 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
                 cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches)
             }
             ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches),
+            _ => unreachable!(),
         },
         _ => unreachable!(),
     }
 }
 
 fn cli_generate_proof<
+    'a,
     T: Field,
-    I: Iterator<Item = ir::Statement<T>>,
+    I: Iterator<Item = ir::Statement<'a, T>>,
     S: Scheme<T>,
     B: Backend<T, S>,
 >(
-    program: ir::ProgIterator<T, I>,
+    program: ir::ProgIterator<'a, T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Generating proof...");
 
     // deserialize witness
     let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
-    let witness_file = File::open(&witness_path)
+    let witness_file = File::open(witness_path)
         .map_err(|why| format!("Could not open {}: {}", witness_path.display(), why))?;
 
-    let witness = ir::Witness::read(witness_file)
+    let witness_reader = BufReader::new(witness_file);
+
+    let witness = ir::Witness::read(witness_reader)
         .map_err(|why| format!("Could not load witness: {:?}", why))?;
 
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
     let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
-    let pk_file = File::open(&pk_path)
+    let pk_file = File::open(pk_path)
         .map_err(|why| format!("Could not open {}: {}", pk_path.display(), why))?;
 
-    let mut pk: Vec<u8> = Vec::new();
-    let mut pk_reader = BufReader::new(pk_file);
-    pk_reader
-        .read_to_end(&mut pk)
-        .map_err(|why| format!("Could not read {}: {}", pk_path.display(), why))?;
+    let pk_reader = BufReader::new(pk_file);
 
-    let proof = B::generate_proof(program, witness, pk);
+    let mut rng = sub_matches
+        .value_of("entropy")
+        .map(get_rng_from_entropy)
+        .unwrap_or_else(StdRng::from_entropy);
+
+    let proof = B::generate_proof(program, witness, pk_reader, &mut rng);
     let mut proof_file = File::create(proof_path).unwrap();
 
     let proof =

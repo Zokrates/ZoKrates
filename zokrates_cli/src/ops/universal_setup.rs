@@ -1,5 +1,7 @@
 use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use rand_0_8::rngs::StdRng;
+use rand_0_8::SeedableRng;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::Write;
@@ -9,6 +11,7 @@ use zokrates_ark::Ark;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_proof_systems::rng::get_rng_from_entropy;
 #[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
 
@@ -54,6 +57,14 @@ pub fn subcommand() -> App<'static, 'static> {
                 .required(false)
                 .default_value(cli_constants::UNIVERSAL_SETUP_DEFAULT_SIZE),
         )
+        .arg(
+            Arg::with_name("entropy")
+                .short("e")
+                .long("entropy")
+                .help("User provided randomness")
+                .takes_value(true)
+                .required(false),
+        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -98,8 +109,13 @@ fn cli_universal_setup<T: Field, S: UniversalScheme<T>, B: UniversalBackend<T, S
         .parse::<u32>()
         .map_err(|_| format!("Universal setup size {} is invalid", size))?;
 
+    let mut rng = sub_matches
+        .value_of("entropy")
+        .map(get_rng_from_entropy)
+        .unwrap_or_else(StdRng::from_entropy);
+
     // run universal setup phase
-    let setup = B::universal_setup(size);
+    let setup = B::universal_setup(size, &mut rng);
 
     // write proving key
     let mut u_file = File::create(u_path)

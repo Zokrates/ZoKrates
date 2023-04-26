@@ -8,28 +8,31 @@ use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 use zokrates_proof_systems::{Backend, MpcBackend, NonUniversalBackend, Proof, SetupKeypair};
 
-use crate::Bellman;
 use crate::Computation;
+use crate::{get_random_seed, Bellman};
 use crate::{parse_g1, parse_g2};
 use phase2::MPCParameters;
-use rand_0_4::Rng;
+use rand_0_4::{ChaChaRng, SeedableRng};
+use rand_0_8::{CryptoRng, RngCore};
 use std::io::{Read, Write};
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_proof_systems::groth16::{ProofPoints, VerificationKey, G16};
 use zokrates_proof_systems::Scheme;
 
-const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
-
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
-    fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
-        program: ProgIterator<T, I>,
+    fn generate_proof<
+        'a,
+        I: IntoIterator<Item = Statement<'a, T>>,
+        R: Read,
+        G: RngCore + CryptoRng,
+    >(
+        program: ProgIterator<'a, T, I>,
         witness: Witness<T>,
-        proving_key: Vec<u8>,
+        proving_key: R,
+        rng: &mut G,
     ) -> Proof<T, G16> {
-        println!("{}", G16_WARNING);
-
         let computation = Computation::with_witness(program, witness);
-        let params = Parameters::read(proving_key.as_slice(), true).unwrap();
+        let params = Parameters::read(proving_key, true).unwrap();
 
         let public_inputs: Vec<String> = computation
             .public_inputs_values()
@@ -37,7 +40,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
             .map(|e| format!("0x{}", to_hex(e)))
             .collect();
 
-        let proof = computation.prove(&params);
+        let proof = computation.prove(&params, rng);
         let proof_points = ProofPoints {
             a: parse_g1::<T>(&proof.a),
             b: parse_g2::<T>(&proof.b),
@@ -84,12 +87,11 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 }
 
 impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman {
-    fn setup<I: IntoIterator<Item = Statement<T>>>(
-        program: ProgIterator<T, I>,
+    fn setup<'a, I: IntoIterator<Item = Statement<'a, T>>, R: RngCore + CryptoRng>(
+        program: ProgIterator<'a, T, I>,
+        rng: &mut R,
     ) -> SetupKeypair<T, G16> {
-        println!("{}", G16_WARNING);
-
-        let parameters = Computation::without_witness(program).setup();
+        let parameters = Computation::without_witness(program).setup(rng);
         let mut pk: Vec<u8> = Vec::new();
         parameters.write(&mut pk).unwrap();
 
@@ -99,8 +101,8 @@ impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman 
 }
 
 impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
-    fn initialize<R: Read, W: Write, I: IntoIterator<Item = Statement<T>>>(
-        program: ProgIterator<T, I>,
+    fn initialize<'a, R: Read, W: Write, I: IntoIterator<Item = Statement<'a, T>>>(
+        program: ProgIterator<'a, T, I>,
         phase1_radix: &mut R,
         output: &mut W,
     ) -> Result<(), String> {
@@ -110,13 +112,16 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         Ok(())
     }
 
-    fn contribute<R: Read, W: Write, G: Rng>(
-        params: &mut R,
+    fn contribute<R: Read, W: Write, G: RngCore + CryptoRng>(
+        params: R,
         rng: &mut G,
         output: &mut W,
     ) -> Result<[u8; 64], String> {
         let mut params =
             MPCParameters::<T::BellmanEngine>::read(params, true).map_err(|e| e.to_string())?;
+
+        let seed = get_random_seed(rng);
+        let rng = &mut ChaChaRng::from_seed(seed.as_ref());
 
         let hash = params.contribute(rng);
         params.write(output).map_err(|e| e.to_string())?;
@@ -124,9 +129,9 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         Ok(hash)
     }
 
-    fn verify<P: Read, R: Read, I: IntoIterator<Item = Statement<T>>>(
-        params: &mut P,
-        program: ProgIterator<T, I>,
+    fn verify<'a, R: Read, I: IntoIterator<Item = Statement<'a, T>>>(
+        params: R,
+        program: ProgIterator<'a, T, I>,
         phase1_radix: &mut R,
     ) -> Result<Vec<[u8; 64]>, String> {
         let params =
@@ -140,7 +145,7 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         Ok(hashes)
     }
 
-    fn export_keypair<R: Read>(params: &mut R) -> Result<SetupKeypair<T, G16>, String> {
+    fn export_keypair<R: Read>(params: R) -> Result<SetupKeypair<T, G16>, String> {
         let params =
             MPCParameters::<T::BellmanEngine>::read(params, true).map_err(|e| e.to_string())?;
 
@@ -199,30 +204,49 @@ pub mod serialization {
 
 #[cfg(test)]
 mod tests {
+    use rand_0_8::rngs::StdRng;
+    use rand_0_8::SeedableRng;
     use zokrates_field::Bn128Field;
     use zokrates_interpreter::Interpreter;
 
     use super::*;
-    use zokrates_ast::common::{Parameter, Variable};
-    use zokrates_ast::ir::{Prog, Statement};
+    use zokrates_ast::common::flat::Parameter;
+    use zokrates_ast::ir::{Prog, Statement, Variable};
 
     #[test]
     fn verify() {
         let program: Prog<Bn128Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![Parameter::public(Variable::new(0))],
             return_count: 1,
-            statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
+            statements: vec![Statement::constraint(
+                Variable::new(0),
+                Variable::public(0),
+                None,
+            )],
+            solvers: vec![],
         };
 
-        let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
+        let rng = &mut StdRng::from_entropy();
+        let keypair =
+            <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone(), rng);
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(program.clone(), &[Bn128Field::from(42)])
+            .execute(
+                &[Bn128Field::from(42)],
+                program.statements.iter(),
+                &program.arguments,
+                &program.solvers,
+            )
             .unwrap();
 
-        let proof =
-            <Bellman as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk);
+        let proof = <Bellman as Backend<Bn128Field, G16>>::generate_proof(
+            program,
+            witness,
+            keypair.pk.as_slice(),
+            rng,
+        );
         let ans = <Bellman as Backend<Bn128Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);

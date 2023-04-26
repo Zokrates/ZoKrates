@@ -1,0 +1,12 @@
+struct Foo {
+    field[2] a;
+}
+
+def main(Foo mut foo, field v) -> Foo {
+    u32 i = 0;
+    asm {
+        foo.a[i] <== v;
+        foo.a[i + 1] <== foo.a[i] * 2;
+    }
+    return foo;
+}

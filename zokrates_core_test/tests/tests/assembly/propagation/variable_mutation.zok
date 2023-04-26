@@ -1,0 +1,6 @@
+def main(field mut x, field y) {
+    asm {
+        x <-- y; // `x` is mutated here and gets a new ssa version
+        x === y; // so this constraint is going to be removed by the redefinition optimizer
+    }
+}

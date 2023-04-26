@@ -1,0 +1,5 @@
+def main(field x, field y) {
+    asm {
+        x === y;
+    }
+}

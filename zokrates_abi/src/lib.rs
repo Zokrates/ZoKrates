@@ -1,5 +1,3 @@
-#![feature(box_patterns, box_syntax)]
-
 pub enum Inputs<T> {
     Raw(Vec<T>),
     Abi(Values<T>),
@@ -240,7 +238,7 @@ impl<T: Field> Values<T> {
     }
 }
 
-fn parse_value<T: Field>(
+pub fn parse_value<T: Field>(
     value: serde_json::Value,
     expected_type: ConcreteType,
 ) -> Result<Value<T>, Error> {

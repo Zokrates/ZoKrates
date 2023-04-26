@@ -7,6 +7,8 @@ pub enum CurveParameter {
     Bls12_381,
     Bls12_377,
     Bw6_761,
+    Pallas,
+    Vesta,
 }
 
 impl std::fmt::Display for CurveParameter {
@@ -18,6 +20,8 @@ impl std::fmt::Display for CurveParameter {
             Bls12_381 => write!(f, "bls12_381"),
             Bls12_377 => write!(f, "bls12_377"),
             Bw6_761 => write!(f, "bw6_761"),
+            Pallas => write!(f, "pallas"),
+            Vesta => write!(f, "vesta"),
         }
     }
 }
@@ -28,6 +32,8 @@ pub enum BackendParameter {
     Bellman,
     #[cfg(feature = "ark")]
     Ark,
+    #[cfg(feature = "bellperson")]
+    Bellperson,
 }
 
 impl std::fmt::Display for BackendParameter {
@@ -39,6 +45,8 @@ impl std::fmt::Display for BackendParameter {
             Bellman => write!(f, "bellman"),
             #[cfg(feature = "ark")]
             Ark => write!(f, "ark"),
+            #[cfg(feature = "bellperson")]
+            Bellperson => write!(f, "bellperson"),
         }
     }
 }
@@ -49,6 +57,7 @@ pub enum SchemeParameter {
     G16,
     GM17,
     MARLIN,
+    NOVA,
 }
 
 impl std::fmt::Display for SchemeParameter {
@@ -59,6 +68,7 @@ impl std::fmt::Display for SchemeParameter {
             G16 => write!(f, "g16"),
             GM17 => write!(f, "gm17"),
             MARLIN => write!(f, "marlin"),
+            NOVA => write!(f, "nova"),
         }
     }
 }
@@ -72,6 +82,8 @@ impl TryFrom<&str> for CurveParameter {
             BLS12_381 => Ok(CurveParameter::Bls12_381),
             BLS12_377 => Ok(CurveParameter::Bls12_377),
             BW6_761 => Ok(CurveParameter::Bw6_761),
+            PALLAS => Ok(CurveParameter::Pallas),
+            VESTA => Ok(CurveParameter::Vesta),
             _ => Err(format!("Unknown curve {}", s)),
         }
     }
@@ -86,6 +98,8 @@ impl TryFrom<&str> for BackendParameter {
             BELLMAN => Ok(BackendParameter::Bellman),
             #[cfg(feature = "ark")]
             ARK => Ok(BackendParameter::Ark),
+            #[cfg(feature = "bellperson")]
+            BELLPERSON => Ok(BackendParameter::Bellperson),
             _ => Err(format!("Unknown backend {}", s)),
         }
     }
@@ -99,6 +113,7 @@ impl TryFrom<&str> for SchemeParameter {
             G16 => Ok(SchemeParameter::G16),
             GM17 => Ok(SchemeParameter::GM17),
             MARLIN => Ok(SchemeParameter::MARLIN),
+            NOVA => Ok(SchemeParameter::NOVA),
             _ => Err(format!("Unknown proving scheme {}", s)),
         }
     }
@@ -148,6 +163,10 @@ impl TryFrom<(&str, &str, &str)> for Parameters {
             (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => Ok(()),
             #[cfg(feature = "ark")]
             (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => Ok(()),
+            #[cfg(feature = "bellperson")]
+            (BackendParameter::Bellperson, CurveParameter::Pallas, SchemeParameter::NOVA) => Ok(()),
+            #[cfg(feature = "bellperson")]
+            (BackendParameter::Bellperson, CurveParameter::Vesta, SchemeParameter::NOVA) => Ok(()),
             #[cfg(feature = "bellman")]
             _ => Err(format!(
                 "Unsupported combination of parameters (backend: {}, curve: {}, proving scheme: {})",

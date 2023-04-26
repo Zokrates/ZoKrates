@@ -1,5 +1,7 @@
 use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use rand_0_8::rngs::StdRng;
+use rand_0_8::SeedableRng;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Write};
@@ -12,6 +14,7 @@ use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::Field;
+use zokrates_proof_systems::rng::get_rng_from_entropy;
 #[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
 
@@ -78,13 +81,21 @@ pub fn subcommand() -> App<'static, 'static> {
                 .required(false)
                 .default_value(cli_constants::UNIVERSAL_SETUP_DEFAULT_PATH),
         )
+        .arg(
+            Arg::with_name("entropy")
+                .short("e")
+                .long("entropy")
+                .help("User provided randomness")
+                .takes_value(true)
+                .required(false),
+        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
     let prog = ProgEnum::deserialize(&mut reader)?;
@@ -118,6 +129,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             ProgEnum::Bw6_761Program(p) => {
                 cli_setup_non_universal::<_, _, G16, Ark>(p, sub_matches)
             }
+            _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
@@ -131,11 +143,12 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             ProgEnum::Bw6_761Program(p) => {
                 cli_setup_non_universal::<_, _, GM17, Ark>(p, sub_matches)
             }
+            _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => {
             let setup_path = Path::new(sub_matches.value_of("universal-setup-path").unwrap());
-            let setup_file = File::open(&setup_path)
+            let setup_file = File::open(setup_path)
                 .map_err(|why| format!("Couldn't open {}: {}\nExpected an universal setup, make sure `zokrates universal-setup` was run`", setup_path.display(), why))?;
 
             let mut reader = BufReader::new(setup_file);
@@ -160,6 +173,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
                 ProgEnum::Bw6_761Program(p) => {
                     cli_setup_universal::<_, _, Marlin, Ark>(p, setup, sub_matches)
                 }
+                _ => unreachable!(),
             }
         }
         _ => unreachable!(),
@@ -167,12 +181,13 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 }
 
 fn cli_setup_non_universal<
+    'a,
     T: Field,
-    I: Iterator<Item = ir::Statement<T>>,
+    I: Iterator<Item = ir::Statement<'a, T>>,
     S: NonUniversalScheme<T>,
     B: NonUniversalBackend<T, S>,
 >(
-    program: ir::ProgIterator<T, I>,
+    program: ir::ProgIterator<'a, T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Performing setup...");
@@ -181,8 +196,13 @@ fn cli_setup_non_universal<
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
 
+    let mut rng = sub_matches
+        .value_of("entropy")
+        .map(get_rng_from_entropy)
+        .unwrap_or_else(StdRng::from_entropy);
+
     // run setup phase
-    let keypair = B::setup(program);
+    let keypair = B::setup(program, &mut rng);
 
     // write verification key
     let mut vk_file = File::create(vk_path)
@@ -211,12 +231,13 @@ fn cli_setup_non_universal<
 }
 
 fn cli_setup_universal<
+    'a,
     T: Field,
-    I: Iterator<Item = ir::Statement<T>>,
+    I: Iterator<Item = ir::Statement<'a, T>>,
     S: UniversalScheme<T>,
     B: UniversalBackend<T, S>,
 >(
-    program: ir::ProgIterator<T, I>,
+    program: ir::ProgIterator<'a, T, I>,
     srs: Vec<u8>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {

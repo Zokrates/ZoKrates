@@ -12,9 +12,9 @@ pub trait SMTLib2 {
     fn to_smtlib2(&self, f: &mut fmt::Formatter) -> fmt::Result;
 }
 
-pub struct SMTLib2Display<'a, T>(pub &'a Prog<T>);
+pub struct SMTLib2Display<'a, 'ast, T>(pub &'a Prog<'ast, T>);
 
-impl<T: Field> fmt::Display for SMTLib2Display<'_, T> {
+impl<'ast, T: Field> fmt::Display for SMTLib2Display<'_, 'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.to_smtlib2(f)
     }
@@ -30,7 +30,7 @@ impl<T: Field> Visitor<T> for VariableCollector {
     }
 }
 
-impl<T: Field> SMTLib2 for Prog<T> {
+impl<'ast, T: Field> SMTLib2 for Prog<'ast, T> {
     fn to_smtlib2(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut collector = VariableCollector {
             variables: BTreeSet::<Variable>::new(),
@@ -75,14 +75,15 @@ fn format_prefix_op_smtlib2<T: SMTLib2, Ts: SMTLib2>(
     write!(f, ")")
 }
 
-impl<T: Field> SMTLib2 for Statement<T> {
+impl<'ast, T: Field> SMTLib2 for Statement<'ast, T> {
     fn to_smtlib2(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Statement::Constraint(ref quad, ref lin, _) => {
+            Statement::Block(..) => unreachable!(),
+            Statement::Constraint(ref s) => {
                 write!(f, "(= (mod ")?;
-                quad.to_smtlib2(f)?;
+                s.quad.to_smtlib2(f)?;
                 write!(f, " |~prime|) (mod ")?;
-                lin.to_smtlib2(f)?;
+                s.lin.to_smtlib2(f)?;
                 write!(f, " |~prime|))")
             }
             Statement::Directive(ref s) => s.to_smtlib2(f),
@@ -91,7 +92,7 @@ impl<T: Field> SMTLib2 for Statement<T> {
     }
 }
 
-impl<T: Field> SMTLib2 for Directive<T> {
+impl<'ast, T: Field> SMTLib2 for DirectiveStatement<'ast, T> {
     fn to_smtlib2(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "")
     }
@@ -108,15 +109,20 @@ impl<T: Field> SMTLib2 for LinComb<T> {
         match self.is_zero() {
             true => write!(f, "0"),
             false => {
-                if self.0.len() > 1 {
+                if self.value.len() > 1 {
                     write!(f, "(+")?;
-                    for expr in self.0.iter() {
+                    for expr in self.value.iter() {
                         write!(f, " ")?;
                         format_prefix_op_smtlib2(f, "*", &expr.0, &expr.1.to_biguint())?;
                     }
                     write!(f, ")")
                 } else {
-                    format_prefix_op_smtlib2(f, "*", &self.0[0].0, &self.0[0].1.to_biguint())
+                    format_prefix_op_smtlib2(
+                        f,
+                        "*",
+                        &self.value[0].0,
+                        &self.value[0].1.to_biguint(),
+                    )
                 }
             }
         }

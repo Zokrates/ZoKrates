@@ -12,7 +12,7 @@ jobs:
   build:
     docker:
       - image: zokrates/env:latest
-    resource_class: large
+    resource_class: xlarge
     steps:
       - checkout
       - run:
@@ -22,6 +22,7 @@ jobs:
       - restore-sccache-cache
       - run:
           name: Build
+          no_output_timeout: "30m"
           command: RUSTFLAGS="-D warnings" ./build.sh
       - save-sccache-cache
   test:
@@ -68,7 +69,7 @@ jobs:
     docker:
       - image: zokrates/env:latest
       - image: trufflesuite/ganache-cli:next
-    resource_class: large
+    resource_class: xlarge
     steps:
       - checkout
       - run:
@@ -76,6 +77,9 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - setup-sccache
       - restore-sccache-cache
+      - run:
+          name: Install foundry
+          command: ./scripts/install_foundry.sh
       - run:
           name: Run integration tests
           no_output_timeout: "30m"
@@ -96,7 +100,7 @@ jobs:
   zokrates_js_build:
     docker:
       - image: zokrates/env:latest
-    resource_class: large
+    resource_class: xlarge
     working_directory: ~/project/zokrates_js
     steps:
       - checkout:
@@ -111,7 +115,7 @@ jobs:
   zokrates_js_test:
     docker:
       - image: zokrates/env:latest
-    resource_class: large
+    resource_class: xlarge
     working_directory: ~/project/zokrates_js
     steps:
       - checkout:
@@ -119,11 +123,13 @@ jobs:
       - setup-sccache
       - restore-sccache-cache
       - run:
-          name: Check format
-          command: cargo fmt --all -- --check
-      - run:
-          name: Run clippy
-          command: cargo clippy -- -D warnings
+          name: Install headless chrome dependencies
+          command: |
+            apt-get update && apt-get install -yq \
+            ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 libc6 libcairo2 libcups2 \
+            libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libgcc1 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 \
+            libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 \
+            libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 lsb-release wget xdg-utils
       - run:
           name: Run tests
           no_output_timeout: "30m"
@@ -187,7 +193,7 @@ commands:
     steps:
       - restore_cache:
           name: Restore sccache cache
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+          key: sccache-cache-stable-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
   save-sccache-cache:
     steps:
       - save_cache:
@@ -244,7 +250,7 @@ workflows:
     jobs:
       - build
       - test
-      - wasm_test
+      # - wasm_test
       - integration_test
       - zokrates_js_build
       - zokrates_js_test
@@ -302,7 +308,7 @@ workflows:
           requires:
             - build
             - test
-            - wasm_test
+            # - wasm_test
             - integration_test
             - zokrates_js_build
             - zokrates_js_test

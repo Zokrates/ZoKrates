@@ -1,12 +1,14 @@
 [package]
 name = "zokrates_field"
-version = "0.5.2"
+version = "0.5.5"
 authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>", "Guillaume Ballet <gballet@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [features]
-default = ["bellman"]
-bellman = ["bellman_ce"]
+default = ["bellman_extensions"]
+bellperson_extensions = ["bellperson", "pairing", "ff", "pasta_curves", "nova-snark"]
+bellman_extensions = ["bellman_ce"]
+multicore = ["ark-ff/parallel", "ark-ec/parallel"]
 
 [dependencies]
 serde = "1.0"
@@ -21,6 +23,13 @@ num-integer = { version = "0.1", default-features = false }
 # bellman
 bellman_ce = { version = "^0.3", default-features = false, optional = true }
 
+# bellperson
+bellperson = { version = "0.24", default-features = false, optional = true }
+pairing = { version = "0.22", default-features = false, optional = true }
+ff = { version = "0.12.0", default-features = false, optional = true }
+pasta_curves = { version = "0.5.2", features = ["repr-c", "serde"], package = "fil_pasta_curves", optional = true }
+nova-snark = { version = "0.20.3", optional = true }
+
 # ark
 ark-ff = { version = "^0.3.0", default-features = false }
 ark-ec = { version = "^0.3.0", default-features = false }
@@ -28,7 +37,9 @@ ark-bn254 = { version = "^0.3.0", features = ["curve"], default-features = false
 ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = false }
 ark-bls12-381 = { version = "^0.3.0", features = ["curve"] }
 ark-bw6-761 = { version = "^0.3.0", default-features = false }
-ark-serialize = { version = "^0.3.0", default-features = false }
+ark-pallas = { version = "^0.3.0", features = ["curve"] }
+ark-vesta = { version = "^0.3.0" }
+ark-serialize = { version = "^0.3.0", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 rand = "0.4"

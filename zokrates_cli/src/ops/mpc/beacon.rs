@@ -1,5 +1,6 @@
 use crate::cli_constants::MPC_DEFAULT_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use rand_0_8::{rngs::StdRng, SeedableRng};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -72,7 +73,7 @@ fn cli_mpc_beacon<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBack
 ) -> Result<(), String> {
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
@@ -87,9 +88,7 @@ fn cli_mpc_beacon<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBack
 
     // Create an RNG based on the outcome of the random beacon
     let mut rng = {
-        use byteorder::{BigEndian, ReadBytesExt};
-        use rand_0_4::chacha::ChaChaRng;
-        use rand_0_4::SeedableRng;
+        use byteorder::ReadBytesExt;
         use sha2::{Digest, Sha256};
 
         // The hash used for the beacon
@@ -126,16 +125,16 @@ fn cli_mpc_beacon<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBack
 
         let mut digest = &cur_hash[..];
 
-        let mut seed = [0u32; 8];
+        let mut seed = [0u8; 32];
         for e in &mut seed {
-            *e = digest.read_u32::<BigEndian>().unwrap();
+            *e = digest.read_u8().unwrap();
         }
 
-        ChaChaRng::from_seed(&seed)
+        StdRng::from_seed(seed)
     };
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
-    let output_file = File::create(&output_path)
+    let output_file = File::create(output_path)
         .map_err(|why| format!("Could not create `{}`: {}", output_path.display(), why))?;
 
     let mut writer = BufWriter::new(output_file);

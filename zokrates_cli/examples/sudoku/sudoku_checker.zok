@@ -12,11 +12,11 @@
 
 def countDuplicates(field e11, field e12, field e21, field e22) -> field {
     field mut duplicates = e11 == e12 ? 1 : 0;
-    duplicates = duplicates + e11 == e21 ? 1 : 0;
-    duplicates = duplicates + e11 == e22 ? 1 : 0;
-    duplicates = duplicates + e12 == e21 ? 1 : 0;
-    duplicates = duplicates + e12 == e21 ? 1 : 0;
-    duplicates = duplicates + e21 == e22 ? 1 : 0;
+    duplicates = duplicates + (e11 == e21 ? 1 : 0);
+    duplicates = duplicates + (e11 == e22 ? 1 : 0);
+    duplicates = duplicates + (e12 == e21 ? 1 : 0);
+    duplicates = duplicates + (e12 == e22 ? 1 : 0);
+    duplicates = duplicates + (e21 == e22 ? 1 : 0);
     return duplicates;
 }
 
