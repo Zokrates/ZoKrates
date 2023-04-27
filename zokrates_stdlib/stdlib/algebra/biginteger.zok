@@ -78,20 +78,20 @@ def bigint_lshift_limb<N>(BigInteger<N> mut a, u32 n) -> BigInteger<N> {
 // Big integer multiplication
 def bigint_mul<N, M>(BigInteger<N> a, BigInteger<N> b) -> BigInteger<N> {
     assert(M <= FIELD_SIZE_IN_BITS / 2);
-	BigInteger<N> mut c = bigint_from_limbs([0; N]);
-	for u32 i in 0..N {
-		BigInteger<N> mut row = bigint_from_limbs([0; N]);
-		for u32 j in 0..N {
-			field acc = a.limbs[i] * b.limbs[j];
+    BigInteger<N> mut c = bigint_from_limbs([0; N]);
+    for u32 i in 0..N {
+        BigInteger<N> mut row = bigint_from_limbs([0; N]);
+        for u32 j in 0..N {
+            field acc = a.limbs[i] * b.limbs[j];
             bool[2*M] bits = unpack(acc);
             field lo = pack(bits[M..]);
             field hi = pack(bits[..M]);
-			BigInteger<N> mut tmp = bigint_from_limbs([lo, hi]);
-			row = i + j < N ? bigint_add::<N, M>(bigint_lshift_limb(tmp, i + j), row) : row;
-		}
-		c = bigint_add::<N, M>(c, row);
-	}
-	return c;
+            BigInteger<N> mut tmp = bigint_from_limbs([lo, hi]);
+            row = i + j < N ? bigint_add::<N, M>(bigint_lshift_limb(tmp, i + j), row) : row;
+        }
+        c = bigint_add::<N, M>(c, row);
+    }
+    return c;
 }
 
 // Check equality of two big integers
