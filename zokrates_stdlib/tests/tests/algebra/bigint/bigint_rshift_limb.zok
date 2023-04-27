@@ -1,6 +1,0 @@
-from "algebra/bigint" import bigint, bigint_rshift_limb;
-
-def main(bigint<2> a) -> bigint<2> {
-    bigint<2> c = bigint_rshift_limb(a, 1);
-    return c;
-}

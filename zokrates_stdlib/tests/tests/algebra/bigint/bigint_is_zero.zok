@@ -1,5 +1,0 @@
-from "algebra/bigint" import bigint, bigint_is_zero;
-
-def main(bigint<2> a) -> bool {
-    return bigint_is_zero(a);
-}

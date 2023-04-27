@@ -1,0 +1,16 @@
+{
+  "max_constraint_count": 2,
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": [{ "limbs": ["2", "2", "0", "0"] }]
+      },
+      "output": {
+        "Ok": {
+          "value": { "limbs": ["2", "2"] }
+        }
+      }
+    }
+  ]
+}
