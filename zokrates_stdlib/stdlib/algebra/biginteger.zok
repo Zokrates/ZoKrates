@@ -1,51 +1,58 @@
-from "field" import FIELD_SIZE_IN_BITS;
 import "utils/pack/bool/unpack_unchecked" as unpack;
 import "utils/pack/bool/pack" as pack;
+import "utils/casts/u32_to_field" as u32_to_field;
+
+const u32 LIMB_BITWIDTH = 32;
 
 struct BigInteger<N> {
     field[N] limbs;
 }
 
 // Construct a big integer from `N` limbs
-def bigint_from_limbs<N, M>(field[N] values) -> BigInteger<M> {
+def bigint_from_limbs<N, M>(field[N] limbs) -> BigInteger<M> {
     assert(M >= N, "invalid number of limbs");
-    return BigInteger { limbs: [...values, ...[0; M-N]] };
+    return BigInteger { limbs: [...limbs, ...[0; M-N]] };
 }
 
-// Expand big integer from `N` limbs to `M`
+// Construct a big integer from `N` u32 limbs
+def bigint_from_u32_limbs<N, M>(u32[N] limbs) -> BigInteger<M> {
+    assert(M >= N, "invalid number of limbs");
+    field[N] mut f = [0; N];
+    for u32 i in 0..N {
+        f[i] = u32_to_field(limbs[i]);
+    }
+    return bigint_from_limbs(f);
+}
+
+// Expand big integer from `N` limbs to `M` limbs
 def bigint_expand<N, M>(BigInteger<N> input) -> BigInteger<M> {
     return bigint_from_limbs(input.limbs);
 }
 
-// Truncate big integer from `N` limbs to `M`
-def bigint_truncate<N, M>(BigInteger<N> input) -> BigInteger<M> {
-    assert(M <= N, "invalid number of limbs");
-    return BigInteger { limbs: input.limbs[..M] };
-}
-
 // Big integer addition
-def bigint_add<N, M>(BigInteger<N> a, BigInteger<N> b) -> BigInteger<N> {
-    assert(M < FIELD_SIZE_IN_BITS - 1);
-    BigInteger<N> mut c = bigint_from_limbs([0; N]);
+def bigint_add<N, M>(BigInteger<N> a, BigInteger<N> b) -> BigInteger<M> {
+    assert(M == N + 1);
+    BigInteger<M> mut c = bigint_from_limbs([0; N]);
     field mut carry = 0;
     for u32 i in 0..N {
         field sum = a.limbs[i] + b.limbs[i] + carry;
-        bool[M + 1] bits = unpack(sum);
+        bool[LIMB_BITWIDTH + 1] bits = unpack(sum);
         carry = bits[0] ? 1 : 0;
-        c.limbs[i] = sum - carry * (1 << M);
+        c.limbs[i] = sum - carry * (1 << LIMB_BITWIDTH);
     }
+    c.limbs[N] = carry;
     return c;
 }
 
-// Big integer subtraction (assumes a >= b)
-def bigint_sub<N, M>(BigInteger<N> a, BigInteger<N> b) -> BigInteger<N> {
-    assert(M < FIELD_SIZE_IN_BITS - 1);
+// Big integer subtraction
+// Note: assumes a >= b
+def bigint_sub<N>(BigInteger<N> a, BigInteger<N> b) -> BigInteger<N> {
     BigInteger<N> mut c = bigint_from_limbs([0; N]);
     field mut borrow = 0;
     for u32 i in 0..N {
-        c.limbs[i] = borrow * (1 << M) + (a.limbs[i] - b.limbs[i]);
-        bool[M + 1] bits = unpack(a.limbs[i] + (1 << M) - b.limbs[i]);
-        borrow = bits[0] ? 0 : 1;
+        c.limbs[i] = borrow * (1 << LIMB_BITWIDTH) + (a.limbs[i] - b.limbs[i]);
+        bool[LIMB_BITWIDTH + 1] bits = unpack(a.limbs[i] + (1 << LIMB_BITWIDTH) - b.limbs[i]);
+        borrow = 1 - (bits[0] ? 1 : 0);
     }
     return c;
 }
@@ -73,25 +80,6 @@ def bigint_lshift_limb<N>(BigInteger<N> mut a, u32 n) -> BigInteger<N> {
         a.limbs[i] = 0;
     }
     return a;
-}
-
-// Big integer multiplication
-def bigint_mul<N, M>(BigInteger<N> a, BigInteger<N> b) -> BigInteger<N> {
-    assert(M <= FIELD_SIZE_IN_BITS / 2);
-    BigInteger<N> mut c = bigint_from_limbs([0; N]);
-    for u32 i in 0..N {
-        BigInteger<N> mut row = bigint_from_limbs([0; N]);
-        for u32 j in 0..N {
-            field acc = a.limbs[i] * b.limbs[j];
-            bool[2*M] bits = unpack(acc);
-            field lo = pack(bits[M..]);
-            field hi = pack(bits[..M]);
-            BigInteger<N> mut tmp = bigint_from_limbs([lo, hi]);
-            row = i + j < N ? bigint_add::<N, M>(bigint_lshift_limb(tmp, i + j), row) : row;
-        }
-        c = bigint_add::<N, M>(c, row);
-    }
-    return c;
 }
 
 // Check equality of two big integers

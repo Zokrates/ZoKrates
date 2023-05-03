@@ -935,6 +935,35 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                     (e1, e2) => e1 / e2,
                 })
             }
+            FieldElementExpression::IDiv(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                Ok(match (left, right) {
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        FieldElementExpression::value(
+                            T::try_from(n1.value.to_biguint().div(n2.value.to_biguint())).unwrap(),
+                        )
+                    }
+                    (e1, e2) => FieldElementExpression::idiv(e1, e2),
+                })
+            }
+            FieldElementExpression::Rem(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                Ok(match (left, right) {
+                    (_, FieldElementExpression::Value(n)) if n.value == T::from(1) => {
+                        FieldElementExpression::value(T::zero())
+                    }
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        FieldElementExpression::value(
+                            T::try_from(n1.value.to_biguint().rem(n2.value.to_biguint())).unwrap(),
+                        )
+                    }
+                    (e1, e2) => e1 % e2,
+                })
+            }
             FieldElementExpression::Neg(e) => match self.fold_field_expression(*e.inner)? {
                 FieldElementExpression::Value(n) => {
                     Ok(FieldElementExpression::value(T::zero() - n.value))
@@ -1583,6 +1612,48 @@ mod tests {
                 assert_eq!(
                     Propagator::default().fold_field_expression(e),
                     Ok(FieldElementExpression::value(Bn128Field::from(3)))
+                );
+            }
+
+            #[test]
+            fn idiv() {
+                let e = FieldElementExpression::idiv(
+                    FieldElementExpression::value(Bn128Field::from(7)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                );
+
+                assert_eq!(
+                    Propagator::default().fold_field_expression(e),
+                    Ok(FieldElementExpression::value(Bn128Field::from(3)))
+                );
+            }
+
+            #[test]
+            fn rem() {
+                let mut propagator = Propagator::default();
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::rem(
+                        FieldElementExpression::value(Bn128Field::from(5)),
+                        FieldElementExpression::value(Bn128Field::from(2)),
+                    )),
+                    Ok(FieldElementExpression::value(Bn128Field::from(1)))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::rem(
+                        FieldElementExpression::value(Bn128Field::from(2)),
+                        FieldElementExpression::value(Bn128Field::from(5)),
+                    )),
+                    Ok(FieldElementExpression::value(Bn128Field::from(2)))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::rem(
+                        FieldElementExpression::identifier("a".into()),
+                        FieldElementExpression::value(Bn128Field::from(1)),
+                    )),
+                    Ok(FieldElementExpression::value(Bn128Field::from(0)))
                 );
             }
 

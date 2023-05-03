@@ -1,6 +1,0 @@
-from "algebra/biginteger" import BigInteger, bigint_truncate;
-
-def main(BigInteger<4> a) -> BigInteger<2> {
-    BigInteger<2> b = bigint_truncate(a);
-    return b;
-}

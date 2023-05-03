@@ -1,14 +1,14 @@
 {
-  "max_constraint_count": 22,
+  "max_constraint_count": 36,
   "curves": ["Bn128"],
   "tests": [
     {
       "input": {
-        "values": [{ "limbs": ["2", "2"] }, { "limbs": ["2", "0"] }]
+        "values": [{ "limbs": ["3", "4"] }, { "limbs": ["1", "2"] }]
       },
       "output": {
         "Ok": {
-          "value": { "limbs": ["0", "2"] }
+          "value": { "limbs": ["2", "2"] }
         }
       }
     },
@@ -19,16 +19,6 @@
       "output": {
         "Ok": {
           "value": { "limbs": ["254", "0"] }
-        }
-      }
-    },
-    {
-      "input": {
-        "values": [{ "limbs": ["129", "1"] }, { "limbs": ["128", "1"] }]
-      },
-      "output": {
-        "Ok": {
-          "value": { "limbs": ["1", "0"] }
         }
       }
     }

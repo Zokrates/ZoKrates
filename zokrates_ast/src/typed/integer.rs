@@ -317,6 +317,14 @@ pub enum IntExpression<'ast, T> {
             IntExpression<'ast, T>,
         >,
     ),
+    IDiv(
+        BinaryExpression<
+            OpIDiv,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+            IntExpression<'ast, T>,
+        >,
+    ),
     Rem(
         BinaryExpression<
             OpRem,
@@ -434,6 +442,10 @@ impl<'ast, T> Neg for IntExpression<'ast, T> {
 }
 
 impl<'ast, T> IntExpression<'ast, T> {
+    pub fn idiv(self, other: Self) -> Self {
+        IntExpression::IDiv(BinaryExpression::new(self, other))
+    }
+
     pub fn pow(self, other: Self) -> Self {
         IntExpression::Pow(BinaryExpression::new(self, other))
     }
@@ -470,6 +482,7 @@ impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
             IntExpression::Pos(ref e) => write!(f, "{}", e),
             IntExpression::Neg(ref e) => write!(f, "{}", e),
             IntExpression::Div(ref e) => write!(f, "{}", e),
+            IntExpression::IDiv(ref e) => write!(f, "{}", e),
             IntExpression::Rem(ref e) => write!(f, "{}", e),
             IntExpression::Pow(ref e) => write!(f, "{}", e),
             IntExpression::Select(ref select) => write!(f, "{}", select),

@@ -1,6 +1,6 @@
 from "algebra/biginteger" import BigInteger, bigint_sub;
 
 def main(BigInteger<2> a, BigInteger<2> b) -> BigInteger<2> {
-    BigInteger<2> c = bigint_sub::<2, 8>(a, b);
+    BigInteger<2> c = bigint_sub::<2>(a, b);
     return c;
 }
