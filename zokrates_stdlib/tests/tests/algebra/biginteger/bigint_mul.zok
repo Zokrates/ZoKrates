@@ -1,6 +1,0 @@
-from "algebra/biginteger" import BigInteger, bigint_mul;
-
-def main(BigInteger<2> a, BigInteger<2> b) -> BigInteger<4> {
-    BigInteger<4> c = bigint_mul::<2, 4>(a, b);
-    return c;
-}
