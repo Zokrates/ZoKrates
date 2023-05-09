@@ -856,6 +856,22 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                     Ok(UExpression::and(e1.annotate(bitwidth), e2.annotate(bitwidth)).into_inner())
                 }
             },
+            UExpressionInner::Or(e) => match (
+                self.fold_uint_expression(*e.left)?.into_inner(),
+                self.fold_uint_expression(*e.right)?.into_inner(),
+            ) {
+                (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
+                    Ok(UExpression::value(v1.value | v2.value))
+                }
+                (UExpressionInner::Value(v), e) | (e, UExpressionInner::Value(v))
+                    if v.value == 0 =>
+                {
+                    Ok(e)
+                }
+                (e1, e2) => {
+                    Ok(UExpression::or(e1.annotate(bitwidth), e2.annotate(bitwidth)).into_inner())
+                }
+            },
             UExpressionInner::Not(e) => {
                 let e = self.fold_uint_expression(*e.inner)?.into_inner();
                 match e {

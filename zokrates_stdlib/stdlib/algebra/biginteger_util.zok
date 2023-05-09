@@ -1,0 +1,38 @@
+// Count leading zeroes using de Bruijn sequence
+def clz32(u32 mut x) -> u32 {
+    u32[32] debruijn32 = [
+        0, 31, 9, 30, 3, 8, 13, 29, 2, 5, 7, 21, 12, 24, 28, 19,
+        1, 10, 4, 14, 6, 22, 25, 20, 11, 15, 23, 26, 16, 27, 17, 18
+    ];
+    x = x | x >> 1;
+    x = x | x >> 2;
+    x = x | x >> 4;
+    x = x | x >> 8;
+    x = x | x >> 16;
+    x = x == 0 ? 32 : debruijn32[(x + 1) * 0x076be629 >> 27];
+    return x;
+}
+
+// Integer base-2 logarithm
+def ilog2(u32 x) -> u32 {
+    return 32 - clz32(x);
+}
+
+def split<N>(field input) -> field[2] {
+    field[2] mut r = [0; 2];
+    asm {
+        r[0] <-- input % (1 << N);
+        r[1] <-- (input \ (1 << N)) % (1 << N);
+    }
+    return r;
+}
+
+def split2<K, N>(field[K] mut limbs, field[K] mut carry, field[K][3] split) -> (field[K], field[K]) {
+    assert(K > 2);
+    for u32 i in 2..K {
+        field[2] sum_and_carry = split::<N>(split[i][0] + split[i-1][1] + split[i-2][2] + carry[i-1]);
+        limbs[i] = sum_and_carry[0];
+        carry[i] = sum_and_carry[1];
+    }
+    return (limbs, carry);
+}
