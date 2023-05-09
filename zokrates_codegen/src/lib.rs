@@ -1185,11 +1185,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     params,
                     unpack_to_bitwidth(generics[0] as usize),
                 ),
-                #[cfg(feature = "bellman")]
+                #[cfg(all(feature = "bellman", feature = "bn128"))]
                 FlatEmbed::Sha256Round => {
                     self.flatten_embed_call_aux(statements_flattened, params, sha256_round())
                 }
-                #[cfg(feature = "ark")]
+                #[cfg(all(feature = "ark", feature = "bw6_761"))]
                 FlatEmbed::SnarkVerifyBls12377 => self.flatten_embed_call_aux(
                     statements_flattened,
                     params,

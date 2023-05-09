@@ -3,25 +3,37 @@ use std::convert::TryFrom;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CurveParameter {
+    #[cfg(feature = "bn128")]
     Bn128,
+    #[cfg(feature = "bls12_381")]
     Bls12_381,
+    #[cfg(feature = "bls12_377")]
     Bls12_377,
+    #[cfg(feature = "bw6_761")]
     Bw6_761,
+    #[cfg(feature = "pallas")]
     Pallas,
+    #[cfg(feature = "vesta")]
     Vesta,
 }
 
 impl std::fmt::Display for CurveParameter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use CurveParameter::*;
-
+        #[allow(unreachable_patterns)]
         match self {
-            Bn128 => write!(f, "bn128"),
-            Bls12_381 => write!(f, "bls12_381"),
-            Bls12_377 => write!(f, "bls12_377"),
-            Bw6_761 => write!(f, "bw6_761"),
-            Pallas => write!(f, "pallas"),
-            Vesta => write!(f, "vesta"),
+            #[cfg(feature = "bn128")]
+            CurveParameter::Bn128 => write!(f, "bn128"),
+            #[cfg(feature = "bls12_381")]
+            CurveParameter::Bls12_381 => write!(f, "bls12_381"),
+            #[cfg(feature = "bls12_377")]
+            CurveParameter::Bls12_377 => write!(f, "bls12_377"),
+            #[cfg(feature = "bw6_761")]
+            CurveParameter::Bw6_761 => write!(f, "bw6_761"),
+            #[cfg(feature = "pallas")]
+            CurveParameter::Pallas => write!(f, "pallas"),
+            #[cfg(feature = "vesta")]
+            CurveParameter::Vesta => write!(f, "vesta"),
+            _ => write!(f, ""),
         }
     }
 }
@@ -38,15 +50,15 @@ pub enum BackendParameter {
 
 impl std::fmt::Display for BackendParameter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use BackendParameter::*;
-
+        #[allow(unreachable_patterns)]
         match self {
             #[cfg(feature = "bellman")]
-            Bellman => write!(f, "bellman"),
+            BackendParameter::Bellman => write!(f, "bellman"),
             #[cfg(feature = "ark")]
-            Ark => write!(f, "ark"),
+            BackendParameter::Ark => write!(f, "ark"),
             #[cfg(feature = "bellperson")]
-            Bellperson => write!(f, "bellperson"),
+            BackendParameter::Bellperson => write!(f, "bellperson"),
+            _ => write!(f, ""),
         }
     }
 }
@@ -78,11 +90,17 @@ impl TryFrom<&str> for CurveParameter {
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s {
+            #[cfg(feature = "bn128")]
             BN128 => Ok(CurveParameter::Bn128),
+            #[cfg(feature = "bls12_381")]
             BLS12_381 => Ok(CurveParameter::Bls12_381),
+            #[cfg(feature = "bls12_377")]
             BLS12_377 => Ok(CurveParameter::Bls12_377),
+            #[cfg(feature = "bw6_761")]
             BW6_761 => Ok(CurveParameter::Bw6_761),
+            #[cfg(feature = "pallas")]
             PALLAS => Ok(CurveParameter::Pallas),
+            #[cfg(feature = "vesta")]
             VESTA => Ok(CurveParameter::Vesta),
             _ => Err(format!("Unknown curve {}", s)),
         }
@@ -135,43 +153,42 @@ impl TryFrom<(&str, &str, &str)> for Parameters {
         let proving_scheme = SchemeParameter::try_from(s.2)?;
 
         match (&backend, &curve, &proving_scheme) {
-            #[cfg(feature = "bellman")]
-            (BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::G16) => Ok(()),
-            #[cfg(feature = "bellman")]
-            (BackendParameter::Bellman, CurveParameter::Bls12_381, SchemeParameter::G16) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::G16) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::G16) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::G16) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::G16) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::GM17) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::GM17) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::GM17) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::MARLIN) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => Ok(()),
-            #[cfg(feature = "ark")]
-            (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => Ok(()),
-            #[cfg(feature = "bellperson")]
-            (BackendParameter::Bellperson, CurveParameter::Pallas, SchemeParameter::NOVA) => Ok(()),
-            #[cfg(feature = "bellperson")]
-            (BackendParameter::Bellperson, CurveParameter::Vesta, SchemeParameter::NOVA) => Ok(()),
-            #[cfg(feature = "bellman")]
+            #[cfg(all(feature = "bellman", feature = "bn128"))]
+            (BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::G16) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "bellman", feature = "bls12_381"))]
+            (BackendParameter::Bellman, CurveParameter::Bls12_381, SchemeParameter::G16) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bn128"))]
+            (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::G16) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bls12_381"))]
+            (BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::G16) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bls12_377"))]
+            (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::G16) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bw6_761"))]
+            (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::G16) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bn128"))]
+            (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bls12_377"))]
+            (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::GM17) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bls12_381"))]
+            (BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::GM17) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bw6_761"))]
+            (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::GM17) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bn128"))]
+            (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bls12_381"))]
+            (BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::MARLIN) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bls12_377"))]
+            (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "ark", feature = "bw6_761"))]
+            (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "bellperson", feature = "pallas"))]
+            (BackendParameter::Bellperson, CurveParameter::Pallas, SchemeParameter::NOVA) => Ok(Parameters(backend, curve, proving_scheme)),
+            #[cfg(all(feature = "bellperson", feature = "vesta"))]
+            (BackendParameter::Bellperson, CurveParameter::Vesta, SchemeParameter::NOVA) => Ok(Parameters(backend, curve, proving_scheme)),
             _ => Err(format!(
                 "Unsupported combination of parameters (backend: {}, curve: {}, proving scheme: {})",
                 s.0, s.1, s.2
             )),
-        }.map(|_: ()| Parameters(backend, curve, proving_scheme))
+        }
     }
 }

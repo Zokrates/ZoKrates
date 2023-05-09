@@ -915,6 +915,7 @@ impl<'ast, T: Field> From<BigUint> for IntExpression<'ast, T> {
     }
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use super::*;

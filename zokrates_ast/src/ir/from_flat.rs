@@ -107,6 +107,7 @@ impl<'ast, T: Field> From<FlatDirective<'ast, T>> for DirectiveStatement<'ast, T
     }
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use super::*;

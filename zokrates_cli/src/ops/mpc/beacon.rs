@@ -6,7 +6,7 @@ use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use zokrates_bellman::Bellman;
 use zokrates_common::constants::{BLS12_381, BN128};
-use zokrates_field::{BellmanFieldExtensions, Bls12_381Field, Bn128Field, Field};
+use zokrates_field::*;
 use zokrates_proof_systems::{MpcBackend, MpcScheme, G16};
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -63,7 +63,7 @@ pub fn subcommand() -> App<'static, 'static> {
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     match sub_matches.value_of("curve").unwrap() {
         BN128 => cli_mpc_beacon::<Bn128Field, G16, Bellman>(sub_matches),
-        BLS12_381 => cli_mpc_beacon::<Bls12_381Field, G16, Bellman>(sub_matches),
+        // BLS12_381 => cli_mpc_beacon::<Bls12_381Field, G16, Bellman>(sub_matches),
         _ => unreachable!(),
     }
 }

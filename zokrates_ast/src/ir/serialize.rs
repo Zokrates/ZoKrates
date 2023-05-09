@@ -5,7 +5,7 @@ use crate::ir::ModuleMap;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::Deserialize;
 use serde_cbor::{self, StreamDeserializer};
-use std::io::{Read, Seek, Write};
+use std::io::{ErrorKind, Read, Seek, Write};
 use zokrates_field::*;
 
 type DynamicError = Box<dyn std::error::Error>;
@@ -13,65 +13,71 @@ type DynamicError = Box<dyn std::error::Error>;
 const ZOKRATES_MAGIC: &[u8; 4] = &[0x5a, 0x4f, 0x4b, 0];
 const FILE_VERSION: &[u8; 4] = &[3, 0, 0, 0];
 
-#[derive(PartialEq, Eq, Debug)]
-pub enum ProgEnum<
-    'ast,
-    Bls12_381I: IntoIterator<Item = Statement<'ast, Bls12_381Field>>,
-    Bn128I: IntoIterator<Item = Statement<'ast, Bn128Field>>,
-    Bls12_377I: IntoIterator<Item = Statement<'ast, Bls12_377Field>>,
-    Bw6_761I: IntoIterator<Item = Statement<'ast, Bw6_761Field>>,
-    PallasI: IntoIterator<Item = Statement<'ast, PallasField>>,
-    VestaI: IntoIterator<Item = Statement<'ast, VestaField>>,
-> {
-    Bls12_381Program(ProgIterator<'ast, Bls12_381Field, Bls12_381I>),
-    Bn128Program(ProgIterator<'ast, Bn128Field, Bn128I>),
-    Bls12_377Program(ProgIterator<'ast, Bls12_377Field, Bls12_377I>),
-    Bw6_761Program(ProgIterator<'ast, Bw6_761Field, Bw6_761I>),
-    PallasProgram(ProgIterator<'ast, PallasField, PallasI>),
-    VestaProgram(ProgIterator<'ast, VestaField, VestaI>),
-}
+// #[derive(PartialEq, Eq, Debug)]
+// pub enum ProgEnum<
+//     'ast,
+//     Bls12_381I,
+//     Bn128I,
+//     Bls12_377I,
+//     Bw6_761I,
+//     PallasI,
+//     VestaI,
+// > {
+//     #[cfg(feature = "bls12_381")]
+//     Bls12_381Program(ProgIterator<'ast, Bls12_381Field, Bls12_381I>),
+//     #[cfg(feature = "bn128")]
+//     Bn128Program(ProgIterator<'ast, Bn128Field, Bn128I>),
+//     #[cfg(feature = "bls12_377")]
+//     Bls12_377Program(ProgIterator<'ast, Bls12_377Field, Bls12_377I>),
+//     #[cfg(feature = "bw6_761")]
+//     Bw6_761Program(ProgIterator<'ast, Bw6_761Field, Bw6_761I>),
+//     #[cfg(feature = "pallas")]
+//     PallasProgram(ProgIterator<'ast, PallasField, PallasI>),
+//     #[cfg(feature = "vesta")]
+//     VestaProgram(ProgIterator<'ast, VestaField, VestaI>),
+// }
 
-type MemoryProgEnum<'ast> = ProgEnum<
-    'ast,
-    Vec<Statement<'ast, Bls12_381Field>>,
-    Vec<Statement<'ast, Bn128Field>>,
-    Vec<Statement<'ast, Bls12_377Field>>,
-    Vec<Statement<'ast, Bw6_761Field>>,
-    Vec<Statement<'ast, PallasField>>,
-    Vec<Statement<'ast, VestaField>>,
->;
+// type MemoryProgEnum<'ast> = ProgEnum<
+//     'ast,
+//     Vec<Statement<'ast, Bls12_381Field>>,
+//     Vec<Statement<'ast, Bn128Field>>,
+//     Vec<Statement<'ast, Bls12_377Field>>,
+//     Vec<Statement<'ast, Bw6_761Field>>,
+//     Vec<Statement<'ast, PallasField>>,
+//     Vec<Statement<'ast, VestaField>>,
+// >;
 
-impl<
-        'ast,
-        Bls12_381I: IntoIterator<Item = Statement<'ast, Bls12_381Field>>,
-        Bn128I: IntoIterator<Item = Statement<'ast, Bn128Field>>,
-        Bls12_377I: IntoIterator<Item = Statement<'ast, Bls12_377Field>>,
-        Bw6_761I: IntoIterator<Item = Statement<'ast, Bw6_761Field>>,
-        PallasI: IntoIterator<Item = Statement<'ast, PallasField>>,
-        VestaI: IntoIterator<Item = Statement<'ast, VestaField>>,
-    > ProgEnum<'ast, Bls12_381I, Bn128I, Bls12_377I, Bw6_761I, PallasI, VestaI>
-{
-    pub fn collect(self) -> MemoryProgEnum<'ast> {
-        match self {
-            ProgEnum::Bls12_381Program(p) => ProgEnum::Bls12_381Program(p.collect()),
-            ProgEnum::Bn128Program(p) => ProgEnum::Bn128Program(p.collect()),
-            ProgEnum::Bls12_377Program(p) => ProgEnum::Bls12_377Program(p.collect()),
-            ProgEnum::Bw6_761Program(p) => ProgEnum::Bw6_761Program(p.collect()),
-            ProgEnum::PallasProgram(p) => ProgEnum::PallasProgram(p.collect()),
-            ProgEnum::VestaProgram(p) => ProgEnum::VestaProgram(p.collect()),
-        }
-    }
-    pub fn curve(&self) -> &'static str {
-        match self {
-            ProgEnum::Bn128Program(_) => Bn128Field::name(),
-            ProgEnum::Bls12_381Program(_) => Bls12_381Field::name(),
-            ProgEnum::Bls12_377Program(_) => Bls12_377Field::name(),
-            ProgEnum::Bw6_761Program(_) => Bw6_761Field::name(),
-            ProgEnum::PallasProgram(_) => Bls12_377Field::name(),
-            ProgEnum::VestaProgram(_) => Bw6_761Field::name(),
-        }
-    }
-}
+// impl<
+//         'ast,
+//         Bls12_381I: IntoIterator<Item = Statement<'ast, Bls12_381Field>>,
+//         Bn128I: IntoIterator<Item = Statement<'ast, Bn128Field>>,
+//         Bls12_377I: IntoIterator<Item = Statement<'ast, Bls12_377Field>>,
+//         Bw6_761I: IntoIterator<Item = Statement<'ast, Bw6_761Field>>,
+//         PallasI: IntoIterator<Item = Statement<'ast, PallasField>>,
+//         VestaI: IntoIterator<Item = Statement<'ast, VestaField>>,
+//     > ProgEnum<'ast, Bls12_381I, Bn128I, Bls12_377I, Bw6_761I, PallasI, VestaI>
+// {
+//     pub fn collect(self) -> MemoryProgEnum<'ast> {
+//         match self {
+//             ProgEnum::Bls12_381Program(p) => ProgEnum::Bls12_381Program(p.collect()),
+//             ProgEnum::Bn128Program(p) => ProgEnum::Bn128Program(p.collect()),
+//             ProgEnum::Bls12_377Program(p) => ProgEnum::Bls12_377Program(p.collect()),
+//             ProgEnum::Bw6_761Program(p) => ProgEnum::Bw6_761Program(p.collect()),
+//             ProgEnum::PallasProgram(p) => ProgEnum::PallasProgram(p.collect()),
+//             ProgEnum::VestaProgram(p) => ProgEnum::VestaProgram(p.collect()),
+//         }
+//     }
+//     pub fn curve(&self) -> &'static str {
+//         match self {
+//             ProgEnum::Bn128Program(_) => Bn128Field::name(),
+//             ProgEnum::Bls12_381Program(_) => Bls12_381Field::name(),
+//             ProgEnum::Bls12_377Program(_) => Bls12_377Field::name(),
+//             ProgEnum::Bw6_761Program(_) => Bw6_761Field::name(),
+//             ProgEnum::PallasProgram(_) => Bls12_377Field::name(),
+//             ProgEnum::VestaProgram(_) => Bw6_761Field::name(),
+//         }
+//     }
+// }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(u32)]
@@ -123,8 +129,6 @@ impl Section {
 
 #[derive(Debug, Clone)]
 pub struct ProgHeader {
-    pub magic: [u8; 4],
-    pub version: [u8; 4],
     pub curve_id: [u8; 4],
     pub constraint_count: u32,
     pub return_count: u32,
@@ -132,9 +136,11 @@ pub struct ProgHeader {
 }
 
 impl ProgHeader {
+    pub fn curve_name(&self) -> &'static str {
+        id_to_name(self.curve_id)
+    }
+
     pub fn write<W: Write>(&self, mut w: W) -> std::io::Result<()> {
-        w.write_all(&self.magic)?;
-        w.write_all(&self.version)?;
         w.write_all(&self.curve_id)?;
         w.write_u32::<LittleEndian>(self.constraint_count)?;
         w.write_u32::<LittleEndian>(self.return_count)?;
@@ -148,12 +154,28 @@ impl ProgHeader {
         Ok(())
     }
 
-    pub fn read<R: Read>(mut r: R) -> std::io::Result<Self> {
+    pub fn read<R: Read>(r: &mut R) -> std::io::Result<Self> {
         let mut magic = [0; 4];
         r.read_exact(&mut magic)?;
 
+        // Check the magic number, `ZOK`
+        if &magic != ZOKRATES_MAGIC {
+            return Err(std::io::Error::new(
+                ErrorKind::InvalidData,
+                "Invalid magic number".to_string(),
+            ));
+        }
+
         let mut version = [0; 4];
         r.read_exact(&mut version)?;
+
+        // Check the file version
+        if &version != FILE_VERSION {
+            return Err(std::io::Error::new(
+                ErrorKind::InvalidData,
+                "Invalid file version".to_string(),
+            ));
+        }
 
         let mut curve_id = [0; 4];
         r.read_exact(&mut curve_id)?;
@@ -167,8 +189,6 @@ impl ProgHeader {
         let module_map = Self::read_section(r.by_ref())?;
 
         Ok(ProgHeader {
-            magic,
-            version,
             curve_id,
             constraint_count,
             return_count,
@@ -180,7 +200,7 @@ impl ProgHeader {
         let id = r.read_u32::<LittleEndian>()?;
         let mut section = Section::new(
             SectionType::try_from(id)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?,
+                .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))?,
         );
         section.set_offset(r.read_u64::<LittleEndian>()?);
         section.set_length(r.read_u64::<LittleEndian>()?);
@@ -193,6 +213,9 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
     /// Note that we only return constraints, not other statements such as directives
     pub fn serialize<W: Write + Seek>(self, mut w: W) -> Result<usize, DynamicError> {
         use super::folder::Folder;
+
+        w.write_all(&*ZOKRATES_MAGIC)?;
+        w.write_all(&*FILE_VERSION)?;
 
         // reserve bytes for the header
         w.write_all(&[0u8; std::mem::size_of::<ProgHeader>()])?;
@@ -259,8 +282,6 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
         };
 
         let header = ProgHeader {
-            magic: *ZOKRATES_MAGIC,
-            version: *FILE_VERSION,
             curve_id: T::id(),
             constraint_count: count as u32,
             return_count: self.return_count as u32,
@@ -292,25 +313,113 @@ impl<'de, R: serde_cbor::de::Read<'de>, T: serde::Deserialize<'de>> Iterator
     }
 }
 
-impl<'de, R: Read + Seek>
-    ProgEnum<
-        'de,
-        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bls12_381Field>>,
-        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bn128Field>>,
-        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bls12_377Field>>,
-        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bw6_761Field>>,
-        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, PallasField>>,
-        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, VestaField>>,
-    >
-{
-    fn read<T: Field>(
-        mut r: R,
-        header: &ProgHeader,
-    ) -> ProgIterator<
+// impl<'de, R: Read + Seek>
+//     ProgEnum<
+//         'de,
+//         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bls12_381Field>>,
+//         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bn128Field>>,
+//         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bls12_377Field>>,
+//         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, Bw6_761Field>>,
+//         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, PallasField>>,
+//         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, VestaField>>,
+//     >
+// {
+//     fn read<T: Field>(
+//         mut r: R,
+//         header: &ProgHeader,
+//     ) -> ProgIterator<
+//         'de,
+//         T,
+//         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, T>>,
+//     > {
+//         let parameters = {
+//             let section = &header.sections[0];
+//             r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
+
+//             let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
+//             Vec::deserialize(&mut p)
+//                 .map_err(|_| String::from("Cannot read parameters"))
+//                 .unwrap()
+//         };
+
+//         let solvers = {
+//             let section = &header.sections[2];
+//             r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
+
+//             let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
+//             Vec::deserialize(&mut p)
+//                 .map_err(|_| String::from("Cannot read solvers"))
+//                 .unwrap()
+//         };
+
+//         let module_map = {
+//             let section = &header.sections[3];
+//             r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
+
+//             let mut p = serde_cbor::Deserializer::from_reader(r.by_ref());
+//             ModuleMap::deserialize(&mut p)
+//                 .map_err(|_| String::from("Cannot read module map"))
+//                 .unwrap()
+//         };
+
+//         let statements_deserializer = {
+//             let section = &header.sections[1];
+//             r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
+
+//             let p = serde_cbor::Deserializer::from_reader(r);
+//             let s = p.into_iter::<Statement<T>>();
+
+//             UnwrappedStreamDeserializer { s }
+//         };
+
+//         ProgIterator::new(
+//             parameters,
+//             statements_deserializer,
+//             header.return_count as usize,
+//             module_map,
+//             solvers,
+//         )
+//     }
+
+//     pub fn deserialize(mut r: R) -> Result<Self, String> {
+//         let header = ProgHeader::read(&mut r).map_err(|_| String::from("Invalid header"))?;
+
+//         // Check the magic number, `ZOK`
+//         if &header.magic != ZOKRATES_MAGIC {
+//             return Err("Invalid magic number".to_string());
+//         }
+
+//         // Check the file version
+//         if &header.version != FILE_VERSION {
+//             return Err("Invalid file version".to_string());
+//         }
+
+//         match header.curve_id {
+//             m if m == Bls12_381Field::id() => {
+//                 Ok(ProgEnum::Bls12_381Program(Self::read(r, &header)))
+//             }
+//             m if m == Bn128Field::id() => Ok(ProgEnum::Bn128Program(Self::read(r, &header))),
+//             m if m == Bls12_377Field::id() => {
+//                 Ok(ProgEnum::Bls12_377Program(Self::read(r, &header)))
+//             }
+//             m if m == Bw6_761Field::id() => Ok(ProgEnum::Bw6_761Program(Self::read(r, &header))),
+//             m if m == PallasField::id() => Ok(ProgEnum::PallasProgram(Self::read(r, &header))),
+//             m if m == VestaField::id() => Ok(ProgEnum::VestaProgram(Self::read(r, &header))),
+//             _ => Err(String::from("Unknown curve identifier")),
+//         }
+//     }
+// }
+
+impl<'de, T: Field, R: Read + Seek>
+    ProgIterator<
         'de,
         T,
         UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<'de, T>>,
-    > {
+    >
+{
+    pub fn read(mut r: R, header: &ProgHeader) -> Self {
+        assert_eq!(header.curve_id, T::id());
+
         let parameters = {
             let section = &header.sections[0];
             r.seek(std::io::SeekFrom::Start(section.offset)).unwrap();
@@ -359,36 +468,9 @@ impl<'de, R: Read + Seek>
             solvers,
         )
     }
-
-    pub fn deserialize(mut r: R) -> Result<Self, String> {
-        let header = ProgHeader::read(&mut r).map_err(|_| String::from("Invalid header"))?;
-
-        // Check the magic number, `ZOK`
-        if &header.magic != ZOKRATES_MAGIC {
-            return Err("Invalid magic number".to_string());
-        }
-
-        // Check the file version
-        if &header.version != FILE_VERSION {
-            return Err("Invalid file version".to_string());
-        }
-
-        match header.curve_id {
-            m if m == Bls12_381Field::id() => {
-                Ok(ProgEnum::Bls12_381Program(Self::read(r, &header)))
-            }
-            m if m == Bn128Field::id() => Ok(ProgEnum::Bn128Program(Self::read(r, &header))),
-            m if m == Bls12_377Field::id() => {
-                Ok(ProgEnum::Bls12_377Program(Self::read(r, &header)))
-            }
-            m if m == Bw6_761Field::id() => Ok(ProgEnum::Bw6_761Program(Self::read(r, &header))),
-            m if m == PallasField::id() => Ok(ProgEnum::PallasProgram(Self::read(r, &header))),
-            m if m == VestaField::id() => Ok(ProgEnum::VestaProgram(Self::read(r, &header))),
-            _ => Err(String::from("Unknown curve identifier")),
-        }
-    }
 }
 
+#[cfg(all(feature = "bn128", feature = "bls12_381"))]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -406,10 +488,13 @@ mod tests {
         // rewind back to the beginning of the file
         buffer.seek(SeekFrom::Start(0)).unwrap();
 
-        // deserialize
-        let deserialized_p = ProgEnum::deserialize(buffer).unwrap();
+        // parse header
+        let header = ProgHeader::read(&mut buffer).unwrap();
 
-        assert_eq!(ProgEnum::Bn128Program(p), deserialized_p.collect());
+        // deserialize
+        let deserialized_p = ProgIterator::read(buffer, &header);
+
+        assert_eq!(p, deserialized_p.collect());
 
         let p: Prog<Bls12_381Field> = Prog::default();
 
@@ -419,9 +504,12 @@ mod tests {
         // rewind back to the beginning of the file
         buffer.seek(SeekFrom::Start(0)).unwrap();
 
-        // deserialize
-        let deserialized_p = ProgEnum::deserialize(buffer).unwrap();
+        // parse header
+        let header = ProgHeader::read(&mut buffer).unwrap();
 
-        assert_eq!(ProgEnum::Bls12_381Program(p), deserialized_p.collect());
+        // deserialize
+        let deserialized_p = ProgIterator::read(buffer, &header);
+
+        assert_eq!(p, deserialized_p.collect());
     }
 }

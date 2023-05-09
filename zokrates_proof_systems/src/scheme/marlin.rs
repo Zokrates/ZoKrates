@@ -1,4 +1,5 @@
 use crate::scheme::{Scheme, UniversalScheme};
+#[cfg(feature = "solidity")]
 use crate::solidity::{solidity_pairing_lib, SolidityCompatibleField, SolidityCompatibleScheme};
 use crate::{Fr, G1Affine, G2Affine};
 use serde::{Deserialize, Serialize};
@@ -87,6 +88,7 @@ impl<T: Field> Scheme<T> for Marlin {
 
 impl<T: Field> UniversalScheme<T> for Marlin {}
 
+#[cfg(feature = "solidity")]
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
     type Proof = SolidityProof<Fr, G1Affine>;
 
@@ -244,6 +246,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
     }
 }
 
+#[cfg(feature = "solidity")]
 const CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {
     using Pairing for *;

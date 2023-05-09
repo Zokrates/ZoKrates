@@ -6,10 +6,18 @@ repository = "https://github.com/Zokrates/ZoKrates.git"
 edition = "2018"
 
 [features]
-default = ["bellman", "ark", "bellperson"]
+full = ["bellman", "ark", "bellperson", "bn128", "bls12_377", "bls12_381", "bw6_761", "pallas", "vesta", "circom", "multicore"]
+multicore = ["zokrates_field/multicore", "zokrates_embed/multicore", "zokrates_ark/multicore", "zokrates_bellman/multicore"]
+circom = ["zokrates_circom"]  
 bellman = ["zokrates_bellman", "zokrates_core/bellman", "zokrates_common/bellman"]
 ark = ["zokrates_ark", "zokrates_core/ark", "zokrates_common/ark"]
 bellperson = ["zokrates_bellperson", "zokrates_core/bellperson", "zokrates_common/bellperson"]
+bn128 = ["zokrates_core/bn128", "zokrates_field/bn128", "zokrates_common/bn128"]
+bls12_377 = ["zokrates_core/bls12_377", "zokrates_field/bls12_377", "zokrates_common/bls12_377"]
+bls12_381 = ["zokrates_core/bls12_381", "zokrates_field/bls12_381", "zokrates_common/bls12_381"]
+bw6_761 = ["zokrates_core/bw6_761", "zokrates_field/bw6_761", "zokrates_common/bw6_761"]
+pallas = ["zokrates_core/pallas", "zokrates_field/pallas", "zokrates_common/pallas"]
+vesta = ["zokrates_core/vesta", "zokrates_field/vesta", "zokrates_common/vesta"]
 
 [dependencies]
 log = "0.4"
@@ -18,17 +26,17 @@ cfg-if = "0.1"
 clap = "2.26.2"
 serde_cbor = "0.11.2"
 regex = "0.2"
-zokrates_field = { version = "0.5", path = "../zokrates_field", features = ["multicore"] }
+zokrates_field = { version = "0.5", path = "../zokrates_field" }
 zokrates_abi = { version = "0.1", path = "../zokrates_abi" }
-zokrates_core = { version = "0.7", path = "../zokrates_core", default-features = false }
-zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
-zokrates_profiler = { version = "0.1", path = "../zokrates_profiler", default-features = false }
-zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", default-features = false }
-zokrates_circom = { version = "0.1", path = "../zokrates_circom", default-features = false }
-zokrates_embed = { version = "0.1", path = "../zokrates_embed", features = ["multicore"] }
+zokrates_core = { version = "0.7", path = "../zokrates_core" }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast" }
+zokrates_profiler = { version = "0.1", path = "../zokrates_profiler" }
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter" }
+zokrates_circom = { version = "0.1", path = "../zokrates_circom", optional = true }
+zokrates_embed = { version = "0.1", path = "../zokrates_embed" }
 typed-arena = "1.4.1"
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
-zokrates_common = { version = "0.1", path = "../zokrates_common", default-features = false }
+zokrates_common = { version = "0.1", path = "../zokrates_common" }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde = { version = "1.0", features = ["derive"] }
 dirs = "3.0.1"
@@ -37,26 +45,23 @@ byteorder = "1"
 rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_8 = { version = "0.8", package = "rand" }
 hex = "0.3.1"
-blake2 = "0.8.1"
+blake2 = "0.10.6"
 sha2 = "0.10.0"
 
 # Backends
-zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
-zokrates_ark = { version = "0.1", path = "../zokrates_ark", features = ["multicore"], optional = true }
-zokrates_bellman = { version = "0.1", path = "../zokrates_bellman", features = ["multicore"], optional = true }
-zokrates_bellperson = { version = "0.1", path = "../zokrates_bellperson", default-features = false, optional = true }
+zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems" }
+zokrates_ark = { version = "0.1", path = "../zokrates_ark", optional = true }
+zokrates_bellman = { version = "0.1", path = "../zokrates_bellman", optional = true }
+zokrates_bellperson = { version = "0.1", path = "../zokrates_bellperson", optional = true }
 
 [dev-dependencies]
 glob = "0.2.11"
-assert_cli = "0.5"
+assert_cli = "0.6"
 tempdir = "0.3"
 ethabi = "17.0.0"
 primitive-types = { version = "0.11", features = ["rlp"] }
 fs_extra = "1.1.0"
 pretty_assertions = "1.2.1"
-
-[build-dependencies]
-fs_extra = "1.1.0"
 
 [[bin]]
 name = "zokrates"

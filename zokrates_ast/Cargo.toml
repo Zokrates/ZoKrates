@@ -4,21 +4,27 @@ version = "0.1.7"
 edition = "2021"
 
 [features]
-default = ["bellman", "ark"]
+full = ["bellman", "ark", "bellperson", "bn128", "bls12_377", "bls12_381", "bw6_761", "pallas", "vesta"]
 bellman = ["zokrates_field/bellman_extensions", "pairing_ce", "zokrates_embed/bellman"]
-ark = ["ark-bls12-377", "zokrates_embed/ark"]
+ark = ["zokrates_embed/ark"]
 bellperson = ["zokrates_field/bellperson_extensions"]
+bn128 = ["zokrates_field/bn128"]
+bls12_377 = ["zokrates_field/bls12_377", "ark-bls12-377"]
+bls12_381 = ["zokrates_field/bls12_381"]
+bw6_761 = ["zokrates_field/bw6_761"]
+pallas = ["zokrates_field/pallas"]
+vesta = ["zokrates_field/vesta"]
 
 [dependencies]
 byteorder = "1.4.3"
 zokrates_pest_ast = { version = "0.3.0", path = "../zokrates_pest_ast" }
 cfg-if = "0.1"
-zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
+zokrates_field = { version = "0.5", path = "../zokrates_field" }
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = "0.11.2"
-num-bigint = { version = "0.2", default-features = false }
+num-bigint = { version = "0.4" }
 serde_json = { version = "1.0", features = ["preserve_order"] }
-zokrates_embed = { version = "0.1.0", path = "../zokrates_embed", default-features = false }
+zokrates_embed = { version = "0.1.0", path = "../zokrates_embed" }
 pairing_ce = { version = "^0.21", optional = true }
 ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = false, optional = true }
 derivative = "2.2.0"

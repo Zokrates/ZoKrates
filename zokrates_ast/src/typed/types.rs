@@ -1512,6 +1512,7 @@ pub mod signature {
         }
     }
 
+    #[cfg(feature = "bn128")]
     #[cfg(test)]
     mod tests {
         use super::*;

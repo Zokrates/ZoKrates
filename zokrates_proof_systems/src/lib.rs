@@ -1,11 +1,14 @@
 pub mod rng;
+#[cfg(feature = "solidity")]
 pub mod to_token;
 
 mod scheme;
+#[cfg(feature = "solidity")]
 mod solidity;
 mod tagged;
 
 pub use self::scheme::*;
+#[cfg(feature = "solidity")]
 pub use self::solidity::*;
 pub use tagged::{TaggedKeypair, TaggedProof, TaggedVerificationKey};
 

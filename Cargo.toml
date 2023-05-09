@@ -23,6 +23,3 @@ members = [
     "zokrates_circom",
     "zokrates_profiler",
 ]
-
-[profile.dev]
-opt-level = 1

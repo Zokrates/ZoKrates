@@ -7,9 +7,7 @@ use std::path::{Path, PathBuf};
 use zokrates_common::constants::BN128;
 use zokrates_common::{helpers::CurveParameter, CompileConfig};
 use zokrates_core::compile::{check, CompileError};
-use zokrates_field::{
-    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField, VestaField,
-};
+use zokrates_field::*;
 use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -54,11 +52,17 @@ pub fn subcommand() -> App<'static, 'static> {
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let curve = CurveParameter::try_from(sub_matches.value_of("curve").unwrap())?;
     match curve {
+        #[cfg(feature = "bn128")]
         CurveParameter::Bn128 => cli_check::<Bn128Field>(sub_matches),
+        #[cfg(feature = "bls12_381")]
         CurveParameter::Bls12_377 => cli_check::<Bls12_377Field>(sub_matches),
+        #[cfg(feature = "bls12_377")]
         CurveParameter::Bls12_381 => cli_check::<Bls12_381Field>(sub_matches),
+        #[cfg(feature = "bw6_761")]
         CurveParameter::Bw6_761 => cli_check::<Bw6_761Field>(sub_matches),
+        #[cfg(feature = "pallas")]
         CurveParameter::Pallas => cli_check::<PallasField>(sub_matches),
+        #[cfg(feature = "vesta")]
         CurveParameter::Vesta => cli_check::<VestaField>(sub_matches),
     }
 }

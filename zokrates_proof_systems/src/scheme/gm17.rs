@@ -1,6 +1,11 @@
 use crate::scheme::{NonUniversalScheme, Scheme};
-use crate::solidity::{solidity_pairing_lib, SOLIDITY_G2_ADDITION_LIB};
-use crate::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
+#[cfg(feature = "solidity")]
+use crate::solidity::{
+    solidity_pairing_lib, SolidityCompatibleField, SolidityCompatibleScheme,
+    SOLIDITY_G2_ADDITION_LIB,
+};
+use crate::{G1Affine, G2Affine};
+#[cfg(feature = "solidity")]
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
@@ -35,6 +40,7 @@ impl<T: Field> Scheme<T> for GM17 {
     type ProofPoints = ProofPoints<G1Affine, G2Affine>;
 }
 
+#[cfg(feature = "solidity")]
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for GM17 {
     type Proof = Self::ProofPoints;
 
@@ -136,6 +142,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for GM17 {
     }
 }
 
+#[cfg(feature = "solidity")]
 const CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {
     using Pairing for *;

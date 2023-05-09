@@ -19,7 +19,7 @@ mod witness;
 
 pub use self::expression::QuadComb;
 pub use self::expression::{CanonicalLinComb, LinComb};
-pub use self::serialize::{ProgEnum, ProgHeader};
+pub use self::serialize::ProgHeader;
 pub use crate::common::flat::Parameter;
 pub use crate::common::flat::Variable;
 pub use crate::common::RuntimeError;
@@ -324,6 +324,7 @@ impl<'ast, T: Field> fmt::Display for Prog<'ast, T> {
     }
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use super::*;

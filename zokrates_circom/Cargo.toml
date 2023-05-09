@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
-zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-features = false }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast" }
+zokrates_field = { version = "0.5.0", path = "../zokrates_field" }
 byteorder = "1.4.3"
 
 [dev-dependencies]

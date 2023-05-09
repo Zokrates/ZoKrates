@@ -96,6 +96,7 @@ impl<T: Field> fmt::Display for Witness<T> {
     }
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use super::*;

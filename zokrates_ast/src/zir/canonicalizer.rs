@@ -30,6 +30,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ZirCanonicalizer<'ast> {
     }
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use crate::zir::{

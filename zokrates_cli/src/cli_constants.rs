@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use zokrates_common::constants::*;
 
 pub const FLATTENED_CODE_DEFAULT_PATH: &str = "out";

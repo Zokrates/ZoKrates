@@ -3,7 +3,7 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use zokrates_ast::ir::{self, ProgEnum};
+use zokrates_ast::ir::{self};
 use zokrates_bellperson::nova::{self, NovaField};
 
 pub fn subcommand() -> App<'static, 'static> {

@@ -4,4 +4,4 @@
 set -e
 export RUSTFLAGS="--remap-path-prefix=$PWD="
 
-cargo build --release --package zokrates_cli
+cargo build --release --package zokrates_cli --features full

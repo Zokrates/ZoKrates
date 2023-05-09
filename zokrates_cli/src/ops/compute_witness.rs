@@ -5,13 +5,14 @@ use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read};
 use std::path::Path;
 use zokrates_abi::Encode;
-use zokrates_ast::ir::{self, ProgEnum};
+use zokrates_ast::ir::{self, ProgHeader, ProgIterator};
 use zokrates_ast::typed::{
     abi::Abi,
     types::{ConcreteSignature, ConcreteType, GTupleType},
 };
+#[cfg(feature = "circom")]
 use zokrates_circom::write_witness;
-use zokrates_field::Field;
+use zokrates_field::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("compute-witness")
@@ -81,13 +82,34 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut reader = BufReader::new(file);
 
-    match ProgEnum::deserialize(&mut reader)? {
-        ProgEnum::Bn128Program(p) => cli_compute(p, sub_matches),
-        ProgEnum::Bls12_377Program(p) => cli_compute(p, sub_matches),
-        ProgEnum::Bls12_381Program(p) => cli_compute(p, sub_matches),
-        ProgEnum::Bw6_761Program(p) => cli_compute(p, sub_matches),
-        ProgEnum::PallasProgram(p) => cli_compute(p, sub_matches),
-        ProgEnum::VestaProgram(p) => cli_compute(p, sub_matches),
+    let header = ProgHeader::read(&mut reader).map_err(|e| e.to_string())?;
+
+    match header.curve_name() {
+        #[cfg(feature = "bn128")]
+        name if name == Bn128Field::name() => {
+            cli_compute::<Bn128Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "bls12_377")]
+        name if name == Bls12_377Field::name() => {
+            cli_compute::<Bls12_377Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "bls12_381")]
+        name if name == Bls12_381Field::name() => {
+            cli_compute::<Bls12_381Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "bw6_761")]
+        name if name == Bw6_761Field::name() => {
+            cli_compute::<Bw6_761Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "pallas")]
+        name if name == PallasField::name() => {
+            cli_compute::<PallasField, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "vesta")]
+        name if name == VestaField::name() => {
+            cli_compute::<VestaField, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        _ => unreachable!(),
     }
 }
 
@@ -174,6 +196,8 @@ fn cli_compute<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
     .map_err(|e| format!("Could not parse argument: {}", e))?;
 
     let interpreter = zokrates_interpreter::Interpreter::default();
+
+    #[cfg(feature = "circom")]
     let public_inputs = ir_prog.public_inputs();
 
     let witness = interpreter
@@ -219,15 +243,20 @@ fn cli_compute<'a, T: Field, I: Iterator<Item = ir::Statement<'a, T>>>(
             .map_err(|why| format!("Could not save {}: {:?}", json_path.display(), why))?;
     }
 
-    // write circom witness to file
-    let wtns_path = Path::new(sub_matches.value_of("circom-witness").unwrap());
-    let wtns_file = File::create(wtns_path)
-        .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
+    #[cfg(feature = "circom")]
+    {
+        // write circom witness to file
+        let wtns_path = Path::new(sub_matches.value_of("circom-witness").unwrap());
+        let wtns_file = File::create(wtns_path)
+            .map_err(|why| format!("Could not create {}: {}", wtns_path.display(), why))?;
 
-    let mut writer = BufWriter::new(wtns_file);
+        let mut writer = BufWriter::new(wtns_file);
 
-    write_witness(&mut writer, witness, public_inputs)
-        .map_err(|why| format!("Could not save circom witness: {:?}", why))?;
+        write_witness(&mut writer, witness, public_inputs)
+            .map_err(|why| format!("Could not save circom witness: {:?}", why))?;
+
+        println!("snarkjs witness file written to '{}'", wtns_path.display());
+    }
 
     println!("Witness file written to '{}'", output_path.display());
     Ok(())

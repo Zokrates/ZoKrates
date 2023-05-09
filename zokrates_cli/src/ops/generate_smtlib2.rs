@@ -3,8 +3,9 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
-use zokrates_ast::ir::{self, smtlib2::SMTLib2Display, ProgEnum};
-use zokrates_field::Field;
+use zokrates_ast::ir::{self, smtlib2::SMTLib2Display};
+use zokrates_ast::ir::{ProgHeader, ProgIterator};
+use zokrates_field::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("generate-smtlib2")
@@ -39,13 +40,34 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut reader = BufReader::new(file);
 
-    match ProgEnum::deserialize(&mut reader)? {
-        ProgEnum::Bn128Program(p) => cli_smtlib2(p, sub_matches),
-        ProgEnum::Bls12_377Program(p) => cli_smtlib2(p, sub_matches),
-        ProgEnum::Bls12_381Program(p) => cli_smtlib2(p, sub_matches),
-        ProgEnum::Bw6_761Program(p) => cli_smtlib2(p, sub_matches),
-        ProgEnum::PallasProgram(p) => cli_smtlib2(p, sub_matches),
-        ProgEnum::VestaProgram(p) => cli_smtlib2(p, sub_matches),
+    let header = ProgHeader::read(&mut reader).map_err(|e| e.to_string())?;
+
+    match header.curve_name() {
+        #[cfg(feature = "bn128")]
+        name if name == Bn128Field::name() => {
+            cli_smtlib2::<Bn128Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "bls12_377")]
+        name if name == Bls12_377Field::name() => {
+            cli_smtlib2::<Bls12_377Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "bls12_381")]
+        name if name == Bls12_381Field::name() => {
+            cli_smtlib2::<Bls12_381Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "bw6_761")]
+        name if name == Bw6_761Field::name() => {
+            cli_smtlib2::<Bw6_761Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "pallas")]
+        name if name == PallasField::name() => {
+            cli_smtlib2::<PallasField, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "vesta")]
+        name if name == VestaField::name() => {
+            cli_smtlib2::<VestaField, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        _ => unreachable!(),
     }
 }
 

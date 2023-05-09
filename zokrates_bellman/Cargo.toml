@@ -4,14 +4,13 @@ version = "0.1.3"
 edition = "2021"
 
 [features]
-default = []
 wasm = ["bellman/nolog", "bellman/wasm"]
 multicore = ["bellman/multicore", "phase2/multicore"]
 
 [dependencies]
-zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false, features = ["bellman_extensions"] }
-zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
-zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
+zokrates_field = { version = "0.5", path = "../zokrates_field", features = ["bellman_extensions"] }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast" }
+zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems" }
 
 bellman = { package = "bellman_ce", version = "^0.3", default-features = false }
 pairing = { package = "pairing_ce", version = "^0.21" }

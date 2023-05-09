@@ -134,6 +134,7 @@ impl<'ast, T: Field> TryFrom<FieldElementExpression<'ast, T>> for LinQuadComb<'a
     }
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use super::*;

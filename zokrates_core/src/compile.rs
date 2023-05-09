@@ -293,6 +293,7 @@ pub fn parse_module<'ast, T: Field, E: Into<imports::Error>>(
     )
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod test {
     use super::*;

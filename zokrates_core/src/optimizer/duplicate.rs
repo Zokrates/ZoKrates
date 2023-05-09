@@ -58,6 +58,7 @@ impl<'ast, T: Field> Folder<'ast, T> for DuplicateOptimizer {
     }
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -3,9 +3,9 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use zokrates_ast::ir::{self, ProgEnum};
+use zokrates_ast::ir::{self, ProgHeader, ProgIterator};
 use zokrates_bellman::Bellman;
-use zokrates_field::{BellmanFieldExtensions, Field};
+use zokrates_field::*;
 use zokrates_proof_systems::{MpcBackend, MpcScheme, G16};
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -50,9 +50,14 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut reader = BufReader::new(file);
 
-    match ProgEnum::deserialize(&mut reader)? {
-        ProgEnum::Bn128Program(p) => cli_mpc_verify::<_, _, G16, Bellman>(p, sub_matches),
-        ProgEnum::Bls12_381Program(p) => cli_mpc_verify::<_, _, G16, Bellman>(p, sub_matches),
+    let header = ProgHeader::read(&mut reader).map_err(|e| e.to_string())?;
+
+    match header.curve_id {
+        name if name == Bn128Field::id() => cli_mpc_verify::<Bn128Field, _, G16, Bellman>(
+            ProgIterator::read(reader, &header),
+            sub_matches,
+        ),
+        // ProgEnum::Bls12_381Program(p) => cli_mpc_verify::<_, _, G16, Bellman>(p, sub_matches),
         _ => Err("Current protocol only supports bn128/bls12_381 programs".into()),
     }
 }

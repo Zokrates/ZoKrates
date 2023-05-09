@@ -8,12 +8,12 @@ use std::io::{BufReader, Write};
 use std::path::Path;
 #[cfg(feature = "ark")]
 use zokrates_ark::Ark;
-use zokrates_ast::ir::{self, ProgEnum};
+use zokrates_ast::ir::{self, ProgHeader, ProgIterator};
 #[cfg(feature = "bellman")]
 use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
-use zokrates_field::Field;
+use zokrates_field::*;
 use zokrates_proof_systems::rng::get_rng_from_entropy;
 #[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
@@ -98,55 +98,81 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         File::open(path).map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
-    let prog = ProgEnum::deserialize(&mut reader)?;
+    let header = ProgHeader::read(&mut reader).map_err(|e| e.to_string())?;
 
     let parameters = Parameters::try_from((
         sub_matches.value_of("backend").unwrap(),
-        prog.curve(),
+        header.curve_name(),
         sub_matches.value_of("proving-scheme").unwrap(),
     ))?;
 
     match parameters {
         #[cfg(feature = "bellman")]
-        Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => {
-                cli_setup_non_universal::<_, _, G16, Bellman>(p, sub_matches)
-            }
-            ProgEnum::Bls12_381Program(p) => {
-                cli_setup_non_universal::<_, _, G16, Bellman>(p, sub_matches)
-            }
-            _ => unreachable!(),
-        },
-        #[cfg(feature = "ark")]
-        Parameters(BackendParameter::Ark, _, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => cli_setup_non_universal::<_, _, G16, Ark>(p, sub_matches),
-            ProgEnum::Bls12_381Program(p) => {
-                cli_setup_non_universal::<_, _, G16, Ark>(p, sub_matches)
-            }
-            ProgEnum::Bls12_377Program(p) => {
-                cli_setup_non_universal::<_, _, G16, Ark>(p, sub_matches)
-            }
-            ProgEnum::Bw6_761Program(p) => {
-                cli_setup_non_universal::<_, _, G16, Ark>(p, sub_matches)
+        Parameters(BackendParameter::Bellman, curve, SchemeParameter::G16) => match curve {
+            #[cfg(feature = "bn128")]
+            CurveParameter::Bn128 => cli_setup_non_universal::<Bn128Field, _, G16, Bellman>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bls12_381")]
+            CurveParameter::Bls12_381 => {
+                cli_setup_non_universal::<Bls12_381Field, _, G16, Bellman>(
+                    ProgIterator::read(reader, &header),
+                    sub_matches,
+                )
             }
             _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
-        Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
-            ProgEnum::Bn128Program(p) => cli_setup_non_universal::<_, _, GM17, Ark>(p, sub_matches),
-            ProgEnum::Bls12_381Program(p) => {
-                cli_setup_non_universal::<_, _, GM17, Ark>(p, sub_matches)
-            }
-            ProgEnum::Bls12_377Program(p) => {
-                cli_setup_non_universal::<_, _, GM17, Ark>(p, sub_matches)
-            }
-            ProgEnum::Bw6_761Program(p) => {
-                cli_setup_non_universal::<_, _, GM17, Ark>(p, sub_matches)
-            }
+        Parameters(BackendParameter::Ark, curve, SchemeParameter::G16) => match curve {
+            #[cfg(feature = "bn128")]
+            CurveParameter::Bn128 => cli_setup_non_universal::<Bn128Field, _, G16, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bls12_381")]
+            CurveParameter::Bls12_381 => cli_setup_non_universal::<Bls12_381Field, _, G16, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bls12_377")]
+            CurveParameter::Bls12_377 => cli_setup_non_universal::<Bls12_377Field, _, G16, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bw6_761")]
+            CurveParameter::Bw6_761 => cli_setup_non_universal::<Bw6_761Field, _, G16, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
             _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
-        Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => {
+        Parameters(BackendParameter::Ark, curve, SchemeParameter::GM17) => match curve {
+            #[cfg(feature = "bn128")]
+            CurveParameter::Bn128 => cli_setup_non_universal::<Bn128Field, _, GM17, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bls12_381")]
+            CurveParameter::Bls12_381 => cli_setup_non_universal::<Bls12_381Field, _, GM17, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bls12_377")]
+            CurveParameter::Bls12_377 => cli_setup_non_universal::<Bls12_377Field, _, GM17, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bw6_761")]
+            CurveParameter::Bw6_761 => cli_setup_non_universal::<Bw6_761Field, _, GM17, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            _ => unreachable!(),
+        },
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, curve, SchemeParameter::MARLIN) => {
             let setup_path = Path::new(sub_matches.value_of("universal-setup-path").unwrap());
             let setup_file = File::open(setup_path)
                 .map_err(|why| format!("Couldn't open {}: {}\nExpected an universal setup, make sure `zokrates universal-setup` was run`", setup_path.display(), why))?;
@@ -160,18 +186,22 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
                 .read_to_end(&mut setup)
                 .map_err(|_| "Cannot read universal setup".to_string())?;
 
-            match prog {
-                ProgEnum::Bn128Program(p) => {
-                    cli_setup_universal::<_, _, Marlin, Ark>(p, setup, sub_matches)
+            match curve {
+                #[cfg(feature = "bn128")]
+                CurveParameter::Bn128 => {
+                    cli_setup_universal::<Bn128Field, _, Marlin, Ark>(p, setup, sub_matches)
                 }
-                ProgEnum::Bls12_381Program(p) => {
-                    cli_setup_universal::<_, _, Marlin, Ark>(p, setup, sub_matches)
+                #[cfg(feature = "bls12_381")]
+                CurveParameter::Bls12_381 => {
+                    cli_setup_universal::<Bls12_381, _, Marlin, Ark>(p, setup, sub_matches)
                 }
-                ProgEnum::Bls12_377Program(p) => {
-                    cli_setup_universal::<_, _, Marlin, Ark>(p, setup, sub_matches)
+                #[cfg(feature = "bls12_377")]
+                CurveParameter::Bls12_377 => {
+                    cli_setup_universal::<Bls12_377, _, Marlin, Ark>(p, setup, sub_matches)
                 }
-                ProgEnum::Bw6_761Program(p) => {
-                    cli_setup_universal::<_, _, Marlin, Ark>(p, setup, sub_matches)
+                #[cfg(feature = "bw6_377")]
+                CurveParameter::Bw6_761 => {
+                    cli_setup_universal::<Bw6_761, _, Marlin, Ark>(p, setup, sub_matches)
                 }
                 _ => unreachable!(),
             }

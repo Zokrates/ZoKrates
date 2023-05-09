@@ -1,6 +1,7 @@
 pub mod check;
 pub mod compile;
 pub mod compute_witness;
+#[cfg(any(feature = "solidity"))]
 pub mod export_verifier;
 #[cfg(any(feature = "bellman", feature = "ark"))]
 pub mod generate_proof;
@@ -10,6 +11,7 @@ pub mod inspect;
 pub mod mpc;
 #[cfg(feature = "bellperson")]
 pub mod nova;
+#[cfg(feature = "solidity")]
 pub mod print_proof;
 pub mod profile;
 #[cfg(any(feature = "bellman", feature = "ark"))]

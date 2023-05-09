@@ -3734,6 +3734,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     }
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use super::*;

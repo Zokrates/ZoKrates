@@ -51,10 +51,12 @@ fn cli() -> Result<(), String> {
             nova::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark"))]
             setup::subcommand(),
+            #[cfg(feature = "solidity")]
             export_verifier::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark"))]
             generate_proof::subcommand(),
             generate_smtlib2::subcommand(),
+            #[cfg(feature = "solidity")]
             print_proof::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark"))]
             verify::subcommand(),
@@ -75,10 +77,12 @@ fn cli() -> Result<(), String> {
         ("nova", Some(sub_matches)) => nova::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark"))]
         ("setup", Some(sub_matches)) => setup::exec(sub_matches),
+        #[cfg(feature = "solidity")]
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark"))]
         ("generate-proof", Some(sub_matches)) => generate_proof::exec(sub_matches),
         ("generate-smtlib2", Some(sub_matches)) => generate_smtlib2::exec(sub_matches),
+        #[cfg(feature = "solidity")]
         ("print-proof", Some(sub_matches)) => print_proof::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark"))]
         ("verify", Some(sub_matches)) => verify::exec(sub_matches),

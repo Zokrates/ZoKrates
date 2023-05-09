@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
 use zokrates_abi::{parse_value, Encode, Values};
-use zokrates_ast::ir::{self, ProgEnum};
+use zokrates_ast::ir::{self};
 use zokrates_ast::typed::abi::Abi;
 use zokrates_bellperson::nova::{self, NovaField};
 

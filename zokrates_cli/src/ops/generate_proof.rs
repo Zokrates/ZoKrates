@@ -8,12 +8,12 @@ use std::io::{BufReader, Write};
 use std::path::Path;
 #[cfg(feature = "ark")]
 use zokrates_ark::Ark;
-use zokrates_ast::ir::{self, ProgEnum};
+use zokrates_ast::ir::{self, ProgHeader, ProgIterator};
 #[cfg(feature = "bellman")]
 use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
-use zokrates_field::Field;
+use zokrates_field::*;
 use zokrates_proof_systems::rng::get_rng_from_entropy;
 #[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
@@ -98,9 +98,9 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         .map_err(|why| format!("Could not open {}: {}", program_path.display(), why))?;
 
     let mut reader = BufReader::new(program_file);
-    let prog = ProgEnum::deserialize(&mut reader)?;
+    let header = ProgHeader::read(&mut reader).map_err(|e| e.to_string())?;
 
-    let curve_parameter = CurveParameter::try_from(prog.curve())?;
+    let curve_parameter = CurveParameter::try_from(id_to_name(header.curve_id))?;
 
     let backend_parameter = BackendParameter::try_from(sub_matches.value_of("backend").unwrap())?;
     let scheme_parameter =
@@ -110,41 +110,79 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     match parameters {
         #[cfg(feature = "bellman")]
-        Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, G16, Bellman>(p, sub_matches),
-            ProgEnum::Bls12_381Program(p) => {
-                cli_generate_proof::<_, _, G16, Bellman>(p, sub_matches)
-            }
+        Parameters(BackendParameter::Bellman, curve, SchemeParameter::G16) => match curve {
+            #[cfg(feature = "bn128")]
+            CurveParameter::Bn128 => cli_generate_proof::<Bn128Field, _, G16, Bellman>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bls12_381")]
+            CurveParameter::Bls12_381 => cli_generate_proof::<Bls12_381Field, _, G16, Bellman>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
             _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
-        Parameters(BackendParameter::Ark, _, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
-            ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
-            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
-            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
+        Parameters(BackendParameter::Ark, curve, SchemeParameter::G16) => match curve {
+            #[cfg(feature = "bn128")]
+            CurveParameter::Bn128 => cli_generate_proof::<Bn128Field, _, G16, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bls12_381")]
+            CurveParameter::Bls12_381 => cli_generate_proof::<Bls12_381Field, _, G16, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bls12_377")]
+            CurveParameter::Bls12_377 => cli_generate_proof::<Bls12_377Field, _, G16, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bw6_761")]
+            CurveParameter::Bw6_761 => cli_generate_proof::<Bw6_761Field, _, G16, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
             _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
-        Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
-            ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
-            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
-            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
+        Parameters(BackendParameter::Ark, curve, SchemeParameter::GM17) => match curve {
+            #[cfg(feature = "bn128")]
+            CurveParameter::Bn128 => cli_generate_proof::<Bn128Field, _, GM17, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bls12_381")]
+            CurveParameter::Bls12_381 => cli_generate_proof::<Bls12_381Field, _, GM17, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bls12_377")]
+            CurveParameter::Bls12_377 => cli_generate_proof::<Bls12_377Field, _, GM17, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
+            #[cfg(feature = "bw6_761")]
+            CurveParameter::Bw6_761 => cli_generate_proof::<Bw6_761Field, _, GM17, Ark>(
+                ProgIterator::read(reader, &header),
+                sub_matches,
+            ),
             _ => unreachable!(),
         },
-        #[cfg(feature = "ark")]
-        Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches),
-            ProgEnum::Bls12_381Program(p) => {
-                cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches)
-            }
-            ProgEnum::Bls12_377Program(p) => {
-                cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches)
-            }
-            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches),
-            _ => unreachable!(),
-        },
+        // #[cfg(feature = "ark")]
+        // Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
+        //     ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches),
+        //     ProgEnum::Bls12_381Program(p) => {
+        //         cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches)
+        //     }
+        //     ProgEnum::Bls12_377Program(p) => {
+        //         cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches)
+        //     }
+        //     ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches),
+        //     _ => unreachable!(),
+        // },
         _ => unreachable!(),
     }
 }

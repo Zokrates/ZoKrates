@@ -1,9 +1,12 @@
+#[cfg(feature = "solidity")]
 use ethabi::Token;
+#[cfg(feature = "solidity")]
 use primitive_types::U256;
 
-use super::{
-    Fr, G1Affine, G2Affine, Marlin, SolidityCompatibleField, SolidityCompatibleScheme, G16, GM17,
-};
+#[cfg(feature = "solidity")]
+use crate::solidity::{SolidityCompatibleField, SolidityCompatibleScheme};
+
+use super::{Fr, G1Affine, G2Affine, Marlin, G16, GM17};
 
 /// Helper methods for parsing group structure
 pub fn encode_g1_element(g: &G1Affine) -> (U256, U256) {
@@ -33,12 +36,14 @@ pub fn encode_fr_element(f: &Fr) -> U256 {
     U256::from(&hex::decode(f.trim_start_matches("0x")).unwrap()[..])
 }
 
+#[cfg(feature = "solidity")]
 pub trait ToToken<T: SolidityCompatibleField>: SolidityCompatibleScheme<T> {
     fn to_token(proof: Self::Proof) -> ethabi::Token;
 
     fn modify(proof: Self::Proof) -> Self::Proof;
 }
 
+#[cfg(feature = "solidity")]
 impl<T: SolidityCompatibleField> ToToken<T> for G16 {
     fn to_token(proof: Self::Proof) -> Token {
         let a = {
@@ -70,6 +75,7 @@ impl<T: SolidityCompatibleField> ToToken<T> for G16 {
     }
 }
 
+#[cfg(feature = "solidity")]
 impl<T: SolidityCompatibleField> ToToken<T> for GM17 {
     fn to_token(proof: Self::Proof) -> Token {
         let a = {
@@ -101,6 +107,7 @@ impl<T: SolidityCompatibleField> ToToken<T> for GM17 {
     }
 }
 
+#[cfg(feature = "solidity")]
 impl<T: SolidityCompatibleField> ToToken<T> for Marlin {
     fn to_token(proof: Self::Proof) -> Token {
         let comms_1_token = Token::Array(

@@ -6,13 +6,12 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
 use typed_arena::Arena;
+#[cfg(feature = "circom")]
 use zokrates_circom::write_r1cs;
 use zokrates_common::constants::BN128;
 use zokrates_common::{helpers::CurveParameter, CompileConfig};
 use zokrates_core::compile::{compile, CompileError};
-use zokrates_field::{
-    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField, VestaField,
-};
+use zokrates_field::*;
 use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -79,11 +78,17 @@ pub fn subcommand() -> App<'static, 'static> {
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let curve = CurveParameter::try_from(sub_matches.value_of("curve").unwrap())?;
     match curve {
+        #[cfg(feature = "bn128")]
         CurveParameter::Bn128 => cli_compile::<Bn128Field>(sub_matches),
+        #[cfg(feature = "bls12_381")]
         CurveParameter::Bls12_377 => cli_compile::<Bls12_377Field>(sub_matches),
+        #[cfg(feature = "bls12_377")]
         CurveParameter::Bls12_381 => cli_compile::<Bls12_381Field>(sub_matches),
+        #[cfg(feature = "bw6_761")]
         CurveParameter::Bw6_761 => cli_compile::<Bw6_761Field>(sub_matches),
+        #[cfg(feature = "pallas")]
         CurveParameter::Pallas => cli_compile::<PallasField>(sub_matches),
+        #[cfg(feature = "vesta")]
         CurveParameter::Vesta => cli_compile::<VestaField>(sub_matches),
     }
 }
@@ -92,7 +97,6 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
     let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
-    let r1cs_output_path = Path::new(sub_matches.value_of("r1cs").unwrap());
     let abi_spec_path = Path::new(sub_matches.value_of("abi-spec").unwrap());
 
     log::debug!("Load entry point file {}", path.display());
@@ -152,11 +156,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let bin_output_file = File::create(bin_output_path)
         .map_err(|why| format!("Could not create {}: {}", bin_output_path.display(), why))?;
 
-    let r1cs_output_file = File::create(r1cs_output_path)
-        .map_err(|why| format!("Could not create {}: {}", r1cs_output_path.display(), why))?;
-
     let mut bin_writer = BufWriter::new(bin_output_file);
-    let mut r1cs_writer = BufWriter::new(r1cs_output_file);
 
     let mut program_flattened = program_flattened.collect();
 
@@ -168,7 +168,16 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         .module_map
         .remap_prefix(Path::new(stdlib_path), Path::new("STDLIB"));
 
-    write_r1cs(&mut r1cs_writer, program_flattened.clone()).unwrap();
+    #[cfg(feature = "circom")]
+    {
+        let r1cs_output_path = Path::new(sub_matches.value_of("r1cs").unwrap());
+
+        let r1cs_output_file = File::create(r1cs_output_path)
+            .map_err(|why| format!("Could not create {}: {}", r1cs_output_path.display(), why))?;
+
+        let mut r1cs_writer: BufWriter<File> = BufWriter::new(r1cs_output_file);
+        write_r1cs(&mut r1cs_writer, program_flattened.clone()).unwrap();
+    }
 
     match program_flattened.serialize(&mut bin_writer) {
         Ok(constraint_count) => {

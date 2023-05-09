@@ -7,10 +7,16 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["bellman", "ark", "bellperson"]
+full = ["bellman", "ark", "bellperson", "bn128", "bls12_377", "bls12_381", "bw6_761", "pallas", "vesta"]
 bellman = []
 ark = []
 bellperson = []
+bn128 = []
+bls12_377 = []
+bls12_381 = []
+bw6_761 = []
+pallas = []
+vesta = []
 
 
 [dependencies]

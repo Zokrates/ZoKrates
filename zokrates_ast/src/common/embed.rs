@@ -19,21 +19,6 @@ use zokrates_field::Field;
 
 use super::ModuleMap;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "bellman")] {
-        use pairing_ce::bn256::Bn256;
-        use zokrates_embed::{bellman::{from_bellman, generate_sha256_round_constraints}};
-        use crate::flat::flat_expression_from_variable_summands;
-    }
-}
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "ark")] {
-        use ark_bls12_377::Bls12_377;
-        use zokrates_embed::ark::{from_ark, generate_verify_constraints};
-    }
-}
-
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd, Ord, Serialize, Deserialize)]
@@ -332,15 +317,18 @@ impl FlatEmbed {
 /// The variables inside the function are set in this order:
 /// - constraint system variables
 /// - arguments
-#[cfg(feature = "bellman")]
+#[cfg(all(feature = "bellman", feature = "bn128"))]
 pub fn sha256_round<'ast, T: Field>(
 ) -> FlatFunctionIterator<'ast, T, impl IntoIterator<Item = FlatStatement<'ast, T>>> {
+    use zokrates_embed::bellman::generate_sha256_round_constraints;
     use zokrates_field::Bn128Field;
     assert_eq!(T::id(), Bn128Field::id());
+    use crate::flat::flat_expression_from_variable_summands;
+    use zokrates_embed::bellman::from_bellman;
 
     // Define iterators for all indices at hand
     let (r1cs, input_indices, current_hash_indices, output_indices) =
-        generate_sha256_round_constraints::<Bn256>();
+        generate_sha256_round_constraints::<pairing_ce::bn256::Bn256>();
 
     // The output count
     let return_count = output_indices.len();
@@ -386,7 +374,7 @@ pub fn sha256_round<'ast, T: Field>(
     });
     // insert flattened statements to represent constraints
     let constraint_statements = r1cs.constraints.into_iter().map(|c| {
-        let c = from_bellman::<T, Bn256>(c);
+        let c = from_bellman::<T, pairing_ce::bn256::Bn256>(c);
         let rhs_a = flat_expression_from_variable_summands::<T>(c.a.as_slice());
         let rhs_b = flat_expression_from_variable_summands::<T>(c.b.as_slice());
         let lhs = flat_expression_from_variable_summands::<T>(c.c.as_slice());
@@ -429,10 +417,13 @@ pub fn sha256_round<'ast, T: Field>(
     }
 }
 
-#[cfg(feature = "ark")]
+#[cfg(all(feature = "ark", feature = "bw6_761"))]
 pub fn snark_verify_bls12_377<'ast, T: Field>(
     n: usize,
 ) -> FlatFunctionIterator<'ast, T, impl IntoIterator<Item = FlatStatement<'ast, T>>> {
+    use crate::flat::flat_expression_from_variable_summands;
+    use zokrates_embed::ark::from_ark;
+    use zokrates_embed::ark::generate_verify_constraints;
     use zokrates_field::Bw6_761Field;
     assert_eq!(T::id(), Bw6_761Field::id());
 
@@ -495,7 +486,7 @@ pub fn snark_verify_bls12_377<'ast, T: Field>(
     let constraint_statements: Vec<FlatStatement<T>> = constraints
         .into_iter()
         .map(|c| {
-            let c = from_ark::<T, Bls12_377>(c);
+            let c = from_ark::<T, ark_bls12_377::Bls12_377>(c);
             let rhs_a = flat_expression_from_variable_summands::<T>(c.a.as_slice());
             let rhs_b = flat_expression_from_variable_summands::<T>(c.b.as_slice());
             let lhs = flat_expression_from_variable_summands::<T>(c.c.as_slice());
@@ -639,10 +630,11 @@ pub fn unpack_to_bitwidth<'ast, T: Field>(
     }
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::Bn128Field;
+    use zokrates_field::{Bn128Field, Field};
 
     #[cfg(test)]
     mod split {
@@ -671,10 +663,11 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "bellman")]
+    #[cfg(all(feature = "bellman", feature = "bn128"))]
     #[cfg(test)]
     mod sha256 {
         use super::*;
+        use zokrates_field::Bn128Field;
 
         #[test]
         fn generate_sha256_constraints() {

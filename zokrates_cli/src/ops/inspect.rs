@@ -3,8 +3,8 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
-use zokrates_ast::ir::{self, ProgEnum};
-use zokrates_field::Field;
+use zokrates_ast::ir::{self, ProgHeader, ProgIterator};
+use zokrates_field::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("inspect")
@@ -35,13 +35,34 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut reader = BufReader::new(file);
 
-    match ProgEnum::deserialize(&mut reader)? {
-        ProgEnum::Bn128Program(p) => cli_inspect(p, sub_matches),
-        ProgEnum::Bls12_377Program(p) => cli_inspect(p, sub_matches),
-        ProgEnum::Bls12_381Program(p) => cli_inspect(p, sub_matches),
-        ProgEnum::Bw6_761Program(p) => cli_inspect(p, sub_matches),
-        ProgEnum::PallasProgram(p) => cli_inspect(p, sub_matches),
-        ProgEnum::VestaProgram(p) => cli_inspect(p, sub_matches),
+    let header = ProgHeader::read(&mut reader).map_err(|e| e.to_string())?;
+
+    match header.curve_id {
+        #[cfg(feature = "bn128")]
+        name if name == Bn128Field::id() => {
+            cli_inspect::<Bn128Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "bls12_377")]
+        name if name == Bls12_377Field::id() => {
+            cli_inspect::<Bls12_377Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "bls12_381")]
+        name if name == Bls12_381Field::id() => {
+            cli_inspect::<Bls12_381Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "bw6_761")]
+        name if name == Bw6_761Field::id() => {
+            cli_inspect::<Bw6_761Field, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "pallas")]
+        name if name == PallasField::id() => {
+            cli_inspect::<PallasField, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        #[cfg(feature = "vesta")]
+        name if name == VestaField::id() => {
+            cli_inspect::<VestaField, _>(ProgIterator::read(reader, &header), sub_matches)
+        }
+        _ => unreachable!(),
     }
 }
 

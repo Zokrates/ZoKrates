@@ -373,6 +373,7 @@ impl<T: Field> Div<&T> for LinComb<T> {
     }
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use super::*;
