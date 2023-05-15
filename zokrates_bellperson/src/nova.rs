@@ -105,7 +105,7 @@ pub fn verify<T: NovaField>(
     arguments: Vec<T>,
 ) -> Result<Vec<T>, Error> {
     let z0_primary: Vec<_> = arguments.into_iter().map(|a| a.into_bellperson()).collect();
-    let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::one()];
+    let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::ONE];
 
     proof
         .proof
@@ -149,7 +149,7 @@ pub fn verify_compressed<'ast, T: NovaField>(
     step_count: usize,
 ) -> bool {
     let z0_primary: Vec<_> = arguments.into_iter().map(|a| a.into_bellperson()).collect();
-    let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::one()];
+    let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::ONE];
 
     proof
         .verify(vk, step_count, z0_primary, z0_secondary)
@@ -166,7 +166,7 @@ pub fn prove<'ast, T: NovaField>(
     let c_primary = NovaComputation::try_from(Computation::without_witness(program))?;
     let c_secondary = TrivialTestCircuit::default();
     let z0_primary: Vec<_> = arguments.into_iter().map(|a| a.into_bellperson()).collect();
-    let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::one()];
+    let z0_secondary = vec![<<T as Cycle>::Point as Group>::Base::ONE];
 
     for steps_private in steps {
         let mut c_primary = c_primary.clone();
