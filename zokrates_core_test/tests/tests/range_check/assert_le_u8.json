@@ -1,6 +1,6 @@
 {
-  "entry_point": "./tests/tests/range_check/assert_lt_u8.zok",
-  "max_constraint_count": 10,
+  "entry_point": "./tests/tests/range_check/assert_le_u8.zok",
+  "max_constraint_count": 12,
   "curves": ["Bn128"],
   "tests": [
     {
@@ -28,18 +28,8 @@
         "values": ["0x02"]
       },
       "output": {
-        "Err": {
-          "UnsatisfiedConstraint": {
-            "error": {
-              "SourceAssertion": {
-                "file": "./tests/tests/range_check/assert_lt_u8.zok",
-                "position": {
-                  "line": 2,
-                  "col": 5
-                }
-              }
-            }
-          }
+        "Ok": {
+          "value": []
         }
       }
     },
@@ -52,7 +42,7 @@
           "UnsatisfiedConstraint": {
             "error": {
               "SourceAssertion": {
-                "file": "./tests/tests/range_check/assert_lt_u8.zok",
+                "file": "./tests/tests/range_check/assert_le_u8.zok",
                 "position": {
                   "line": 2,
                   "col": 5

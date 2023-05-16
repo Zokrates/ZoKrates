@@ -803,6 +803,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         lhs_flattened: FlatExpression<T>,
         rhs_flattened: FlatExpression<T>,
         bit_width: usize,
+        error: RuntimeError,
     ) -> FlatExpression<T> {
         FlatExpression::add(
             self.eq_check(
@@ -815,6 +816,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 lhs_flattened,
                 rhs_flattened,
                 bit_width,
+                error,
             ),
         )
     }
@@ -826,6 +828,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         lhs_flattened: FlatExpression<T>,
         rhs_flattened: FlatExpression<T>,
         bit_width: usize,
+        error: RuntimeError,
     ) -> FlatExpression<T> {
         match (lhs_flattened, rhs_flattened) {
             (x, FlatExpression::Value(constant)) => {
@@ -841,7 +844,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let lhs_id = self.define(lhs_flattened, statements_flattened);
                 let rhs_id = self.define(rhs_flattened, statements_flattened);
 
-                // shifted_sub := 2**safe_width + lhs - rhs
+                // shifted_sub := 2**bit_width + lhs - rhs
                 let shifted_sub = FlatExpression::add(
                     FlatExpression::value(T::from(2).pow(bit_width)),
                     FlatExpression::sub(
@@ -857,7 +860,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     sub_width,
                     sub_width,
                     statements_flattened,
-                    RuntimeError::IncompleteDynamicRange,
+                    error,
                 );
 
                 FlatExpression::sub(
@@ -910,6 +913,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     lhs_flattened,
                     rhs_flattened,
                     safe_width,
+                    RuntimeError::IncompleteDynamicRange,
                 )
             }
             BooleanExpression::BoolEq(e) => {
@@ -1003,6 +1007,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     lhs_flattened,
                     rhs_flattened,
                     bit_width,
+                    RuntimeError::LtSum,
                 )
             }
             BooleanExpression::UintLe(e) => {
@@ -2016,18 +2021,39 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             let res = match self.bits_cache.entry(e.field.clone().unwrap()) {
                 Entry::Occupied(entry) => {
                     let res: Vec<_> = entry.get().clone();
-                    // if we already know a decomposition, its number of elements has to be smaller or equal to `to`
-                    assert!(res.len() <= to);
 
-                    // we then pad it with zeroes on the left (big endian) to return `to` bits
-                    if res.len() == to {
-                        res
-                    } else {
-                        (0..to - res.len())
+                    if res.len() > to {
+                        // if the result is bigger than `to`, we sum higher bits up to `to`
+                        let bit_sum = res[..res.len() - to]
+                            .iter()
+                            .cloned()
+                            .fold(FlatExpression::from(T::zero()), |acc, e| {
+                                FlatExpression::add(acc, e)
+                            });
+
+                        // sum of higher bits must be zero
+                        statements_flattened.push_back(FlatStatement::condition(
+                            FlatExpression::value(T::from(0)),
+                            bit_sum,
+                            error,
+                        ));
+
+                        // truncate to the `to` lowest bits
+                        let res = res[res.len() - to..].to_vec();
+                        assert_eq!(res.len(), to);
+
+                        return res;
+                    }
+
+                    // if result is smaller than `to` we pad it with zeroes on the left (big endian) to return `to` bits
+                    if res.len() < to {
+                        return (0..to - res.len())
                             .map(|_| FlatExpression::value(T::zero()))
                             .chain(res)
-                            .collect()
+                            .collect();
                     }
+
+                    res
                 }
                 Entry::Vacant(_) => {
                     let bits = (0..from).map(|_| self.use_sym()).collect::<Vec<_>>();
@@ -2554,7 +2580,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             (lhs, rhs) => {
                                 let bit_width = T::get_required_bits();
                                 let safe_width = bit_width - 2; // dynamic comparison is not complete
-                                let e = self.lt_check(statements_flattened, lhs, rhs, safe_width);
+                                let e = self.lt_check(
+                                    statements_flattened,
+                                    lhs,
+                                    rhs,
+                                    safe_width,
+                                    RuntimeError::IncompleteDynamicRange,
+                                );
                                 statements_flattened.push_back(FlatStatement::condition(
                                     e,
                                     FlatExpression::value(T::one()),
@@ -2584,7 +2616,56 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             (lhs, rhs) => {
                                 let bit_width = T::get_required_bits();
                                 let safe_width = bit_width - 2; // dynamic comparison is not complete
-                                let e = self.le_check(statements_flattened, lhs, rhs, safe_width);
+                                let e = self.le_check(
+                                    statements_flattened,
+                                    lhs,
+                                    rhs,
+                                    safe_width,
+                                    RuntimeError::IncompleteDynamicRange,
+                                );
+                                statements_flattened.push_back(FlatStatement::condition(
+                                    e,
+                                    FlatExpression::value(T::one()),
+                                    error.into(),
+                                ));
+                            }
+                        }
+                    }
+                    BooleanExpression::UintLt(e) => {
+                        let bitwidth = e.left.bitwidth as usize;
+                        let lhs = self
+                            .flatten_uint_expression(statements_flattened, *e.left)
+                            .get_field_unchecked();
+
+                        let rhs = self
+                            .flatten_uint_expression(statements_flattened, *e.right)
+                            .get_field_unchecked();
+
+                        match (lhs, rhs) {
+                            (e, FlatExpression::Value(c)) => self.enforce_constant_lt_check(
+                                statements_flattened,
+                                e,
+                                c.value,
+                                error.into(),
+                            ),
+                            // c < e <=> 2^bw - 1 - e < 2^bw - 1 - c
+                            (FlatExpression::Value(c), e) => {
+                                let max = T::from(2u32).pow(bitwidth) - T::one();
+                                self.enforce_constant_lt_check(
+                                    statements_flattened,
+                                    FlatExpression::sub(max.into(), e),
+                                    max - c.value,
+                                    error.into(),
+                                )
+                            }
+                            (lhs, rhs) => {
+                                let e = self.lt_check(
+                                    statements_flattened,
+                                    lhs,
+                                    rhs,
+                                    bitwidth,
+                                    RuntimeError::LtSum,
+                                );
                                 statements_flattened.push_back(FlatStatement::condition(
                                     e,
                                     FlatExpression::value(T::one()),
@@ -2594,9 +2675,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         }
                     }
                     BooleanExpression::UintLe(e) => {
+                        let bitwidth = e.left.bitwidth as usize;
                         let lhs = self
                             .flatten_uint_expression(statements_flattened, *e.left)
                             .get_field_unchecked();
+
                         let rhs = self
                             .flatten_uint_expression(statements_flattened, *e.right)
                             .get_field_unchecked();
@@ -2608,17 +2691,24 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 c.value,
                                 error.into(),
                             ),
-                            // c <= e <=> p - 1 - e <= p - 1 - c
-                            (FlatExpression::Value(c), e) => self.enforce_constant_le_check(
-                                statements_flattened,
-                                FlatExpression::sub(T::max_value().into(), e),
-                                T::max_value() - c.value,
-                                error.into(),
-                            ),
+                            // c < e <=> 2^bw - 1 - e < 2^bw - 1 - c
+                            (FlatExpression::Value(c), e) => {
+                                let max = T::from(2u32).pow(bitwidth) - T::one();
+                                self.enforce_constant_le_check(
+                                    statements_flattened,
+                                    FlatExpression::sub(max.into(), e),
+                                    max - c.value,
+                                    error.into(),
+                                )
+                            }
                             (lhs, rhs) => {
-                                let bit_width = T::get_required_bits();
-                                let safe_width = bit_width - 2; // dynamic comparison is not complete
-                                let e = self.le_check(statements_flattened, lhs, rhs, safe_width);
+                                let e = self.le_check(
+                                    statements_flattened,
+                                    lhs,
+                                    rhs,
+                                    bitwidth,
+                                    RuntimeError::LtSum,
+                                );
                                 statements_flattened.push_back(FlatStatement::condition(
                                     e,
                                     FlatExpression::value(T::one()),

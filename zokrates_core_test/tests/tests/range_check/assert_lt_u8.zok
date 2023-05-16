@@ -1,4 +1,3 @@
-def main(field x) {
+def main(u8 x) {
     assert(x < 2);
-    return;
 }
