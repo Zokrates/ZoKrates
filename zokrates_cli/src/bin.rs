@@ -108,6 +108,7 @@ fn panic_hook(pi: &std::panic::PanicInfo) {
     println!("This is unexpected, please submit a full bug report at https://github.com/Zokrates/ZoKrates/issues");
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     extern crate glob;

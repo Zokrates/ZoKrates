@@ -10,7 +10,7 @@ use zokrates_ast::typed::abi::Abi;
 use zokrates_bellperson::nova::{
     self, CompressedSNARK, NovaField, RecursiveSNARKWithStepCount, VerifierKey,
 };
-use zokrates_field::PallasField;
+use zokrates_field::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("verify")
@@ -78,9 +78,14 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let verification_key_reader = BufReader::new(verification_key_file);
 
-    let proof: CompressedSNARK<PallasField> = serde_json::from_reader(proof_reader).unwrap();
-    let vk: VerifierKey<PallasField> = serde_json::from_reader(verification_key_reader).unwrap();
+    #[cfg(not(feature = "pallas"))]
+    unimplemented!();
 
+    #[cfg(feature = "pallas")]
+    let proof: CompressedSNARK<PallasField> = serde_json::from_reader(proof_reader).unwrap();
+    #[cfg(feature = "pallas")]
+    let vk: VerifierKey<PallasField> = serde_json::from_reader(verification_key_reader).unwrap();
+    #[cfg(feature = "pallas")]
     cli_nova_verify(proof, vk, sub_matches)
 }
 

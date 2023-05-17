@@ -3,7 +3,8 @@ name = "zokrates_circom"
 version = "0.1.4"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+bn128 = ["zokrates_field/bn128"]
 
 [dependencies]
 zokrates_ast = { version = "0.1", path = "../zokrates_ast" }

@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use crate::constants::*;
 use std::convert::TryFrom;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum CurveParameter {
     #[cfg(feature = "bn128")]
     Bn128,

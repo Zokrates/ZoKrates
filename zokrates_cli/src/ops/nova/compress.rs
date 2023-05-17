@@ -1,7 +1,7 @@
 use crate::cli_constants::{self, JSON_NOVA_RUNNING_INSTANCE};
 use clap::{App, Arg, ArgMatches, SubCommand};
 
-use zokrates_field::PallasField;
+use zokrates_field::*;
 
 use std::io::BufReader;
 use std::path::Path;
@@ -57,9 +57,15 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         File::open(path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
 
     let reader = BufReader::new(file);
+
+    #[cfg(not(feature = "pallas"))]
+    unimplemented!();
+
+    #[cfg(feature = "pallas")]
     let instance: RecursiveSNARKWithStepCount<PallasField> =
         serde_json::from_reader(reader).unwrap();
 
+    #[cfg(feature = "pallas")]
     cli_nova_compress::<PallasField>(instance, sub_matches)
 }
 

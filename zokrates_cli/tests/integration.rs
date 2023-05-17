@@ -5,12 +5,15 @@ extern crate rand_0_4;
 extern crate rand_0_8;
 extern crate serde_json;
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod integration {
+    #[cfg(feature = "solidity")]
     use ethabi::Token;
     use fs_extra::copy_items;
     use fs_extra::dir::CopyOptions;
     use pretty_assertions::assert_eq;
+    #[cfg(feature = "solidity")]
     use primitive_types::U256;
     use serde_json::from_reader;
     use std::fs;
@@ -22,7 +25,9 @@ mod integration {
     use zokrates_abi::{parse_strict, Encode};
     use zokrates_ast::ir::Witness;
     use zokrates_ast::typed::abi::Abi;
+    #[cfg(feature = "solidity")]
     use zokrates_field::Bn128Field;
+    #[cfg(feature = "solidity")]
     use zokrates_proof_systems::{
         to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17,
     };
@@ -213,6 +218,7 @@ mod integration {
             .join(program_name)
             .join("proving")
             .with_extension("key");
+        #[cfg(feature = "solidity")]
         let solidity_test_path = global_path.join("zokrates_verifier");
         let verification_contract_path = tmp_base
             .join(program_name)
@@ -261,7 +267,7 @@ mod integration {
 
         assert_cli::Assert::main_binary()
             .with_args(&compute)
-            .stdin(&json_input_str)
+            .stdin(&*json_input_str)
             .succeeds()
             .unwrap();
 
@@ -411,9 +417,11 @@ mod integration {
 
                     // TEST VERIFIER
                     // Get the contract
+                    #[cfg(feature = "solidity")]
                     let contract_str =
                         std::fs::read_to_string(verification_contract_path.to_str().unwrap())
                             .unwrap();
+                    #[cfg(feature = "solidity")]
                     match *scheme {
                         "marlin" => {
                             // Get the proof
@@ -470,6 +478,7 @@ mod integration {
         }
     }
 
+    #[cfg(feature = "solidity")]
     fn test_solidity_verifier<S: SolidityCompatibleScheme<Bn128Field> + ToToken<Bn128Field>>(
         program_name: &str,
         backend: &str,

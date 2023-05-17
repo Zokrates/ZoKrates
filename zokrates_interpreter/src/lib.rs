@@ -305,7 +305,7 @@ impl Interpreter {
                 let r = n - d * &q;
                 vec![T::try_from(q).unwrap(), T::try_from(r).unwrap()]
             }
-            #[cfg(feature = "bellman")]
+            #[cfg(all(feature = "bellman", feature = "bn128"))]
             Solver::Sha256Round => {
                 use pairing_ce::bn256::Bn256;
                 use zokrates_embed::bellman::generate_sha256_round_witness;
@@ -331,7 +331,7 @@ impl Interpreter {
                     })
                     .collect()
             }
-            #[cfg(feature = "ark")]
+            #[cfg(all(feature = "ark", feature = "bw6_761"))]
             Solver::SnarkVerifyBls12377(n) => {
                 use zokrates_embed::ark::generate_verify_witness;
                 use zokrates_field::Bw6_761Field;

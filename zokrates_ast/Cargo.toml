@@ -9,7 +9,7 @@ bellman = ["zokrates_field/bellman_extensions", "pairing_ce", "zokrates_embed/be
 ark = ["zokrates_embed/ark"]
 bellperson = ["zokrates_field/bellperson_extensions"]
 bn128 = ["zokrates_field/bn128"]
-bls12_377 = ["zokrates_field/bls12_377", "ark-bls12-377"]
+bls12_377 = ["zokrates_field/bls12_377"]
 bls12_381 = ["zokrates_field/bls12_381"]
 bw6_761 = ["zokrates_field/bw6_761"]
 pallas = ["zokrates_field/pallas"]
@@ -26,5 +26,4 @@ num-bigint = { version = "0.4" }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 zokrates_embed = { version = "0.1.0", path = "../zokrates_embed" }
 pairing_ce = { version = "^0.21", optional = true }
-ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = false, optional = true }
 derivative = "2.2.0"

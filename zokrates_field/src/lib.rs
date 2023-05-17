@@ -4,6 +4,8 @@
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 
+#![allow(unused_macros)]
+
 #[cfg(feature = "bellman_extensions")]
 use bellman_ce::pairing::{ff::ScalarEngine, Engine};
 #[cfg(feature = "bellperson_extensions")]
@@ -66,6 +68,24 @@ pub struct FieldParseError;
 impl fmt::Debug for FieldParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Failed to parse to field element")
+    }
+}
+
+pub fn id_to_name(curve_id: [u8; 4]) -> &'static str {
+    match curve_id {
+        #[cfg(feature = "bn128")]
+        id if id == Bn128Field::id() => Bn128Field::name(),
+        #[cfg(feature = "bls12_381")]
+        id if id == Bls12_381Field::id() => Bls12_381Field::name(),
+        #[cfg(feature = "bls12_377")]
+        id if id == Bls12_377Field::id() => Bls12_377Field::name(),
+        #[cfg(feature = "bw6_761")]
+        id if id == Bw6_761Field::id() => Bw6_761Field::name(),
+        #[cfg(feature = "pallas")]
+        id if id == PallasField::id() => PallasField::name(),
+        #[cfg(feature = "vesta")]
+        id if id == VestaField::id() => VestaField::name(),
+        _ => unreachable!(),
     }
 }
 
@@ -692,18 +712,30 @@ mod prime_field {
     }
 }
 
+#[cfg(feature = "bls12_377")]
 pub mod bls12_377;
+#[cfg(feature = "bls12_381")]
 pub mod bls12_381;
+#[cfg(feature = "bn128")]
 pub mod bn128;
+#[cfg(feature = "bw6_761")]
 pub mod bw6_761;
 pub mod dummy_curve;
+#[cfg(feature = "pallas")]
 pub mod pallas;
+#[cfg(feature = "vesta")]
 pub mod vesta;
 
+#[cfg(feature = "bls12_377")]
 pub use bls12_377::FieldPrime as Bls12_377Field;
+#[cfg(feature = "bls12_381")]
 pub use bls12_381::FieldPrime as Bls12_381Field;
+#[cfg(feature = "bn128")]
 pub use bn128::FieldPrime as Bn128Field;
+#[cfg(feature = "bw6_761")]
 pub use bw6_761::FieldPrime as Bw6_761Field;
 pub use dummy_curve::FieldPrime as DummyCurveField;
+#[cfg(feature = "pallas")]
 pub use pallas::FieldPrime as PallasField;
+#[cfg(feature = "vesta")]
 pub use vesta::FieldPrime as VestaField;

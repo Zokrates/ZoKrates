@@ -226,6 +226,7 @@ fn write_table<W: Write>(w: &mut W, variables: &[Variable]) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;

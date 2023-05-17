@@ -7,10 +7,11 @@ repository = "https://github.com/Zokrates/ZoKrates"
 readme = "README.md"
 
 [features]
-full = ["ark", "bellman", "bellperson", "bn128", "bls12_377", "bls12_381", "bw6_761", "pallas", "vesta"]
+full = ["ark", "bellman", "bellperson", "fields"]
 ark = ["zokrates_ast/ark", "zokrates_common/ark", "zokrates_interpreter/ark", "zokrates_codegen/ark", "zokrates_analysis/ark"]
 bellman = ["zokrates_ast/bellman", "zokrates_common/bellman", "zokrates_interpreter/bellman", "zokrates_codegen/bellman", "zokrates_analysis/bellman"]
 bellperson = ["zokrates_ast/bellperson", "zokrates_common/bellperson"]
+fields = ["bn128", "bls12_377", "bls12_381", "bw6_761", "pallas", "vesta"]
 bn128 = ["zokrates_field/bn128"]
 bls12_377 = ["zokrates_field/bls12_377"]
 bls12_381 = ["zokrates_field/bls12_381"]

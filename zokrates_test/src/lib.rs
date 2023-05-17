@@ -8,24 +8,17 @@ use std::path::{Path, PathBuf};
 use zokrates_ast::typed::types::GTupleType;
 use zokrates_ast::typed::ConcreteSignature;
 use zokrates_ast::typed::ConcreteType;
+use zokrates_common::helpers::CurveParameter;
 use zokrates_common::CompileConfig;
 use zokrates_core::compile::compile;
 
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_field::*;
 use zokrates_fs_resolver::FileSystemResolver;
-
-#[derive(Serialize, Deserialize, Clone)]
-enum Curve {
-    Bn128,
-    Bls12_381,
-    Bls12_377,
-    Bw6_761,
-}
 
 #[derive(Serialize, Deserialize, Clone)]
 struct Tests {
     pub entry_point: Option<PathBuf>,
-    pub curves: Option<Vec<Curve>>,
+    pub curves: Option<Vec<CurveParameter>>,
     pub max_constraint_count: Option<usize>,
     pub config: Option<CompileConfig>,
     pub abi: Option<bool>,
@@ -82,7 +75,10 @@ pub fn test_inner(test_path: &str) {
     let t: Tests =
         serde_json::from_reader(BufReader::new(File::open(Path::new(test_path)).unwrap())).unwrap();
 
-    let curves = t.curves.clone().unwrap_or_else(|| vec![Curve::Bn128]);
+    let curves = t
+        .curves
+        .clone()
+        .unwrap_or_else(|| vec![CurveParameter::Bn128]);
 
     let t = Tests {
         entry_point: Some(
@@ -100,10 +96,15 @@ pub fn test_inner(test_path: &str) {
         .spawn(move || {
             for c in &curves {
                 match c {
+                    #[cfg(feature = "bn128")]
                     Curve::Bn128 => compile_and_run::<Bn128Field>(t.clone()),
+                    #[cfg(feature = "bls12_381")]
                     Curve::Bls12_381 => compile_and_run::<Bls12_381Field>(t.clone()),
+                    #[cfg(feature = "bls12_377")]
                     Curve::Bls12_377 => compile_and_run::<Bls12_377Field>(t.clone()),
+                    #[cfg(feature = "bw6_761")]
                     Curve::Bw6_761 => compile_and_run::<Bw6_761Field>(t.clone()),
+                    _ => unreachable!(),
                 }
             }
         })

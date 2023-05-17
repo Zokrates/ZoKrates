@@ -14,8 +14,7 @@ use typed_arena::Arena;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
 use zokrates_ark::Ark;
-use zokrates_ast::ir;
-use zokrates_ast::ir::ProgEnum;
+use zokrates_ast::ir::{self, ProgIterator};
 use zokrates_ast::typed::abi::Abi;
 use zokrates_ast::typed::types::{ConcreteSignature, ConcreteType, GTupleType};
 use zokrates_bellman::Bellman;
@@ -24,9 +23,7 @@ use zokrates_common::helpers::{BackendParameter, CurveParameter, SchemeParameter
 use zokrates_common::{CompileConfig, Resolver};
 use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, CompileError};
 use zokrates_core::imports::Error;
-use zokrates_field::{
-    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, PallasField, VestaField,
-};
+use zokrates_field::*;
 use zokrates_proof_systems::groth16::G16;
 use zokrates_proof_systems::rng::get_rng_from_entropy;
 use zokrates_proof_systems::{
@@ -534,17 +531,55 @@ pub fn compute_witness(
     config: JsValue,
     log_callback: &js_sys::Function,
 ) -> Result<ComputationResult, JsValue> {
-    let cursor = Cursor::new(program);
-    let prog = ir::ProgEnum::deserialize(cursor)
-        .map_err(|err| JsValue::from_str(&err))?
-        .collect();
-    match prog {
-        ProgEnum::Bn128Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
-        ProgEnum::Bls12_381Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
-        ProgEnum::Bls12_377Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
-        ProgEnum::Bw6_761Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
-        ProgEnum::PallasProgram(p) => internal::compute::<_>(p, abi, args, config, log_callback),
-        ProgEnum::VestaProgram(p) => internal::compute::<_>(p, abi, args, config, log_callback),
+    let mut cursor = Cursor::new(program);
+
+    let header =
+        ir::ProgHeader::read(&mut cursor).map_err(|err| JsValue::from_str(&err.to_string()))?;
+
+    match header.curve_name() {
+        name if name == Bn128Field::name() => internal::compute::<Bn128Field>(
+            ProgIterator::read(cursor, &header).collect(),
+            abi,
+            args,
+            config,
+            log_callback,
+        ),
+        name if name == Bls12_381Field::name() => internal::compute::<Bls12_381Field>(
+            ProgIterator::read(cursor, &header).collect(),
+            abi,
+            args,
+            config,
+            log_callback,
+        ),
+        name if name == Bls12_377Field::name() => internal::compute::<Bls12_377Field>(
+            ProgIterator::read(cursor, &header).collect(),
+            abi,
+            args,
+            config,
+            log_callback,
+        ),
+        name if name == Bw6_761Field::name() => internal::compute::<Bw6_761Field>(
+            ProgIterator::read(cursor, &header).collect(),
+            abi,
+            args,
+            config,
+            log_callback,
+        ),
+        name if name == PallasField::name() => internal::compute::<PallasField>(
+            ProgIterator::read(cursor, &header).collect(),
+            abi,
+            args,
+            config,
+            log_callback,
+        ),
+        name if name == VestaField::name() => internal::compute::<VestaField>(
+            ProgIterator::read(cursor, &header).collect(),
+            abi,
+            args,
+            config,
+            log_callback,
+        ),
+        _ => unreachable!(),
     }
 }
 
@@ -599,10 +634,10 @@ pub fn setup(program: &[u8], entropy: JsValue, options: JsValue) -> Result<Keypa
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
-    let cursor = Cursor::new(program);
-    let prog = ir::ProgEnum::deserialize(cursor)
-        .map_err(|err| JsValue::from_str(&err))?
-        .collect();
+    let mut cursor = Cursor::new(program);
+
+    let header =
+        ir::ProgHeader::read(&mut cursor).map_err(|err| JsValue::from_str(&err.to_string()))?;
 
     let mut rng = entropy
         .as_string()
@@ -610,43 +645,80 @@ pub fn setup(program: &[u8], entropy: JsValue, options: JsValue) -> Result<Keypa
         .unwrap_or_else(StdRng::from_entropy);
 
     match (backend, scheme) {
-        (BackendParameter::Bellman, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, G16, Bellman, _>(
-                p, &mut rng,
-            )),
-            ProgEnum::Bls12_381Program(_) => Err(JsValue::from_str(
+        (BackendParameter::Bellman, SchemeParameter::G16) => match header.curve_name() {
+            name if name == Bn128Field::name() => {
+                Ok(
+                    internal::setup_non_universal::<Bn128Field, G16, Bellman, _>(
+                        ProgIterator::read(cursor, &header).collect(),
+                        &mut rng,
+                    ),
+                )
+            }
+            name if name == Bls12_381Field::name() => Err(JsValue::from_str(
                 "Not supported: https://github.com/Zokrates/ZoKrates/issues/1200",
             )),
             _ => Err(JsValue::from_str("Not supported")),
         },
-        (BackendParameter::Ark, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => {
-                Ok(internal::setup_non_universal::<_, G16, Ark, _>(p, &mut rng))
+        (BackendParameter::Ark, SchemeParameter::G16) => match header.curve_name() {
+            name if name == Bn128Field::name() => {
+                Ok(internal::setup_non_universal::<Bn128Field, G16, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    &mut rng,
+                ))
             }
-            ProgEnum::Bls12_381Program(p) => {
-                Ok(internal::setup_non_universal::<_, G16, Ark, _>(p, &mut rng))
+            name if name == Bls12_381Field::name() => {
+                Ok(
+                    internal::setup_non_universal::<Bls12_381Field, G16, Ark, _>(
+                        ProgIterator::read(cursor, &header).collect(),
+                        &mut rng,
+                    ),
+                )
             }
-            ProgEnum::Bls12_377Program(p) => {
-                Ok(internal::setup_non_universal::<_, G16, Ark, _>(p, &mut rng))
+            name if name == Bls12_377Field::name() => {
+                Ok(
+                    internal::setup_non_universal::<Bls12_377Field, G16, Ark, _>(
+                        ProgIterator::read(cursor, &header).collect(),
+                        &mut rng,
+                    ),
+                )
             }
-            ProgEnum::Bw6_761Program(p) => {
-                Ok(internal::setup_non_universal::<_, G16, Ark, _>(p, &mut rng))
+            name if name == Bw6_761Field::name() => {
+                Ok(internal::setup_non_universal::<Bw6_761Field, G16, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    &mut rng,
+                ))
             }
             _ => Err(JsValue::from_str("Not supported")),
         },
-        (BackendParameter::Ark, SchemeParameter::GM17) => match prog {
-            ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark, _>(
-                p, &mut rng,
-            )),
-            ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark, _>(
-                p, &mut rng,
-            )),
-            ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark, _>(
-                p, &mut rng,
-            )),
-            ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark, _>(
-                p, &mut rng,
-            )),
+        (BackendParameter::Ark, SchemeParameter::GM17) => match header.curve_name() {
+            name if name == Bn128Field::name() => {
+                Ok(internal::setup_non_universal::<Bn128Field, GM17, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    &mut rng,
+                ))
+            }
+            name if name == Bls12_381Field::name() => {
+                Ok(
+                    internal::setup_non_universal::<Bls12_381Field, GM17, Ark, _>(
+                        ProgIterator::read(cursor, &header).collect(),
+                        &mut rng,
+                    ),
+                )
+            }
+            name if name == Bls12_377Field::name() => {
+                Ok(
+                    internal::setup_non_universal::<Bls12_377Field, GM17, Ark, _>(
+                        ProgIterator::read(cursor, &header).collect(),
+                        &mut rng,
+                    ),
+                )
+            }
+            name if name == Bw6_761Field::name() => {
+                Ok(internal::setup_non_universal::<Bw6_761Field, GM17, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    &mut rng,
+                ))
+            }
             _ => Err(JsValue::from_str("Not supported")),
         },
         _ => Err(JsValue::from_str("Unsupported options")),
@@ -664,17 +736,37 @@ pub fn setup_with_srs(srs: &[u8], program: &[u8], options: JsValue) -> Result<Ke
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
-    let cursor = Cursor::new(program);
-    let prog = ir::ProgEnum::deserialize(cursor)
-        .map_err(|err| JsValue::from_str(&err))?
-        .collect();
+    let mut cursor = Cursor::new(program);
+
+    let header =
+        ir::ProgHeader::read(&mut cursor).map_err(|err| JsValue::from_str(&err.to_string()))?;
 
     match scheme {
-        SchemeParameter::MARLIN => match prog {
-            ProgEnum::Bn128Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
-            ProgEnum::Bls12_381Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
-            ProgEnum::Bls12_377Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
-            ProgEnum::Bw6_761Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
+        SchemeParameter::MARLIN => match header.curve_name() {
+            name if name == Bn128Field::name() => {
+                internal::setup_universal::<Bn128Field, _, Marlin, Ark>(
+                    srs,
+                    ProgIterator::read(cursor, &header).collect(),
+                )
+            }
+            name if name == Bls12_381Field::name() => {
+                internal::setup_universal::<Bls12_381Field, _, Marlin, Ark>(
+                    srs,
+                    ProgIterator::read(cursor, &header).collect(),
+                )
+            }
+            name if name == Bls12_377Field::name() => {
+                internal::setup_universal::<Bls12_377Field, _, Marlin, Ark>(
+                    srs,
+                    ProgIterator::read(cursor, &header).collect(),
+                )
+            }
+            name if name == Bw6_761Field::name() => {
+                internal::setup_universal::<Bw6_761Field, _, Marlin, Ark>(
+                    srs,
+                    ProgIterator::read(cursor, &header).collect(),
+                )
+            }
             _ => Err(JsValue::from_str("Not supported")),
         },
         _ => Err(JsValue::from_str("Given scheme is not universal")),
@@ -747,10 +839,10 @@ pub fn generate_proof(
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
-    let cursor = Cursor::new(program);
-    let prog = ir::ProgEnum::deserialize(cursor)
-        .map_err(|err| JsValue::from_str(&err))?
-        .collect();
+    let mut cursor = Cursor::new(program);
+
+    let header =
+        ir::ProgHeader::read(&mut cursor).map_err(|err| JsValue::from_str(&err.to_string()))?;
 
     let mut rng = entropy
         .as_string()
@@ -758,57 +850,122 @@ pub fn generate_proof(
         .unwrap_or_else(StdRng::from_entropy);
 
     match (backend, scheme) {
-        (BackendParameter::Bellman, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => {
-                internal::generate_proof::<_, G16, Bellman, _>(p, witness, pk, &mut rng)
+        (BackendParameter::Bellman, SchemeParameter::G16) => match header.curve_name() {
+            name if name == Bn128Field::name() => {
+                internal::generate_proof::<Bn128Field, G16, Bellman, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
-            ProgEnum::Bls12_381Program(_) => Err(JsValue::from_str(
+            name if name == Bls12_381Field::name() => Err(JsValue::from_str(
                 "Not supported: https://github.com/Zokrates/ZoKrates/issues/1200",
             )),
             _ => Err(JsValue::from_str("Not supported")),
         },
-        (BackendParameter::Ark, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => {
-                internal::generate_proof::<_, G16, Ark, _>(p, witness, pk, &mut rng)
+        (BackendParameter::Ark, SchemeParameter::G16) => match header.curve_name() {
+            name if name == Bn128Field::name() => {
+                internal::generate_proof::<Bn128Field, G16, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
-            ProgEnum::Bls12_381Program(p) => {
-                internal::generate_proof::<_, G16, Ark, _>(p, witness, pk, &mut rng)
+            name if name == Bls12_381Field::name() => {
+                internal::generate_proof::<Bls12_381Field, G16, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
-            ProgEnum::Bls12_377Program(p) => {
-                internal::generate_proof::<_, G16, Ark, _>(p, witness, pk, &mut rng)
+            name if name == Bls12_377Field::name() => {
+                internal::generate_proof::<Bls12_377Field, G16, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
-            ProgEnum::Bw6_761Program(p) => {
-                internal::generate_proof::<_, G16, Ark, _>(p, witness, pk, &mut rng)
+            name if name == Bw6_761Field::name() => {
+                internal::generate_proof::<Bw6_761Field, G16, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
             _ => Err(JsValue::from_str("Not supported")),
         },
-        (BackendParameter::Ark, SchemeParameter::GM17) => match prog {
-            ProgEnum::Bn128Program(p) => {
-                internal::generate_proof::<_, GM17, Ark, _>(p, witness, pk, &mut rng)
+        (BackendParameter::Ark, SchemeParameter::GM17) => match header.curve_name() {
+            name if name == Bn128Field::name() => {
+                internal::generate_proof::<Bn128Field, GM17, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
-            ProgEnum::Bls12_381Program(p) => {
-                internal::generate_proof::<_, GM17, Ark, _>(p, witness, pk, &mut rng)
+            name if name == Bls12_381Field::name() => {
+                internal::generate_proof::<Bls12_381Field, GM17, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
-            ProgEnum::Bls12_377Program(p) => {
-                internal::generate_proof::<_, GM17, Ark, _>(p, witness, pk, &mut rng)
+            name if name == Bls12_377Field::name() => {
+                internal::generate_proof::<Bls12_377Field, GM17, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
-            ProgEnum::Bw6_761Program(p) => {
-                internal::generate_proof::<_, GM17, Ark, _>(p, witness, pk, &mut rng)
+            name if name == Bw6_761Field::name() => {
+                internal::generate_proof::<Bw6_761Field, GM17, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
             _ => Err(JsValue::from_str("Not supported")),
         },
-        (BackendParameter::Ark, SchemeParameter::MARLIN) => match prog {
-            ProgEnum::Bn128Program(p) => {
-                internal::generate_proof::<_, Marlin, Ark, _>(p, witness, pk, &mut rng)
+        (BackendParameter::Ark, SchemeParameter::MARLIN) => match header.curve_name() {
+            name if name == Bn128Field::name() => {
+                internal::generate_proof::<Bn128Field, Marlin, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
-            ProgEnum::Bls12_381Program(p) => {
-                internal::generate_proof::<_, Marlin, Ark, _>(p, witness, pk, &mut rng)
+            name if name == Bls12_381Field::name() => {
+                internal::generate_proof::<Bls12_381Field, Marlin, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
-            ProgEnum::Bls12_377Program(p) => {
-                internal::generate_proof::<_, Marlin, Ark, _>(p, witness, pk, &mut rng)
+            name if name == Bls12_377Field::name() => {
+                internal::generate_proof::<Bls12_377Field, Marlin, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
-            ProgEnum::Bw6_761Program(p) => {
-                internal::generate_proof::<_, Marlin, Ark, _>(p, witness, pk, &mut rng)
+            name if name == Bw6_761Field::name() => {
+                internal::generate_proof::<Bw6_761Field, Marlin, Ark, _>(
+                    ProgIterator::read(cursor, &header).collect(),
+                    witness,
+                    pk,
+                    &mut rng,
+                )
             }
             _ => Err(JsValue::from_str("Not supported")),
         },

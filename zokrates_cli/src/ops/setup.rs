@@ -188,21 +188,29 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
             match curve {
                 #[cfg(feature = "bn128")]
-                CurveParameter::Bn128 => {
-                    cli_setup_universal::<Bn128Field, _, Marlin, Ark>(p, setup, sub_matches)
-                }
+                CurveParameter::Bn128 => cli_setup_universal::<Bn128Field, _, Marlin, Ark>(
+                    ProgIterator::read(reader, &header),
+                    setup,
+                    sub_matches,
+                ),
                 #[cfg(feature = "bls12_381")]
-                CurveParameter::Bls12_381 => {
-                    cli_setup_universal::<Bls12_381, _, Marlin, Ark>(p, setup, sub_matches)
-                }
+                CurveParameter::Bls12_381 => cli_setup_universal::<Bls12_381Field, _, Marlin, Ark>(
+                    ProgIterator::read(reader, &header),
+                    setup,
+                    sub_matches,
+                ),
                 #[cfg(feature = "bls12_377")]
-                CurveParameter::Bls12_377 => {
-                    cli_setup_universal::<Bls12_377, _, Marlin, Ark>(p, setup, sub_matches)
-                }
+                CurveParameter::Bls12_377 => cli_setup_universal::<Bls12_377Field, _, Marlin, Ark>(
+                    ProgIterator::read(reader, &header),
+                    setup,
+                    sub_matches,
+                ),
                 #[cfg(feature = "bw6_377")]
-                CurveParameter::Bw6_761 => {
-                    cli_setup_universal::<Bw6_761, _, Marlin, Ark>(p, setup, sub_matches)
-                }
+                CurveParameter::Bw6_761 => cli_setup_universal::<Bw6_761Field, _, Marlin, Ark>(
+                    ProgIterator::read(reader, &header),
+                    setup,
+                    sub_matches,
+                ),
                 _ => unreachable!(),
             }
         }

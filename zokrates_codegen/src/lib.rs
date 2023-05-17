@@ -1189,12 +1189,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatEmbed::Sha256Round => {
                     self.flatten_embed_call_aux(statements_flattened, params, sha256_round())
                 }
-                #[cfg(all(feature = "ark", feature = "bw6_761"))]
-                FlatEmbed::SnarkVerifyBls12377 => self.flatten_embed_call_aux(
-                    statements_flattened,
-                    params,
-                    snark_verify_bls12_377::<T>(generics[0] as usize),
-                ),
                 _ => unreachable!(),
             },
         }

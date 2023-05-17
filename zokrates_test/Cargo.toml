@@ -18,6 +18,7 @@ serde_json = { version = "1.0", features = ["preserve_order"] }
 typed-arena = "1.4.1"
 
 [dev-dependencies]
+zokrates_common = { version = "0.1", path = "../zokrates_common", features = ["bn128"] }
 wasm-bindgen-test = "=0.3.31"
 zokrates_ark = { version = "0.1", path = "../zokrates_ark" }
 zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems" }

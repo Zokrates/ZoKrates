@@ -4,7 +4,6 @@ version = "0.1.4"
 edition = "2021"
 
 [features]
-default = []
 multicore = [
     "ark-ff/parallel",
     "ark-ec/parallel",
@@ -17,9 +16,9 @@ multicore = [
 ]
 
 [dependencies]
-zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
-zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
-zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
+zokrates_field = { version = "0.5", path = "../zokrates_field" }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast" }
+zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems" }
 
 ark-ff = { version = "^0.3.0", default-features = false }
 ark-ec = { version = "^0.3.0", default-features = false }
@@ -41,5 +40,7 @@ hex = "0.4.2"
 
 [dev-dependencies]
 zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", features = ["ark"] }
+zokrates_field = { version = "0.5", path = "../zokrates_field", features = ["bn128", "bls12_377", "bw6_761"] }
+
 
 

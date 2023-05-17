@@ -112,62 +112,62 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         Parameters::try_from((sub_matches.value_of("backend").unwrap(), curve, scheme))?;
 
     match parameters {
-        #[cfg(feature = "bellman")]
+        #[cfg(all(feature = "bellman", feature = "bn128"))]
         Parameters(BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::G16) => {
             cli_verify::<Bn128Field, G16, Bellman>(vk, proof)
         }
-        // #[cfg(feature = "bellman")]
-        // Parameters(BackendParameter::Bellman, CurveParameter::Bls12_381, SchemeParameter::G16) => {
-        //     cli_verify::<Bls12_381Field, G16, Bellman>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::G16) => {
-        //     cli_verify::<Bn128Field, G16, Ark>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::G16) => {
-        //     cli_verify::<Bls12_381Field, G16, Ark>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::G16) => {
-        //     cli_verify::<Bls12_377Field, G16, Ark>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::G16) => {
-        //     cli_verify::<Bw6_761Field, G16, Ark>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => {
-        //     cli_verify::<Bn128Field, GM17, Ark>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::GM17) => {
-        //     cli_verify::<Bls12_381Field, GM17, Ark>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::GM17) => {
-        //     cli_verify::<Bls12_377Field, GM17, Ark>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::GM17) => {
-        //     cli_verify::<Bw6_761Field, GM17, Ark>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
-        //     cli_verify::<Bn128Field, Marlin, Ark>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::MARLIN) => {
-        //     cli_verify::<Bls12_381Field, Marlin, Ark>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => {
-        //     cli_verify::<Bls12_377Field, Marlin, Ark>(vk, proof)
-        // }
-        // #[cfg(feature = "ark")]
-        // Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => {
-        //     cli_verify::<Bw6_761Field, Marlin, Ark>(vk, proof)
-        // }
+        #[cfg(all(feature = "bellman", feature = "bls12_381"))]
+        Parameters(BackendParameter::Bellman, CurveParameter::Bls12_381, SchemeParameter::G16) => {
+            cli_verify::<Bls12_381Field, G16, Bellman>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bn128"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::G16) => {
+            cli_verify::<Bn128Field, G16, Ark>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bls12_381"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::G16) => {
+            cli_verify::<Bls12_381Field, G16, Ark>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bls12_377"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::G16) => {
+            cli_verify::<Bls12_377Field, G16, Ark>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bw6_761"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::G16) => {
+            cli_verify::<Bw6_761Field, G16, Ark>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bn128"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => {
+            cli_verify::<Bn128Field, GM17, Ark>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bls12_381"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::GM17) => {
+            cli_verify::<Bls12_381Field, GM17, Ark>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bls12_377"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::GM17) => {
+            cli_verify::<Bls12_377Field, GM17, Ark>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bw6_761"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::GM17) => {
+            cli_verify::<Bw6_761Field, GM17, Ark>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bn128"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
+            cli_verify::<Bn128Field, Marlin, Ark>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bls12_381"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::MARLIN) => {
+            cli_verify::<Bls12_381Field, Marlin, Ark>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bls12_377"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => {
+            cli_verify::<Bls12_377Field, Marlin, Ark>(vk, proof)
+        }
+        #[cfg(all(feature = "ark", feature = "bw6_761"))]
+        Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => {
+            cli_verify::<Bw6_761Field, Marlin, Ark>(vk, proof)
+        }
         _ => unreachable!(),
     }
 }

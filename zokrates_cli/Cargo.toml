@@ -6,13 +6,14 @@ repository = "https://github.com/Zokrates/ZoKrates.git"
 edition = "2018"
 
 [features]
-full = ["bellman", "ark", "bellperson", "bn128", "bls12_377", "bls12_381", "bw6_761", "pallas", "vesta", "circom", "multicore"]
+full = ["bellman", "ark", "bellperson", "bn128", "bls12_377", "bls12_381", "bw6_761", "pallas", "vesta", "circom", "multicore", "solidity"]
+solidity = ["zokrates_proof_systems/solidity"]
 multicore = ["zokrates_field/multicore", "zokrates_embed/multicore", "zokrates_ark/multicore", "zokrates_bellman/multicore"]
-circom = ["zokrates_circom"]  
+circom = ["zokrates_circom"]
 bellman = ["zokrates_bellman", "zokrates_core/bellman", "zokrates_common/bellman"]
 ark = ["zokrates_ark", "zokrates_core/ark", "zokrates_common/ark"]
 bellperson = ["zokrates_bellperson", "zokrates_core/bellperson", "zokrates_common/bellperson"]
-bn128 = ["zokrates_core/bn128", "zokrates_field/bn128", "zokrates_common/bn128"]
+bn128 = ["zokrates_core/bn128", "zokrates_field/bn128", "zokrates_common/bn128", "zokrates_circom/bn128"]
 bls12_377 = ["zokrates_core/bls12_377", "zokrates_field/bls12_377", "zokrates_common/bls12_377"]
 bls12_381 = ["zokrates_core/bls12_381", "zokrates_field/bls12_381", "zokrates_common/bls12_381"]
 bw6_761 = ["zokrates_core/bw6_761", "zokrates_field/bw6_761", "zokrates_common/bw6_761"]

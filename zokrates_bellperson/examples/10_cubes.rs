@@ -1,20 +1,20 @@
-use nova_snark::traits::circuit::TrivialTestCircuit;
-use nova_snark::CompressedSNARK;
-use nova_snark::PublicParams;
-use nova_snark::RecursiveSNARK;
-use pasta_curves::{Fp, Fq};
-use std::io;
-use std::time::Instant;
-use typed_arena::Arena;
-use zokrates_bellperson::nova::NovaComputation;
-use zokrates_bellperson::Computation;
-use zokrates_core::compile::{compile, CompileConfig};
-use zokrates_field::PallasField;
-
-type G1 = pasta_curves::pallas::Point;
-type G2 = pasta_curves::vesta::Point;
-
 fn main() {
+    use nova_snark::traits::circuit::TrivialTestCircuit;
+    use nova_snark::CompressedSNARK;
+    use nova_snark::PublicParams;
+    use nova_snark::RecursiveSNARK;
+    use pasta_curves::{Fp, Fq};
+    use std::io;
+    use std::time::Instant;
+    use typed_arena::Arena;
+    use zokrates_bellperson::nova::NovaComputation;
+    use zokrates_bellperson::Computation;
+    use zokrates_core::compile::{compile, CompileConfig};
+    use zokrates_field::PallasField;
+
+    type G1 = pasta_curves::pallas::Point;
+    type G2 = pasta_curves::vesta::Point;
+
     // create a circuit for the incremental computation
 
     let cube = r#"

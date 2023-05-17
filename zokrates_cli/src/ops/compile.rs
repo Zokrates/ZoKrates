@@ -80,9 +80,9 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     match curve {
         #[cfg(feature = "bn128")]
         CurveParameter::Bn128 => cli_compile::<Bn128Field>(sub_matches),
-        #[cfg(feature = "bls12_381")]
-        CurveParameter::Bls12_377 => cli_compile::<Bls12_377Field>(sub_matches),
         #[cfg(feature = "bls12_377")]
+        CurveParameter::Bls12_377 => cli_compile::<Bls12_377Field>(sub_matches),
+        #[cfg(feature = "bls12_381")]
         CurveParameter::Bls12_381 => cli_compile::<Bls12_381Field>(sub_matches),
         #[cfg(feature = "bw6_761")]
         CurveParameter::Bw6_761 => cli_compile::<Bw6_761Field>(sub_matches),

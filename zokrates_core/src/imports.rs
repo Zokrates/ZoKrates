@@ -101,7 +101,7 @@ impl Importer {
 
         let symbol_declaration = match module_id.to_str().unwrap() {
             "EMBED" => match symbol.id {
-                #[cfg(feature = "bellman")]
+                #[cfg(all(feature = "bellman", feature = "bn128"))]
                 "sha256round" => {
                     use zokrates_field::Bn128Field;
                     if T::id() != Bn128Field::id() {
@@ -119,27 +119,6 @@ impl Importer {
                         SymbolDeclaration {
                             id: symbol.get_alias(),
                             symbol: Symbol::Flat(FlatEmbed::Sha256Round),
-                        }
-                    }
-                }
-                #[cfg(feature = "ark")]
-                "snark_verify_bls12_377" => {
-                    use zokrates_field::Bw6_761Field;
-                    if T::id() != Bw6_761Field::id() {
-                        return Err(CompileErrorInner::ImportError(
-                            Error::new(format!(
-                                "`snark_verify_bls12_377` is expected to be compiled over `{}` curve, but found `{}`",
-                                Bw6_761Field::name(),
-                                T::name()
-                            ))
-                            .with_span(Some(span)),
-                        )
-                        .in_file(location)
-                        .into());
-                    } else {
-                        SymbolDeclaration {
-                            id: symbol.get_alias(),
-                            symbol: Symbol::Flat(FlatEmbed::SnarkVerifyBls12377),
                         }
                     }
                 }

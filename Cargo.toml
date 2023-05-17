@@ -19,7 +19,8 @@ members = [
     "zokrates_bellman",
     "zokrates_bellperson",
     "zokrates_proof_systems",
-    "zokrates_js",
     "zokrates_circom",
     "zokrates_profiler",
 ]
+
+exclude = ["zokrates_js"]

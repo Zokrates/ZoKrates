@@ -10,7 +10,7 @@ use std::path::Path;
 use zokrates_ark::Ark;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_field::*;
 use zokrates_proof_systems::rng::get_rng_from_entropy;
 #[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
@@ -75,19 +75,19 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     ))?;
 
     match parameters {
-        #[cfg(feature = "ark")]
+        #[cfg(all(feature = "ark", feature = "bn128"))]
         Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
             cli_universal_setup::<Bn128Field, Marlin, Ark>(sub_matches)
         }
-        #[cfg(feature = "ark")]
+        #[cfg(all(feature = "ark", feature = "bls12_381"))]
         Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::MARLIN) => {
             cli_universal_setup::<Bls12_381Field, Marlin, Ark>(sub_matches)
         }
-        #[cfg(feature = "ark")]
+        #[cfg(all(feature = "ark", feature = "bls12_377"))]
         Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => {
             cli_universal_setup::<Bls12_377Field, Marlin, Ark>(sub_matches)
         }
-        #[cfg(feature = "ark")]
+        #[cfg(all(feature = "ark", feature = "bw6_761"))]
         Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => {
             cli_universal_setup::<Bw6_761Field, Marlin, Ark>(sub_matches)
         }

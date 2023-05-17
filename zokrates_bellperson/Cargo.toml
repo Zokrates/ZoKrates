@@ -3,8 +3,6 @@ name = "zokrates_bellperson"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-
 [dependencies]
 zokrates_field = { version = "0.5", path = "../zokrates_field", features = ["bellperson_extensions"] }
 zokrates_ast = { version = "0.1", path = "../zokrates_ast", features = ["bellperson"] }
@@ -21,6 +19,7 @@ serde = { version = "1.0", features = ["derive"] }
 
 
 [dev-dependencies]
+zokrates_field = { version = "0.5", path = "../zokrates_field", features = ["bellperson_extensions", "pallas", "vesta"] }
 typed-arena = "1.4.1"
 rand_0_4 = { version = "0.4", package = "rand" }
 getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }

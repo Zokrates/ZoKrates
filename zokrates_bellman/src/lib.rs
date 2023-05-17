@@ -233,6 +233,7 @@ mod parse {
     }
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use super::*;

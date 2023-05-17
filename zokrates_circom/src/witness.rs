@@ -103,6 +103,7 @@ fn write_witness_values<T: Field, W: Write>(
     Ok(())
 }
 
+#[cfg(feature = "bn128")]
 #[cfg(test)]
 mod tests {
     use super::*;

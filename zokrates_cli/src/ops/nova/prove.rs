@@ -10,6 +10,7 @@ use zokrates_abi::{parse_value, Encode, Values};
 use zokrates_ast::ir::{self};
 use zokrates_ast::typed::abi::Abi;
 use zokrates_bellperson::nova::{self, NovaField};
+use zokrates_field::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("prove")
@@ -86,9 +87,19 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut reader = BufReader::new(file);
 
-    match ProgEnum::deserialize(&mut reader)? {
-        ProgEnum::PallasProgram(p) => cli_nova_prove_step(p, sub_matches),
-        ProgEnum::VestaProgram(p) => cli_nova_prove_step(p, sub_matches),
+    let header = ir::ProgHeader::read(&mut reader).map_err(|e| e.to_string())?;
+
+    match header.curve_name() {
+        #[cfg(feature = "pallas")]
+        "pallas" => cli_nova_prove_step(
+            ir::ProgIterator::<PallasField, _>::read(reader, &header),
+            sub_matches,
+        ),
+        #[cfg(feature = "vesta")]
+        "vesta" => cli_nova_prove_step(
+            ir::ProgIterator::<VestaField, _>::read(reader, &header),
+            sub_matches,
+        ),
         _ => Err("Nova is only supported for the following curves: [\"pallas\", \"vesta\"]".into()),
     }
 }
