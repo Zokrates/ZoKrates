@@ -105,13 +105,13 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - setup-sccache
-      - restore-sccache-cache
+      # - setup-sccache
+      # - restore-sccache-cache
       - run:
           name: Build
           no_output_timeout: "30m"
           command: npm ci && npm run build:dev && npm pack --dry-run
-      - save-sccache-cache
+      # - save-sccache-cache
   zokrates_js_test:
     docker:
       - image: zokrates/env:latest
@@ -120,8 +120,8 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - setup-sccache
-      - restore-sccache-cache
+      # - setup-sccache
+      # - restore-sccache-cache
       - run:
           name: Install headless chrome dependencies
           command: |
@@ -134,7 +134,7 @@ jobs:
           name: Run tests
           no_output_timeout: "30m"
           command: npm ci && npm run test
-      - save-sccache-cache
+      # - save-sccache-cache
   cross_build:
     parameters:
       os:
