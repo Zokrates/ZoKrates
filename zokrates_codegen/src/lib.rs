@@ -1985,7 +1985,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Notes
     /// * `from` and `to` must be smaller or equal to `T::get_required_bits()`, the bitwidth of the prime field
-    /// * the result is not checked to be in range. This is fine for `to < T::get_required_bits()`, but otherwise it is the caller's responsibility to add that check
+    /// * The result is not checked to be in range unless the bits of the expression were already decomposed with a higher bitwidth than `to`
+    /// * This is fine for `to < T::get_required_bits()`, but otherwise it is the caller's responsibility to add that check
     fn get_bits_unchecked(
         &mut self,
         e: &FlatUExpression<T>,
@@ -2019,11 +2020,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
             let from = std::cmp::max(from, to);
             let res = match self.bits_cache.entry(e.field.clone().unwrap()) {
-                Entry::Occupied(entry) => {
+                Entry::Occupied(mut entry) => {
                     let res: Vec<_> = entry.get().clone();
 
                     if res.len() > to {
-                        // if the result is bigger than `to`, we sum higher bits up to `to`
+                        // if the result is bigger than `to`, we zero check the sum of higher bits up to `to`
                         let bit_sum = res[..res.len() - to]
                             .iter()
                             .cloned()
@@ -2031,7 +2032,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 FlatExpression::add(acc, e)
                             });
 
-                        // sum of higher bits must be zero
+                        // sum check
                         statements_flattened.push_back(FlatStatement::condition(
                             FlatExpression::value(T::from(0)),
                             bit_sum,
@@ -2039,10 +2040,18 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         ));
 
                         // truncate to the `to` lowest bits
-                        let res = res[res.len() - to..].to_vec();
-                        assert_eq!(res.len(), to);
+                        let bits = res[res.len() - to..].to_vec();
+                        assert_eq!(bits.len(), to);
 
-                        return res;
+                        // update the entry
+                        entry.insert(
+                            (0..res.len() - to)
+                                .map(|_| FlatExpression::value(T::zero()))
+                                .chain(bits.clone())
+                                .collect(),
+                        );
+
+                        return bits;
                     }
 
                     // if result is smaller than `to` we pad it with zeroes on the left (big endian) to return `to` bits

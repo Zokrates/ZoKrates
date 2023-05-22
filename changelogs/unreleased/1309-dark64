@@ -1,0 +1,1 @@
+Fix uint range check in assertions when comparing to a constant
