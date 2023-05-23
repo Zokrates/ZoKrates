@@ -55,7 +55,7 @@ impl fmt::Display for Error {
 pub struct Propagator<'ast, T> {
     // constants keeps track of constant expressions
     // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is
-    constants: Constants<'ast, T>,
+    pub constants: Constants<'ast, T>,
 }
 
 impl<'ast, T: Field> Propagator<'ast, T> {
