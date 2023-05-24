@@ -523,7 +523,7 @@ mod tests {
         let id = IdentifierExpression::new(Identifier::internal(0usize));
 
         // (field i0) -> i0 * i0
-        let solvers = vec![Solver::Zir(ZirFunction {
+        let solver = Solver::Zir(ZirFunction {
             arguments: vec![Parameter::new(Variable::field_element(id.id.clone()), true)],
             statements: vec![ZirStatement::ret(vec![FieldElementExpression::mul(
                 FieldElementExpression::Identifier(id.clone()),
@@ -533,13 +533,16 @@ mod tests {
             signature: Signature::new()
                 .inputs(vec![Type::FieldElement])
                 .outputs(vec![Type::FieldElement]),
-        })];
+        });
+
+        let signature = solver.get_signature();
+        let solvers = vec![solver];
 
         let inputs = vec![Bn128Field::from(2)];
         let res = Interpreter::execute_solver(
             &Solver::Ref(RefCall {
                 index: 0,
-                argument_count: 1,
+                signature,
             }),
             &inputs,
             &solvers,

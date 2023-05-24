@@ -3464,6 +3464,20 @@ impl<'ast, T: Field> Block<'ast, T> for StructExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> Block<'ast, T> for TypedExpression<'ast, T> {
+    fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
+        match value {
+            TypedExpression::Boolean(e) => BooleanExpression::block(statements, e).into(),
+            TypedExpression::FieldElement(e) => FieldElementExpression::block(statements, e).into(),
+            TypedExpression::Uint(e) => UExpression::block(statements, e).into(),
+            TypedExpression::Array(e) => ArrayExpression::block(statements, e).into(),
+            TypedExpression::Struct(e) => StructExpression::block(statements, e).into(),
+            TypedExpression::Tuple(e) => TupleExpression::block(statements, e).into(),
+            TypedExpression::Int(e) => unreachable!("{}", e),
+        }
+    }
+}
+
 pub trait Constant: Sized {
     // return whether this is constant
     fn is_constant(&self) -> bool;
