@@ -8,7 +8,7 @@ pub type SourceIdentifier<'ast> = std::borrow::Cow<'ast, str>;
 pub enum CoreIdentifier<'ast> {
     #[serde(borrow)]
     Source(ShadowedIdentifier<'ast>),
-    Call(usize),
+    Call,
     Constant(CanonicalConstantIdentifier<'ast>),
     Condition(usize),
 }
@@ -17,7 +17,7 @@ impl<'ast> fmt::Display for CoreIdentifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             CoreIdentifier::Source(s) => write!(f, "{}", s),
-            CoreIdentifier::Call(i) => write!(f, "#CALL_RETURN_AT_INDEX_{}", i),
+            CoreIdentifier::Call => write!(f, "#CALL_RETURN"),
             CoreIdentifier::Constant(c) => write!(f, "{}/{}", c.module.display(), c.id),
             CoreIdentifier::Condition(i) => write!(f, "#CONDITION_{}", i),
         }
