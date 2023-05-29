@@ -1826,7 +1826,17 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                     }
                     false => {
-                        let e = TypedExpression::block(vec![], e);
+                        let aligned = TypedExpression::align_to_type(e, &assignee.get_type())
+                            .map_err(|e| ErrorInner {
+                                span: Some(span),
+                                message: format!(
+                                    "Expected value of type `{}`, found `{}` of type `{}`",
+                                    e.1,
+                                    e.0,
+                                    e.0.get_type()
+                                ),
+                            })?;
+                        let e = TypedExpression::block(vec![], aligned);
                         Ok(vec![
                             TypedAssemblyStatement::assignment(assignee, e).with_span(span)
                         ])
