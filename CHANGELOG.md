@@ -3,7 +3,6 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
-https://github.com/Zokrates/ZoKrates/compare/develop...only4sim:ZoKrates:develop?expand=1
 
 ## [0.8.7] - 2023-04-22
 
