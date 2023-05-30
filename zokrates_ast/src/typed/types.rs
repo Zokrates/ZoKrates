@@ -942,6 +942,19 @@ impl<S> GType<S> {
     }
 }
 
+impl<S: PartialEq> GType<S> {
+    pub fn is_composite_of(&self, ty: &Self) -> bool {
+        match self {
+            GType::Array(array_type) => array_type.ty.is_composite_of(ty),
+            GType::Tuple(tuple_typle) => tuple_typle.elements.iter().all(|e| e.is_composite_of(ty)),
+            GType::Struct(struct_type) => {
+                struct_type.members.iter().all(|m| m.ty.is_composite_of(ty))
+            }
+            other => other.eq(ty),
+        }
+    }
+}
+
 impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
     pub fn can_be_specialized_to(&self, other: &DeclarationType<'ast, T>) -> bool {
         use self::GType::*;
