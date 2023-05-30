@@ -55,7 +55,7 @@ impl fmt::Display for Error {
 pub struct Propagator<'ast, T> {
     // constants keeps track of constant expressions
     // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is
-    constants: Constants<'ast, T>,
+    pub constants: Constants<'ast, T>,
 }
 
 impl<'ast, T: Field> Propagator<'ast, T> {
@@ -181,26 +181,22 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
         _: &E::Ty,
         e: ConditionalExpression<'ast, T, E>,
     ) -> Result<ConditionalOrExpression<'ast, T, E>, Self::Error> {
-        Ok(
-            match (
-                self.fold_boolean_expression(*e.condition)?,
-                e.consequence.fold(self)?,
-                e.alternative.fold(self)?,
-            ) {
-                (BooleanExpression::Value(v), consequence, _) if v.value => {
+        Ok(match self.fold_boolean_expression(*e.condition)? {
+            BooleanExpression::Value(v) if v.value => {
+                ConditionalOrExpression::Expression(e.consequence.fold(self)?.into_inner())
+            }
+            BooleanExpression::Value(v) if !v.value => {
+                ConditionalOrExpression::Expression(e.alternative.fold(self)?.into_inner())
+            }
+            condition => match (e.consequence.fold(self)?, e.alternative.fold(self)?) {
+                (consequence, alternative) if consequence == alternative => {
                     ConditionalOrExpression::Expression(consequence.into_inner())
                 }
-                (BooleanExpression::Value(v), _, alternative) if !v.value => {
-                    ConditionalOrExpression::Expression(alternative.into_inner())
-                }
-                (_, consequence, alternative) if consequence == alternative => {
-                    ConditionalOrExpression::Expression(consequence.into_inner())
-                }
-                (condition, consequence, alternative) => ConditionalOrExpression::Conditional(
+                (consequence, alternative) => ConditionalOrExpression::Conditional(
                     ConditionalExpression::new(condition, consequence, alternative, e.kind),
                 ),
             },
-        )
+        })
     }
 
     fn fold_assembly_assignment(
