@@ -38,3 +38,6 @@ zokrates_bellman = { path = "../zokrates_bellman", features = ["wasm"] }
 json = "0.12.4"
 walkdir = "2.3.2"
 toml = "0.5.9"
+
+[profile.dev]
+opt-level = 1
