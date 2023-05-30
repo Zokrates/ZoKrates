@@ -1834,7 +1834,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                         ty => Err(ErrorInner {
                             span: Some(span),
-                            message: format!("Assignee must be a field element, found {}", ty),
+                            message: format!("Assignee must be of type field, found {}", ty),
                         }),
                     },
                     false => {
@@ -1849,7 +1849,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             },
                             false => Err(ErrorInner {
                                 span: Some(span),
-                                message: "Assignee must be a field element or a composite type of field elements".to_string(),
+                                message: "Assignee must be of type field or a composite type of field elements".to_string(),
                             })
                         }
                     }
