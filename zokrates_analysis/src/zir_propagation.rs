@@ -84,6 +84,27 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         })
     }
 
+    fn fold_assembly_block(
+        &mut self,
+        s: zokrates_ast::zir::AssemblyBlockStatement<'ast, T>,
+    ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
+        let block: Vec<_> = s
+            .inner
+            .into_iter()
+            .map(|s| self.fold_assembly_statement(s))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        Ok(match block.is_empty() {
+            true => vec![],
+            false => vec![ZirStatement::Assembly(
+                zokrates_ast::zir::AssemblyBlockStatement::new(block),
+            )],
+        })
+    }
+
     fn fold_assembly_assignment(
         &mut self,
         s: zokrates_ast::zir::AssemblyAssignment<'ast, T>,

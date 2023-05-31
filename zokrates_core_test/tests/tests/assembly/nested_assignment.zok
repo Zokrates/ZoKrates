@@ -1,0 +1,20 @@
+def bar(field a) -> field {
+    field tmp = a * a;
+    field mut b = 0;
+    asm {
+        b <-- tmp * 2;
+    }
+    return b;
+}
+
+def foo(field a) -> field {
+    field mut b = 0;
+    asm {
+        b <-- bar(a);
+    }
+    return b;
+}
+
+def main(field a) -> field {
+    return foo(a);
+}
