@@ -943,14 +943,18 @@ impl<S> GType<S> {
 }
 
 impl<S: PartialEq> GType<S> {
-    pub fn is_composite_of(&self, ty: &Self) -> bool {
+    pub fn is_composite_of_field(&self) -> bool {
         match self {
-            GType::Array(array_type) => array_type.ty.is_composite_of(ty),
-            GType::Tuple(tuple_typle) => tuple_typle.elements.iter().all(|e| e.is_composite_of(ty)),
-            GType::Struct(struct_type) => {
-                struct_type.members.iter().all(|m| m.ty.is_composite_of(ty))
-            }
-            other => other.eq(ty),
+            GType::Array(array_type) => array_type.ty.is_composite_of_field(),
+            GType::Tuple(tuple_typle) => tuple_typle
+                .elements
+                .iter()
+                .all(|e| e.is_composite_of_field()),
+            GType::Struct(struct_type) => struct_type
+                .members
+                .iter()
+                .all(|m| m.ty.is_composite_of_field()),
+            other => other.eq(&Self::FieldElement),
         }
     }
 }

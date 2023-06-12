@@ -1812,7 +1812,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             let e = FieldElementExpression::try_from_typed(e).map_err(|e| ErrorInner {
                                     span: Some(span),
                                     message: format!(
-                                        "Expected right hand side of an assembly assignment to be of type field, found {}",
+                                        "Expected right hand side of an assembly constrained assignment to be of type field, found {}",
                                         e.get_type(),
                                     ),
                                 })?;
@@ -1840,7 +1840,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     false => {
                         // we can allow composite types in case of `<--` as no constraints are generated from this type of statement
                         // a composite type should only consist of field types
-                        match e.get_type().is_composite_of(&Type::FieldElement) {
+                        match e.get_type().is_composite_of_field() {
                             true => {
                                 let e = TypedExpression::block(vec![], e);
                                 Ok(vec![
