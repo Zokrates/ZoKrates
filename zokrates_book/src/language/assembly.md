@@ -19,7 +19,7 @@ Assigning a value, in general, should be combined with adding a constraint:
 
 > Note that operator `<--` is used for unconstrained assignment and can be easily misused. This operator does not generate constraints, which could result in unconstrained variables in the constraint system.
 
-Unconstrained assignment `<--` allows assignment to variables with  complex types. The type must consist of field elements only (eg. `field[3]`):
+Unconstrained assignment `<--` allows assignment to variables with complex types. The type must consist of field elements only (eg. `field[3]`):
 
 ```zok
 field[3] mut c = [0; 3];
