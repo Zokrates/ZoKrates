@@ -213,6 +213,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                 let return_value = self.fold_expression(return_value)?;
 
+                let return_value = self.propagator.fold_expression(return_value)?;
+
                 Ok(FunctionCallOrExpression::Expression(
                     E::from(return_value).into_inner(),
                 ))
@@ -226,22 +228,28 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 FunctionCallExpression::<_, E>::new(e.function_key, generics, arguments)
             ))),
             Err(InlineError::Flat(embed, generics, output_type)) => {
-                let identifier = self.ssa.issue_next_identifier(CoreIdentifier::Call(0));
+                let identifier = self.ssa.issue_next_identifier(CoreIdentifier::Call);
 
                 let var = Variable::new(identifier.clone(), output_type);
 
                 let v: TypedAssignee<'ast, T> = var.clone().into();
 
-                self.statement_buffer.push(
-                    TypedStatement::embed_call_definition(
-                        v,
-                        EmbedCall::new(embed, generics, arguments),
-                    )
-                    .span(span),
-                );
-                Ok(FunctionCallOrExpression::Expression(
-                    E::identifier(identifier).span(span),
-                ))
+                let definition = TypedStatement::embed_call_definition(
+                    v,
+                    EmbedCall::new(embed, generics, arguments),
+                )
+                .span(span);
+
+                let definition = self.propagator.fold_statement(definition)?;
+
+                self.statement_buffer.extend(definition);
+
+                let e = match self.propagator.constants.get(&identifier) {
+                    Some(v) => E::try_from(v.clone()).unwrap().into_inner(),
+                    None => E::identifier(identifier),
+                };
+
+                Ok(FunctionCallOrExpression::Expression(e.span(span)))
             }
         };
 

@@ -33,6 +33,7 @@ pub enum Error {
     InvalidValue(String),
     OutOfBounds(u128, u128),
     VariableLength(String),
+    DivisionByZero,
 }
 
 impl fmt::Display for Error {
@@ -47,6 +48,9 @@ impl fmt::Display for Error {
                 index, size
             ),
             Error::VariableLength(message) => write!(f, "{}", message),
+            Error::DivisionByZero => {
+                write!(f, "Division by zero detected during static analysis",)
+            }
         }
     }
 }
@@ -55,7 +59,7 @@ impl fmt::Display for Error {
 pub struct Propagator<'ast, T> {
     // constants keeps track of constant expressions
     // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is
-    constants: Constants<'ast, T>,
+    pub constants: Constants<'ast, T>,
 }
 
 impl<'ast, T: Field> Propagator<'ast, T> {
@@ -181,26 +185,22 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
         _: &E::Ty,
         e: ConditionalExpression<'ast, T, E>,
     ) -> Result<ConditionalOrExpression<'ast, T, E>, Self::Error> {
-        Ok(
-            match (
-                self.fold_boolean_expression(*e.condition)?,
-                e.consequence.fold(self)?,
-                e.alternative.fold(self)?,
-            ) {
-                (BooleanExpression::Value(v), consequence, _) if v.value => {
+        Ok(match self.fold_boolean_expression(*e.condition)? {
+            BooleanExpression::Value(v) if v.value => {
+                ConditionalOrExpression::Expression(e.consequence.fold(self)?.into_inner())
+            }
+            BooleanExpression::Value(v) if !v.value => {
+                ConditionalOrExpression::Expression(e.alternative.fold(self)?.into_inner())
+            }
+            condition => match (e.consequence.fold(self)?, e.alternative.fold(self)?) {
+                (consequence, alternative) if consequence == alternative => {
                     ConditionalOrExpression::Expression(consequence.into_inner())
                 }
-                (BooleanExpression::Value(v), _, alternative) if !v.value => {
-                    ConditionalOrExpression::Expression(alternative.into_inner())
-                }
-                (_, consequence, alternative) if consequence == alternative => {
-                    ConditionalOrExpression::Expression(consequence.into_inner())
-                }
-                (condition, consequence, alternative) => ConditionalOrExpression::Conditional(
+                (consequence, alternative) => ConditionalOrExpression::Conditional(
                     ConditionalExpression::new(condition, consequence, alternative, e.kind),
                 ),
             },
-        )
+        })
     }
 
     fn fold_assembly_assignment(
@@ -944,12 +944,16 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Propagator<'ast, T> {
                 let left = self.fold_field_expression(*e.left)?;
                 let right = self.fold_field_expression(*e.right)?;
 
-                Ok(match (left, right) {
-                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
-                        FieldElementExpression::Value(ValueExpression::new(n1.value / n2.value))
+                match (left, right) {
+                    (_, FieldElementExpression::Value(n)) if n.value == T::from(0) => {
+                        Err(Error::DivisionByZero)
                     }
-                    (e1, e2) => e1 / e2,
-                })
+                    (e, FieldElementExpression::Value(n)) if n.value == T::from(1) => Ok(e),
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => Ok(
+                        FieldElementExpression::Value(ValueExpression::new(n1.value / n2.value)),
+                    ),
+                    (e1, e2) => Ok(e1 / e2),
+                }
             }
             FieldElementExpression::IDiv(e) => {
                 let left = self.fold_field_expression(*e.left)?;
@@ -1620,14 +1624,30 @@ mod tests {
 
             #[test]
             fn div() {
-                let e = FieldElementExpression::div(
-                    FieldElementExpression::value(Bn128Field::from(6)),
-                    FieldElementExpression::value(Bn128Field::from(2)),
+                let mut propagator = Propagator::default();
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::div(
+                        FieldElementExpression::value(Bn128Field::from(6)),
+                        FieldElementExpression::value(Bn128Field::from(2)),
+                    )),
+                    Ok(FieldElementExpression::value(Bn128Field::from(3)))
                 );
 
                 assert_eq!(
-                    Propagator::default().fold_field_expression(e),
-                    Ok(FieldElementExpression::value(Bn128Field::from(3)))
+                    propagator.fold_field_expression(FieldElementExpression::div(
+                        FieldElementExpression::identifier("a".into()),
+                        FieldElementExpression::value(Bn128Field::from(1)),
+                    )),
+                    Ok(FieldElementExpression::identifier("a".into()))
+                );
+
+                assert_eq!(
+                    propagator.fold_field_expression(FieldElementExpression::div(
+                        FieldElementExpression::value(Bn128Field::from(6)),
+                        FieldElementExpression::value(Bn128Field::from(0)),
+                    )),
+                    Err(Error::DivisionByZero)
                 );
             }
 

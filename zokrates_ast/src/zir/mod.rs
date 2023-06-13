@@ -282,7 +282,7 @@ impl<'ast, T: fmt::Display> fmt::Display for MultipleDefinitionStatement<'ast, T
                 write!(f, ", ")?;
             }
         }
-        write!(f, " = {};", self.rhs)
+        write!(f, " = {}", self.rhs)
     }
 }
 
@@ -418,7 +418,7 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                 write!(f, ";")
             }
             ZirStatement::Definition(ref s) => {
-                write!(f, "{}", s)
+                write!(f, "{};", s)
             }
             ZirStatement::IfElse(ref s) => {
                 writeln!(f, "if {} {{", s.condition)?;
@@ -441,7 +441,7 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                 }
             }
             ZirStatement::MultipleDefinition(ref s) => {
-                write!(f, "{}", s)
+                write!(f, "{};", s)
             }
             ZirStatement::Log(ref e) => write!(
                 f,
