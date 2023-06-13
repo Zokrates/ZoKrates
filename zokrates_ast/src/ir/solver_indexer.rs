@@ -31,9 +31,9 @@ impl<'ast, T: Field> Folder<'ast, T> for SolverIndexer<'ast, T> {
         &mut self,
         d: DirectiveStatement<'ast, T>,
     ) -> Vec<Statement<'ast, T>> {
+        let signature = d.solver.get_signature();
         let res = match d.solver {
             Solver::Zir(f) => {
-                let argument_count = f.arguments.len();
                 let h = hash(&f);
                 let index = match self.index_map.entry(h) {
                     Entry::Occupied(v) => *v.get(),
@@ -46,10 +46,7 @@ impl<'ast, T: Field> Folder<'ast, T> for SolverIndexer<'ast, T> {
                 };
                 DirectiveStatement::new(
                     d.outputs,
-                    Solver::Ref(RefCall {
-                        index,
-                        argument_count,
-                    }),
+                    Solver::Ref(RefCall { index, signature }),
                     d.inputs,
                 )
             }

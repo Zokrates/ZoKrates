@@ -1,0 +1,6 @@
+def main(bool a) {
+    bool mut b = false;
+    asm {
+        b <-- a;
+    }
+}

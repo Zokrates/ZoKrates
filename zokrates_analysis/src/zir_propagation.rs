@@ -64,12 +64,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         &mut self,
         f: ZirFunction<'ast, T>,
     ) -> Result<ZirFunction<'ast, T>, Self::Error> {
+        let (arguments, inputs) = f
+            .arguments
+            .into_iter()
+            .zip(f.signature.inputs.iter().cloned())
+            .filter(|(p, _)| !self.constants.contains_key(&p.id.id))
+            .unzip();
         Ok(ZirFunction {
-            arguments: f
-                .arguments
-                .into_iter()
-                .filter(|p| !self.constants.contains_key(&p.id.id))
-                .collect(),
+            arguments,
             statements: f
                 .statements
                 .into_iter()
@@ -78,7 +80,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 .into_iter()
                 .flatten()
                 .collect(),
-            ..f
+            signature: f.signature.inputs(inputs),
         })
     }
 
