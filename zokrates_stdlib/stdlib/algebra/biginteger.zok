@@ -27,7 +27,8 @@ def bigint_from_u32_limbs<N, M>(u32[N] limbs) -> BigInteger<M> {
 
 // Expand big integer from `N` limbs to `M` limbs
 def bigint_expand<N, M>(BigInteger<N> input) -> BigInteger<M> {
-    return bigint_from_limbs(input.limbs);
+    BigInteger<M> r = bigint_from_limbs(input.limbs);
+    return r;
 }
 
 // Big integer addition (a + b)
@@ -104,9 +105,11 @@ def bigint_mul<N, M>(BigInteger<N> a, BigInteger<N> b) -> BigInteger<M> {
     field[K][3] mut split = [[0; 3]; K];
     for u32 i in 0..K {
         asm {
-            split[i][0] <-- ovf[i] % (1 << LIMB_BITWIDTH);
-            split[i][1] <-- (ovf[i] \ (1 << LIMB_BITWIDTH)) % (1 << LIMB_BITWIDTH);
-            split[i][2] <-- (ovf[i] \ (1 << LIMB_BITWIDTH * 2)) % (1 << LIMB_BITWIDTH);
+            split[i] <-- [
+                (ovf[i] % (1 << LIMB_BITWIDTH)),
+                (ovf[i] \ (1 << LIMB_BITWIDTH)) % (1 << LIMB_BITWIDTH),
+                (ovf[i] \ (1 << LIMB_BITWIDTH * 2)) % (1 << LIMB_BITWIDTH)
+            ];
         }
     }
 

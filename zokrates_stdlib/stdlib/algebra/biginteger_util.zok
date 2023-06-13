@@ -19,12 +19,11 @@ def ilog2(u32 x) -> u32 {
 }
 
 def split<N>(field input) -> field[2] {
-    field[2] mut r = [0; 2];
+    field[2] mut res = [0; 2];
     asm {
-        r[0] <-- input % (1 << N);
-        r[1] <-- (input \ (1 << N)) % (1 << N);
+        res <-- [input % (1 << N), (input \ (1 << N)) % (1 << N)];
     }
-    return r;
+    return res;
 }
 
 def split2<K, N>(field[K] mut limbs, field[K] mut carry, field[K][3] split) -> (field[K], field[K]) {
