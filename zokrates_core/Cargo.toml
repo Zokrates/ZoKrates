@@ -1,15 +1,16 @@
 [package]
 name = "zokrates_core"
-version = "0.7.2"
+version = "0.7.6"
 edition = "2021"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/Zokrates/ZoKrates"
 readme = "README.md"
 
 [features]
-default = ["ark", "bellman"]
+default = ["ark", "bellman", "bellperson"]
 ark = ["zokrates_ast/ark", "zokrates_embed/ark", "zokrates_common/ark", "zokrates_interpreter/ark", "zokrates_codegen/ark", "zokrates_analysis/ark"]
 bellman = ["zokrates_ast/bellman", "zokrates_embed/bellman", "zokrates_common/bellman", "zokrates_interpreter/bellman", "zokrates_codegen/bellman", "zokrates_analysis/bellman"]
+bellperson = ["zokrates_ast/bellperson", "zokrates_common/bellperson"]
 
 [dependencies]
 log = "0.4"
@@ -29,8 +30,3 @@ zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", defa
 zokrates_codegen = { version = "0.1", path = "../zokrates_codegen", default-features = false }
 zokrates_analysis = { version = "0.1", path = "../zokrates_analysis", default-features = false }
 zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
-csv = "1"
-
-[dev-dependencies]
-pretty_assertions = "0.6.1"
-zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}

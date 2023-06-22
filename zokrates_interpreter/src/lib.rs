@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_abi::{Decode, Value};
 use zokrates_ast::ir::{
-    LinComb, ProgIterator, QuadComb, RuntimeError, Solver, Statement, Variable, Witness,
+    LinComb, Parameter, QuadComb, RuntimeError, Solver, Statement, Variable, Witness,
 };
-use zokrates_ast::zir;
+use zokrates_ast::zir::{self, Expr};
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
@@ -13,7 +14,7 @@ pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 #[derive(Default)]
 pub struct Interpreter {
     /// Whether we should try to give out-of-range bit decompositions when the input is not a single summand.
-    /// Used to do targetted testing of `<` flattening, making sure the bit decomposition we base the result on is unique.
+    /// Used to do targeted testing of `<` flattening, making sure the bit decomposition we base the result on is unique.
     should_try_out_of_range: bool,
 }
 
@@ -26,46 +27,59 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>>(
+    pub fn execute<'ast, T: Field, S: Borrow<Statement<'ast, T>>>(
         &self,
-        program: ProgIterator<'ast, T, I>,
         inputs: &[T],
+        statements: impl Iterator<Item = S>,
+        arguments: &[Parameter],
+        solvers: &[Solver<'ast, T>],
     ) -> ExecutionResult<T> {
-        self.execute_with_log_stream(program, inputs, &mut std::io::sink())
+        self.execute_with_log_stream(inputs, statements, arguments, solvers, &mut std::io::sink())
     }
 
     pub fn execute_with_log_stream<
         'ast,
+        'a,
         W: std::io::Write,
         T: Field,
-        I: IntoIterator<Item = Statement<'ast, T>>,
+        S: Borrow<Statement<'ast, T>>,
     >(
         &self,
-        program: ProgIterator<'ast, T, I>,
         inputs: &[T],
+        statements: impl Iterator<Item = S>,
+        arguments: &[Parameter],
+        solvers: &[Solver<'ast, T>],
         log_stream: &mut W,
     ) -> ExecutionResult<T> {
-        self.check_inputs(&program, inputs)?;
+        if arguments.len() != inputs.len() {
+            return Err(Error::WrongInputCount {
+                expected: arguments.len(),
+                received: inputs.len(),
+            });
+        };
+
         let mut witness = Witness::default();
         witness.insert(Variable::one(), T::one());
 
-        for (arg, value) in program.arguments.iter().zip(inputs.iter()) {
-            witness.insert(arg.id, value.clone());
+        for (arg, value) in arguments.iter().zip(inputs.iter()) {
+            witness.insert(arg.id, *value);
         }
 
-        for statement in program.statements.into_iter() {
-            match statement {
+        for statement in statements {
+            match statement.borrow() {
                 Statement::Block(..) => unreachable!(),
-                Statement::Constraint(quad, lin, error) => match lin.is_assignee(&witness) {
+                Statement::Constraint(s) => match s.lin.is_assignee(&witness) {
                     true => {
-                        let val = evaluate_quad(&witness, &quad).unwrap();
-                        witness.insert(lin.0.get(0).unwrap().0, val);
+                        let val = evaluate_quad(&witness, &s.quad).unwrap();
+                        witness.insert(s.lin.value.get(0).unwrap().0, val);
                     }
                     false => {
-                        let lhs_value = evaluate_quad(&witness, &quad).unwrap();
-                        let rhs_value = evaluate_lin(&witness, &lin).unwrap();
+                        let lhs_value = evaluate_quad(&witness, &s.quad).unwrap();
+                        let rhs_value = evaluate_lin(&witness, &s.lin).unwrap();
                         if lhs_value != rhs_value {
-                            return Err(Error::UnsatisfiedConstraint { error });
+                            return Err(Error::UnsatisfiedConstraint {
+                                error: s.error.clone(),
+                            });
                         }
                     }
                 },
@@ -83,28 +97,32 @@ impl Interpreter {
                                 inputs.pop().unwrap(),
                             ))
                         }
-                        _ => Self::execute_solver(&d.solver, &inputs),
+                        _ => Self::execute_solver(&d.solver, &inputs, solvers),
                     }
                     .map_err(Error::Solver)?;
 
                     for (i, o) in d.outputs.iter().enumerate() {
-                        witness.insert(*o, res[i].clone());
+                        witness.insert(*o, res[i]);
                     }
                 }
-                Statement::Log(l, expressions) => {
-                    let mut parts = l.parts.into_iter();
+                Statement::Log(s) => {
+                    let mut parts = s.format_string.parts.iter();
 
                     write!(log_stream, "{}", parts.next().unwrap())
                         .map_err(|_| Error::LogStream)?;
 
-                    for ((t, e), part) in expressions.into_iter().zip(parts) {
+                    for ((t, e), part) in s.expressions.iter().zip(parts) {
                         let values: Vec<_> = e
                             .iter()
                             .map(|e| evaluate_lin(&witness, e).unwrap())
                             .collect();
 
-                        write!(log_stream, "{}", Value::decode(values, t).into_serde_json())
-                            .map_err(|_| Error::LogStream)?;
+                        write!(
+                            log_stream,
+                            "{}",
+                            Value::decode(values, t.clone()).into_serde_json()
+                        )
+                        .map_err(|_| Error::LogStream)?;
 
                         write!(log_stream, "{}", part).map_err(|_| Error::LogStream)?;
                     }
@@ -146,25 +164,18 @@ impl Interpreter {
             .collect()
     }
 
-    fn check_inputs<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>, U>(
-        &self,
-        program: &ProgIterator<'ast, T, I>,
-        inputs: &[U],
-    ) -> Result<(), Error> {
-        if program.arguments.len() == inputs.len() {
-            Ok(())
-        } else {
-            Err(Error::WrongInputCount {
-                expected: program.arguments.len(),
-                received: inputs.len(),
-            })
-        }
-    }
-
     pub fn execute_solver<'ast, T: Field>(
         solver: &Solver<'ast, T>,
         inputs: &[T],
+        solvers: &[Solver<'ast, T>],
     ) -> Result<Vec<T>, String> {
+        let solver = match solver {
+            Solver::Ref(call) => solvers
+                .get(call.index)
+                .ok_or_else(|| format!("Could not get solver at index {}", call.index))?,
+            s => s,
+        };
+
         let (expected_input_count, expected_output_count) = solver.get_signature();
         assert_eq!(inputs.len(), expected_input_count);
 
@@ -177,26 +188,26 @@ impl Interpreter {
                     .arguments
                     .iter()
                     .zip(inputs)
-                    .map(|(a, v)| match &a.id._type {
+                    .map(|(a, v)| match &a.id.ty {
                         zir::Type::FieldElement => Ok((
                             a.id.id.clone(),
-                            zokrates_ast::zir::FieldElementExpression::Number(v.clone()).into(),
+                            zokrates_ast::zir::FieldElementExpression::value(*v).into(),
                         )),
                         zir::Type::Boolean => match v {
                             v if *v == T::from(0) => Ok((
                                 a.id.id.clone(),
-                                zokrates_ast::zir::BooleanExpression::Value(false).into(),
+                                zokrates_ast::zir::BooleanExpression::value(false).into(),
                             )),
                             v if *v == T::from(1) => Ok((
                                 a.id.id.clone(),
-                                zokrates_ast::zir::BooleanExpression::Value(true).into(),
+                                zokrates_ast::zir::BooleanExpression::value(true).into(),
                             )),
                             v => Err(format!("`{}` has unexpected value `{}`", a.id, v)),
                         },
                         zir::Type::Uint(bitwidth) => match v.bits() <= bitwidth.to_usize() as u32 {
                             true => Ok((
                                 a.id.id.clone(),
-                                zokrates_ast::zir::UExpressionInner::Value(
+                                zokrates_ast::zir::UExpression::value(
                                     v.to_dec_string().parse::<u128>().unwrap(),
                                 )
                                 .annotate(*bitwidth)
@@ -222,11 +233,12 @@ impl Interpreter {
                 if let zokrates_ast::zir::ZirStatement::Return(v) =
                     folded_function.statements[0].clone()
                 {
-                    v.into_iter()
+                    v.inner
+                        .into_iter()
                         .map(|v| match v {
                             zokrates_ast::zir::ZirExpression::FieldElement(
-                                zokrates_ast::zir::FieldElementExpression::Number(n),
-                            ) => n,
+                                zokrates_ast::zir::FieldElementExpression::Value(n),
+                            ) => n.value,
                             _ => unreachable!(),
                         })
                         .collect()
@@ -256,41 +268,38 @@ impl Interpreter {
                     .collect()
             }
             Solver::Xor => {
-                let x = inputs[0].clone();
-                let y = inputs[1].clone();
+                let x = inputs[0];
+                let y = inputs[1];
 
-                vec![x.clone() + y.clone() - T::from(2) * x * y]
+                vec![x + y - T::from(2) * x * y]
             }
             Solver::Or => {
-                let x = inputs[0].clone();
-                let y = inputs[1].clone();
+                let x = inputs[0];
+                let y = inputs[1];
 
-                vec![x.clone() + y.clone() - x * y]
+                vec![x + y - x * y]
             }
             // res = b * c - (2b * c - b - c) * (a)
             Solver::ShaAndXorAndXorAnd => {
-                let a = inputs[0].clone();
-                let b = inputs[1].clone();
-                let c = inputs[2].clone();
-                vec![b.clone() * c.clone() - (T::from(2) * b.clone() * c.clone() - b - c) * a]
+                let a = inputs[0];
+                let b = inputs[1];
+                let c = inputs[2];
+                vec![b * c - (T::from(2) * b * c - b - c) * a]
             }
             // res = a(b - c) + c
             Solver::ShaCh => {
-                let a = inputs[0].clone();
-                let b = inputs[1].clone();
-                let c = inputs[2].clone();
-                vec![a * (b - c.clone()) + c]
+                let a = inputs[0];
+                let b = inputs[1];
+                let c = inputs[2];
+                vec![a * (b - c) + c]
             }
 
-            Solver::Div => vec![inputs[0]
-                .clone()
-                .checked_div(&inputs[1])
-                .unwrap_or_else(T::one)],
+            Solver::Div => vec![inputs[0].checked_div(&inputs[1]).unwrap_or_else(T::one)],
             Solver::EuclideanDiv => {
                 use num::CheckedDiv;
 
-                let n = inputs[0].clone().to_biguint();
-                let d = inputs[1].clone().to_biguint();
+                let n = inputs[0].to_biguint();
+                let d = inputs[1].to_biguint();
 
                 let q = n.checked_div(&d).unwrap_or_else(|| 0u32.into());
                 let r = n - d * &q;
@@ -334,6 +343,7 @@ impl Interpreter {
                     &inputs[*n + 8usize..],
                 )
             }
+            _ => unreachable!("unexpected solver"),
         };
 
         assert_eq!(res.len(), expected_output_count);
@@ -354,14 +364,11 @@ pub enum Error {
 }
 
 fn evaluate_lin<T: Field>(w: &Witness<T>, l: &LinComb<T>) -> Result<T, EvaluationError> {
-    l.0.iter()
-        .map(|(var, mult)| {
-            w.0.get(var)
-                .map(|v| v.clone() * mult)
-                .ok_or(EvaluationError)
-        }) // get each term
-        .collect::<Result<Vec<_>, _>>() // fail if any term isn't found
-        .map(|v| v.iter().fold(T::from(0), |acc, t| acc + t)) // return the sum
+    l.value.iter().try_fold(T::from(0), |acc, (var, mult)| {
+        w.0.get(var)
+            .map(|v| acc + (*v * mult))
+            .ok_or(EvaluationError) // fail if any term isn't found
+    })
 }
 
 pub fn evaluate_quad<T: Field>(w: &Witness<T>, q: &QuadComb<T>) -> Result<T, EvaluationError> {
@@ -434,6 +441,7 @@ mod tests {
                     .iter()
                     .map(|&i| Bn128Field::from(i))
                     .collect::<Vec<_>>(),
+                &[],
             )
             .unwrap();
             let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
@@ -450,6 +458,7 @@ mod tests {
                     .iter()
                     .map(|&i| Bn128Field::from(i))
                     .collect::<Vec<_>>(),
+                &[],
             )
             .unwrap();
             let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
@@ -460,9 +469,12 @@ mod tests {
     #[test]
     fn bits_of_one() {
         let inputs = vec![Bn128Field::from(1)];
-        let res =
-            Interpreter::execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
-                .unwrap();
+        let res = Interpreter::execute_solver(
+            &Solver::Bits(Bn128Field::get_required_bits()),
+            &inputs,
+            &[],
+        )
+        .unwrap();
         assert_eq!(res[253], Bn128Field::from(1));
         for r in &res[0..253] {
             assert_eq!(*r, Bn128Field::from(0));
@@ -472,9 +484,12 @@ mod tests {
     #[test]
     fn bits_of_42() {
         let inputs = vec![Bn128Field::from(42)];
-        let res =
-            Interpreter::execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
-                .unwrap();
+        let res = Interpreter::execute_solver(
+            &Solver::Bits(Bn128Field::get_required_bits()),
+            &inputs,
+            &[],
+        )
+        .unwrap();
         assert_eq!(res[253], Bn128Field::from(0));
         assert_eq!(res[252], Bn128Field::from(1));
         assert_eq!(res[251], Bn128Field::from(0));
@@ -487,11 +502,54 @@ mod tests {
     #[test]
     fn five_hundred_bits_of_1() {
         let inputs = vec![Bn128Field::from(1)];
-        let res = Interpreter::execute_solver(&Solver::Bits(500), &inputs).unwrap();
+        let res = Interpreter::execute_solver(&Solver::Bits(500), &inputs, &[]).unwrap();
 
         let mut expected = vec![Bn128Field::from(0); 500];
         expected[499] = Bn128Field::from(1);
 
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn solver_ref() {
+        use std::ops::Mul;
+        use zir::{
+            types::{Signature, Type},
+            FieldElementExpression, Identifier, IdentifierExpression, Parameter, Variable,
+            ZirFunction, ZirStatement,
+        };
+        use zokrates_ast::common::RefCall;
+
+        let id = IdentifierExpression::new(Identifier::internal(0usize));
+
+        // (field i0) -> i0 * i0
+        let solver = Solver::Zir(ZirFunction {
+            arguments: vec![Parameter::new(Variable::field_element(id.id.clone()), true)],
+            statements: vec![ZirStatement::ret(vec![FieldElementExpression::mul(
+                FieldElementExpression::Identifier(id.clone()),
+                FieldElementExpression::Identifier(id.clone()),
+            )
+            .into()])],
+            signature: Signature::new()
+                .inputs(vec![Type::FieldElement])
+                .outputs(vec![Type::FieldElement]),
+        });
+
+        let signature = solver.get_signature();
+        let solvers = vec![solver];
+
+        let inputs = vec![Bn128Field::from(2)];
+        let res = Interpreter::execute_solver(
+            &Solver::Ref(RefCall {
+                index: 0,
+                signature,
+            }),
+            &inputs,
+            &solvers,
+        )
+        .unwrap();
+
+        let expected = vec![Bn128Field::from(4)];
         assert_eq!(res, expected);
     }
 }

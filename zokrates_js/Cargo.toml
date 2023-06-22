@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_js"
-version = "1.1.4"
+version = "1.1.8"
 authors = ["Darko Macesic"]
 edition = "2018"
 
@@ -8,24 +8,31 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-js-sys = "0.3.33"
+js-sys = "=0.3.58"
 serde = { version = "^1.0.59", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
-wasm-bindgen = { version = "0.2.46", features = ["serde-serialize"] }
+wasm-bindgen = { version = "=0.2.81", features = ["serde-serialize"] }
 typed-arena = "1.4.1"
 lazy_static = "1.4.0"
+zokrates_field = { path = "../zokrates_field" }
+rand_0_8 = { version = "0.8", package = "rand" }
+getrandom = { version = "0.2.8", features = ["js"] }
 zokrates_core = { path = "../zokrates_core", default-features = false, features = ["ark", "bellman"] }
-zokrates_ark = { path = "../zokrates_ark", default-features = false}
-zokrates_bellman = { path = "../zokrates_bellman", default-features = false}
+zokrates_ark = { path = "../zokrates_ark", default-features = false }
+zokrates_embed = { path = "../zokrates_embed", default-features = false }
+zokrates_bellman = { path = "../zokrates_bellman", default-features = false }
 zokrates_common = { path = "../zokrates_common", default-features = false, features = ["ark", "bellman"] }
 zokrates_proof_systems = { path = "../zokrates_proof_systems", default-features = false }
 zokrates_ast = { path = "../zokrates_ast", default-features = false, features = ["ark", "bellman"] }
 zokrates_interpreter = { path = "../zokrates_interpreter", default-features = false, features = ["ark", "bellman"] }
-zokrates_field = { path = "../zokrates_field", default-features = false  }
 zokrates_abi = { path = "../zokrates_abi", default-features = false, features = ["ark", "bellman"] }
 zokrates_circom = { path = "../zokrates_circom" }
 console_error_panic_hook = "0.1.6"
 indexmap = "~1.6.2" # see https://github.com/rustwasm/wasm-bindgen/issues/2770#issuecomment-1041102532
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+zokrates_embed = { path = "../zokrates_embed", features = ["wasm"] }
+zokrates_bellman = { path = "../zokrates_bellman", features = ["wasm"] }
 
 [build-dependencies]
 json = "0.12.4"

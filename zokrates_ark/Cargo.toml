@@ -1,9 +1,20 @@
 [package]
 name = "zokrates_ark"
-version = "0.1.1"
+version = "0.1.4"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = []
+multicore = [
+    "ark-ff/parallel",
+    "ark-ec/parallel",
+    "ark-groth16/parallel",
+    "ark-gm17/parallel",
+    "ark-marlin/parallel",
+    "ark-poly/parallel",
+    "ark-poly-commit/parallel",
+    "ark-crypto-primitives/parallel",
+]
 
 [dependencies]
 zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
@@ -17,7 +28,7 @@ ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = f
 ark-bw6-761 = { version = "^0.3.0", default-features = false }
 ark-gm17 = { version = "^0.3.0", default-features = false }
 ark-groth16 = { version = "^0.3.0", default-features = false }
-ark-serialize = { version = "^0.3.0", default-features = false }
+ark-serialize = { version = "^0.3.0", default-features = false, features = ["std"] }
 ark-relations = { version = "^0.3.0", default-features = false }
 ark-marlin = { git = "https://github.com/arkworks-rs/marlin", rev = "63cfd82", default-features = false }
 ark-poly = { version = "^0.3.0", default-features = false }

@@ -8,8 +8,8 @@ use ark_relations::r1cs::{
     SynthesisError, Variable as ArkVariable,
 };
 use std::collections::BTreeMap;
-use zokrates_ast::common::Variable;
-use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
+use zokrates_ast::common::flat::Variable;
+use zokrates_ast::ir::{LinComb, ProgIterator, Statement, Witness};
 use zokrates_field::{ArkFieldExtensions, Field};
 
 pub use self::parse::*;
@@ -39,12 +39,13 @@ impl<'a, T, I: IntoIterator<Item = Statement<'a, T>>> Computation<'a, T, I> {
 }
 
 fn ark_combination<T: Field + ArkFieldExtensions>(
-    l: CanonicalLinComb<T>,
+    l: LinComb<T>,
     cs: &mut ConstraintSystem<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
     symbols: &mut BTreeMap<Variable, ArkVariable>,
     witness: &mut Witness<T>,
 ) -> LinearCombination<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr> {
-    l.0.into_iter()
+    l.value
+        .into_iter()
         .map(|(k, v)| {
             (
                 v.into_ark(),
@@ -112,25 +113,10 @@ impl<'a, T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<'a, T>>
                 }));
 
                 for statement in self.program.statements {
-                    if let Statement::Constraint(quad, lin, _) = statement {
-                        let a = ark_combination(
-                            quad.left.clone().into_canonical(),
-                            &mut cs,
-                            &mut symbols,
-                            &mut witness,
-                        );
-                        let b = ark_combination(
-                            quad.right.clone().into_canonical(),
-                            &mut cs,
-                            &mut symbols,
-                            &mut witness,
-                        );
-                        let c = ark_combination(
-                            lin.into_canonical(),
-                            &mut cs,
-                            &mut symbols,
-                            &mut witness,
-                        );
+                    if let Statement::Constraint(s) = statement {
+                        let a = ark_combination(s.quad.left, &mut cs, &mut symbols, &mut witness);
+                        let b = ark_combination(s.quad.right, &mut cs, &mut symbols, &mut witness);
+                        let c = ark_combination(s.lin, &mut cs, &mut symbols, &mut witness);
 
                         cs.enforce_constraint(a, b, c)?;
                     }
@@ -150,7 +136,7 @@ impl<'a, T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<'a, T>>
         self.program
             .public_inputs_values(self.witness.as_ref().unwrap())
             .iter()
-            .map(|v| v.clone().into_ark())
+            .map(|v| v.into_ark())
             .collect()
     }
 }

@@ -178,7 +178,8 @@ fn compile_and_run<T: Field>(t: Tests) {
                 .unwrap()
         };
 
-        let output = interpreter.execute(bin.clone(), &input);
+        let output =
+            interpreter.execute(&input, bin.statements.iter(), &bin.arguments, &bin.solvers);
 
         use zokrates_abi::Decode;
 

@@ -9,18 +9,18 @@ use zokrates_field::Field;
 
 // a map of the canonical constants in this program. with all imported constants reduced to their canonical value
 type ProgramConstants<'ast, T> =
-    HashMap<OwnedTypedModuleId, HashMap<ConstantIdentifier<'ast>, TypedConstant<'ast, T>>>;
+    HashMap<OwnedModuleId, HashMap<ConstantIdentifier<'ast>, TypedConstant<'ast, T>>>;
 
 pub struct ConstantResolver<'ast, T> {
     modules: TypedModules<'ast, T>,
-    location: OwnedTypedModuleId,
+    location: OwnedModuleId,
     constants: ProgramConstants<'ast, T>,
 }
 
 impl<'ast, T: Field> ConstantResolver<'ast, T> {
     pub fn new(
         modules: TypedModules<'ast, T>,
-        location: OwnedTypedModuleId,
+        location: OwnedModuleId,
         constants: ProgramConstants<'ast, T>,
     ) -> Self {
         ConstantResolver {
@@ -35,14 +35,14 @@ impl<'ast, T: Field> ConstantResolver<'ast, T> {
         inliner.fold_program(p)
     }
 
-    fn change_location(&mut self, location: OwnedTypedModuleId) -> OwnedTypedModuleId {
+    fn change_location(&mut self, location: OwnedModuleId) -> OwnedModuleId {
         let prev = self.location.clone();
         self.location = location;
         self.constants.entry(self.location.clone()).or_default();
         prev
     }
 
-    fn treated(&self, id: &TypedModuleId) -> bool {
+    fn treated(&self, id: &ModuleId) -> bool {
         self.constants.contains_key(id)
     }
 
@@ -67,7 +67,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantResolver<'ast, T> {
         }
     }
 
-    fn fold_module_id(&mut self, id: OwnedTypedModuleId) -> OwnedTypedModuleId {
+    fn fold_module_id(&mut self, id: OwnedModuleId) -> OwnedModuleId {
         // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
         if !self.treated(&id) {
             let current_m_id = self.change_location(id.clone());
@@ -109,10 +109,11 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantResolver<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ops::*;
     use zokrates_ast::typed::types::{DeclarationSignature, GTupleType};
     use zokrates_ast::typed::{
         DeclarationArrayType, DeclarationFunctionKey, DeclarationType, FieldElementExpression,
-        GType, Identifier, TypedConstant, TypedExpression, TypedFunction, TypedFunctionSymbol,
+        Identifier, TypedConstant, TypedExpression, TypedFunction, TypedFunctionSymbol,
         TypedStatement,
     };
     use zokrates_field::Bn128Field;
@@ -130,7 +131,7 @@ mod tests {
         let const_id = "a";
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
-            statements: vec![TypedStatement::Return(
+            statements: vec![TypedStatement::ret(
                 FieldElementExpression::identifier(Identifier::from(const_id)).into(),
             )],
             signature: DeclarationSignature::new()
@@ -139,6 +140,7 @@ mod tests {
         };
 
         let program = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -147,7 +149,7 @@ mod tests {
                         TypedConstantSymbolDeclaration::new(
                             CanonicalConstantIdentifier::new(const_id, "main".into()),
                             TypedConstantSymbol::Here(TypedConstant::new(
-                                TypedExpression::FieldElement(FieldElementExpression::Number(
+                                TypedExpression::FieldElement(FieldElementExpression::value(
                                     Bn128Field::from(1),
                                 )),
                                 DeclarationType::FieldElement,
@@ -190,7 +192,7 @@ mod tests {
         let const_id = CanonicalConstantIdentifier::new("a", "main".into());
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
-            statements: vec![TypedStatement::Return(
+            statements: vec![TypedStatement::ret(
                 BooleanExpression::identifier(Identifier::from(const_id.clone())).into(),
             )],
             signature: DeclarationSignature::new()
@@ -199,6 +201,7 @@ mod tests {
         };
 
         let program = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -207,7 +210,7 @@ mod tests {
                         TypedConstantSymbolDeclaration::new(
                             const_id,
                             TypedConstantSymbol::Here(TypedConstant::new(
-                                TypedExpression::Boolean(BooleanExpression::Value(true)),
+                                TypedExpression::Boolean(BooleanExpression::value(true)),
                                 DeclarationType::Boolean,
                             )),
                         )
@@ -248,7 +251,7 @@ mod tests {
         let const_id = CanonicalConstantIdentifier::new("a", "main".into());
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
-            statements: vec![TypedStatement::Return(
+            statements: vec![TypedStatement::ret(
                 UExpression::identifier(Identifier::from(const_id.clone()))
                     .annotate(UBitwidth::B32)
                     .into(),
@@ -259,6 +262,7 @@ mod tests {
         };
 
         let program = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -267,9 +271,7 @@ mod tests {
                         TypedConstantSymbolDeclaration::new(
                             const_id,
                             TypedConstantSymbol::Here(TypedConstant::new(
-                                UExpressionInner::Value(1u128)
-                                    .annotate(UBitwidth::B32)
-                                    .into(),
+                                UExpression::value(1u128).annotate(UBitwidth::B32).into(),
                                 DeclarationType::Uint(UBitwidth::B32),
                             )),
                         )
@@ -310,20 +312,18 @@ mod tests {
         let const_id = CanonicalConstantIdentifier::new("a", "main".into());
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
-            statements: vec![TypedStatement::Return(
-                FieldElementExpression::Add(
+            statements: vec![TypedStatement::ret(
+                FieldElementExpression::add(
                     FieldElementExpression::select(
                         ArrayExpression::identifier(Identifier::from(const_id.clone()))
-                            .annotate(GType::FieldElement, 2u32),
-                        UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
-                    )
-                    .into(),
+                            .annotate(GArrayType::new(Type::FieldElement, 2u32)),
+                        UExpression::value(0u128).annotate(UBitwidth::B32),
+                    ),
                     FieldElementExpression::select(
                         ArrayExpression::identifier(Identifier::from(const_id.clone()))
-                            .annotate(GType::FieldElement, 2u32),
-                        UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
-                    )
-                    .into(),
+                            .annotate(GArrayType::new(Type::FieldElement, 2u32)),
+                        UExpression::value(1u128).annotate(UBitwidth::B32),
+                    ),
                 )
                 .into(),
             )],
@@ -333,6 +333,7 @@ mod tests {
         };
 
         let program = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -342,16 +343,11 @@ mod tests {
                             const_id.clone(),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 TypedExpression::Array(
-                                    ArrayExpressionInner::Value(
-                                        vec![
-                                            FieldElementExpression::Number(Bn128Field::from(2))
-                                                .into(),
-                                            FieldElementExpression::Number(Bn128Field::from(2))
-                                                .into(),
-                                        ]
-                                        .into(),
-                                    )
-                                    .annotate(GType::FieldElement, 2u32),
+                                    ArrayExpression::value(vec![
+                                        FieldElementExpression::value(Bn128Field::from(2)).into(),
+                                        FieldElementExpression::value(Bn128Field::from(2)).into(),
+                                    ])
+                                    .annotate(GArrayType::new(Type::FieldElement, 2u32)),
                                 ),
                                 DeclarationType::Array(DeclarationArrayType::new(
                                     DeclarationType::FieldElement,
@@ -397,7 +393,7 @@ mod tests {
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
-            statements: vec![TypedStatement::Return(
+            statements: vec![TypedStatement::ret(
                 FieldElementExpression::identifier(Identifier::from(const_b_id.clone())).into(),
             )],
             signature: DeclarationSignature::new()
@@ -406,6 +402,7 @@ mod tests {
         };
 
         let program = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -414,7 +411,7 @@ mod tests {
                         TypedConstantSymbolDeclaration::new(
                             const_a_id.clone(),
                             TypedConstantSymbol::Here(TypedConstant::new(
-                                TypedExpression::FieldElement(FieldElementExpression::Number(
+                                TypedExpression::FieldElement(FieldElementExpression::value(
                                     Bn128Field::from(1),
                                 )),
                                 DeclarationType::FieldElement,
@@ -424,11 +421,11 @@ mod tests {
                         TypedConstantSymbolDeclaration::new(
                             const_b_id.clone(),
                             TypedConstantSymbol::Here(TypedConstant::new(
-                                TypedExpression::FieldElement(FieldElementExpression::Add(
-                                    box FieldElementExpression::identifier(Identifier::from(
+                                TypedExpression::FieldElement(FieldElementExpression::add(
+                                    FieldElementExpression::identifier(Identifier::from(
                                         const_a_id.clone(),
                                     )),
-                                    box FieldElementExpression::Number(Bn128Field::from(1)),
+                                    FieldElementExpression::value(Bn128Field::from(1)),
                                 )),
                                 DeclarationType::FieldElement,
                             )),
@@ -505,7 +502,7 @@ mod tests {
                 TypedConstantSymbolDeclaration::new(
                     foo_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
-                        TypedExpression::FieldElement(FieldElementExpression::Number(
+                        TypedExpression::FieldElement(FieldElementExpression::value(
                             Bn128Field::from(42),
                         )),
                         DeclarationType::FieldElement,
@@ -556,7 +553,7 @@ mod tests {
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
-                        statements: vec![TypedStatement::Return(
+                        statements: vec![TypedStatement::ret(
                             FieldElementExpression::identifier(Identifier::from(
                                 main_const_id.clone(),
                             ))
@@ -572,6 +569,7 @@ mod tests {
         };
 
         let program = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![
                 ("main".into(), main_module),
@@ -602,7 +600,7 @@ mod tests {
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
-                        statements: vec![TypedStatement::Return(
+                        statements: vec![TypedStatement::ret(
                             FieldElementExpression::identifier(Identifier::from(
                                 main_const_id.clone(),
                             ))
@@ -618,6 +616,7 @@ mod tests {
         };
 
         let expected_program: TypedProgram<Bn128Field> = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![
                 ("main".into(), expected_main_module),
@@ -683,7 +682,7 @@ mod tests {
                 TypedConstantSymbolDeclaration::new(
                     foo_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
-                        TypedExpression::FieldElement(FieldElementExpression::Number(
+                        TypedExpression::FieldElement(FieldElementExpression::value(
                             Bn128Field::from(2),
                         )),
                         DeclarationType::FieldElement,
@@ -693,13 +692,10 @@ mod tests {
                 TypedConstantSymbolDeclaration::new(
                     bar_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
-                        TypedExpression::Array(
-                            ArrayExpressionInner::Repeat(
-                                box FieldElementExpression::Number(Bn128Field::from(1)).into(),
-                                box UExpression::from(foo_const_id.clone()),
-                            )
-                            .annotate(Type::FieldElement, foo_const_id.clone()),
-                        ),
+                        TypedExpression::Array(ArrayExpression::repeat(
+                            FieldElementExpression::value(Bn128Field::from(1)).into(),
+                            UExpression::from(foo_const_id.clone()),
+                        )),
                         DeclarationType::Array(DeclarationArrayType::new(
                             DeclarationType::FieldElement,
                             DeclarationConstant::Constant(foo_const_id.clone()),
@@ -745,8 +741,9 @@ mod tests {
                     main_baz_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
                         TypedExpression::Array(
-                            ArrayExpression::identifier(main_bar_const_id.clone().into())
-                                .annotate(Type::FieldElement, main_foo_const_id.clone()),
+                            ArrayExpression::identifier(main_bar_const_id.clone().into()).annotate(
+                                ArrayType::new(Type::FieldElement, main_foo_const_id.clone()),
+                            ),
                         ),
                         DeclarationType::Array(DeclarationArrayType::new(
                             DeclarationType::FieldElement,
@@ -763,7 +760,7 @@ mod tests {
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
-                        statements: vec![TypedStatement::Return(
+                        statements: vec![TypedStatement::ret(
                             FieldElementExpression::identifier(Identifier::from(
                                 main_foo_const_id.clone(),
                             ))
@@ -779,6 +776,7 @@ mod tests {
         };
 
         let program = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![
                 ("main".into(), main_module),
@@ -794,7 +792,7 @@ mod tests {
                 TypedConstantSymbolDeclaration::new(
                     main_foo_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
-                        FieldElementExpression::Number(Bn128Field::from(2)).into(),
+                        FieldElementExpression::value(Bn128Field::from(2)).into(),
                         DeclarationType::FieldElement,
                     )),
                 )
@@ -802,13 +800,10 @@ mod tests {
                 TypedConstantSymbolDeclaration::new(
                     main_bar_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
-                        TypedExpression::Array(
-                            ArrayExpressionInner::Repeat(
-                                box FieldElementExpression::Number(Bn128Field::from(1)).into(),
-                                box UExpression::from(foo_const_id.clone()),
-                            )
-                            .annotate(Type::FieldElement, foo_const_id.clone()),
-                        ),
+                        TypedExpression::Array(ArrayExpression::repeat(
+                            FieldElementExpression::value(Bn128Field::from(1)).into(),
+                            UExpression::from(foo_const_id.clone()),
+                        )),
                         DeclarationType::Array(DeclarationArrayType::new(
                             DeclarationType::FieldElement,
                             DeclarationConstant::Constant(foo_const_id.clone()),
@@ -820,8 +815,9 @@ mod tests {
                     main_baz_const_id.clone(),
                     TypedConstantSymbol::Here(TypedConstant::new(
                         TypedExpression::Array(
-                            ArrayExpression::identifier(main_bar_const_id.into())
-                                .annotate(Type::FieldElement, main_foo_const_id.clone()),
+                            ArrayExpression::identifier(main_bar_const_id.into()).annotate(
+                                ArrayType::new(Type::FieldElement, main_foo_const_id.clone()),
+                            ),
                         ),
                         DeclarationType::Array(DeclarationArrayType::new(
                             DeclarationType::FieldElement,
@@ -838,7 +834,7 @@ mod tests {
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
-                        statements: vec![TypedStatement::Return(
+                        statements: vec![TypedStatement::ret(
                             FieldElementExpression::identifier(Identifier::from(
                                 main_foo_const_id.clone(),
                             ))
@@ -854,6 +850,7 @@ mod tests {
         };
 
         let expected_program: TypedProgram<Bn128Field> = TypedProgram {
+            module_map: Default::default(),
             main: "main".into(),
             modules: vec![
                 ("main".into(), expected_main_module),

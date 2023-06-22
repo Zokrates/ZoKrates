@@ -22,7 +22,7 @@ impl Abi {
         ConcreteSignature {
             generics: vec![],
             inputs: self.inputs.iter().map(|i| i.ty.clone()).collect(),
-            output: box self.output.clone(),
+            output: Box::new(self.output.clone()),
         }
     }
 }
@@ -49,14 +49,14 @@ mod tests {
             ConcreteFunctionKey::with_location("main", "main").into(),
             TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![
-                    DeclarationParameter {
-                        id: DeclarationVariable::new("a", DeclarationType::FieldElement, true),
-                        private: true,
-                    },
-                    DeclarationParameter {
-                        id: DeclarationVariable::new("b", DeclarationType::Boolean, false),
-                        private: false,
-                    },
+                    DeclarationParameter::private(DeclarationVariable::new(
+                        "a",
+                        DeclarationType::FieldElement,
+                    )),
+                    DeclarationParameter::public(DeclarationVariable::new(
+                        "b",
+                        DeclarationType::Boolean,
+                    )),
                 ],
                 statements: vec![],
                 signature: ConcreteSignature::new()
@@ -73,6 +73,7 @@ mod tests {
         let typed_ast: TypedProgram<Bn128Field> = TypedProgram {
             main: "main".into(),
             modules,
+            module_map: Default::default(),
         };
 
         let abi: Abi = typed_ast.abi();

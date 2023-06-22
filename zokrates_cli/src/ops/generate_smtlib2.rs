@@ -35,7 +35,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
+        File::open(path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
@@ -44,6 +44,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         ProgEnum::Bls12_377Program(p) => cli_smtlib2(p, sub_matches),
         ProgEnum::Bls12_381Program(p) => cli_smtlib2(p, sub_matches),
         ProgEnum::Bw6_761Program(p) => cli_smtlib2(p, sub_matches),
+        ProgEnum::PallasProgram(p) => cli_smtlib2(p, sub_matches),
+        ProgEnum::VestaProgram(p) => cli_smtlib2(p, sub_matches),
     }
 }
 

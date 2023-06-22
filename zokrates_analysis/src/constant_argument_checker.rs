@@ -1,9 +1,10 @@
 use std::fmt;
 use zokrates_ast::common::FlatEmbed;
+use zokrates_ast::typed::result_folder::*;
+use zokrates_ast::typed::{result_folder::ResultFolder, Constant, EmbedCall, TypedStatement};
 use zokrates_ast::typed::{
-    result_folder::fold_statement, result_folder::ResultFolder, Constant, EmbedCall, TypedStatement,
+    DefinitionRhs, DefinitionStatement, TypedProgram, UBitwidth, UExpression, UExpressionInner,
 };
-use zokrates_ast::typed::{DefinitionRhs, TypedProgram};
 use zokrates_field::Field;
 
 pub struct ConstantArgumentChecker;
@@ -26,47 +27,83 @@ impl fmt::Display for Error {
 impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
     type Error = Error;
 
-    fn fold_statement(
+    fn fold_definition_statement(
         &mut self,
-        s: TypedStatement<'ast, T>,
+        s: DefinitionStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
-        match s {
-            TypedStatement::Definition(assignee, DefinitionRhs::EmbedCall(embed_call)) => {
-                match embed_call {
-                    EmbedCall {
-                        embed: FlatEmbed::BitArrayLe,
-                        ..
-                    } => {
-                        let arguments = embed_call
-                            .arguments
-                            .into_iter()
-                            .map(|a| self.fold_expression(a))
-                            .collect::<Result<Vec<_>, _>>()?;
+        match s.rhs {
+            DefinitionRhs::EmbedCall(embed_call) => match embed_call {
+                EmbedCall {
+                    embed: FlatEmbed::BitArrayLe,
+                    ..
+                } => {
+                    let arguments = embed_call
+                        .arguments
+                        .into_iter()
+                        .map(|a| self.fold_expression(a))
+                        .collect::<Result<Vec<_>, _>>()?;
 
-                        if arguments[1].is_constant() {
-                            Ok(vec![TypedStatement::Definition(
-                                assignee,
-                                EmbedCall {
-                                    embed: FlatEmbed::BitArrayLe,
-                                    generics: embed_call.generics,
-                                    arguments,
-                                }
-                                .into(),
-                            )])
-                        } else {
-                            Err(Error(format!(
-                                "Cannot compare to a variable value, found `{}`",
-                                arguments[1]
-                            )))
-                        }
+                    if arguments[1].is_constant() {
+                        Ok(vec![TypedStatement::embed_call_definition(
+                            s.assignee,
+                            EmbedCall {
+                                embed: FlatEmbed::BitArrayLe,
+                                generics: embed_call.generics,
+                                arguments,
+                            },
+                        )])
+                    } else {
+                        Err(Error(format!(
+                            "Cannot compare to a variable value, found `{}`",
+                            arguments[1]
+                        )))
                     }
-                    embed_call => Ok(vec![TypedStatement::Definition(
-                        assignee,
-                        embed_call.into(),
-                    )]),
+                }
+                embed_call => Ok(vec![TypedStatement::embed_call_definition(
+                    s.assignee, embed_call,
+                )]),
+            },
+            _ => fold_definition_statement(self, s),
+        }
+    }
+
+    fn fold_uint_expression_cases(
+        &mut self,
+        bitwidth: UBitwidth,
+        e: UExpressionInner<'ast, T>,
+    ) -> Result<UExpressionInner<'ast, T>, Error> {
+        match e {
+            UExpressionInner::LeftShift(e) => {
+                let left = self.fold_uint_expression(*e.left)?;
+                let right = self.fold_uint_expression(*e.right)?;
+
+                match right.as_inner() {
+                    UExpressionInner::Value(_) => {
+                        Ok(UExpression::left_shift(left, right).into_inner())
+                    }
+                    by => Err(Error(format!(
+                        "Cannot shift by a variable value, found `{} << {}`",
+                        left,
+                        by.clone().annotate(UBitwidth::B32)
+                    ))),
                 }
             }
-            s => fold_statement(self, s),
+            UExpressionInner::RightShift(e) => {
+                let left = self.fold_uint_expression(*e.left)?;
+                let right = self.fold_uint_expression(*e.right)?;
+
+                match right.as_inner() {
+                    UExpressionInner::Value(_) => {
+                        Ok(UExpression::right_shift(left, right).into_inner())
+                    }
+                    by => Err(Error(format!(
+                        "Cannot shift by a variable value, found `{} >> {}`",
+                        left,
+                        by.clone().annotate(UBitwidth::B32)
+                    ))),
+                }
+            }
+            e => fold_uint_expression_cases(self, bitwidth, e),
         }
     }
 }

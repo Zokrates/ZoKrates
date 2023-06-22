@@ -1,4 +1,4 @@
-use clap::{App, ArgMatches, SubCommand};
+use clap::{App, AppSettings, ArgMatches, SubCommand};
 
 pub mod beacon;
 pub mod contribute;
@@ -9,6 +9,7 @@ pub mod verify;
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("mpc")
         .about("Multi-party computation (MPC) protocol")
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommands(vec![
             init::subcommand().display_order(1),
             contribute::subcommand().display_order(2),

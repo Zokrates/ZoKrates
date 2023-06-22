@@ -1,5 +1,3 @@
-#![feature(box_patterns, box_syntax)]
-
 //! Module containing static analysis
 //!
 //! @file mod.rs
@@ -159,10 +157,6 @@ pub fn analyse<'ast, T: Field>(
     // reduce the program to a single function
     log::debug!("Static analyser: Reduce program");
     let r = reduce_program(r).map_err(Error::from)?;
-    log::trace!("\n{}", r);
-
-    log::debug!("Static analyser: Propagate");
-    let r = Propagator::propagate(r)?;
     log::trace!("\n{}", r);
 
     log::debug!("Static analyser: Concretize structs");

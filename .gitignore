@@ -7,12 +7,17 @@ out
 out.ztf
 abi.json
 proof.json
+init.json
+steps.json
 proving.key
 verification.key
 verifier.sol
 proof.json
 universal_setup.dat
 witness
+witness.json
+nova.params
+running_instance.json
 
 # ZoKrates source files at the root of the repository
 /*.zok

@@ -1,6 +1,8 @@
 ## Assembly
 
-ZoKrates allows developers to define constraints through assembly blocks. Assembly blocks are considered **unsafe**, as safety and correctness of the resulting arithmetic circuit is in the hands of the developer. Usage of assembly is recommended only  in optimization efforts for the experienced developers to minimize constraint count of an arithmetic circuit.
+ZoKrates allows developers to define constraints through assembly blocks. Assembly blocks are considered **unsafe**, as safety and correctness of the resulting arithmetic circuit is in the hands of the developer. Usage of assembly is recommended only in optimization efforts for experienced developers to minimize constraint count of an arithmetic circuit.
+
+>The usage of assembly blocks in ZoKrates is experimental. In particular, while assembly blocks help minimise constraint count in some cases, they currently can at the same time lead to larger compiler output and slower witness generation.
 
 ## Writing assembly
 
@@ -15,9 +17,19 @@ Assigning a value, in general, should be combined with adding a constraint:
 {{#include ../../../zokrates_cli/examples/book/assembly/division.zok}}
 ```
 
-> The operator `<--` can be sometimes misused, as this operator does not generate any constraints, resulting in unconstrained variables in the constraint system.
+> Note that operator `<--` is used for unconstrained assignment and can be easily misused. This operator does not generate constraints, which could result in unconstrained variables in the constraint system.
 
-In some cases we can combine the witness assignment and constraint generation with the `<==` operator:
+Unconstrained assignment `<--` allows assignment to variables with complex types. The type must consist of field elements only (eg. `field[3]`):
+
+```zok
+field[3] mut c = [0; 3];
+asm {
+    c <-- [2, 2, 4];
+    c[0] * c[1] === c[2];
+}
+```
+
+In some cases we can combine the witness assignment and constraint generation with the `<==` operator (constrained assignment):
 
 ```zok
 asm {
@@ -33,6 +45,8 @@ asm {
     c === 1 - a*b;
 }
 ```
+
+In the case of constrained assignment `<==`, both sides of the statement have to be of type `field`.
 
 A constraint can contain arithmetic expressions that are built using multiplication, addition, and other variables or `field` values. Only quadratic expressions are allowed to be included in constraints. Non-quadratic expressions or usage of other arithmetic operators like division or power are not allowed as constraints, but can be used in the witness assignment expression.
 

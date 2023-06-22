@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_test"
-version = "0.2.0"
+version = "0.2.3"
 authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
@@ -18,9 +18,10 @@ serde_json = { version = "1.0", features = ["preserve_order"] }
 typed-arena = "1.4.1"
 
 [dev-dependencies]
-wasm-bindgen-test = "^0.3.0"
+wasm-bindgen-test = "=0.3.31"
 zokrates_ark = { version = "0.1", path = "../zokrates_ark" }
 zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems" }
-
+rand_0_8 = { version = "0.8", package = "rand" }
+getrandom = { version = "0.2.8", features = ["js"] }
 
 [lib]

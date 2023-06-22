@@ -3,6 +3,12 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
+pub struct RefCall {
+    pub index: usize,
+    pub signature: (usize, usize),
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum Solver<'ast, T> {
     ConditionEq,
     Bits(usize),
@@ -14,6 +20,7 @@ pub enum Solver<'ast, T> {
     EuclideanDiv,
     #[serde(borrow)]
     Zir(ZirFunction<'ast, T>),
+    Ref(RefCall),
     #[cfg(feature = "bellman")]
     Sha256Round,
     #[cfg(feature = "ark")]
@@ -32,6 +39,7 @@ impl<'ast, T> fmt::Display for Solver<'ast, T> {
             Solver::ShaCh => write!(f, "ShaCh"),
             Solver::EuclideanDiv => write!(f, "EuclideanDiv"),
             Solver::Zir(_) => write!(f, "Zir(..)"),
+            Solver::Ref(call) => write!(f, "Ref@{}", call.index),
             #[cfg(feature = "bellman")]
             Solver::Sha256Round => write!(f, "Sha256Round"),
             #[cfg(feature = "ark")]
@@ -51,7 +59,8 @@ impl<'ast, T> Solver<'ast, T> {
             Solver::ShaAndXorAndXorAnd => (3, 1),
             Solver::ShaCh => (3, 1),
             Solver::EuclideanDiv => (2, 2),
-            Solver::Zir(f) => (f.arguments.len(), 1),
+            Solver::Zir(f) => (f.signature.inputs.len(), f.signature.outputs.len()),
+            Solver::Ref(c) => c.signature,
             #[cfg(feature = "bellman")]
             Solver::Sha256Round => (768, 26935),
             #[cfg(feature = "ark")]

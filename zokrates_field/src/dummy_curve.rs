@@ -10,7 +10,9 @@ use std::ops::{Add, Div, Mul, Sub};
 
 const _PRIME: u8 = 7;
 
-#[derive(Default, Debug, Hash, Clone, PartialOrd, Ord, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Default, Debug, Hash, Clone, Copy, PartialOrd, Ord, Serialize, Deserialize, PartialEq, Eq,
+)]
 pub struct FieldPrime {
     v: u8,
 }
@@ -248,6 +250,14 @@ impl Field for FieldPrime {
     }
 
     fn to_biguint(&self) -> num_bigint::BigUint {
+        unimplemented!()
+    }
+
+    fn read<R: std::io::Read>(_: R) -> std::io::Result<Self> {
+        unimplemented!()
+    }
+
+    fn write<W: std::io::Write>(&self, _: W) -> std::io::Result<()> {
         unimplemented!()
     }
 }

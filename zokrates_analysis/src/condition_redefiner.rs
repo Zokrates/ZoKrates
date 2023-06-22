@@ -1,7 +1,10 @@
-use zokrates_ast::typed::{
-    folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
-    ConditionalOrExpression, CoreIdentifier, Expr, Id, Identifier, Type, TypedExpression,
-    TypedProgram, TypedStatement, Variable,
+use zokrates_ast::{
+    common::{Fold, WithSpan},
+    typed::{
+        folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
+        ConditionalOrExpression, CoreIdentifier, Expr, Id, Identifier, Type, TypedExpression,
+        TypedProgram, TypedStatement, Variable,
+    },
 };
 use zokrates_field::Field;
 
@@ -18,14 +21,14 @@ impl<'ast, T: Field> ConditionRedefiner<'ast, T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
-    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+    fn fold_statement_cases(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         assert!(self.buffer.is_empty());
-        let s = fold_statement(self, s);
+        let s = fold_statement_cases(self, s);
         let buffer = std::mem::take(&mut self.buffer);
         buffer.into_iter().chain(s).collect()
     }
 
-    fn fold_block_expression<E: Fold<'ast, T>>(
+    fn fold_block_expression<E: Fold<Self>>(
         &mut self,
         b: BlockExpression<'ast, T, E>,
     ) -> BlockExpression<'ast, T, E> {
@@ -54,25 +57,32 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
         b
     }
 
-    fn fold_conditional_expression<E: Expr<'ast, T> + Conditional<'ast, T> + Fold<'ast, T>>(
+    fn fold_conditional_expression<E: Expr<'ast, T> + Conditional<'ast, T> + Fold<Self>>(
         &mut self,
         _: &E::Ty,
         e: ConditionalExpression<'ast, T, E>,
     ) -> ConditionalOrExpression<'ast, T, E> {
         let condition = self.fold_boolean_expression(*e.condition);
+        let condition_span = condition.get_span();
         let condition = match condition {
             condition @ BooleanExpression::Value(_)
             | condition @ BooleanExpression::Identifier(_) => condition,
             condition => {
                 let condition_id = Identifier::from(CoreIdentifier::Condition(self.index));
-                self.buffer.push(TypedStatement::definition(
-                    Variable::immutable(condition_id.clone(), Type::Boolean).into(),
-                    TypedExpression::from(condition),
-                ));
+                self.buffer.push(
+                    TypedStatement::definition(
+                        Variable::new(condition_id.clone(), Type::Boolean)
+                            .span(condition_span)
+                            .into(),
+                        TypedExpression::from(condition).span(condition_span),
+                    )
+                    .span(condition_span),
+                );
                 self.index += 1;
-                BooleanExpression::identifier(condition_id)
+                BooleanExpression::identifier(condition_id).span(condition_span)
             }
-        };
+        }
+        .span(condition_span);
 
         let consequence = e.consequence.fold(self);
         let alternative = e.alternative.fold(self);
@@ -89,6 +99,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ops::*;
     use zokrates_ast::typed::{
         Block, BooleanExpression, Conditional, ConditionalKind, FieldElementExpression, Type,
     };
@@ -102,9 +113,9 @@ mod tests {
         let s = TypedStatement::definition(
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
-                BooleanExpression::Value(true),
-                FieldElementExpression::Number(Bn128Field::from(1)),
-                FieldElementExpression::Number(Bn128Field::from(2)),
+                BooleanExpression::value(true),
+                FieldElementExpression::value(Bn128Field::from(1)),
+                FieldElementExpression::value(Bn128Field::from(2)),
                 ConditionalKind::IfElse,
             )
             .into(),
@@ -124,8 +135,8 @@ mod tests {
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
                 BooleanExpression::identifier("c".into()),
-                FieldElementExpression::Number(Bn128Field::from(1)),
-                FieldElementExpression::Number(Bn128Field::from(2)),
+                FieldElementExpression::value(Bn128Field::from(1)),
+                FieldElementExpression::value(Bn128Field::from(2)),
                 ConditionalKind::IfElse,
             )
             .into(),
@@ -143,17 +154,17 @@ mod tests {
         // bool #CONDITION_0 = c && d;
         // field foo = if #CONDITION_0 { 1 } else { 2 };
 
-        let condition = BooleanExpression::And(
-            box BooleanExpression::identifier("c".into()),
-            box BooleanExpression::identifier("d".into()),
+        let condition = BooleanExpression::bitand(
+            BooleanExpression::identifier("c".into()),
+            BooleanExpression::identifier("d".into()),
         );
 
         let s = TypedStatement::definition(
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
                 condition.clone(),
-                FieldElementExpression::Number(Bn128Field::from(1)),
-                FieldElementExpression::Number(Bn128Field::from(2)),
+                FieldElementExpression::value(Bn128Field::from(1)),
+                FieldElementExpression::value(Bn128Field::from(2)),
                 ConditionalKind::IfElse,
             )
             .into(),
@@ -164,7 +175,7 @@ mod tests {
         let expected = vec![
             // define condition
             TypedStatement::definition(
-                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::new(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition.into(),
             ),
             // rewrite statement
@@ -172,8 +183,8 @@ mod tests {
                 Variable::field_element("foo").into(),
                 FieldElementExpression::conditional(
                     BooleanExpression::identifier(CoreIdentifier::Condition(0).into()),
-                    FieldElementExpression::Number(Bn128Field::from(1)),
-                    FieldElementExpression::Number(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(1)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                     ConditionalKind::IfElse,
                 )
                 .into(),
@@ -202,14 +213,14 @@ mod tests {
         //     3
         // };
 
-        let condition_0 = BooleanExpression::And(
-            box BooleanExpression::identifier("c".into()),
-            box BooleanExpression::identifier("d".into()),
+        let condition_0 = BooleanExpression::bitand(
+            BooleanExpression::identifier("c".into()),
+            BooleanExpression::identifier("d".into()),
         );
 
-        let condition_1 = BooleanExpression::And(
-            box BooleanExpression::identifier("e".into()),
-            box BooleanExpression::identifier("f".into()),
+        let condition_1 = BooleanExpression::bitand(
+            BooleanExpression::identifier("e".into()),
+            BooleanExpression::identifier("f".into()),
         );
 
         let s = TypedStatement::definition(
@@ -218,11 +229,11 @@ mod tests {
                 condition_0.clone(),
                 FieldElementExpression::conditional(
                     condition_1.clone(),
-                    FieldElementExpression::Number(Bn128Field::from(1)),
-                    FieldElementExpression::Number(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(1)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
                     ConditionalKind::IfElse,
                 ),
-                FieldElementExpression::Number(Bn128Field::from(3)),
+                FieldElementExpression::value(Bn128Field::from(3)),
                 ConditionalKind::IfElse,
             )
             .into(),
@@ -233,11 +244,11 @@ mod tests {
         let expected = vec![
             // define conditions
             TypedStatement::definition(
-                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::new(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition_0.into(),
             ),
             TypedStatement::definition(
-                Variable::immutable(CoreIdentifier::Condition(1), Type::Boolean).into(),
+                Variable::new(CoreIdentifier::Condition(1), Type::Boolean).into(),
                 condition_1.into(),
             ),
             // rewrite statement
@@ -247,11 +258,11 @@ mod tests {
                     BooleanExpression::identifier(CoreIdentifier::Condition(0).into()),
                     FieldElementExpression::conditional(
                         BooleanExpression::identifier(CoreIdentifier::Condition(1).into()),
-                        FieldElementExpression::Number(Bn128Field::from(1)),
-                        FieldElementExpression::Number(Bn128Field::from(2)),
+                        FieldElementExpression::value(Bn128Field::from(1)),
+                        FieldElementExpression::value(Bn128Field::from(2)),
                         ConditionalKind::IfElse,
                     ),
-                    FieldElementExpression::Number(Bn128Field::from(3)),
+                    FieldElementExpression::value(Bn128Field::from(3)),
                     ConditionalKind::IfElse,
                 )
                 .into(),
@@ -284,19 +295,19 @@ mod tests {
         //     if #CONDITION_2 { 2 } : { 3 }
         // };
 
-        let condition_0 = BooleanExpression::And(
-            box BooleanExpression::identifier("c".into()),
-            box BooleanExpression::identifier("d".into()),
+        let condition_0 = BooleanExpression::bitand(
+            BooleanExpression::identifier("c".into()),
+            BooleanExpression::identifier("d".into()),
         );
 
-        let condition_1 = BooleanExpression::And(
-            box BooleanExpression::identifier("e".into()),
-            box BooleanExpression::identifier("f".into()),
+        let condition_1 = BooleanExpression::bitand(
+            BooleanExpression::identifier("e".into()),
+            BooleanExpression::identifier("f".into()),
         );
 
-        let condition_2 = BooleanExpression::And(
-            box BooleanExpression::identifier("e".into()),
-            box BooleanExpression::identifier("f".into()),
+        let condition_2 = BooleanExpression::bitand(
+            BooleanExpression::identifier("e".into()),
+            BooleanExpression::identifier("f".into()),
         );
 
         let condition_id_0 = BooleanExpression::identifier(CoreIdentifier::Condition(0).into());
@@ -310,24 +321,24 @@ mod tests {
                 FieldElementExpression::block(
                     vec![TypedStatement::definition(
                         Variable::field_element("a").into(),
-                        FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                        FieldElementExpression::value(Bn128Field::from(1)).into(),
                     )],
                     FieldElementExpression::conditional(
                         condition_1.clone(),
-                        FieldElementExpression::Number(Bn128Field::from(2)),
-                        FieldElementExpression::Number(Bn128Field::from(3)),
+                        FieldElementExpression::value(Bn128Field::from(2)),
+                        FieldElementExpression::value(Bn128Field::from(3)),
                         ConditionalKind::IfElse,
                     ),
                 ),
                 FieldElementExpression::block(
                     vec![TypedStatement::definition(
                         Variable::field_element("b").into(),
-                        FieldElementExpression::Number(Bn128Field::from(2)).into(),
+                        FieldElementExpression::value(Bn128Field::from(2)).into(),
                     )],
                     FieldElementExpression::conditional(
                         condition_2.clone(),
-                        FieldElementExpression::Number(Bn128Field::from(2)),
-                        FieldElementExpression::Number(Bn128Field::from(3)),
+                        FieldElementExpression::value(Bn128Field::from(2)),
+                        FieldElementExpression::value(Bn128Field::from(3)),
                         ConditionalKind::IfElse,
                     ),
                 ),
@@ -341,7 +352,7 @@ mod tests {
         let expected = vec![
             // define conditions
             TypedStatement::definition(
-                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::new(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition_0.into(),
             ),
             // rewrite statement
@@ -353,18 +364,17 @@ mod tests {
                         vec![
                             TypedStatement::definition(
                                 Variable::field_element("a").into(),
-                                FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                                FieldElementExpression::value(Bn128Field::from(1)).into(),
                             ),
                             TypedStatement::definition(
-                                Variable::immutable(CoreIdentifier::Condition(1), Type::Boolean)
-                                    .into(),
+                                Variable::new(CoreIdentifier::Condition(1), Type::Boolean).into(),
                                 condition_1.into(),
                             ),
                         ],
                         FieldElementExpression::conditional(
                             condition_id_1,
-                            FieldElementExpression::Number(Bn128Field::from(2)),
-                            FieldElementExpression::Number(Bn128Field::from(3)),
+                            FieldElementExpression::value(Bn128Field::from(2)),
+                            FieldElementExpression::value(Bn128Field::from(3)),
                             ConditionalKind::IfElse,
                         ),
                     ),
@@ -372,18 +382,17 @@ mod tests {
                         vec![
                             TypedStatement::definition(
                                 Variable::field_element("b").into(),
-                                FieldElementExpression::Number(Bn128Field::from(2)).into(),
+                                FieldElementExpression::value(Bn128Field::from(2)).into(),
                             ),
                             TypedStatement::definition(
-                                Variable::immutable(CoreIdentifier::Condition(2), Type::Boolean)
-                                    .into(),
+                                Variable::new(CoreIdentifier::Condition(2), Type::Boolean).into(),
                                 condition_2.into(),
                             ),
                         ],
                         FieldElementExpression::conditional(
                             condition_id_2,
-                            FieldElementExpression::Number(Bn128Field::from(2)),
-                            FieldElementExpression::Number(Bn128Field::from(3)),
+                            FieldElementExpression::value(Bn128Field::from(2)),
+                            FieldElementExpression::value(Bn128Field::from(3)),
                             ConditionalKind::IfElse,
                         ),
                     ),

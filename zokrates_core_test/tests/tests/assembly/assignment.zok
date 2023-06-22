@@ -1,0 +1,15 @@
+def foo(field a, field b) -> field[2] {
+    field c = a + b;
+    field d = a * b;
+    return [c, d];
+}
+
+def main(field a, field b) -> field[2] {
+    field[2] mut c = [0; 2];
+    asm {
+        c <-- foo(a, b);
+        a + b === c[0];
+        a * b === c[1];
+    }
+    return c;
+}

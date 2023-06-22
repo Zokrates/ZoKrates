@@ -4,10 +4,10 @@ extern crate primitive_types;
 extern crate rand_0_4;
 extern crate rand_0_8;
 extern crate serde_json;
-extern crate zokrates_solidity_test;
 
 #[cfg(test)]
 mod integration {
+    use ethabi::Token;
     use fs_extra::copy_items;
     use fs_extra::dir::CopyOptions;
     use pretty_assertions::assert_eq;
@@ -15,17 +15,78 @@ mod integration {
     use serde_json::from_reader;
     use std::fs;
     use std::fs::File;
-    use std::io::{BufReader, Read};
-    use std::panic;
+    use std::io::{BufReader, Read, Write};
     use std::path::Path;
+    use std::process::Command;
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
+    use zokrates_ast::ir::Witness;
     use zokrates_ast::typed::abi::Abi;
     use zokrates_field::Bn128Field;
     use zokrates_proof_systems::{
         to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17,
-        SOLIDITY_G2_ADDITION_LIB,
     };
+
+    mod helpers {
+        use super::*;
+        use zokrates_ast::common::flat::Variable;
+        use zokrates_field::Field;
+
+        pub fn parse_variable(s: &str) -> Result<Variable, &str> {
+            if s == "~one" {
+                return Ok(Variable::one());
+            }
+
+            let mut public = s.split("~out_");
+            match public.nth(1) {
+                Some(v) => {
+                    let v = v.parse().map_err(|_| s)?;
+                    Ok(Variable::public(v))
+                }
+                None => {
+                    let mut private = s.split('_');
+                    match private.nth(1) {
+                        Some(v) => {
+                            let v = v.parse().map_err(|_| s)?;
+                            Ok(Variable::new(v))
+                        }
+                        None => Err(s),
+                    }
+                }
+            }
+        }
+
+        pub fn parse_witness_json<T: Field, R: Read>(reader: R) -> std::io::Result<Witness<T>> {
+            use std::io::{Error, ErrorKind};
+
+            let json: serde_json::Value = serde_json::from_reader(reader)?;
+            let object = json
+                .as_object()
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Witness must be an object"))?;
+
+            let mut witness = Witness::empty();
+            for (k, v) in object {
+                let variable = parse_variable(k).map_err(|why| {
+                    Error::new(
+                        ErrorKind::Other,
+                        format!("Invalid variable in witness: {}", why),
+                    )
+                })?;
+
+                let value = v
+                    .as_str()
+                    .ok_or_else(|| Error::new(ErrorKind::Other, "Witness value must be a string"))
+                    .and_then(|v| {
+                        T::try_from_dec_str(v).map_err(|_| {
+                            Error::new(ErrorKind::Other, format!("Invalid value in witness: {}", v))
+                        })
+                    })?;
+
+                witness.insert(variable, value);
+            }
+            Ok(witness)
+        }
+    }
 
     macro_rules! map(
     {
@@ -41,6 +102,7 @@ mod integration {
     #[test]
     #[ignore]
     fn test_compile_and_witness_dir() {
+        let forge = dirs::home_dir().unwrap().join(".foundry/bin/forge");
         let global_dir = TempDir::new("global").unwrap();
         let global_base = global_dir.path();
         let universal_setup_path = global_base.join("universal_setup.dat");
@@ -59,6 +121,38 @@ mod integration {
             .succeeds()
             .unwrap();
 
+        let solidity_test_path = global_base.join("zokrates_verifier");
+        std::fs::create_dir(&solidity_test_path).unwrap();
+
+        Command::new(&forge)
+            .output()
+            .expect("Could not run `forge`. Make sure foundry is installed to run this test");
+
+        let output = Command::new(&forge)
+            .current_dir(&solidity_test_path)
+            .arg("init")
+            .arg("--no-git")
+            .arg("--no-commit")
+            .arg(".")
+            .output()
+            .unwrap();
+
+        std::io::stdout().write_all(&output.stdout).unwrap();
+        std::io::stderr().write_all(&output.stderr).unwrap();
+
+        assert!(output.status.success());
+
+        Command::new("rm")
+            .current_dir(&solidity_test_path)
+            .arg("./src/*.sol")
+            .output()
+            .unwrap();
+        Command::new("rm")
+            .current_dir(&solidity_test_path)
+            .arg("./test/*.t.sol")
+            .output()
+            .unwrap();
+
         let dir = Path::new("./tests/code");
         assert!(dir.is_dir());
         for entry in fs::read_dir(dir).unwrap() {
@@ -68,7 +162,9 @@ mod integration {
                 let program_name =
                     Path::new(Path::new(path.file_stem().unwrap()).file_stem().unwrap());
                 let prog = dir.join(program_name).with_extension("zok");
-                let witness = dir.join(program_name).with_extension("expected.witness");
+                let witness = dir
+                    .join(program_name)
+                    .with_extension("expected.witness.json");
                 let json_input = dir.join(program_name).with_extension("arguments.json");
 
                 test_compile_and_witness(
@@ -80,6 +176,17 @@ mod integration {
                 );
             }
         }
+
+        let output = Command::new(&forge)
+            .current_dir(&solidity_test_path)
+            .arg("test")
+            .output()
+            .expect("failed to forge test");
+
+        std::io::stdout().write_all(&output.stdout).unwrap();
+        std::io::stderr().write_all(&output.stderr).unwrap();
+
+        assert!(output.status.success());
     }
 
     fn test_compile_and_witness(
@@ -106,6 +213,7 @@ mod integration {
             .join(program_name)
             .join("proving")
             .with_extension("key");
+        let solidity_test_path = global_path.join("zokrates_verifier");
         let verification_contract_path = tmp_base
             .join(program_name)
             .join("verifier")
@@ -205,33 +313,24 @@ mod integration {
             .unwrap();
 
         // load the expected witness
-        let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
-        let mut expected_witness = String::new();
-        expected_witness_file
-            .read_to_string(&mut expected_witness)
-            .unwrap();
+        let expected_witness_file = File::open(expected_witness_path).unwrap();
+        let expected_witness: Witness<zokrates_field::Bn128Field> =
+            helpers::parse_witness_json(expected_witness_file).unwrap();
 
         // load the actual witness
-        let mut witness_file = File::open(&witness_path).unwrap();
-        let mut witness = String::new();
-        witness_file.read_to_string(&mut witness).unwrap();
+        let witness_file = File::open(&witness_path).unwrap();
+        let witness = Witness::<zokrates_field::Bn128Field>::read(witness_file).unwrap();
 
         // load the actual inline witness
-        let mut inline_witness_file = File::open(&inline_witness_path).unwrap();
-        let mut inline_witness = String::new();
-        inline_witness_file
-            .read_to_string(&mut inline_witness)
-            .unwrap();
+        let inline_witness_file = File::open(&inline_witness_path).unwrap();
+        let inline_witness =
+            Witness::<zokrates_field::Bn128Field>::read(inline_witness_file).unwrap();
 
         assert_eq!(inline_witness, witness);
 
-        for line in expected_witness.as_str().split('\n') {
-            assert!(
-                witness.contains(line),
-                "Witness generation failed for {}\n\nLine \"{}\" not found in witness",
-                program_path.to_str().unwrap(),
-                line
-            );
+        for (k, v) in expected_witness.0 {
+            let value = witness.0.get(&k).expect("should contain key");
+            assert!(v.eq(value));
         }
 
         let backends = map! {
@@ -241,7 +340,6 @@ mod integration {
 
         for (backend, schemes) in backends {
             for scheme in &schemes {
-                println!("test with {}, {}", backend, scheme);
                 // SETUP
                 let setup = assert_cli::Assert::main_binary()
                     .with_args(&[
@@ -324,7 +422,14 @@ mod integration {
                             )
                             .unwrap();
 
-                            test_solidity_verifier(contract_str, proof);
+                            test_solidity_verifier(
+                                program_name,
+                                backend,
+                                scheme,
+                                &solidity_test_path,
+                                &contract_str,
+                                proof,
+                            );
                         }
                         "g16" => {
                             // Get the proof
@@ -333,7 +438,14 @@ mod integration {
                             )
                             .unwrap();
 
-                            test_solidity_verifier(contract_str, proof);
+                            test_solidity_verifier(
+                                program_name,
+                                backend,
+                                scheme,
+                                &solidity_test_path,
+                                &contract_str,
+                                proof,
+                            );
                         }
                         "gm17" => {
                             // Get the proof
@@ -342,7 +454,14 @@ mod integration {
                             )
                             .unwrap();
 
-                            test_solidity_verifier(contract_str, proof);
+                            test_solidity_verifier(
+                                program_name,
+                                backend,
+                                scheme,
+                                &solidity_test_path,
+                                &contract_str,
+                                proof,
+                            );
                         }
                         _ => unreachable!(),
                     }
@@ -352,48 +471,13 @@ mod integration {
     }
 
     fn test_solidity_verifier<S: SolidityCompatibleScheme<Bn128Field> + ToToken<Bn128Field>>(
-        src: String,
+        program_name: &str,
+        backend: &str,
+        scheme: &str,
+        solidity_test_path: &Path,
+        contract_str: &str,
         proof: Proof<Bn128Field, S>,
     ) {
-        use ethabi::Token;
-        use rand_0_8::{rngs::StdRng, SeedableRng};
-        use zokrates_solidity_test::{address::*, contract::*, evm::*, to_be_bytes};
-
-        // Setup EVM
-        let mut rng = StdRng::from_seed([0; 32]);
-        let mut evm = Evm::default();
-        let deployer = Address::random(&mut rng);
-        evm.create_account(&deployer, 0);
-
-        // Compile lib
-        let g2_lib =
-            Contract::compile_from_src_string(SOLIDITY_G2_ADDITION_LIB, "BN256G2", true, &[])
-                .unwrap();
-
-        // Deploy lib
-        let create_result = evm
-            .deploy(g2_lib.encode_create_contract_bytes(&[]).unwrap(), &deployer)
-            .unwrap();
-        let lib_addr = create_result.addr;
-
-        // Compile contract
-        let contract = Contract::compile_from_src_string(
-            &src,
-            "Verifier",
-            true,
-            &[("BN256G2", lib_addr.as_token())],
-        )
-        .unwrap();
-
-        // Deploy contract
-        let create_result = evm
-            .deploy(
-                contract.encode_create_contract_bytes(&[]).unwrap(),
-                &deployer,
-            )
-            .unwrap();
-        let contract_addr = create_result.addr;
-
         // convert to the solidity proof format
         let solidity_proof = S::Proof::from(proof.proof);
 
@@ -412,40 +496,95 @@ mod integration {
                 .collect::<Vec<_>>(),
         );
 
-        let inputs = [proof_token, input_token.clone()];
-
-        // Call verify function on contract
-        let result = evm
-            .call(
-                contract
-                    .encode_call_contract_bytes("verifyTx", &inputs)
-                    .unwrap(),
-                &contract_addr,
-                &deployer,
-            )
-            .unwrap();
-
-        assert_eq!(&result.out, &to_be_bytes(&U256::from(1)));
+        let inputs = ethabi::encode(&[proof_token, input_token.clone()]);
 
         // modify the proof
         let modified_solidity_proof = S::modify(solidity_proof);
 
         let modified_proof_token = S::to_token(modified_solidity_proof);
 
-        let inputs = [modified_proof_token, input_token];
+        let modified_inputs = ethabi::encode(&[modified_proof_token, input_token]);
 
-        // Call verify function on contract
-        let result = evm
-            .call(
-                contract
-                    .encode_call_contract_bytes("verifyTx", &inputs)
-                    .unwrap(),
-                &contract_addr,
-                &deployer,
-            )
-            .unwrap();
+        let verifier_name = format!("Verifier_{}_{}_{}", program_name, scheme, backend);
 
-        assert_eq!(result.op_out, Return::InvalidOpcode);
+        let verifier_path = solidity_test_path
+            .join("src")
+            .join(&verifier_name)
+            .with_extension("sol");
+        let mut file = File::create(verifier_path).unwrap();
+        write!(file, "{}", contract_str).unwrap();
+
+        let test_path = solidity_test_path
+            .join("test")
+            .join(format!(
+                "Verifier_{}_{}_{}_Test",
+                program_name, scheme, backend
+            ))
+            .with_extension("t.sol");
+        let mut file = File::create(test_path).unwrap();
+        let test_content = format!(
+            r#"
+    
+        pragma solidity ^0.8.17;
+
+        import "forge-std/Test.sol";
+        import "../src/{}.sol";
+        
+        contract VerifierTest is Test {{
+            Verifier public verifier;
+        
+            constructor() {{
+                verifier = new Verifier();
+            }}
+        
+            function testValidProof() public {{
+                bytes4 selector = verifier.verifyTx.selector;
+                uint8[{}] memory b = [{}];
+                bytes memory data = new bytes(b.length + 4);
+                for(uint i; i < 4; i++) {{
+                    data[i] = selector[i];
+                }}
+                for(uint i; i < b.length; i++) {{
+                    data[i + 4] = bytes1(b[i]);
+                }}
+                (bool success, bytes memory returnData) = address(verifier).call(data);
+                assertEq(success, true);
+                bool res = abi.decode(returnData, (bool));
+                assertEq(res, true);
+            }}
+        
+            function testInvalidProof() public {{
+                bytes4 selector = verifier.verifyTx.selector;
+                uint8[{}] memory b = [{}];
+                bytes memory data = new bytes(b.length + 4);
+                for(uint i; i < 4; i++) {{
+                    data[i] = selector[i];
+                }}
+                for(uint i; i < b.length; i++) {{
+                    data[i + 4] = bytes1(b[i]);
+                }}
+                (bool success, ) = address(verifier).call(data);
+                assertEq(success, false);
+            }}
+        }}
+    
+    "#,
+            verifier_name,
+            inputs.len(),
+            inputs
+                .iter()
+                .map(|v| format!("{:#04X?}", v))
+                .collect::<Vec<_>>()
+                .join(", "),
+            modified_inputs.len(),
+            modified_inputs
+                .iter()
+                .map(|v| format!("{:#04X?}", v))
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+
+        write!(file, "{}", test_content).unwrap();
     }
 
     fn test_compile_and_smtlib2(
@@ -499,7 +638,7 @@ mod integration {
             .unwrap();
 
         // load the expected smtlib2
-        let mut expected_smtlib2_file = File::open(&expected_smtlib2_path).unwrap();
+        let mut expected_smtlib2_file = File::open(expected_smtlib2_path).unwrap();
         let mut expected_smtlib2 = String::new();
         expected_smtlib2_file
             .read_to_string(&mut expected_smtlib2)

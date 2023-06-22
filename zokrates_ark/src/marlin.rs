@@ -17,8 +17,9 @@ use ark_poly_commit::{
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use digest::Digest;
-use rand_0_8::{Error, RngCore, SeedableRng};
+use rand_0_8::{CryptoRng, Error, RngCore, SeedableRng};
 use sha3::Keccak256;
+use std::io::Read;
 use std::marker::PhantomData;
 
 use zokrates_field::{ArkFieldExtensions, Field};
@@ -116,9 +117,7 @@ type MarlinInst<T> = ArkMarlin<
 >;
 
 impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark {
-    fn universal_setup(size: u32) -> Vec<u8> {
-        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
-
+    fn universal_setup<R: RngCore + CryptoRng>(size: u32, rng: &mut R) -> Vec<u8> {
         let srs = MarlinInst::<T>::universal_setup(
             2usize.pow(size),
             2usize.pow(size),
@@ -128,9 +127,7 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         .unwrap();
 
         let mut res = vec![];
-
         srs.serialize(&mut res).unwrap();
-
         res
     }
 
@@ -210,14 +207,18 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
 }
 
 impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
-    fn generate_proof<'a, I: IntoIterator<Item = Statement<'a, T>>>(
+    fn generate_proof<
+        'a,
+        I: IntoIterator<Item = Statement<'a, T>>,
+        R: Read,
+        G: RngCore + CryptoRng,
+    >(
         program: ProgIterator<'a, T, I>,
         witness: Witness<T>,
-        proving_key: Vec<u8>,
+        proving_key: R,
+        rng: &mut G,
     ) -> Proof<T, marlin::Marlin> {
         let computation = Computation::with_witness(program, witness);
-
-        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
         let pk = IndexProverKey::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -225,11 +226,10 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 T::ArkEngine,
                 DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
             >,
-        >::deserialize_unchecked(&mut proving_key.as_slice())
+        >::deserialize_unchecked(proving_key)
         .unwrap();
 
         let public_inputs = computation.public_inputs_values();
-
         let inputs = public_inputs.iter().map(parse_fr::<T>).collect::<Vec<_>>();
 
         let proof = MarlinInst::<T>::prove(&pk, computation, rng).unwrap();
@@ -386,6 +386,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
 #[cfg(test)]
 mod tests {
+    use rand_0_8::rngs::StdRng;
     use zokrates_ast::flat::{Parameter, Variable};
     use zokrates_ast::ir::{Prog, QuadComb, Statement};
     use zokrates_interpreter::Interpreter;
@@ -397,31 +398,41 @@ mod tests {
     #[test]
     fn verify_bls12_377_field() {
         let program: Prog<Bls12_377Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![Parameter::private(Variable::new(0))],
             return_count: 1,
             statements: vec![
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
-                        Variable::new(0).into(),
-                        Variable::new(0).into(),
-                    ),
+                    QuadComb::new(Variable::new(0).into(), Variable::new(0).into()),
                     Variable::new(1),
+                    None,
                 ),
-                Statement::constraint(Variable::new(1), Variable::public(0)),
+                Statement::constraint(Variable::new(1), Variable::public(0), None),
             ],
+            solvers: vec![],
         };
 
-        let srs = <Ark as UniversalBackend<Bls12_377Field, Marlin>>::universal_setup(5);
+        let rng = &mut StdRng::from_entropy();
+        let srs = <Ark as UniversalBackend<Bls12_377Field, Marlin>>::universal_setup(5, rng);
         let keypair =
             <Ark as UniversalBackend<Bls12_377Field, Marlin>>::setup(srs, program.clone()).unwrap();
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(program.clone(), &[Bls12_377Field::from(42)])
+            .execute(
+                &[Bls12_377Field::from(42)],
+                program.statements.iter(),
+                &program.arguments,
+                &program.solvers,
+            )
             .unwrap();
 
-        let proof =
-            <Ark as Backend<Bls12_377Field, Marlin>>::generate_proof(program, witness, keypair.pk);
+        let proof = <Ark as Backend<Bls12_377Field, Marlin>>::generate_proof(
+            program,
+            witness,
+            keypair.pk.as_slice(),
+            rng,
+        );
         let ans = <Ark as Backend<Bls12_377Field, Marlin>>::verify(keypair.vk, proof);
 
         assert!(ans);
@@ -430,31 +441,41 @@ mod tests {
     #[test]
     fn verify_bw6_761_field() {
         let program: Prog<Bw6_761Field> = Prog {
+            module_map: Default::default(),
             arguments: vec![Parameter::private(Variable::new(0))],
             return_count: 1,
             statements: vec![
                 Statement::constraint(
-                    QuadComb::from_linear_combinations(
-                        Variable::new(0).into(),
-                        Variable::new(0).into(),
-                    ),
+                    QuadComb::new(Variable::new(0).into(), Variable::new(0).into()),
                     Variable::new(1),
+                    None,
                 ),
-                Statement::constraint(Variable::new(1), Variable::public(0)),
+                Statement::constraint(Variable::new(1), Variable::public(0), None),
             ],
+            solvers: vec![],
         };
 
-        let srs = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::universal_setup(5);
+        let rng = &mut StdRng::from_entropy();
+        let srs = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::universal_setup(5, rng);
         let keypair =
             <Ark as UniversalBackend<Bw6_761Field, Marlin>>::setup(srs, program.clone()).unwrap();
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(program.clone(), &[Bw6_761Field::from(42)])
+            .execute(
+                &[Bw6_761Field::from(42)],
+                program.statements.iter(),
+                &program.arguments,
+                &program.solvers,
+            )
             .unwrap();
 
-        let proof =
-            <Ark as Backend<Bw6_761Field, Marlin>>::generate_proof(program, witness, keypair.pk);
+        let proof = <Ark as Backend<Bw6_761Field, Marlin>>::generate_proof(
+            program,
+            witness,
+            keypair.pk.as_slice(),
+            rng,
+        );
         let ans = <Ark as Backend<Bw6_761Field, Marlin>>::verify(keypair.vk, proof);
 
         assert!(ans);

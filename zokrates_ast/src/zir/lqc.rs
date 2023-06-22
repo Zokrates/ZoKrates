@@ -43,7 +43,7 @@ impl<'ast, T: Field> std::ops::Sub for LinQuadComb<'ast, T> {
             linear: {
                 let mut l = self.linear;
                 other.linear.iter_mut().for_each(|(c, _)| {
-                    *c = T::zero() - &*c;
+                    *c = T::zero() - *c;
                 });
                 l.append(&mut other.linear);
                 l
@@ -51,7 +51,7 @@ impl<'ast, T: Field> std::ops::Sub for LinQuadComb<'ast, T> {
             quadratic: {
                 let mut q = self.quadratic;
                 other.quadratic.iter_mut().for_each(|(c, _, _)| {
-                    *c = T::zero() - &*c;
+                    *c = T::zero() - *c;
                 });
                 q.append(&mut other.quadratic);
                 q
@@ -68,18 +68,18 @@ impl<'ast, T: Field> LinQuadComb<'ast, T> {
         }
 
         Ok(Self {
-            constant: self.constant.clone() * rhs.constant.clone(),
+            constant: self.constant * rhs.constant,
             linear: {
                 // lin0 * const1 + lin1 * const0
                 self.linear
                     .clone()
                     .into_iter()
-                    .map(|(c, i)| (c * rhs.constant.clone(), i))
+                    .map(|(c, i)| (c * rhs.constant, i))
                     .chain(
                         rhs.linear
                             .clone()
                             .into_iter()
-                            .map(|(c, i)| (c * self.constant.clone(), i)),
+                            .map(|(c, i)| (c * self.constant, i)),
                     )
                     .collect()
             },
@@ -87,16 +87,16 @@ impl<'ast, T: Field> LinQuadComb<'ast, T> {
                 // quad0 * const1 + quad1 * const0 + lin0 * lin1
                 self.quadratic
                     .into_iter()
-                    .map(|(c, i0, i1)| (c * rhs.constant.clone(), i0, i1))
+                    .map(|(c, i0, i1)| (c * rhs.constant, i0, i1))
                     .chain(
                         rhs.quadratic
                             .into_iter()
-                            .map(|(c, i0, i1)| (c * self.constant.clone(), i0, i1)),
+                            .map(|(c, i0, i1)| (c * self.constant, i0, i1)),
                     )
                     .chain(self.linear.iter().flat_map(|(cl, l)| {
                         rhs.linear
                             .iter()
-                            .map(|(cr, r)| (cl.clone() * cr.clone(), l.clone(), r.clone()))
+                            .map(|(cr, r)| (*cl * *cr, l.clone(), r.clone()))
                     }))
                     .collect()
             },
@@ -109,23 +109,23 @@ impl<'ast, T: Field> TryFrom<FieldElementExpression<'ast, T>> for LinQuadComb<'a
 
     fn try_from(e: FieldElementExpression<'ast, T>) -> Result<Self, Self::Error> {
         match e {
-            FieldElementExpression::Number(v) => Ok(Self {
-                constant: v,
+            FieldElementExpression::Value(v) => Ok(Self {
+                constant: v.value,
                 ..Self::default()
             }),
             FieldElementExpression::Identifier(id) => Ok(Self {
                 linear: vec![(T::one(), id.id)],
                 ..Self::default()
             }),
-            FieldElementExpression::Add(box left, box right) => {
-                Ok(Self::try_from(left)? + Self::try_from(right)?)
+            FieldElementExpression::Add(e) => {
+                Ok(Self::try_from(*e.left)? + Self::try_from(*e.right)?)
             }
-            FieldElementExpression::Sub(box left, box right) => {
-                Ok(Self::try_from(left)? - Self::try_from(right)?)
+            FieldElementExpression::Sub(e) => {
+                Ok(Self::try_from(*e.left)? - Self::try_from(*e.right)?)
             }
-            FieldElementExpression::Mult(box left, box right) => {
-                let left = Self::try_from(left)?;
-                let right = Self::try_from(right)?;
+            FieldElementExpression::Mult(e) => {
+                let left = Self::try_from(*e.left)?;
+                let right = Self::try_from(*e.right)?;
 
                 left.try_mul(right)
             }
@@ -137,30 +137,31 @@ impl<'ast, T: Field> TryFrom<FieldElementExpression<'ast, T>> for LinQuadComb<'a
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::zir::Id;
+    use crate::zir::{Expr, Id};
+    use std::ops::*;
     use zokrates_field::Bn128Field;
 
     #[test]
     fn add() {
         // (2 + 2*a)
-        let a = LinQuadComb::try_from(FieldElementExpression::Add(
-            box FieldElementExpression::Number(Bn128Field::from(2)),
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::Number(Bn128Field::from(2)),
-                box FieldElementExpression::identifier("a".into()),
+        let a = LinQuadComb::try_from(FieldElementExpression::add(
+            FieldElementExpression::value(Bn128Field::from(2)),
+            FieldElementExpression::mul(
+                FieldElementExpression::value(Bn128Field::from(2)),
+                FieldElementExpression::identifier("a".into()),
             ),
         ))
         .unwrap();
 
         // (2 + 2*a*b)
-        let b = LinQuadComb::try_from(FieldElementExpression::Add(
-            box FieldElementExpression::Number(Bn128Field::from(2)),
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::Mult(
-                    box FieldElementExpression::Number(Bn128Field::from(2)),
-                    box FieldElementExpression::identifier("a".into()),
+        let b = LinQuadComb::try_from(FieldElementExpression::add(
+            FieldElementExpression::value(Bn128Field::from(2)),
+            FieldElementExpression::mul(
+                FieldElementExpression::mul(
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                    FieldElementExpression::identifier("a".into()),
                 ),
-                box FieldElementExpression::identifier("b".into()),
+                FieldElementExpression::identifier("b".into()),
             ),
         ))
         .unwrap();
@@ -186,24 +187,24 @@ mod tests {
     #[test]
     fn sub() {
         // (2 + 2*a)
-        let a = LinQuadComb::try_from(FieldElementExpression::Add(
-            box FieldElementExpression::Number(Bn128Field::from(2)),
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::Number(Bn128Field::from(2)),
-                box FieldElementExpression::identifier("a".into()),
+        let a = LinQuadComb::try_from(FieldElementExpression::add(
+            FieldElementExpression::value(Bn128Field::from(2)),
+            FieldElementExpression::mul(
+                FieldElementExpression::value(Bn128Field::from(2)),
+                FieldElementExpression::identifier("a".into()),
             ),
         ))
         .unwrap();
 
         // (2 + 2*a*b)
-        let b = LinQuadComb::try_from(FieldElementExpression::Add(
-            box FieldElementExpression::Number(Bn128Field::from(2)),
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::Mult(
-                    box FieldElementExpression::Number(Bn128Field::from(2)),
-                    box FieldElementExpression::identifier("a".into()),
+        let b = LinQuadComb::try_from(FieldElementExpression::add(
+            FieldElementExpression::value(Bn128Field::from(2)),
+            FieldElementExpression::mul(
+                FieldElementExpression::mul(
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                    FieldElementExpression::identifier("a".into()),
                 ),
-                box FieldElementExpression::identifier("b".into()),
+                FieldElementExpression::identifier("b".into()),
             ),
         ))
         .unwrap();
@@ -227,23 +228,23 @@ mod tests {
     }
 
     #[test]
-    fn mult() {
+    fn mul() {
         // (2 + 2*a)
-        let a = LinQuadComb::try_from(FieldElementExpression::Add(
-            box FieldElementExpression::Number(Bn128Field::from(2)),
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::Number(Bn128Field::from(2)),
-                box FieldElementExpression::identifier("a".into()),
+        let a = LinQuadComb::try_from(FieldElementExpression::add(
+            FieldElementExpression::value(Bn128Field::from(2)),
+            FieldElementExpression::mul(
+                FieldElementExpression::value(Bn128Field::from(2)),
+                FieldElementExpression::identifier("a".into()),
             ),
         ))
         .unwrap();
 
         // (2 + 2*b)
-        let b = LinQuadComb::try_from(FieldElementExpression::Add(
-            box FieldElementExpression::Number(Bn128Field::from(2)),
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::Number(Bn128Field::from(2)),
-                box FieldElementExpression::identifier("b".into()),
+        let b = LinQuadComb::try_from(FieldElementExpression::add(
+            FieldElementExpression::value(Bn128Field::from(2)),
+            FieldElementExpression::mul(
+                FieldElementExpression::value(Bn128Field::from(2)),
+                FieldElementExpression::identifier("b".into()),
             ),
         ))
         .unwrap();
@@ -266,13 +267,13 @@ mod tests {
     }
 
     #[test]
-    fn mult_degree_error() {
+    fn mul_degree_error() {
         // 2*a*b
-        let a = LinQuadComb::try_from(FieldElementExpression::Add(
-            box FieldElementExpression::Number(Bn128Field::from(2)),
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::identifier("a".into()),
-                box FieldElementExpression::identifier("b".into()),
+        let a = LinQuadComb::try_from(FieldElementExpression::add(
+            FieldElementExpression::value(Bn128Field::from(2)),
+            FieldElementExpression::mul(
+                FieldElementExpression::identifier("a".into()),
+                FieldElementExpression::identifier("b".into()),
             ),
         ))
         .unwrap();

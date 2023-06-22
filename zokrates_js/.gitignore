@@ -3,6 +3,6 @@ dist
 target
 pkg
 wasm-pack.log
-stdlib
-stdlib.js
 metadata.js
+wasm.js
+umd.min.js

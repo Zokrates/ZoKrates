@@ -1,7 +1,5 @@
 use std::fmt;
-use zokrates_ast::typed::result_folder::{
-    fold_assembly_statement, fold_field_expression, fold_uint_expression_inner, ResultFolder,
-};
+use zokrates_ast::typed::{result_folder::*, AssemblyAssignment, UExpression};
 use zokrates_ast::typed::{
     FieldElementExpression, TypedAssemblyStatement, TypedProgram, UBitwidth, UExpressionInner,
 };
@@ -27,81 +25,80 @@ impl ExpressionValidator {
 impl<'ast, T: Field> ResultFolder<'ast, T> for ExpressionValidator {
     type Error = Error;
 
-    fn fold_assembly_statement(
+    // we allow more dynamic expressions in witness generation
+    fn fold_assembly_assignment(
         &mut self,
-        s: TypedAssemblyStatement<'ast, T>,
+        s: AssemblyAssignment<'ast, T>,
     ) -> Result<Vec<TypedAssemblyStatement<'ast, T>>, Self::Error> {
-        match s {
-            // we allow more dynamic expressions in witness generation
-            TypedAssemblyStatement::Assignment(_, _) => Ok(vec![s]),
-            s => fold_assembly_statement(self, s),
-        }
+        Ok(vec![TypedAssemblyStatement::Assignment(s)])
     }
 
-    fn fold_field_expression(
+    fn fold_field_expression_cases(
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
         match e {
             // these should have been propagated away
-            FieldElementExpression::And(_, _)
-            | FieldElementExpression::Or(_, _)
-            | FieldElementExpression::Xor(_, _)
-            | FieldElementExpression::LeftShift(_, _)
-            | FieldElementExpression::RightShift(_, _) => Err(Error(format!(
+            FieldElementExpression::And(_)
+            | FieldElementExpression::Or(_)
+            | FieldElementExpression::Xor(_)
+            | FieldElementExpression::LeftShift(_)
+            | FieldElementExpression::RightShift(_) => Err(Error(format!(
                 "Found non-constant bitwise operation in field element expression `{}`",
                 e
             ))),
-            FieldElementExpression::Pow(box e, box exp) => {
-                let e = self.fold_field_expression(e)?;
-                let exp = self.fold_uint_expression(exp)?;
+            FieldElementExpression::Pow(e) => {
+                let base = self.fold_field_expression(*e.left)?;
+                let exp = self.fold_uint_expression(*e.right)?;
 
                 match exp.as_inner() {
-                    UExpressionInner::Value(_) => Ok(FieldElementExpression::Pow(box e, box exp)),
+                    UExpressionInner::Value(_) => Ok(FieldElementExpression::pow(base, exp)),
                     exp => Err(Error(format!(
                         "Found non-constant exponent in power expression `{}**{}`",
-                        e,
+                        base,
                         exp.clone().annotate(UBitwidth::B32)
                     ))),
                 }
             }
-            e => fold_field_expression(self, e),
+            e => fold_field_expression_cases(self, e),
         }
     }
 
-    fn fold_uint_expression_inner(
+    fn fold_uint_expression_cases(
         &mut self,
         bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> Result<UExpressionInner<'ast, T>, Error> {
         match e {
-            UExpressionInner::LeftShift(box e, box by) => {
-                let e = self.fold_uint_expression(e)?;
-                let by = self.fold_uint_expression(by)?;
+            UExpressionInner::LeftShift(e) => {
+                let expr = self.fold_uint_expression(*e.left)?;
+                let by = self.fold_uint_expression(*e.right)?;
 
                 match by.as_inner() {
-                    UExpressionInner::Value(_) => Ok(UExpressionInner::LeftShift(box e, box by)),
-                    by => Err(Error(format!(
-                        "Cannot shift by a variable value, found `{} << {}`",
-                        e,
-                        by.clone().annotate(UBitwidth::B32)
+                    UExpressionInner::Value(_) => {
+                        Ok(UExpression::left_shift(expr, by).into_inner())
+                    }
+                    _ => Err(Error(format!(
+                        "Cannot shift by a variable value, found `{}`",
+                        UExpression::left_shift(expr, by)
                     ))),
                 }
             }
-            UExpressionInner::RightShift(box e, box by) => {
-                let e = self.fold_uint_expression(e)?;
-                let by = self.fold_uint_expression(by)?;
+            UExpressionInner::RightShift(e) => {
+                let expr = self.fold_uint_expression(*e.left)?;
+                let by = self.fold_uint_expression(*e.right)?;
 
                 match by.as_inner() {
-                    UExpressionInner::Value(_) => Ok(UExpressionInner::RightShift(box e, box by)),
-                    by => Err(Error(format!(
-                        "Cannot shift by a variable value, found `{} >> {}`",
-                        e,
-                        by.clone().annotate(UBitwidth::B32)
+                    UExpressionInner::Value(_) => {
+                        Ok(UExpression::right_shift(expr, by).into_inner())
+                    }
+                    _ => Err(Error(format!(
+                        "Cannot shift by a variable value, found `{}`",
+                        UExpression::right_shift(expr, by)
                     ))),
                 }
             }
-            e => fold_uint_expression_inner(self, bitwidth, e),
+            e => fold_uint_expression_cases(self, bitwidth, e),
         }
     }
 }

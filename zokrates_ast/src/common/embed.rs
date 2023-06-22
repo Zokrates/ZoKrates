@@ -1,5 +1,8 @@
-use crate::common::{Parameter, RuntimeError, Solver, Variable};
-use crate::flat::{flat_expression_from_bits, flat_expression_from_variable_summands};
+use crate::common::{
+    flat::{Parameter, Variable},
+    RuntimeError, Solver,
+};
+use crate::flat::flat_expression_from_bits;
 use crate::flat::{FlatDirective, FlatExpression, FlatFunctionIterator, FlatStatement};
 use crate::typed::types::{
     ConcreteGenericsAssignment, DeclarationConstant, DeclarationSignature, DeclarationType,
@@ -11,12 +14,16 @@ use crate::untyped::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::ops::*;
 use zokrates_field::Field;
+
+use super::ModuleMap;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "bellman")] {
         use pairing_ce::bn256::Bn256;
         use zokrates_embed::{bellman::{from_bellman, generate_sha256_round_constraints}};
+        use crate::flat::flat_expression_from_variable_summands;
     }
 }
 
@@ -294,7 +301,7 @@ impl FlatEmbed {
         );
 
         assert_eq!(gen.len(), assignment.0.len());
-        gen.map(|g| *assignment.0.get(&g).unwrap() as u32).collect()
+        gen.map(|g| *assignment.0.get(&g).unwrap()).collect()
     }
 
     pub fn id(&self) -> &'static str {
@@ -348,15 +355,11 @@ pub fn sha256_round<'ast, T: Field>(
     let cs_indices = 0..variable_count;
     // indices of the arguments to the function
     // apply an offset of `variable_count` to get the indice of our dummy `input` argument
-    let input_argument_indices: Vec<_> = input_indices
-        .clone()
-        .into_iter()
-        .map(|i| i + variable_count)
-        .collect();
+    let input_argument_indices: Vec<_> =
+        input_indices.clone().map(|i| i + variable_count).collect();
     // apply an offset of `variable_count` to get the indice of our dummy `current_hash` argument
     let current_hash_argument_indices: Vec<_> = current_hash_indices
         .clone()
-        .into_iter()
         .map(|i| i + variable_count)
         .collect();
     // define parameters to the function based on the variables
@@ -364,21 +367,18 @@ pub fn sha256_round<'ast, T: Field>(
         .clone()
         .into_iter()
         .chain(current_hash_argument_indices.clone())
-        .map(|i| Parameter {
-            id: Variable::new(i),
-            private: true,
-        })
+        .map(|i| Parameter::private(Variable::new(i)))
         .collect();
     // define a binding of the first variable in the constraint system to one
-    let one_binding_statement = FlatStatement::Condition(
+    let one_binding_statement = FlatStatement::condition(
         Variable::new(0).into(),
-        FlatExpression::Number(T::from(1)),
+        FlatExpression::value(T::from(1)),
         RuntimeError::BellmanOneBinding,
     );
     let input_binding_statements =
     // bind input and current_hash to inputs
     input_indices.chain(current_hash_indices).zip(input_argument_indices.clone().into_iter().chain(current_hash_argument_indices.clone())).map(|(cs_index, argument_index)| {
-        FlatStatement::Condition(
+        FlatStatement::condition(
             Variable::new(cs_index).into(),
             Variable::new(argument_index).into(),
             RuntimeError::BellmanInputBinding
@@ -391,30 +391,30 @@ pub fn sha256_round<'ast, T: Field>(
         let rhs_b = flat_expression_from_variable_summands::<T>(c.b.as_slice());
         let lhs = flat_expression_from_variable_summands::<T>(c.c.as_slice());
 
-        FlatStatement::Condition(
+        FlatStatement::condition(
             lhs,
-            FlatExpression::Mult(box rhs_a, box rhs_b),
+            FlatExpression::mul(rhs_a, rhs_b),
             RuntimeError::BellmanConstraint,
         )
     });
 
     // define which subset of the witness is returned
-    let outputs = output_indices.map(|o| FlatExpression::Identifier(Variable::new(o)));
+    let outputs = output_indices.map(|o| FlatExpression::identifier(Variable::new(o)));
     // insert a directive to set the witness based on the bellman gadget and  inputs
-    let directive_statement = FlatStatement::Directive(FlatDirective {
-        outputs: cs_indices.map(Variable::new).collect(),
-        inputs: input_argument_indices
+    let directive_statement = FlatStatement::Directive(FlatDirective::new(
+        cs_indices.map(Variable::new).collect(),
+        Solver::Sha256Round,
+        input_argument_indices
             .into_iter()
             .chain(current_hash_argument_indices)
             .map(|i| Variable::new(i).into())
             .collect(),
-        solver: Solver::Sha256Round,
-    });
+    ));
     // insert a statement to return the subset of the witness
     let return_statements = outputs
         .into_iter()
         .enumerate()
-        .map(|(index, e)| FlatStatement::Definition(Variable::public(index), e));
+        .map(|(index, e)| FlatStatement::definition(Variable::public(index), e));
     let statements = std::iter::once(directive_statement)
         .chain(std::iter::once(one_binding_statement))
         .chain(input_binding_statements)
@@ -425,6 +425,7 @@ pub fn sha256_round<'ast, T: Field>(
         arguments,
         statements,
         return_count,
+        module_map: ModuleMap::default(),
     }
 }
 
@@ -467,9 +468,9 @@ pub fn snark_verify_bls12_377<'ast, T: Field>(
         .chain(vk_arguments)
         .collect();
 
-    let one_binding_statement = FlatStatement::Condition(
-        FlatExpression::Identifier(Variable::new(0)),
-        FlatExpression::Number(T::from(1)),
+    let one_binding_statement = FlatStatement::condition(
+        FlatExpression::identifier(Variable::new(0)),
+        FlatExpression::value(T::from(1)),
         RuntimeError::ArkOneBinding,
     );
 
@@ -483,7 +484,7 @@ pub fn snark_verify_bls12_377<'ast, T: Field>(
                 .chain(vk_argument_indices.clone()),
         )
         .map(|(cs_index, argument_index)| {
-            FlatStatement::Condition(
+            FlatStatement::condition(
                 Variable::new(cs_index).into(),
                 Variable::new(argument_index).into(),
                 RuntimeError::ArkInputBinding,
@@ -499,29 +500,29 @@ pub fn snark_verify_bls12_377<'ast, T: Field>(
             let rhs_b = flat_expression_from_variable_summands::<T>(c.b.as_slice());
             let lhs = flat_expression_from_variable_summands::<T>(c.c.as_slice());
 
-            FlatStatement::Condition(
+            FlatStatement::condition(
                 lhs,
-                FlatExpression::Mult(box rhs_a, box rhs_b),
+                FlatExpression::mul(rhs_a, rhs_b),
                 RuntimeError::ArkConstraint,
             )
         })
         .collect();
 
-    let return_statement = FlatStatement::Definition(
+    let return_statement = FlatStatement::definition(
         Variable::public(0),
-        FlatExpression::Identifier(Variable::new(out_index)),
+        FlatExpression::identifier(Variable::new(out_index)),
     );
 
     // insert a directive to set the witness
-    let directive_statement = FlatStatement::Directive(FlatDirective {
-        outputs: cs_indices.map(Variable::new).collect(),
-        inputs: input_argument_indices
+    let directive_statement = FlatStatement::Directive(FlatDirective::new(
+        cs_indices.map(Variable::new).collect(),
+        Solver::SnarkVerifyBls12377(n),
+        input_argument_indices
             .chain(proof_argument_indices)
             .chain(vk_argument_indices)
             .map(|i| Variable::new(i).into())
             .collect(),
-        solver: Solver::SnarkVerifyBls12377(n),
-    });
+    ));
 
     let statements = std::iter::once(directive_statement)
         .chain(std::iter::once(one_binding_statement))
@@ -533,6 +534,7 @@ pub fn snark_verify_bls12_377<'ast, T: Field>(
         arguments,
         statements,
         return_count: 1,
+        module_map: ModuleMap::default(),
     }
 }
 
@@ -562,14 +564,11 @@ pub fn unpack_to_bitwidth<'ast, T: Field>(
 
     let mut layout = HashMap::new();
 
-    let arguments = vec![Parameter {
-        id: Variable::new(0),
-        private: true,
-    }];
+    let arguments = vec![Parameter::private(Variable::new(0))];
 
     // o0, ..., o253 = ToBits(i0)
 
-    let directive_inputs = vec![FlatExpression::Identifier(use_variable(
+    let directive_inputs = vec![FlatExpression::identifier(use_variable(
         &mut layout,
         "i0".into(),
         &mut counter,
@@ -585,16 +584,16 @@ pub fn unpack_to_bitwidth<'ast, T: Field>(
     let outputs: Vec<_> = directive_outputs
         .iter()
         .enumerate()
-        .map(|(_, o)| FlatExpression::Identifier(*o))
+        .map(|(_, o)| FlatExpression::identifier(*o))
         .collect();
 
     // o253, o252, ... o{253 - (bit_width - 1)} are bits
     let mut statements: Vec<FlatStatement<T>> = (0..bit_width)
         .map(|index| {
-            let bit = FlatExpression::Identifier(Variable::new(bit_width - index));
-            FlatStatement::Condition(
+            let bit = FlatExpression::identifier(Variable::new(bit_width - index));
+            FlatStatement::condition(
                 bit.clone(),
-                FlatExpression::Mult(box bit.clone(), box bit.clone()),
+                FlatExpression::mul(bit.clone(), bit),
                 RuntimeError::Bitness,
             )
         })
@@ -603,39 +602,40 @@ pub fn unpack_to_bitwidth<'ast, T: Field>(
     // sum check: o253 + o252 * 2 + ... + o{253 - (bit_width - 1)} * 2**(bit_width - 1)
     let lhs_sum = flat_expression_from_bits(
         (0..bit_width)
-            .map(|i| FlatExpression::Identifier(Variable::new(i + 1)))
+            .map(|i| FlatExpression::identifier(Variable::new(i + 1)))
             .collect(),
     );
 
-    statements.push(FlatStatement::Condition(
+    statements.push(FlatStatement::condition(
         lhs_sum,
-        FlatExpression::Mult(
-            box FlatExpression::Identifier(Variable::new(0)),
-            box FlatExpression::Number(T::from(1)),
+        FlatExpression::mul(
+            FlatExpression::identifier(Variable::new(0)),
+            FlatExpression::value(T::from(1)),
         ),
         RuntimeError::Sum,
     ));
 
     statements.insert(
         0,
-        FlatStatement::Directive(FlatDirective {
-            inputs: directive_inputs,
-            outputs: directive_outputs,
+        FlatStatement::Directive(FlatDirective::new(
+            directive_outputs,
             solver,
-        }),
+            directive_inputs,
+        )),
     );
 
     statements.extend(
         outputs
             .into_iter()
             .enumerate()
-            .map(|(index, e)| FlatStatement::Definition(Variable::public(index), e)),
+            .map(|(index, e)| FlatStatement::definition(Variable::public(index), e)),
     );
 
     FlatFunctionIterator {
         arguments,
         statements: statements.into_iter(),
         return_count: bit_width,
+        module_map: ModuleMap::default(),
     }
 }
 
@@ -661,7 +661,7 @@ mod tests {
                         .map(|i| Variable::new(i + 1))
                         .collect(),
                     Solver::bits(Bn128Field::get_required_bits()),
-                    vec![Variable::new(0)]
+                    vec![Variable::new(0).into()]
                 ))
             );
             assert_eq!(
@@ -709,9 +709,9 @@ mod tests {
             // bellman variable #0: index 0 should equal 1
             assert_eq!(
                 compiled.statements[1],
-                FlatStatement::Condition(
+                FlatStatement::condition(
                     Variable::new(0).into(),
-                    FlatExpression::Number(Bn128Field::from(1)),
+                    FlatExpression::value(Bn128Field::from(1)),
                     RuntimeError::BellmanOneBinding
                 )
             );
@@ -719,7 +719,7 @@ mod tests {
             // bellman input #0: index 1 should equal zokrates input #0: index v_count
             assert_eq!(
                 compiled.statements[2],
-                FlatStatement::Condition(
+                FlatStatement::condition(
                     Variable::new(1).into(),
                     Variable::new(26936).into(),
                     RuntimeError::BellmanInputBinding

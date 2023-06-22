@@ -1,3 +1,6 @@
+// disable a clippy lint as pest_ast generates improper code
+#![allow(clippy::clone_on_copy)]
+
 use from_pest::FromPest;
 use pest::error::Error as PestError;
 use pest::iterators::Pairs;
@@ -69,8 +72,8 @@ mod ast {
         rhs: Box<Expression<'ast>>,
     ) -> Box<Expression<'ast>> {
         // a + b spans from the start of a to the end of b
-        let (start, _) = lhs.span().clone().split();
-        let (_, end) = rhs.span().clone().split();
+        let (start, _) = lhs.span().split();
+        let (_, end) = rhs.span().split();
         let span = start.span(&end);
 
         Box::new(match pair.as_rule() {
@@ -1173,6 +1176,7 @@ impl fmt::Display for Error {
     }
 }
 
+#[allow(clippy::result_large_err)]
 pub fn generate_ast(input: &str) -> Result<ast::File, Error> {
     let parse_tree = parse(input).map_err(Error)?;
     Ok(Prog::from(parse_tree).0)
