@@ -1,5 +1,3 @@
-#pragma curve bn128
-
 import "../bool/nonStrictUnpack256" as unpack;
 import "../../casts/bool_256_to_u32_8" as from_bits;
 
