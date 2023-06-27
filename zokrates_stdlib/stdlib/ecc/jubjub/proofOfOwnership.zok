@@ -1,4 +1,4 @@
-import "../babyjubjub/compress" as compress;
+import "./nonStrictUnpack256Bool" as unpack256bool;
 from "./params" import EDWARDS_A, EDWARDS_D, G;
 from "ecc/edwards" import scalarMul;
 
@@ -14,9 +14,9 @@ from "ecc/edwards" import scalarMul;
 ///    sk: Private key
 ///
 /// Returns true for pk/sk being a valid keypair, false otherwise.
-def main(field[2] pk, field[2] sk) -> bool {
+def main(field[2] pk, field sk) -> bool {
     // jubjub sk may not fit in bool[254], that why we use compress rather than nonStrictUnpack256
-    bool[256] sk_bits = compress(sk);
+    bool[256] sk_bits = unpack256bool(sk);
     field[2] res = scalarMul(sk_bits, G, EDWARDS_A, EDWARDS_D);
     return (res[0] == pk[0] && res[1] == pk[1]);
 }
