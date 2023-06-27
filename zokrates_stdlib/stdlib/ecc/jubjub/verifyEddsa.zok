@@ -1,8 +1,8 @@
 import "hashes/sha256/1024bitPadded" as sha256;
-import "utils/pack/bool/nonStrictUnpack256" as unpack256bool;
-import "utils/pack/u32/nonStrictUnpack256" as unpack256u;
 from "utils/casts" import cast;
 from "ecc/edwards" import add, scalarMul, onCurve, orderCheck;
+import "./nonStrictUnpack256Bool" as unpack256bool;
+import "./nonStrictUnpack256u32" as unpack256u;
 from "./params" import EDWARDS_A, EDWARDS_D, G;
 
 /// Verifies an EdDSA Signature.
