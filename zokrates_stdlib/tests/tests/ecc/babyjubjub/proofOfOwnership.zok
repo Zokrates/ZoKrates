@@ -1,5 +1,5 @@
-import "ecc/babyjubjub/proofOfOwnership" as proofOfOwnership;
-from "ecc/edwards" import scalarMul;
+from "ecc/babyjubjub" import proofOfOwnership;
+
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto

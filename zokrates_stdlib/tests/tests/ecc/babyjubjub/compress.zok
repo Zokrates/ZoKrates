@@ -1,5 +1,4 @@
-import "ecc/babyjubjub/compress";
-from "ecc/babyjubjub/params" import G;
+from "ecc/babyjubjub" import G, compress;
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto

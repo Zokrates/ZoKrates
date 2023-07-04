@@ -1,4 +1,4 @@
-import "ecc/babyjubjub/verifyEddsa" as verifyEddsa;
+from "ecc/babyjubjub" import verifyEddsa;
 
 // Code to create test case:
 // https://github.com/Zokrates/pycrypto

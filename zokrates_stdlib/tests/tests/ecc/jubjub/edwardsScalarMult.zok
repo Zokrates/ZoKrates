@@ -1,5 +1,5 @@
 from "ecc/edwards" import scalarMul as mul;
-from "ecc/jubjub/params" import G, EDWARDS_A, EDWARDS_D;
+from "ecc/jubjub" import G, EDWARDS_A, EDWARDS_D;
 
 /*
 def testCyclic() -> bool {
