@@ -1,5 +1,4 @@
 import "ecc/jubjub/verifyEddsa" as verifyEddsa;
-import "ecc/babyjubjub/compress" as compress;
 import "utils/pack/bool/pack256" as pack256;
 
 // Code to create test case:
