@@ -15,7 +15,7 @@ from "ecc/edwards" import scalarMul;
 ///
 /// Returns true for pk/sk being a valid keypair, false otherwise.
 def main(field[2] pk, field sk) -> bool {
-    bool[256] sk_bits = unpack256(sk);
+    bool[256] sk_bits = unpack256(sk, 254);
     field[2] res = scalarMul(sk_bits, G, EDWARDS_A, EDWARDS_D);
     return (res[0] == pk[0] && res[1] == pk[1]);
 }

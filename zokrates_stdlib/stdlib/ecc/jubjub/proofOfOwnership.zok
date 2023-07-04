@@ -1,4 +1,4 @@
-import "./nonStrictUnpack256Bool" as unpack256bool;
+import "utils/pack/bool/nonStrictUnpack256" as unpack256bool;
 from "./params" import EDWARDS_A, EDWARDS_D, G;
 from "ecc/edwards" import scalarMul;
 
@@ -15,8 +15,7 @@ from "ecc/edwards" import scalarMul;
 ///
 /// Returns true for pk/sk being a valid keypair, false otherwise.
 def main(field[2] pk, field sk) -> bool {
-    // jubjub sk may not fit in bool[254], that why we use compress rather than nonStrictUnpack256
-    bool[256] sk_bits = unpack256bool(sk);
+    bool[256] sk_bits = unpack256bool(sk, 255);
     field[2] res = scalarMul(sk_bits, G, EDWARDS_A, EDWARDS_D);
     return (res[0] == pk[0] && res[1] == pk[1]);
 }
