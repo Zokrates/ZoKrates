@@ -1,5 +1,5 @@
 from "ecc/edwards" import add, negate;
-from "ecc/babyjubjub/params" import G, EDWARDS_A, EDWARDS_D;
+from "ecc/babyjubjub" import G, EDWARDS_A, EDWARDS_D;
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto

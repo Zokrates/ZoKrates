@@ -1,5 +1,5 @@
 from "ecc/edwards" import onCurve;
-from "ecc/jubjub/params" import EDWARDS_A, EDWARDS_D;
+from "ecc/jubjub" import EDWARDS_A, EDWARDS_D;
 
 def main() {
     field u = 11076627216317271660298050606127911965867021807910416450833192264015104452986;

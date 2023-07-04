@@ -1,5 +1,5 @@
 from "ecc/edwards" import add, negate;
-from "ecc/jubjub/params" import G, EDWARDS_A, EDWARDS_D;
+from "ecc/jubjub" import G, EDWARDS_A, EDWARDS_D;
 
 def testDoubleViaAdd() -> bool {
     field[2] out = add(G, G, EDWARDS_A, EDWARDS_D);

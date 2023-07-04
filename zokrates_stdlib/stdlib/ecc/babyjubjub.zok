@@ -1,0 +1,46 @@
+#pragma curve bn128
+
+import "./proofOfOwnership" as edwardsProofOfOwnership;
+import "./verifyEddsa" as edwardsSignature;
+import "utils/pack/bool/nonStrictUnpack256" as unpack256;
+
+
+// The `a` coefficient of the twisted Edwards curve
+const field EDWARDS_A = 168700;
+
+// The `d` coefficient of the twisted Edwards curve
+const field EDWARDS_D = 168696;
+
+// The generator point
+const field[2] G = [
+    16540640123574156134436876038791482806971768689494387082833631921987005038935, // Gx
+    20819045374670962167435360035096875258406992893633759881276124905556507972311  // Gy
+];
+
+const u32 bit_size = 254;
+
+
+def proofOfOwnership(field[2] pk, field sk) -> bool {
+
+    return edwardsProofOfOwnership(pk, sk, G, EDWARDS_A, EDWARDS_D, bit_size);
+}
+
+
+def verifyEddsa(field[2] R, field S, field[2] A, u32[8] M0, u32[8] M1) -> bool {
+
+    return edwardsSignature(R, S, A, M0, M1, G, EDWARDS_A, EDWARDS_D, bit_size);
+}
+
+
+def compress(field[2] pt) -> bool[256] {
+    field x = pt[0];
+    field y = pt[1];
+
+    bool[256] xBits = unpack256(x, 254);
+    bool[256] mut yBits = unpack256(y, 254);
+
+    bool sign = xBits[255];
+    yBits[0] = sign;
+
+    return yBits;
+}

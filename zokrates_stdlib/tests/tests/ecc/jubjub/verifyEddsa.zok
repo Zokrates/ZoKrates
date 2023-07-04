@@ -1,5 +1,5 @@
-import "ecc/jubjub/verifyEddsa" as verifyEddsa;
-import "utils/pack/bool/pack256" as pack256;
+from "ecc/jubjub" import verifyEddsa;
+
 
 // Code to create test case:
 // https://github.com/Zokrates/pycrypto
