@@ -5,7 +5,7 @@ import pako from "pako";
 
 (async function () {
   const packageObject = JSON.parse(
-    await fs.readFile("pkg/package.json", { encoding: "utf-8" })
+    await fs.readFile("pkg/package.json", { encoding: "utf-8" }),
   );
   const wasmPath = packageObject.files.find((file) => file.endsWith(".wasm"));
   const wasm = await fs.readFile(`pkg/${wasmPath}`);

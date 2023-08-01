@@ -39,7 +39,7 @@ describe("tests", () => {
   describe("compilation", () => {
     it("should compile", () => {
       const artifacts = zokratesProvider.compile(
-        "def main() -> field { return 42; }"
+        "def main() -> field { return 42; }",
       );
       assert.ok(artifacts);
       assert.ok(artifacts.snarkjs === undefined);
@@ -49,7 +49,7 @@ describe("tests", () => {
     it("should compile with snarkjs output", () => {
       const artifacts = zokratesProvider.compile(
         "def main() -> field { return 42; }",
-        { snarkjs: true }
+        { snarkjs: true },
       );
       assert.ok(artifacts);
       assert.ok(artifacts.snarkjs.program !== undefined);
@@ -167,7 +167,7 @@ describe("tests", () => {
         ["337", "113569"],
         {
           snarkjs: true,
-        }
+        },
       );
     });
 
@@ -214,7 +214,7 @@ describe("tests", () => {
             return snarkjs.zKey.newZKey(
               r1csPath,
               "./tests/powersOfTau5_0000.ptau",
-              zkeyPath
+              zkeyPath,
             );
           });
       });
@@ -231,7 +231,7 @@ describe("tests", () => {
       proof = provider.generateProof(
         artifacts.program,
         computationResult.witness,
-        keypair.pk
+        keypair.pk,
       );
       assert.ok(proof !== undefined);
       assert.equal(proof.inputs.length, 2);
@@ -240,7 +240,7 @@ describe("tests", () => {
       let proof2 = provider.generateProof(
         artifacts.program,
         computationResult.witness,
-        keypair.pk
+        keypair.pk,
       );
       assert.notDeepEqual(proof, proof2);
     });
@@ -251,7 +251,7 @@ describe("tests", () => {
         artifacts.program,
         computationResult.witness,
         keypair.pk,
-        entropy
+        entropy,
       );
       assert.ok(proof !== undefined);
       assert.equal(proof.inputs.length, 2);
@@ -261,7 +261,7 @@ describe("tests", () => {
         artifacts.program,
         computationResult.witness,
         keypair.pk,
-        entropy
+        entropy,
       );
       assert.deepEqual(proof, proof2);
     });
@@ -333,7 +333,7 @@ describe("tests", () => {
 
     const fileSystemResolver = (from, to) => {
       let parsedPath = path.parse(
-        path.resolve(path.dirname(path.resolve(from)), to)
+        path.resolve(path.dirname(path.resolve(from)), to),
       );
       const location = path.format({
         ...parsedPath,
@@ -368,7 +368,7 @@ describe("tests", () => {
           try {
             const result = specializedProvider.computeWitness(
               input,
-              t.input.values
+              t.input.values,
             );
             const value = JSON.parse(result.output);
             assert.deepEqual({ Ok: { value } }, t.output);
