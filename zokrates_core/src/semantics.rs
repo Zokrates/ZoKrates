@@ -1161,7 +1161,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let decl_v = DeclarationVariable::new(
                         self.id_in_this_scope(arg.id.value.id),
                         decl_ty.clone(),
-                    );
+                    )
+                    .with_span(arg.id.span().in_module(module_id));
 
                     let is_mutable = arg.id.value.is_mutable;
 
@@ -2162,10 +2163,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         span: Some(assignee.span().in_module(module_id)),
                         message: format!("Assignment to an immutable variable `{}`", variable_name),
                     }),
-                    _ => Ok(TypedAssignee::Identifier(Variable::new(
-                        info.id,
-                        info.ty.clone(),
-                    ))),
+                    _ => Ok(TypedAssignee::Identifier(
+                        Variable::new(info.id, info.ty.clone()).with_span(span),
+                    )),
                 },
                 None => Err(ErrorInner {
                     span: Some(assignee.span().in_module(module_id)),
