@@ -6,7 +6,7 @@ pub struct LogIgnorer;
 
 impl LogIgnorer {
     pub fn ignore<T: Field>(p: TypedProgram<T>) -> TypedProgram<T> {
-        Self::default().fold_program(p)
+        Self.fold_program(p)
     }
 }
 

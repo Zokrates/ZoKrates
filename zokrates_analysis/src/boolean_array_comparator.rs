@@ -22,7 +22,7 @@ pub struct BooleanArrayComparator;
 
 impl BooleanArrayComparator {
     pub fn simplify<T: Field>(p: TypedProgram<T>) -> TypedProgram<T> {
-        Self::default().fold_program(p)
+        Self.fold_program(p)
     }
 }
 
@@ -141,7 +141,7 @@ mod tests {
             ]),
         ));
 
-        let res = BooleanArrayComparator::default().fold_boolean_expression(e);
+        let res = BooleanArrayComparator.fold_boolean_expression(e);
 
         assert_eq!(res, expected);
     }
@@ -171,7 +171,7 @@ mod tests {
             ]),
         ));
 
-        let res = BooleanArrayComparator::default().fold_boolean_expression(e);
+        let res = BooleanArrayComparator.fold_boolean_expression(e);
 
         assert_eq!(res, expected);
     }
