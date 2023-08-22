@@ -22,7 +22,7 @@ const initialize = async () => {
         location,
         resolveCallback,
         config,
-        curve
+        curve,
       );
       const result = Object.assign(
         {
@@ -30,7 +30,7 @@ const initialize = async () => {
           abi: ptr.abi(),
           constraintCount: ptr.constraint_count(),
         },
-        snarkjs ? { snarkjs: { program: ptr.snarkjs_program() } } : {}
+        snarkjs ? { snarkjs: { program: ptr.snarkjs_program() } } : {},
       );
       ptr.free();
       return result;
@@ -47,7 +47,7 @@ const initialize = async () => {
         {
           snarkjs: snarkjs,
         },
-        logCallback
+        logCallback,
       );
 
       const result = Object.assign(
@@ -61,7 +61,7 @@ const initialize = async () => {
                 witness: ptr.snarkjs_witness(),
               },
             }
-          : {}
+          : {},
       );
 
       ptr.free();
@@ -94,7 +94,7 @@ const initialize = async () => {
         witness,
         provingKey,
         entropy,
-        options
+        options,
       );
     },
     verify: (vk, proof, options) => {
@@ -132,7 +132,7 @@ const initialize = async () => {
           witness,
           provingKey,
           entropy,
-          options
+          options,
         ),
       verify: (vk, proof) => defaultProvider.verify(vk, proof, options),
       exportSolidityVerifier: (vk) =>
