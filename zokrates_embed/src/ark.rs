@@ -163,8 +163,8 @@ pub fn generate_verify_constraints(
     let constraints: Vec<Constraint<_>> = matrices
         .a
         .into_iter()
-        .zip(matrices.b.into_iter())
-        .zip(matrices.c.into_iter())
+        .zip(matrices.b)
+        .zip(matrices.c)
         .map(|((a, b), c)| Constraint { a, b, c })
         .collect();
 
