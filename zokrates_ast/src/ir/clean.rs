@@ -16,7 +16,7 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
             statements: self
                 .statements
                 .into_iter()
-                .flat_map(|s| Cleaner::default().fold_statement(s)),
+                .flat_map(|s| Cleaner.fold_statement(s)),
             solvers: self.solvers,
         }
     }

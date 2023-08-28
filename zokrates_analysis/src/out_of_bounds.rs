@@ -18,7 +18,7 @@ impl fmt::Display for Error {
 }
 impl OutOfBoundsChecker {
     pub fn check<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
-        Self::default().fold_program(p)
+        Self.fold_program(p)
     }
 }
 

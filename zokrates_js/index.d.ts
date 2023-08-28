@@ -8,7 +8,7 @@ declare module "zokrates-js" {
 
   export type ResolveCallback = (
     location: string,
-    path: string
+    path: string,
   ) => ResolverResult;
 
   export interface CompileConfig {
@@ -78,12 +78,12 @@ declare module "zokrates-js" {
     withOptions(options: Options): ZoKratesProvider;
     compile(
       source: string,
-      compileOptions?: CompileOptions
+      compileOptions?: CompileOptions,
     ): CompilationArtifacts;
     computeWitness(
       input: CompilationArtifacts | Uint8Array,
       args: any[],
-      options?: ComputeOptions
+      options?: ComputeOptions,
     ): ComputationResult;
     setup(program: Uint8Array, entropy?: string): SetupKeypair;
     universalSetup(size: number, entropy?: string): Uint8Array;
@@ -92,7 +92,7 @@ declare module "zokrates-js" {
       program: Uint8Array,
       witness: Uint8Array,
       provingKey: Uint8Array,
-      entropy?: string
+      entropy?: string,
     ): Proof;
     verify(verificationKey: VerificationKey, proof: Proof): boolean;
     exportSolidityVerifier(verificationKey: VerificationKey): string;
