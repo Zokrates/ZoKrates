@@ -652,7 +652,7 @@ fn fold_statement<'ast, T: Field>(
             let e = f.fold_expression(statements_buffer, e);
             assert_eq!(a.len(), e.len());
             a.into_iter()
-                .zip(e.into_iter())
+                .zip(e)
                 .map(|(a, e)| zir::ZirStatement::definition(a, e))
                 .collect()
         }
@@ -1023,7 +1023,7 @@ fn fold_conditional_expression<'ast, T: Field, E: Flatten<'ast, T>>(
 
     consequence
         .into_iter()
-        .zip(alternative.into_iter())
+        .zip(alternative)
         .map(|(c, a)| match (c, a) {
             (zir::ZirExpression::FieldElement(c), zir::ZirExpression::FieldElement(a)) => {
                 zir::FieldElementExpression::conditional(condition.clone(), c, a)

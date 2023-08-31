@@ -107,7 +107,7 @@ impl<'ast, T: Clone> IntegerInference for StructType<'ast, T> {
             members: self
                 .members
                 .into_iter()
-                .zip(other.members.into_iter())
+                .zip(other.members)
                 .map(|(m_t, m_u)| match m_t.ty.get_common_pattern(*m_u.ty) {
                     Ok(ty) => DeclarationStructMember {
                         ty: Box::new(ty),
