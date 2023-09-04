@@ -898,33 +898,42 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 .flatten_select_expression(statements_flattened, e)
                 .get_field_unchecked(),
             BooleanExpression::FieldLt(e) => {
-                // Get the bit width to know the size of the binary decompositions for this Field
-                let bit_width = T::get_required_bits();
-                let safe_width = bit_width - 2; // dynamic comparison is not complete, it only applies to field elements whose difference is strictly smaller than 2**(bitwidth - 2)
-                let safe_max = T::from(2).pow(safe_width);
-
                 let lhs_flattened = self.flatten_field_expression(statements_flattened, *e.left);
-                self.enforce_constant_lt_check(
-                    statements_flattened,
-                    lhs_flattened.clone(),
-                    safe_max,
-                    RuntimeError::IncompleteDynamicRange,
-                );
-
                 let rhs_flattened = self.flatten_field_expression(statements_flattened, *e.right);
-                self.enforce_constant_lt_check(
-                    statements_flattened,
-                    rhs_flattened.clone(),
-                    safe_max,
-                    RuntimeError::IncompleteDynamicRange,
-                );
 
-                self.lt_check(
-                    statements_flattened,
-                    lhs_flattened,
-                    rhs_flattened,
-                    safe_width,
-                )
+                match (lhs_flattened, rhs_flattened) {
+                    (e, FlatExpression::Value(c)) => {
+                        self.constant_lt_check(statements_flattened, e, c.value)
+                    }
+                    (FlatExpression::Value(c), e) => self.constant_lt_check(
+                        statements_flattened,
+                        FlatExpression::sub(T::max_value().into(), e),
+                        T::max_value() - c.value,
+                    ),
+                    (lhs, rhs) => {
+                        // Get the bit width to know the size of the binary decompositions for this Field
+                        let bit_width = T::get_required_bits();
+                        let safe_width = bit_width - 2; // dynamic comparison is not complete, it only applies to field elements whose difference is strictly smaller than 2**(bitwidth - 2)
+                        let safe_max = T::from(2).pow(safe_width);
+
+                        // enforce that lhs and rhs are in the correct range
+                        self.enforce_constant_lt_check(
+                            statements_flattened,
+                            lhs.clone(),
+                            safe_max,
+                            RuntimeError::IncompleteDynamicRange,
+                        );
+
+                        self.enforce_constant_lt_check(
+                            statements_flattened,
+                            rhs.clone(),
+                            safe_max,
+                            RuntimeError::IncompleteDynamicRange,
+                        );
+
+                        self.lt_check(statements_flattened, lhs, rhs, safe_width)
+                    }
+                }
             }
             BooleanExpression::BoolEq(e) => {
                 // lhs and rhs are booleans, they flatten to 0 or 1
