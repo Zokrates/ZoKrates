@@ -487,9 +487,9 @@ dependencies = [
 
 [[package]]
 name = "bellperson"
-version = "0.24.1"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1a8623f815c0b1fd89efd9b5f4afbb937f91f51c1ebe3f6dda399c69fa938f3"
+checksum = "93eaee4b4753554139ae52ecf0e8b8c128cbc561b32e1bfaa32f70cba8518c1f"
 dependencies = [
  "bincode 1.3.3",
  "blake2s_simd 1.0.1",
@@ -499,11 +499,11 @@ dependencies = [
  "digest 0.10.6",
  "ec-gpu",
  "ec-gpu-gen",
- "ff",
- "group",
+ "ff 0.13.0",
+ "group 0.13.0",
  "log",
  "memmap2",
- "pairing",
+ "pairing 0.23.0",
  "rand 0.8.5",
  "rand_core 0.6.4",
  "rayon",
@@ -695,15 +695,15 @@ dependencies = [
 
 [[package]]
 name = "blstrs"
-version = "0.6.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ecb6f3a9429706971633edf4b84f922aba9d2e3a7d71bfb450337e64ccb7df0"
+checksum = "33149fccb7f93271f0192614b884430cf274e880506bbd171cbc8918dcc95b14"
 dependencies = [
  "blst",
  "byte-slice-cast",
- "ff",
- "group",
- "pairing",
+ "ff 0.13.0",
+ "group 0.13.0",
+ "pairing 0.23.0",
  "rand_core 0.6.4",
  "serde",
  "subtle 2.5.0",
@@ -1137,16 +1137,16 @@ checksum = "bd63582de2b59ea1aa48d7c1941b5d87618d95484397521b3acdfa0e1e9f5e45"
 
 [[package]]
 name = "ec-gpu-gen"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd09bf9d5313ad60379f70250590bccc10f7a04e2773062ac13255a37022584e"
+checksum = "892df2aa20abec5b816e15d5d6383892ca142077708efa3067dd3ac44b75c664"
 dependencies = [
  "bitvec",
  "crossbeam-channel 0.5.8",
  "ec-gpu",
  "execute",
- "ff",
- "group",
+ "ff 0.13.0",
+ "group 0.13.0",
  "hex 0.4.3",
  "log",
  "num_cpus",
@@ -1351,6 +1351,16 @@ version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d013fc25338cc558c5c2cfbad646908fb23591e2404481826742b651c9af7160"
 dependencies = [
+ "rand_core 0.6.4",
+ "subtle 2.5.0",
+]
+
+[[package]]
+name = "ff"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ded41244b729663b1e574f1b4fb731469f69f79c17667b5d776b16cda0479449"
+dependencies = [
  "bitvec",
  "byteorder",
  "ff_derive",
@@ -1372,9 +1382,9 @@ dependencies = [
 
 [[package]]
 name = "ff_derive"
-version = "0.12.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17db6fa0748f1f66e9dbafba1881009b50614948c0e900f59083afff2f8d784b"
+checksum = "e9f54704be45ed286151c5e11531316eaef5b8f5af7d597b806fdb8af108d84a"
 dependencies = [
  "addchain",
  "cfg-if 1.0.0",
@@ -1398,23 +1408,6 @@ dependencies = [
  "proc-macro2 1.0.56",
  "quote 1.0.26",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "fil_pasta_curves"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3303ea3c462ab949ab95b49f6e6d255d8d9396ebd4f1626ccb34c7037615aa8f"
-dependencies = [
- "blake2b_simd",
- "ff",
- "group",
- "hex 0.4.3",
- "lazy_static",
- "rand 0.8.5",
- "serde",
- "static_assertions",
- "subtle 2.5.0",
 ]
 
 [[package]]
@@ -1445,7 +1438,7 @@ version = "0.10.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1657b4441c3403d9f7b3409e47575237dac27b1b5726df654a6ecbf92f0f7577"
 dependencies = [
- "spin",
+ "spin 0.9.8",
 ]
 
 [[package]]
@@ -1610,7 +1603,18 @@ version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5dfbfb3a6cfbd390d5c9564ab283a0349b9b9fcd46a706c1eb10e0db70bfbac7"
 dependencies = [
- "ff",
+ "ff 0.12.1",
+ "rand_core 0.6.4",
+ "subtle 2.5.0",
+]
+
+[[package]]
+name = "group"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0f9ef7462f7c099f518d754361858f86d8a07af53ba9af0fe635bbccb151a63"
+dependencies = [
+ "ff 0.13.0",
  "rand 0.8.5",
  "rand_core 0.6.4",
  "rand_xorshift",
@@ -1841,6 +1845,9 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
+dependencies = [
+ "spin 0.5.2",
+]
 
 [[package]]
 name = "libc"
@@ -1871,19 +1878,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abb12e687cfb44aa40f41fc3978ef76448f9b6038cad6aef4259d3c095a2382e"
 dependencies = [
  "cfg-if 1.0.0",
-]
-
-[[package]]
-name = "lurk-pasta-msm"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12992280292a2a4ff84591308c426029245d49094c75df079b286f1bb8496e6c"
-dependencies = [
- "cc",
- "fil_pasta_curves",
- "semolina",
- "sppark",
- "which",
 ]
 
 [[package]]
@@ -1936,20 +1930,19 @@ dependencies = [
 
 [[package]]
 name = "neptune"
-version = "8.1.1"
+version = "9.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d47b29bc49c7d957eb446e298f96cd7088829e2d7a549ab04b36bc82434e27b"
+checksum = "4227e5557caad6d2a910b7770f2479f0c9aeb8ddc1dc537623cb6ffec7f01d31"
 dependencies = [
  "bellperson",
  "blake2s_simd 0.5.11",
  "blstrs",
  "byteorder",
- "ff",
- "fil_pasta_curves",
+ "ff 0.13.0",
  "generic-array 0.14.7",
  "itertools 0.8.2",
- "lazy_static",
  "log",
+ "pasta_curves",
  "serde",
  "trait-set",
 ]
@@ -1962,25 +1955,25 @@ checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
 
 [[package]]
 name = "nova-snark"
-version = "0.20.3"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b09c8cf02c93500dee9244cd73547f20d133ca6d3fbbe9eae0205e5b2db05f36"
+checksum = "d6247c61ab29e5da01c8f80403c25c40956045f0343d79793a2675bf7775dd80"
 dependencies = [
  "bellperson",
  "bincode 1.3.3",
  "bitvec",
  "byteorder",
  "digest 0.8.1",
- "ff",
- "fil_pasta_curves",
+ "ff 0.13.0",
  "flate2",
  "generic-array 0.14.7",
  "itertools 0.9.0",
- "lurk-pasta-msm",
  "neptune",
  "num-bigint 0.4.3",
  "num-integer",
  "num-traits 0.2.15",
+ "pasta-msm",
+ "pasta_curves",
  "rand_chacha",
  "rand_core 0.6.4",
  "rayon",
@@ -2128,7 +2121,16 @@ version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "135590d8bdba2b31346f9cd1fb2a912329f5135e832a4f422942eb6ead8b6b3b"
 dependencies = [
- "group",
+ "group 0.12.1",
+]
+
+[[package]]
+name = "pairing"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81fec4625e73cf41ef4bb6846cafa6d44736525f442ba45e407c4a000a13996f"
+dependencies = [
+ "group 0.13.0",
 ]
 
 [[package]]
@@ -2166,6 +2168,36 @@ dependencies = [
  "proc-macro2 1.0.56",
  "quote 1.0.26",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "pasta-msm"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e85d75eba3e7e9ee3bd11342b669185e194dadda3557934bc1000d9b87159d3"
+dependencies = [
+ "cc",
+ "pasta_curves",
+ "semolina",
+ "sppark",
+ "which",
+]
+
+[[package]]
+name = "pasta_curves"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3e57598f73cc7e1b2ac63c79c517b31a0877cd7c402cdcaa311b5208de7a095"
+dependencies = [
+ "blake2b_simd",
+ "ff 0.13.0",
+ "group 0.13.0",
+ "hex 0.4.3",
+ "lazy_static",
+ "rand 0.8.5",
+ "serde",
+ "static_assertions",
+ "subtle 2.5.0",
 ]
 
 [[package]]
@@ -2670,9 +2702,9 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "semolina"
-version = "0.1.2"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e90759f733a01b95d6ba70180b954d1d96e3e7e11f86c3fb0da0231300972e05"
+checksum = "2b0111fd4fa831becb0606b9a2285ef3bee3c6a70d690209b8ae9514e9befe23"
 dependencies = [
  "cc",
  "glob 0.3.1",
@@ -2848,6 +2880,12 @@ checksum = "6528351c9bc8ab22353f9d776db39a20288e8d6c37ef8cfe3317cf875eecfc2d"
 dependencies = [
  "autocfg",
 ]
+
+[[package]]
+name = "spin"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spin"
@@ -3669,12 +3707,12 @@ name = "zokrates_bellperson"
 version = "0.1.0"
 dependencies = [
  "bellperson",
- "ff",
- "fil_pasta_curves",
+ "ff 0.13.0",
  "getrandom",
  "hex 0.4.3",
  "nova-snark",
- "pairing",
+ "pairing 0.22.0",
+ "pasta_curves",
  "rand 0.4.6",
  "serde",
  "typed-arena",
@@ -3822,14 +3860,14 @@ dependencies = [
  "bellman_ce",
  "bellperson",
  "bincode 0.8.0",
- "ff",
- "fil_pasta_curves",
+ "ff 0.13.0",
  "lazy_static",
  "nova-snark",
  "num-bigint 0.2.6",
  "num-integer",
  "num-traits 0.2.15",
- "pairing",
+ "pairing 0.22.0",
+ "pasta_curves",
  "rand 0.4.6",
  "serde",
  "serde_derive",

@@ -25,7 +25,7 @@ Booleans are available in ZoKrates. When a boolean is used as a parameter of the
 
 ### `u8/u16/u32/u64`
 
-Unsigned integers represent positive numbers of the interval `[0, 2 ** bitwidth[`, where `bitwidth` is specified in the type's name, e.g., 32 bits in the case of u32. Their arithmetics are defined modulo `2 ** bitwidth`.
+Unsigned integers represent positive numbers of the interval `[0, 2 ** bitwidth)`, where `bitwidth` is specified in the type's name, e.g., 32 bits in the case of u32. Their arithmetics are defined modulo `2 ** bitwidth`.
 
 Internally, they use a binary encoding, which makes them particularly efficient for implementing programs that operate on that binary representation, e.g., the SHA256 hash function.
 

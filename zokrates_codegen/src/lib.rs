@@ -1319,7 +1319,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let xor: Vec<FlatExpression<T>> = left_bits
             .into_iter()
-            .zip(right_bits.into_iter())
+            .zip(right_bits)
             .map(|(x, y)| match (x, y) {
                 (FlatExpression::Value(n), e) | (e, FlatExpression::Value(n)) => {
                     if n.value == T::from(0) {
@@ -1691,8 +1691,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                             let res: Vec<FlatExpression<T>> = a_bits
                                 .into_iter()
-                                .zip(b_bits.into_iter())
-                                .zip(c_bits.into_iter())
+                                .zip(b_bits)
+                                .zip(c_bits)
                                 .map(|((a, b), c)| {
                                     // a(b - c) = ch - c
 
@@ -1758,8 +1758,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                                     let res: Vec<FlatExpression<T>> = a_bits
                                         .into_iter()
-                                        .zip(b_bits.into_iter())
-                                        .zip(c_bits.into_iter())
+                                        .zip(b_bits)
+                                        .zip(c_bits)
                                         .map(|((a, b), c)| {
                                             // (b) * (c) = (bc)
                                             // (2bc - b - c) * (a) = bc - maj
@@ -1861,7 +1861,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let and: Vec<_> = left_bits
                     .into_iter()
-                    .zip(right_bits.into_iter())
+                    .zip(right_bits)
                     .map(|(x, y)| match (x, y) {
                         (FlatExpression::Value(n), e) | (e, FlatExpression::Value(n)) => {
                             if n.value == T::from(0) {
@@ -1895,7 +1895,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let or: Vec<FlatExpression<T>> = left_bits
                     .into_iter()
-                    .zip(right_bits.into_iter())
+                    .zip(right_bits)
                     .map(|(x, y)| match (x, y) {
                         (FlatExpression::Value(n), e) | (e, FlatExpression::Value(n)) => {
                             if n.value == T::from(0) {

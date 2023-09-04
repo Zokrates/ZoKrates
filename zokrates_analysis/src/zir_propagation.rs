@@ -64,12 +64,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         &mut self,
         f: ZirFunction<'ast, T>,
     ) -> Result<ZirFunction<'ast, T>, Self::Error> {
+        let (arguments, inputs) = f
+            .arguments
+            .into_iter()
+            .zip(f.signature.inputs.iter().cloned())
+            .filter(|(p, _)| !self.constants.contains_key(&p.id.id))
+            .unzip();
         Ok(ZirFunction {
-            arguments: f
-                .arguments
-                .into_iter()
-                .filter(|p| !self.constants.contains_key(&p.id.id))
-                .collect(),
+            arguments,
             statements: f
                 .statements
                 .into_iter()
@@ -78,7 +80,28 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 .into_iter()
                 .flatten()
                 .collect(),
-            ..f
+            signature: f.signature.inputs(inputs),
+        })
+    }
+
+    fn fold_assembly_block(
+        &mut self,
+        s: zokrates_ast::zir::AssemblyBlockStatement<'ast, T>,
+    ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
+        let block: Vec<_> = s
+            .inner
+            .into_iter()
+            .map(|s| self.fold_assembly_statement(s))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        Ok(match block.is_empty() {
+            true => vec![],
+            false => vec![ZirStatement::Assembly(
+                zokrates_ast::zir::AssemblyBlockStatement::new(block),
+            )],
         })
     }
 

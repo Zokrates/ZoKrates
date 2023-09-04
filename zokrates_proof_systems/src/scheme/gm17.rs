@@ -136,7 +136,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for GM17 {
     }
 }
 
-const CONTRACT_TEMPLATE: &str = r#"
+const CONTRACT_TEMPLATE: &str = r"
 contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
@@ -196,4 +196,4 @@ contract Verifier {
         }
     }
 }
-"#;
+";

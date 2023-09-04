@@ -510,6 +510,38 @@ pub struct ArgumentFinder<'ast, T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for ArgumentFinder<'ast, T> {
+    fn fold_assembly_block(
+        &mut self,
+        s: zir::AssemblyBlockStatement<'ast, T>,
+    ) -> Vec<zir::ZirStatement<'ast, T>> {
+        let mut statements: Vec<_> = s
+            .inner
+            .into_iter()
+            .rev()
+            .flat_map(|s| self.fold_assembly_statement(s))
+            .collect();
+        statements.reverse();
+        vec![zir::ZirStatement::Assembly(
+            zir::AssemblyBlockStatement::new(statements),
+        )]
+    }
+
+    fn fold_assembly_assignment(
+        &mut self,
+        s: zir::AssemblyAssignment<'ast, T>,
+    ) -> Vec<zir::ZirAssemblyStatement<'ast, T>> {
+        let assignees: Vec<zir::ZirAssignee<'ast>> = s
+            .assignee
+            .into_iter()
+            .map(|v| self.fold_assignee(v))
+            .collect();
+        let expr = self.fold_function(s.expression);
+        for a in &assignees {
+            self.identifiers.remove(&a.id);
+        }
+        vec![zir::ZirAssemblyStatement::assignment(assignees, expr)]
+    }
+
     fn fold_statement(&mut self, s: zir::ZirStatement<'ast, T>) -> Vec<zir::ZirStatement<'ast, T>> {
         match s {
             zir::ZirStatement::Definition(s) => {
@@ -620,7 +652,7 @@ fn fold_statement<'ast, T: Field>(
             let e = f.fold_expression(statements_buffer, e);
             assert_eq!(a.len(), e.len());
             a.into_iter()
-                .zip(e.into_iter())
+                .zip(e)
                 .map(|(a, e)| zir::ZirStatement::definition(a, e))
                 .collect()
         }
@@ -991,7 +1023,7 @@ fn fold_conditional_expression<'ast, T: Field, E: Flatten<'ast, T>>(
 
     consequence
         .into_iter()
-        .zip(alternative.into_iter())
+        .zip(alternative)
         .map(|(c, a)| match (c, a) {
             (zir::ZirExpression::FieldElement(c), zir::ZirExpression::FieldElement(a)) => {
                 zir::FieldElementExpression::conditional(condition.clone(), c, a)

@@ -1,0 +1,5 @@
+{
+  "entry_point": "./tests/tests/constants/propagate_embed.zok",
+  "max_constraint_count": 2,
+  "tests": []
+}
