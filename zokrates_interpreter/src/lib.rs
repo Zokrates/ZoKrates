@@ -434,7 +434,7 @@ mod tests {
         #[test]
         fn execute() {
             let cond_eq = Solver::ConditionEq;
-            let inputs = vec![0];
+            let inputs = [0];
             let r = Interpreter::execute_solver(
                 &cond_eq,
                 &inputs
@@ -444,14 +444,14 @@ mod tests {
                 &[],
             )
             .unwrap();
-            let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
+            let res: Vec<Bn128Field> = [0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
 
         #[test]
         fn execute_non_eq() {
             let cond_eq = Solver::ConditionEq;
-            let inputs = vec![1];
+            let inputs = [1];
             let r = Interpreter::execute_solver(
                 &cond_eq,
                 &inputs
@@ -461,7 +461,7 @@ mod tests {
                 &[],
             )
             .unwrap();
-            let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
+            let res: Vec<Bn128Field> = [1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
     }
