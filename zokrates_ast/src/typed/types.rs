@@ -1377,7 +1377,7 @@ pub mod signature {
 
             constants.0.extend(
                 decl_generics
-                    .zip(values.into_iter())
+                    .zip(values)
                     .filter_map(|(g, v)| v.map(|v| (g, v))),
             );
 
