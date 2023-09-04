@@ -1,11 +1,11 @@
 {
   "entry_point": "./tests/tests/range_check/assert_le_u8.zok",
-  "max_constraint_count": 12,
+  "max_constraint_count": 31,
   "curves": ["Bn128"],
   "tests": [
     {
       "input": {
-        "values": ["0x00"]
+        "values": ["0x01", "0x02"]
       },
       "output": {
         "Ok": {
@@ -15,7 +15,7 @@
     },
     {
       "input": {
-        "values": ["0x01"]
+        "values": ["0x02", "0x02"]
       },
       "output": {
         "Ok": {
@@ -25,17 +25,7 @@
     },
     {
       "input": {
-        "values": ["0x02"]
-      },
-      "output": {
-        "Ok": {
-          "value": []
-        }
-      }
-    },
-    {
-      "input": {
-        "values": ["0x0f"]
+        "values": ["0x04", "0x02"]
       },
       "output": {
         "Err": {

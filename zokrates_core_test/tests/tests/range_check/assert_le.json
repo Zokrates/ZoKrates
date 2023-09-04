@@ -1,11 +1,11 @@
 {
   "entry_point": "./tests/tests/range_check/assert_le.zok",
-  "max_constraint_count": 5,
+  "max_constraint_count": 763,
   "curves": ["Bn128"],
   "tests": [
     {
       "input": {
-        "values": ["1"]
+        "values": ["1", "2"]
       },
       "output": {
         "Ok": {
@@ -15,7 +15,7 @@
     },
     {
       "input": {
-        "values": ["2"]
+        "values": ["2", "2"]
       },
       "output": {
         "Ok": {
@@ -25,7 +25,23 @@
     },
     {
       "input": {
-        "values": ["3"]
+        "values": [
+          "1",
+          "7237005577332262213973186563042994240829374041602535252466099000494570602495"
+        ]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [
+          "7237005577332262213973186563042994240829374041602535252466099000494570602495",
+          "1"
+        ]
       },
       "output": {
         "Err": {
@@ -45,20 +61,30 @@
     },
     {
       "input": {
-        "values": ["15"]
+        "values": [
+          "1",
+          "7237005577332262213973186563042994240829374041602535252466099000494570602496"
+        ]
       },
       "output": {
         "Err": {
           "UnsatisfiedConstraint": {
-            "error": {
-              "SourceAssertion": {
-                "file": "./tests/tests/range_check/assert_le.zok",
-                "position": {
-                  "line": 2,
-                  "col": 5
-                }
-              }
-            }
+            "error": "IncompleteDynamicRange"
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [
+          "7237005577332262213973186563042994240829374041602535252466099000494570602496",
+          "1"
+        ]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": "IncompleteDynamicRange"
           }
         }
       }
