@@ -907,7 +907,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     ))
                 } else {
                     Ok(ConditionalOrExpression::Conditional(
-                        ConditionalExpression::new(condition, consequence, alternative),
+                        ConditionalExpression::new(condition, consequence, alternative)
+                            .span(e.span),
                     ))
                 }
             }
