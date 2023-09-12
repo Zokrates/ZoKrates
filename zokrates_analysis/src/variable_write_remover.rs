@@ -101,6 +101,7 @@ impl<'ast> VariableWriteRemover {
                                             .span(span),
                                             ConditionalKind::IfElse,
                                         )
+                                        .span(span)
                                         .into(),
                                         Type::Struct(..) => StructExpression::conditional(
                                             BooleanExpression::uint_eq(
@@ -113,7 +114,6 @@ impl<'ast> VariableWriteRemover {
                                                     base.clone(),
                                                     UExpression::from(i).span(span),
                                                 )
-                                                .span(span)
                                                 .span(span)
                                                 .into(),
                                                 tail.clone(),
@@ -134,6 +134,7 @@ impl<'ast> VariableWriteRemover {
                                             .span(span),
                                             ConditionalKind::IfElse,
                                         )
+                                        .span(span)
                                         .into(),
                                         Type::Tuple(..) => TupleExpression::conditional(
                                             BooleanExpression::uint_eq(
@@ -166,6 +167,7 @@ impl<'ast> VariableWriteRemover {
                                             .span(span),
                                             ConditionalKind::IfElse,
                                         )
+                                        .span(span)
                                         .into(),
                                         Type::FieldElement => FieldElementExpression::conditional(
                                             BooleanExpression::uint_eq(
@@ -198,6 +200,7 @@ impl<'ast> VariableWriteRemover {
                                             .span(span),
                                             ConditionalKind::IfElse,
                                         )
+                                        .span(span)
                                         .into(),
                                         Type::Boolean => BooleanExpression::conditional(
                                             BooleanExpression::uint_eq(
@@ -230,6 +233,7 @@ impl<'ast> VariableWriteRemover {
                                             .span(span),
                                             ConditionalKind::IfElse,
                                         )
+                                        .span(span)
                                         .into(),
                                         Type::Uint(..) => UExpression::conditional(
                                             BooleanExpression::uint_eq(
@@ -262,10 +266,12 @@ impl<'ast> VariableWriteRemover {
                                             .span(span),
                                             ConditionalKind::IfElse,
                                         )
+                                        .span(span)
                                         .into(),
                                     })
                                     .collect::<Vec<_>>(),
                             )
+                            .span(span)
                             .annotate(ArrayType::new(inner_ty.clone(), size))
                             .into()
                         }
@@ -394,6 +400,7 @@ impl<'ast> VariableWriteRemover {
                                 })
                                 .collect(),
                         )
+                        .span(span)
                         .annotate(members)
                         .into(),
                         _ => unreachable!(),
@@ -512,6 +519,7 @@ impl<'ast> VariableWriteRemover {
                                 })
                                 .collect(),
                         )
+                        .span(span)
                         .annotate(tuple_ty)
                         .into(),
                         _ => unreachable!(),
