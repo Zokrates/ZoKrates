@@ -39,12 +39,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ExpressionValidator {
     ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
         match e {
             // these should have been propagated away
-            FieldElementExpression::And(_)
+            FieldElementExpression::IDiv(_)
+            | FieldElementExpression::Rem(_)
+            | FieldElementExpression::And(_)
             | FieldElementExpression::Or(_)
             | FieldElementExpression::Xor(_)
             | FieldElementExpression::LeftShift(_)
             | FieldElementExpression::RightShift(_) => Err(Error(format!(
-                "Found non-constant bitwise operation in field element expression `{}`",
+                "Field element expression `{}` must be a constant expression",
                 e
             ))),
             FieldElementExpression::Pow(e) => {

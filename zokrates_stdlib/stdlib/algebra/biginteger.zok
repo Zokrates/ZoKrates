@@ -1,0 +1,198 @@
+import "utils/pack/bool/unpack_unchecked" as unpack;
+import "utils/casts/u32_to_field" as u32_to_field;
+from "./biginteger_util" import split, split2, ilog2;
+
+const u32 LIMB_BITWIDTH = 32;
+
+struct BigInteger<N> {
+    field[N] limbs;
+}
+
+// Construct a big integer from `N` limbs
+// Note: inheriting circuits need to constrain the limbs to be in the correct bit width
+def bigint_from_limbs<N, M>(field[N] limbs) -> BigInteger<M> {
+    assert(M >= N, "invalid number of limbs");
+    return BigInteger { limbs: [...limbs, ...[0; M-N]] };
+}
+
+// Construct a big integer from `N` u32 limbs
+def bigint_from_u32_limbs<N, M>(u32[N] limbs) -> BigInteger<M> {
+    assert(M >= N, "invalid number of limbs");
+    field[N] mut f = [0; N];
+    for u32 i in 0..N {
+        f[i] = u32_to_field(limbs[i]);
+    }
+    return bigint_from_limbs(f);
+}
+
+// Expand big integer from `N` limbs to `M` limbs
+def bigint_expand<N, M>(BigInteger<N> input) -> BigInteger<M> {
+    BigInteger<M> r = bigint_from_limbs(input.limbs);
+    return r;
+}
+
+// Big integer addition (a + b)
+// The output has N+1 limbs where the Nth (0-indexed) limb is the carry value
+def bigint_add<N, M>(BigInteger<N> a, BigInteger<N> b) -> BigInteger<M> {
+    assert(M == N + 1);
+    BigInteger<M> mut c = bigint_from_limbs([0; N]);
+    field mut carry = 0;
+    for u32 i in 0..N {
+        field sum = a.limbs[i] + b.limbs[i] + carry;
+        bool[LIMB_BITWIDTH + 1] bits = unpack(sum);
+        carry = bits[0] ? 1 : 0;
+        c.limbs[i] = sum - carry * (1 << LIMB_BITWIDTH);
+    }
+    c.limbs[N] = carry;
+    return c;
+}
+
+// Big integer addition (a + b)
+// Note: last carry is ignored
+def bigint_add_no_carry<N>(BigInteger<N> a, BigInteger<N> b) -> BigInteger<N> {
+    BigInteger<N> mut c = bigint_from_limbs([0; N]);
+    field mut carry = 0;
+    for u32 i in 0..N {
+        field sum = a.limbs[i] + b.limbs[i] + carry;
+        bool[LIMB_BITWIDTH + 1] bits = unpack(sum);
+        carry = bits[0] ? 1 : 0;
+        c.limbs[i] = sum - carry * (1 << LIMB_BITWIDTH);
+    }
+    return c;
+}
+
+// Big integer subtraction (a - b)
+// Note: assumes a >= b
+def bigint_sub<N>(BigInteger<N> a, BigInteger<N> b) -> BigInteger<N> {
+    BigInteger<N> mut c = bigint_from_limbs([0; N]);
+    field mut borrow = 0;
+    for u32 i in 0..N {
+        c.limbs[i] = borrow * (1 << LIMB_BITWIDTH) + (a.limbs[i] - b.limbs[i]);
+        bool[LIMB_BITWIDTH + 1] bits = unpack(a.limbs[i] + (1 << LIMB_BITWIDTH) - b.limbs[i]);
+        borrow = 1 - (bits[0] ? 1 : 0);
+    }
+    return c;
+}
+
+// Big integer multiplication (a * b)
+def bigint_mul<N, M>(BigInteger<N> a, BigInteger<N> b) -> BigInteger<M> {
+    assert(M == 2 * N);
+
+    u32 K = M - 1;
+    field[K] mut ovf = [0; K];
+    for u32 i in 0..N {
+        for u32 j in 0..N {
+            ovf[i + j] = ovf[i + j] + (a.limbs[i] * b.limbs[j]);
+        }
+    }
+   
+    field[K] mut a_poly = [0; K];
+    field[K] mut b_poly = [0; K];
+    field[K] mut c_poly = [0; K];
+
+    for u32 i in 0..K {
+        field i_field = u32_to_field(i);
+        for u32 j in 0..K {
+            c_poly[i] = c_poly[i] + ovf[j] * (i_field ** j);
+        }
+        for u32 j in 0..N {
+            a_poly[i] = a_poly[i] + a.limbs[j] * (i_field ** j); 
+            b_poly[i] = b_poly[i] + b.limbs[j] * (i_field ** j);
+        }
+        assert(c_poly[i] == a_poly[i] * b_poly[i]);
+    }
+
+    field[K][3] mut split = [[0; 3]; K];
+    for u32 i in 0..K {
+        asm {
+            split[i] <-- [
+                (ovf[i] % (1 << LIMB_BITWIDTH)),
+                (ovf[i] \ (1 << LIMB_BITWIDTH)) % (1 << LIMB_BITWIDTH),
+                (ovf[i] \ (1 << LIMB_BITWIDTH * 2)) % (1 << LIMB_BITWIDTH)
+            ];
+        }
+    }
+
+    field[K] mut acc = [0; K];
+    field[K] mut carry = [0; K];
+
+    acc[0] = split[0][0];
+    acc[1] = K == 1 ? split[0][1] : acc[1];
+
+    field[2] sum_and_carry = K > 1 ? split::<LIMB_BITWIDTH>(split[0][1] + split[1][0]) : [acc[1], carry[1]];
+    acc[1] = sum_and_carry[0];
+    carry[1] = sum_and_carry[1];
+
+    acc[2] = K == 2 ? split[1][1] + split[0][2] + carry[1] : acc[2];
+    (field[K], field[K]) tmp = K > 2 ? split2::<K, LIMB_BITWIDTH>(acc, carry, split) : (acc, carry);
+
+    BigInteger<M> mut out = bigint_from_limbs(tmp.0);
+    carry = tmp.1;
+    out.limbs[K] = split[K-1][1] + split[K-2][2] + carry[K-1];
+
+    // out range check
+    for u32 i in 0..M {
+        assert(out.limbs[i] < (1 << LIMB_BITWIDTH));
+    }
+
+    // running carry range checks
+    field[K] mut running_carry = [0; K];
+    asm {
+        running_carry[0] <-- (ovf[0] - out.limbs[0]) / (1 << LIMB_BITWIDTH);
+        running_carry[0] * (1 << LIMB_BITWIDTH) === ovf[0] - out.limbs[0];
+    }
+
+    u32 logk = ilog2(K);
+    assert(running_carry[0] < (1 << (LIMB_BITWIDTH + logk)));
+
+    for u32 i in 1..K {
+        asm {
+            running_carry[i] <-- (ovf[i] - out.limbs[i] + running_carry[i-1]) / (1 << LIMB_BITWIDTH);
+            running_carry[i] * (1 << LIMB_BITWIDTH) === ovf[i] - out.limbs[i] + running_carry[i-1];
+        }
+        assert(running_carry[i] < (1 << (LIMB_BITWIDTH + logk)));
+    }
+
+    assert(running_carry[K - 1] == out.limbs[K]);
+    return out;
+}
+
+// Right shift by `n` limbs
+def bigint_rshift_limb<N>(BigInteger<N> mut a, u32 n) -> BigInteger<N> {
+    assert(n < N);
+    for u32 i in 0..N-n {
+        a.limbs[i] = a.limbs[i + n];
+    }
+    for u32 i in N-n..N {
+        a.limbs[i] = 0;
+    }
+    return a;
+}
+
+// Left shift by `n` limbs
+def bigint_lshift_limb<N>(BigInteger<N> mut a, u32 n) -> BigInteger<N> {
+    assert(n < N);
+    for u32 i in 0..N-n {
+        u32 j = N - i - 1;
+        a.limbs[j] = a.limbs[j - n];
+    }
+    for u32 i in 0..n {
+        a.limbs[i] = 0;
+    }
+    return a;
+}
+
+// Check equality of two big integers
+def bigint_eq<N>(BigInteger<N> a, BigInteger<N> b) -> bool {
+    bool mut eq = true;
+    for u32 i in 0..N {
+        eq = eq && (a.limbs[i] == b.limbs[i]);
+    }
+    return eq;
+}
+
+// Check if a big integer is equal to 0
+def bigint_is_zero<N>(BigInteger<N> a) -> bool {
+    BigInteger<N> zero = bigint_from_limbs([0; N]);
+    return bigint_eq(a, zero);
+}

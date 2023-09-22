@@ -2616,9 +2616,35 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     (t1, t2) => Err(ErrorInner {
                         span: Some(span),
-
                         message: format!(
                             "Cannot apply `/` to {}, {}",
+                            t1.get_type(),
+                            t2.get_type()
+                        ),
+                    }),
+                }
+            }
+            Expression::IDiv(e1, e2) => {
+                let e1_checked = self.check_expression(*e1, module_id, types)?;
+                let e2_checked = self.check_expression(*e2, module_id, types)?;
+
+                use self::TypedExpression::*;
+
+                let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
+                    e1_checked, e2_checked,
+                )
+                .map_err(|(e1, e2)| ErrorInner {
+                    span: Some(span),
+                    message: format!("Cannot apply `\\` to {}, {}", e1.get_type(), e2.get_type()),
+                })?;
+
+                match (e1_checked, e2_checked) {
+                    (Int(e1), Int(e2)) => Ok(IntExpression::idiv(e1, e2).into()),
+                    (FieldElement(e1), FieldElement(e2)) => Ok(FieldElementExpression::idiv(e1, e2).into()),
+                    (t1, t2) => Err(ErrorInner {
+                        span: Some(span),
+                        message: format!(
+                            "Cannot apply `\\` to {}, {}",
                             t1.get_type(),
                             t2.get_type()
                         ),
@@ -2638,6 +2664,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 })?;
 
                 match (e1_checked, e2_checked) {
+                    (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
+                        Ok((e1 % e2).into())
+                    }
+                    (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
+                        Ok((e1 % e2).into())
+                    }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
                     {

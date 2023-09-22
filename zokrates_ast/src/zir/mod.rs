@@ -716,6 +716,8 @@ pub enum FieldElementExpression<'ast, T> {
     Sub(BinaryExpression<OpSub, Self, Self, Self>),
     Mult(BinaryExpression<OpMul, Self, Self, Self>),
     Div(BinaryExpression<OpDiv, Self, Self, Self>),
+    IDiv(BinaryExpression<OpIDiv, Self, Self, Self>),
+    Rem(BinaryExpression<OpRem, Self, Self, Self>),
     Pow(BinaryExpression<OpPow, Self, UExpression<'ast, T>, Self>),
     And(BinaryExpression<OpAnd, Self, Self, Self>),
     Or(BinaryExpression<OpOr, Self, Self, Self>),
@@ -728,6 +730,10 @@ pub enum FieldElementExpression<'ast, T> {
 impl<'ast, T> FieldElementExpression<'ast, T> {
     pub fn number(n: T) -> Self {
         Self::Value(ValueExpression::new(n))
+    }
+
+    pub fn idiv(self, right: Self) -> Self {
+        Self::IDiv(BinaryExpression::new(self, right))
     }
 
     pub fn pow(self, right: UExpression<'ast, T>) -> Self {
@@ -778,6 +784,14 @@ impl<'ast, T: Field> std::ops::BitXor for FieldElementExpression<'ast, T> {
 
     fn bitxor(self, other: Self) -> Self {
         FieldElementExpression::Xor(BinaryExpression::new(self, other))
+    }
+}
+
+impl<'ast, T: Field> std::ops::Rem for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn rem(self, other: Self) -> Self {
+        FieldElementExpression::Rem(BinaryExpression::new(self, other))
     }
 }
 
@@ -889,6 +903,8 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Sub(ref e) => write!(f, "{}", e),
             FieldElementExpression::Mult(ref e) => write!(f, "{}", e),
             FieldElementExpression::Div(ref e) => write!(f, "{}", e),
+            FieldElementExpression::IDiv(ref e) => write!(f, "{}", e),
+            FieldElementExpression::Rem(ref e) => write!(f, "{}", e),
             FieldElementExpression::Pow(ref e) => write!(f, "{}", e),
             FieldElementExpression::And(ref e) => write!(f, "{}", e),
             FieldElementExpression::Or(ref e) => write!(f, "{}", e),
@@ -1342,6 +1358,8 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Sub(e) => Sub(e.span(span)),
             Mult(e) => Mult(e.span(span)),
             Div(e) => Div(e.span(span)),
+            IDiv(e) => IDiv(e.span(span)),
+            Rem(e) => Rem(e.span(span)),
             Pow(e) => Pow(e.span(span)),
             And(e) => And(e.span(span)),
             Or(e) => Or(e.span(span)),
@@ -1362,6 +1380,8 @@ impl<'ast, T> WithSpan for FieldElementExpression<'ast, T> {
             Sub(e) => e.get_span(),
             Mult(e) => e.get_span(),
             Div(e) => e.get_span(),
+            IDiv(e) => e.get_span(),
+            Rem(e) => e.get_span(),
             Pow(e) => e.get_span(),
             And(e) => e.get_span(),
             Or(e) => e.get_span(),

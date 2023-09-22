@@ -1,0 +1,6 @@
+from "algebra/biginteger" import BigInteger, bigint_lshift_limb;
+
+def main(BigInteger<2> a) -> BigInteger<2> {
+    BigInteger<2> c = bigint_lshift_limb(a, 1);
+    return c;
+}

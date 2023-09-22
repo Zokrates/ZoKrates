@@ -1,0 +1,6 @@
+from "algebra/biginteger" import BigInteger, bigint_add;
+
+def main(BigInteger<2> a, BigInteger<2> b) -> BigInteger<3> {
+    BigInteger<3> c = bigint_add::<2, 3>(a, b);
+    return c;
+}

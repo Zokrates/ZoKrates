@@ -1,0 +1,6 @@
+from "algebra/biginteger" import BigInteger, bigint_expand;
+
+def main(BigInteger<2> a) -> BigInteger<4> {
+    BigInteger<4> b = bigint_expand(a);
+    return b;
+}

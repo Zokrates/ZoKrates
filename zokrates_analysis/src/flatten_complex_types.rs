@@ -1101,6 +1101,12 @@ fn fold_field_expression<'ast, T: Field>(
         typed::FieldElementExpression::Div(e) => {
             zir::FieldElementExpression::Div(f.fold_binary_expression(statements_buffer, e))
         }
+        typed::FieldElementExpression::IDiv(e) => {
+            zir::FieldElementExpression::IDiv(f.fold_binary_expression(statements_buffer, e))
+        }
+        typed::FieldElementExpression::Rem(e) => {
+            zir::FieldElementExpression::Rem(f.fold_binary_expression(statements_buffer, e))
+        }
         typed::FieldElementExpression::Pow(e) => {
             zir::FieldElementExpression::Pow(f.fold_binary_expression(statements_buffer, e))
         }

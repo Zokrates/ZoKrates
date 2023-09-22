@@ -4,6 +4,7 @@ use crate::ir::Parameter;
 use crate::ir::ProgIterator;
 use crate::ir::Statement;
 use crate::ir::Variable;
+use crate::Solver;
 use std::collections::HashSet;
 use zokrates_field::Field;
 
@@ -46,7 +47,10 @@ impl<'ast, T: Field> Folder<'ast, T> for UnconstrainedVariableDetector {
         &mut self,
         d: DirectiveStatement<'ast, T>,
     ) -> Vec<Statement<'ast, T>> {
-        self.variables.extend(d.outputs.iter());
+        match d.solver {
+            Solver::Zir(_) => {} // we do not check variables introduced by assembly
+            _ => self.variables.extend(d.outputs.iter()), // this is not necessary, but we keep it as a sanity check
+        };
         vec![Statement::Directive(d)]
     }
 }
