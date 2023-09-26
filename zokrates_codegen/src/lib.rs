@@ -2262,6 +2262,80 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 inverse.into()
             }
+            FieldElementExpression::IDiv(e) => {
+                let left_flattened = self.flatten_field_expression(statements_flattened, *e.left);
+                let right_flattened = self.flatten_field_expression(statements_flattened, *e.right);
+                let new_left: FlatExpression<T> = {
+                    let id = self.use_sym();
+                    statements_flattened.push_back(FlatStatement::definition(id, left_flattened));
+                    id.into()
+                };
+                let new_right: FlatExpression<T> = {
+                    let id = self.use_sym();
+                    statements_flattened.push_back(FlatStatement::definition(id, right_flattened));
+                    id.into()
+                };
+
+                // q is the quotient and r is the remainder
+                // we simply need to constrain `a = b * q + r` and `0 <= r < b` to hold
+                let q = self.use_sym();
+                let r = self.use_sym();
+
+                // # q, r = a \ b
+                statements_flattened.push_back(FlatStatement::directive(
+                    vec![q, r],
+                    Solver::EuclideanDiv,
+                    vec![new_left.clone(), new_right.clone()],
+                ));
+
+                // q * b == a - r
+                statements_flattened.push_back(FlatStatement::condition(
+                    FlatExpression::sub(new_left, r.into()),
+                    FlatExpression::mul(q.into(), new_right),
+                    RuntimeError::Euclidean,
+                ));
+
+                // todo: enforce `r < b`
+
+                q.into()
+            }
+            FieldElementExpression::Rem(e) => {
+                let left_flattened = self.flatten_field_expression(statements_flattened, *e.left);
+                let right_flattened = self.flatten_field_expression(statements_flattened, *e.right);
+                let new_left: FlatExpression<T> = {
+                    let id = self.use_sym();
+                    statements_flattened.push_back(FlatStatement::definition(id, left_flattened));
+                    id.into()
+                };
+                let new_right: FlatExpression<T> = {
+                    let id = self.use_sym();
+                    statements_flattened.push_back(FlatStatement::definition(id, right_flattened));
+                    id.into()
+                };
+
+                // q is the quotient and r is the remainder
+                // we simply need to constrain `a = b * q + r` and `0 <= r < b` to hold
+                let q = self.use_sym();
+                let r = self.use_sym();
+
+                // # q, r = a \ b
+                statements_flattened.push_back(FlatStatement::directive(
+                    vec![q, r],
+                    Solver::EuclideanDiv,
+                    vec![new_left.clone(), new_right.clone()],
+                ));
+
+                // q * b == a - r
+                statements_flattened.push_back(FlatStatement::condition(
+                    FlatExpression::sub(new_left, r.into()),
+                    FlatExpression::mul(q.into(), new_right),
+                    RuntimeError::Euclidean,
+                ));
+
+                // todo: enforce `r < b`
+
+                r.into()
+            }
             FieldElementExpression::Pow(e) => {
                 match e.right.into_inner() {
                     UExpressionInner::Value(ref exp) => {

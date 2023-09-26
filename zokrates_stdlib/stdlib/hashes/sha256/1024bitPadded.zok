@@ -7,7 +7,7 @@ def main(u32[8] a, u32[8] b, u32[8] c, u32[8] d) -> u32[8] {
     // Hash is computed on the full 1024bit block size
     // padding does not fit in the first two blocks
     // add dummy block (single "1" followed by "0" + total length)
-    u32[8] dummyblock1 = [ \
+    u32[8] dummyblock1 = [
         0x80000000,
         0x00000000,
         0x00000000,
@@ -18,7 +18,7 @@ def main(u32[8] a, u32[8] b, u32[8] c, u32[8] d) -> u32[8] {
         0x00000000
     ];
 
-    u32[8] dummyblock2 = [ \
+    u32[8] dummyblock2 = [
         0x00000000,
         0x00000000,
         0x00000000,

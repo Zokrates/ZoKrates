@@ -4,13 +4,13 @@ def check<N>(bool[N] conditions, bool[N] expected) -> bool[3] {
 }
 
 def main(bool[3] conditions) -> bool[3] {
-    return conditions[0] ? \
-        conditions[1] ? \
-        conditions[2] ? check(conditions, [true, true, true]) : check(conditions, [true, true, false]) : \
-        conditions[2] ? check(conditions, [true, false, true]) : \
-        check(conditions, [true, false, false]) : \
-        conditions[1] ? \
-        conditions[2] ? check(conditions, [false, true, true]) : check(conditions, [false, true, false]) : \
-        conditions[2] ? check(conditions, [false, false, true]) : \
+    return conditions[0] ?
+        conditions[1] ?
+        conditions[2] ? check(conditions, [true, true, true]) : check(conditions, [true, true, false]) :
+        conditions[2] ? check(conditions, [true, false, true]) :
+        check(conditions, [true, false, false]) :
+        conditions[1] ?
+        conditions[2] ? check(conditions, [false, true, true]) : check(conditions, [false, true, false]) :
+        conditions[2] ? check(conditions, [false, false, true]) :
         check(conditions, [false, false, false]);
 }

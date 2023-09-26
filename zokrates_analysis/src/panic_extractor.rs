@@ -89,6 +89,25 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 );
                 FieldElementExpression::div(n, d)
             }
+            FieldElementExpression::IDiv(e) => {
+                let n = self.fold_field_expression(*e.left);
+                let d = self.fold_field_expression(*e.right);
+                self.panic_buffer.push(
+                    ZirStatement::assertion(
+                        BooleanExpression::not(
+                            BooleanExpression::field_eq(
+                                d.clone().span(span),
+                                FieldElementExpression::value(T::zero()).span(span),
+                            )
+                            .span(span),
+                        )
+                        .span(span),
+                        RuntimeError::DivisionByZero,
+                    )
+                    .span(span),
+                );
+                FieldElementExpression::idiv(n, d)
+            }
             e => fold_field_expression_cases(self, e),
         }
     }
