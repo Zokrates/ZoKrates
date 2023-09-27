@@ -4,7 +4,7 @@ import "./unpack_unchecked";
 // Note: uniqueness of the output is not guaranteed
 // For example, `0` can map to `[0, 0, ..., 0]` or to `bits(p)`
 def main(field i, u32 bit_size) -> bool[256] {
-    assert(bit_size == 254 || bit_size == 255);
+    assert(bit_size <= 256);
     u32 padding_size = 256 - bit_size;
     bool[bit_size] b = unpack_unchecked(i);
     return [...[false; padding_size], ...b];
