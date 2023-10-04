@@ -1,5 +1,5 @@
 from "ecc/edwards" import scalarMul as mul;
-from "ecc/babyjubjub/params" import G, EDWARDS_A, EDWARDS_D;
+from "ecc/babyjubjub" import G, EDWARDS_A, EDWARDS_D;
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto
