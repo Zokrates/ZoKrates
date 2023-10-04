@@ -21,6 +21,9 @@ from "ecc/edwards" import add, scalarMul, onCurve, orderCheck;
 ///    A: Curve point. Public part of the key used to create S.
 ///    M0: 256bit array. First 256bits of the message used to create S.
 ///    M1: 256bit array. Trailing 256bits of the message used to create S.
+///    EDWARDS_A: Coefficient `a` of the twisted Edwards curve
+///    EDWARDS_D: Coefficient `d` of the twisted Edwards curve
+///    bit_size: Bit size of the twisted Edwards curve
 ///
 /// Returns:
 ///     Return true for S being a valid EdDSA Signature, false otherwise.
