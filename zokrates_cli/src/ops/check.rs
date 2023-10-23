@@ -44,11 +44,6 @@ pub fn subcommand() -> App<'static, 'static> {
                 .possible_values(cli_constants::CURVES)
                 .default_value(BN128),
         )
-        .arg(Arg::with_name("isolate-branches")
-            .long("isolate-branches")
-            .help("Isolate the execution of branches: a panic in a branch only makes the program panic if this branch is being logically executed")
-            .required(false)
-        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -94,10 +89,9 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )),
     }?;
 
-    let config =
-        CompileConfig::default().isolate_branches(sub_matches.is_present("isolate-branches"));
-
+    let config = CompileConfig::default();
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
+
     check::<T, _>(source, path, Some(&resolver), &config).map_err(|e| {
         format!(
             "Check failed:\n\n{}",

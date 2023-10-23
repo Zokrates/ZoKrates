@@ -33,7 +33,6 @@ use zokrates_ast::zir::{
     BooleanExpression, Conditional, FieldElementExpression, Identifier, Parameter as ZirParameter,
     UExpression, UExpressionInner, Variable as ZirVariable, ZirExpression, ZirStatement,
 };
-use zokrates_common::CompileConfig;
 use zokrates_field::Field;
 
 /// A container for statements produced during code generation
@@ -80,13 +79,10 @@ impl<'ast, T> IntoIterator for FlatStatements<'ast, T> {
 ///
 /// # Arguments
 /// * `funct` - `ZirFunction` that will be flattened
-pub fn from_program_and_config<T: Field>(
-    prog: ZirProgram<T>,
-    config: CompileConfig,
-) -> FlattenerIterator<T> {
+pub fn from_program_and_config<T: Field>(prog: ZirProgram<T>) -> FlattenerIterator<T> {
     let funct = prog.main;
 
-    let mut flattener = Flattener::new(config);
+    let mut flattener = Flattener::new();
     let mut statements_flattened = FlatStatements::default();
     // push parameters
     let arguments_flattened = funct
@@ -137,7 +133,6 @@ impl<'ast, T: Field> Iterator for FlattenerIteratorInner<'ast, T> {
 /// Flattener, computes flattened program.
 #[derive(Debug)]
 pub struct Flattener<'ast, T> {
-    config: CompileConfig,
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
     /// `Variable`s corresponding to each `Identifier`
@@ -275,9 +270,8 @@ impl<T: Field> FlatUExpression<T> {
 
 impl<'ast, T: Field> Flattener<'ast, T> {
     /// Returns a `Flattener` with fresh `layout`.
-    fn new(config: CompileConfig) -> Flattener<'ast, T> {
+    fn new() -> Flattener<'ast, T> {
         Flattener {
-            config,
             next_var_idx: 0,
             layout: HashMap::new(),
             bits_cache: HashMap::new(),
@@ -571,68 +565,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    fn make_conditional(
-        &mut self,
-        statements: FlatStatements<'ast, T>,
-        condition: FlatExpression<T>,
-    ) -> FlatStatements<'ast, T> {
-        statements
-            .into_iter()
-            .flat_map(|s| match s {
-                FlatStatement::Condition(s) => {
-                    let span = s.get_span();
-
-                    let mut output = FlatStatements::default();
-
-                    output.set_span(span);
-
-                    // we transform (a == b) into (c => (a == b)) which is (!c || (a == b))
-
-                    // let's introduce new variables to make sure everything is linear
-                    let name_lin = self.define(s.lin, &mut output);
-                    let name_quad = self.define(s.quad, &mut output);
-
-                    // let's introduce an expression which is 1 iff `a == b`
-                    let y = FlatExpression::add(
-                        FlatExpression::sub(name_lin.into(), name_quad.into()),
-                        T::one().into(),
-                    ); // let's introduce !c
-                    let x = FlatExpression::sub(T::one().into(), condition.clone());
-                    assert!(x.is_linear() && y.is_linear());
-                    let name_x_or_y = self.use_sym();
-                    output.push_back(FlatStatement::directive(
-                        vec![name_x_or_y],
-                        Solver::Or,
-                        vec![x.clone(), y.clone()],
-                    ));
-                    output.push_back(FlatStatement::condition(
-                        FlatExpression::add(
-                            x.clone(),
-                            FlatExpression::sub(y.clone(), name_x_or_y.into()),
-                        ),
-                        FlatExpression::mul(x, y),
-                        RuntimeError::BranchIsolation,
-                    ));
-                    output.push_back(FlatStatement::condition(
-                        name_x_or_y.into(),
-                        T::one().into(),
-                        s.error,
-                    ));
-
-                    output
-                }
-                s => {
-                    let mut v = FlatStatements::default();
-                    v.push_back(s);
-                    v
-                }
-            })
-            .fold(FlatStatements::default(), |mut acc, s| {
-                acc.push_back(s);
-                acc
-            })
-    }
-
     /// Flatten an if/else expression
     ///
     /// # Arguments
@@ -658,35 +590,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let condition_id = self.use_sym();
         statements_flattened.push_back(FlatStatement::definition(condition_id, condition_flat));
 
-        let (consequence, alternative) = if self.config.isolate_branches {
-            let mut consequence_statements = FlatStatements::default();
-
-            let consequence = consequence.flatten(self, &mut consequence_statements);
-
-            let mut alternative_statements = FlatStatements::default();
-
-            let alternative = alternative.flatten(self, &mut alternative_statements);
-
-            let consequence_statements =
-                self.make_conditional(consequence_statements, condition_id.into());
-            let alternative_statements = self.make_conditional(
-                alternative_statements,
-                FlatExpression::sub(FlatExpression::value(T::one()), condition_id.into()),
-            );
-
-            statements_flattened.extend(consequence_statements);
-            statements_flattened.extend(alternative_statements);
-
-            (consequence, alternative)
-        } else {
-            (
-                consequence.flatten(self, statements_flattened),
-                alternative.flatten(self, statements_flattened),
-            )
-        };
-
-        let consequence = consequence.flat();
-        let alternative = alternative.flat();
+        let consequence = consequence.flatten(self, statements_flattened).flat();
+        let alternative = alternative.flatten(self, statements_flattened).flat();
 
         let consequence_id = self.use_sym();
         statements_flattened.push_back(FlatStatement::definition(consequence_id, consequence));
@@ -2448,34 +2353,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 statements_flattened
                     .push_back(FlatStatement::definition(condition_id, condition_flat));
 
-                if self.config.isolate_branches {
-                    let mut consequence_statements = FlatStatements::default();
-                    let mut alternative_statements = FlatStatements::default();
-
-                    s.consequence
-                        .into_iter()
-                        .for_each(|s| self.flatten_statement(&mut consequence_statements, s));
-                    s.alternative
-                        .into_iter()
-                        .for_each(|s| self.flatten_statement(&mut alternative_statements, s));
-
-                    let consequence_statements =
-                        self.make_conditional(consequence_statements, condition_id.into());
-                    let alternative_statements = self.make_conditional(
-                        alternative_statements,
-                        FlatExpression::sub(FlatExpression::value(T::one()), condition_id.into()),
-                    );
-
-                    statements_flattened.extend(consequence_statements);
-                    statements_flattened.extend(alternative_statements);
-                } else {
-                    s.consequence
-                        .into_iter()
-                        .for_each(|s| self.flatten_statement(statements_flattened, s));
-                    s.alternative
-                        .into_iter()
-                        .for_each(|s| self.flatten_statement(statements_flattened, s));
-                }
+                s.consequence
+                    .into_iter()
+                    .for_each(|s| self.flatten_statement(statements_flattened, s));
+                s.alternative
+                    .into_iter()
+                    .for_each(|s| self.flatten_statement(statements_flattened, s));
             }
             ZirStatement::Definition(s) => {
                 // define n variables with n the number of primitive types for v_type
@@ -2999,13 +2882,10 @@ mod tests {
     use zokrates_field::Bn128Field;
 
     fn flatten_function<T: Field>(f: ZirFunction<T>) -> FlatProg<T> {
-        from_program_and_config(
-            ZirProgram {
-                main: f,
-                module_map: Default::default(),
-            },
-            CompileConfig::default(),
-        )
+        from_program_and_config(ZirProgram {
+            main: f,
+            module_map: Default::default(),
+        })
         .collect()
     }
 
@@ -3801,7 +3681,6 @@ mod tests {
 
     #[test]
     fn if_else() {
-        let config = CompileConfig::default();
         let expression = FieldElementExpression::conditional(
             BooleanExpression::field_eq(
                 FieldElementExpression::value(Bn128Field::from(32)),
@@ -3811,15 +3690,14 @@ mod tests {
             FieldElementExpression::value(Bn128Field::from(51)),
         );
 
-        let mut flattener = Flattener::new(config);
+        let mut flattener = Flattener::new();
 
         flattener.flatten_field_expression(&mut FlatStatements::default(), expression);
     }
 
     #[test]
     fn geq_leq() {
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(config);
+        let mut flattener = Flattener::new();
         let expression_le = BooleanExpression::field_le(
             FieldElementExpression::value(Bn128Field::from(32)),
             FieldElementExpression::value(Bn128Field::from(4)),
@@ -3829,8 +3707,7 @@ mod tests {
 
     #[test]
     fn bool_and() {
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(config);
+        let mut flattener = Flattener::new();
 
         let expression = FieldElementExpression::conditional(
             BooleanExpression::bitand(
@@ -3853,8 +3730,7 @@ mod tests {
     #[test]
     fn div() {
         // a = 5 / b / b
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(config);
+        let mut flattener = Flattener::new();
         let mut statements_flattened = FlatStatements::default();
 
         let definition = ZirStatement::definition(

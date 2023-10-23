@@ -1,17 +1,48 @@
 {
   "entry_point": "./tests/tests/panics/deep_branch.zok",
   "curves": ["Bn128"],
-  "config": {
-    "isolate_branches": true
-  },
   "tests": [
+    {
+      "input": {
+        "values": [[false, false, false]]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": {
+              "SourceAssertion": {
+                "file": "./tests/tests/panics/deep_branch.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     {
       "input": {
         "values": [[true, true, true]]
       },
       "output": {
-        "Ok": {
-          "value": [true, true, true]
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": {
+              "SourceAssertion": {
+                "file": "./tests/tests/panics/deep_branch.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -20,8 +51,20 @@
         "values": [[false, false, false]]
       },
       "output": {
-        "Ok": {
-          "value": [false, false, false]
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": {
+              "SourceAssertion": {
+                "file": "./tests/tests/panics/deep_branch.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -30,8 +73,20 @@
         "values": [[false, true, false]]
       },
       "output": {
-        "Ok": {
-          "value": [false, true, false]
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": {
+              "SourceAssertion": {
+                "file": "./tests/tests/panics/deep_branch.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -40,8 +95,20 @@
         "values": [[true, false, true]]
       },
       "output": {
-        "Ok": {
-          "value": [true, false, true]
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": {
+              "SourceAssertion": {
+                "file": "./tests/tests/panics/deep_branch.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
+            }
+          }
         }
       }
     }
