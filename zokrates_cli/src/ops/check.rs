@@ -95,10 +95,7 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     check::<T, _>(source, path, Some(&resolver), &config).map_err(|e| {
         format!(
             "Check failed:\n\n{}",
-            e.0.iter()
-                .map(|e| fmt_error(e))
-                .collect::<Vec<_>>()
-                .join("\n\n")
+            e.0.iter().map(fmt_error).collect::<Vec<_>>().join("\n\n")
         )
     })?;
 

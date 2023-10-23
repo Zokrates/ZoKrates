@@ -1,3 +1,6 @@
+// see https://github.com/mcarton/rust-derivative/issues/115
+#![allow(clippy::incorrect_partial_ord_impl_on_ord_type)]
+
 use crate::common::{Span, WithSpan};
 
 use super::variable::Variable;

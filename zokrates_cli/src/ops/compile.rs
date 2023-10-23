@@ -144,10 +144,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         .map_err(|e| {
             format!(
                 "Compilation failed:\n\n{}",
-                e.0.iter()
-                    .map(|e| fmt_error(e))
-                    .collect::<Vec<_>>()
-                    .join("\n\n")
+                e.0.iter().map(fmt_error).collect::<Vec<_>>().join("\n\n")
             )
         })?;
 

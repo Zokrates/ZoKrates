@@ -74,7 +74,7 @@ impl<T: Field> fmt::Display for ConstraintStatement<T> {
             self.error
                 .as_ref()
                 .map(|e| format!(" // {}", e))
-                .unwrap_or_else(|| "".to_string())
+                .unwrap_or_default()
         )
     }
 }
