@@ -1,6 +1,6 @@
 {
-  "entry_point": "./tests/tests/ecc/edwardsOnCurve.zok",
-  "curves": ["Bn128"],
+  "entry_point": "./tests/tests/ecc/jubjub/edwardsOnCurve.zok",
+  "curves": ["Bls12_381"],
   "tests": [
     {
       "input": {

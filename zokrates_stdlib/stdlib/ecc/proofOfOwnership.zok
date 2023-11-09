@@ -1,7 +1,5 @@
-import "ecc/edwardsAdd" as add;
-import "ecc/edwardsScalarMult" as multiply;
 import "utils/pack/bool/nonStrictUnpack256" as unpack256;
-from "ecc/babyjubjubParams" import BabyJubJubParams;
+from "ecc/edwards" import scalarMul;
 
 /// Verifies match of a given public/private keypair.
 ///
@@ -11,18 +9,16 @@ from "ecc/babyjubjubParams" import BabyJubJubParams;
 ///    and * denotes scalar multiplication in the subgroup
 ///
 /// Arguments:
-///    pk: Curve point. Public key.
-///    sk: Field element. Private key.
-///    context: Curve parameters (including generator G) used to create keypair.
+///    pk: Curve point (public key)
+///    sk: Private key
+///    G: Generator point
+///    EDWARDS_A: Coefficient `a` of the twisted Edwards curve
+///    EDWARDS_D: Coefficient `d` of the twisted Edwards curve
+///    bit_size: Bit size of the twisted Edwards curve
 ///
-/// Returns:
-///     Return true for pk/sk being a valid keypair, false otherwise.
-def main(field[2] pk, field sk, BabyJubJubParams context) -> bool {
-    field[2] G = [context.Gu, context.Gv];
-
-    bool[256] skBits = unpack256(sk);
-    field[2] ptExp = multiply(skBits, G, context);
-
-    bool out = ptExp[0] == pk[0] && ptExp[1] == pk[1];
-    return out;
+/// Returns true for pk/sk being a valid keypair, false otherwise.
+def main(field[2] pk, field sk, field[2] G, field EDWARDS_A, field EDWARDS_D, u32 bit_size) -> bool {
+    bool[256] sk_bits = unpack256(sk, bit_size);
+    field[2] res = scalarMul(sk_bits, G, EDWARDS_A, EDWARDS_D);
+    return (res[0] == pk[0] && res[1] == pk[1]);
 }

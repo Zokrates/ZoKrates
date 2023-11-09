@@ -1,5 +1,4 @@
-import "signatures/verifyEddsa" as verifyEddsa;
-from "ecc/babyjubjubParams" import BABYJUBJUB_PARAMS;
+from "ecc/babyjubjub" import verifyEddsa;
 
 // Code to create test case:
 // https://github.com/Zokrates/pycrypto
@@ -13,8 +12,6 @@ def main() {
     u32[8] M0 = [0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000];
     u32[8] M1 = [0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000005];
 
-    bool isVerified = verifyEddsa(R, S, A, M0, M1, BABYJUBJUB_PARAMS);
+    bool isVerified = verifyEddsa(R, S, A, M0, M1);
     assert(isVerified);
-
-    return;
 }

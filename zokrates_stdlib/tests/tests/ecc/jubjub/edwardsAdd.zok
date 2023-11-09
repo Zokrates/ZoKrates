@@ -1,0 +1,25 @@
+from "ecc/edwards" import add, negate;
+from "ecc/jubjub" import G, EDWARDS_A, EDWARDS_D;
+
+def testDoubleViaAdd() -> bool {
+    field[2] out = add(G, G, EDWARDS_A, EDWARDS_D);
+    assert(out[0] == 24354739613603689994794220961510120098878467021907233280927460034349391620123);
+    assert(out[1] == 29483318942286486402737115541242503910259255414069955254009289511391310837461);
+    return true;
+}
+
+def testIdentities() -> bool {
+    field[2] inf = [0, 1];
+    assert(G == add(G, inf, EDWARDS_A, EDWARDS_D));
+    
+    field[2] nG = negate(G);
+    field[2] nGaddG = add(G, nG, EDWARDS_A, EDWARDS_D);
+
+    assert(inf == nGaddG);
+    return true;
+}
+
+def main() {
+    assert(testDoubleViaAdd());
+    assert(testIdentities());
+}

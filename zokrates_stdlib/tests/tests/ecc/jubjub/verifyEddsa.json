@@ -1,6 +1,6 @@
 {
-  "entry_point": "./tests/tests/signatures/verifyEddsa.zok",
-  "curves": ["Bn128"],
+  "entry_point": "./tests/tests/ecc/jubjub/verifyEddsa.zok",
+  "curves": ["Bls12_381"],
   "tests": [
     {
       "input": {

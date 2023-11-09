@@ -1,6 +1,6 @@
 {
-  "entry_point": "./tests/tests/utils/pack/u32/nonStrictUnpack256.zok",
-  "curves": ["Bls12_381"],
+  "entry_point": "./tests/tests/ecc/babyjubjub/edwardsAdd.zok",
+  "curves": ["Bn128"],
   "tests": [
     {
       "input": {

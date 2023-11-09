@@ -1,5 +1,5 @@
 {
-  "entry_point": "./tests/tests/ecc/edwardsOrderCheck.zok",
+  "entry_point": "./tests/tests/ecc/babyjubjub/verifyEddsa.zok",
   "curves": ["Bn128"],
   "tests": [
     {
