@@ -1,0 +1,63 @@
+{
+  "entry_point": "./tests/tests/range_check/assert_le_big_constant.zok",
+  "max_constraint_count": 508,
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [
+          "21888242871839275222246405745257275088548364400416034343698204186575808495614"
+        ]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [
+          "21888242871839275222246405745257275088548364400416034343698204186575808495615"
+        ]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [
+          "21888242871839275222246405745257275088548364400416034343698204186575808495616"
+        ]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": {
+              "SourceAssertion": {
+                "file": "./tests/tests/range_check/assert_le_big_constant.zok",
+                "position": {
+                  "line": 4,
+                  "col": 5
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

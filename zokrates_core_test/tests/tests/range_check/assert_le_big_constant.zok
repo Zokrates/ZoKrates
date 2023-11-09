@@ -1,5 +1,5 @@
 from "field" import FIELD_MAX;
 
 def main(field x) {
-    assert(x > FIELD_MAX - 1);
+    assert(x <= FIELD_MAX - 1);
 }
