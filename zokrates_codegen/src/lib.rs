@@ -82,7 +82,7 @@ impl<'ast, T> IntoIterator for FlatStatements<'ast, T> {
 pub fn from_program_and_config<T: Field>(prog: ZirProgram<T>) -> FlattenerIterator<T> {
     let funct = prog.main;
 
-    let mut flattener = Flattener::new();
+    let mut flattener = Flattener::default();
     let mut statements_flattened = FlatStatements::default();
     // push parameters
     let arguments_flattened = funct
@@ -131,7 +131,7 @@ impl<'ast, T: Field> Iterator for FlattenerIteratorInner<'ast, T> {
 }
 
 /// Flattener, computes flattened program.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Flattener<'ast, T> {
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
@@ -269,15 +269,6 @@ impl<T: Field> FlatUExpression<T> {
 }
 
 impl<'ast, T: Field> Flattener<'ast, T> {
-    /// Returns a `Flattener` with fresh `layout`.
-    fn new() -> Flattener<'ast, T> {
-        Flattener {
-            next_var_idx: 0,
-            layout: HashMap::new(),
-            bits_cache: HashMap::new(),
-        }
-    }
-
     /// Flattens a definition, trying to avoid creating redundant variables
     fn define(
         &mut self,
@@ -3690,14 +3681,14 @@ mod tests {
             FieldElementExpression::value(Bn128Field::from(51)),
         );
 
-        let mut flattener = Flattener::new();
+        let mut flattener = Flattener::default();
 
         flattener.flatten_field_expression(&mut FlatStatements::default(), expression);
     }
 
     #[test]
     fn geq_leq() {
-        let mut flattener = Flattener::new();
+        let mut flattener = Flattener::default();
         let expression_le = BooleanExpression::field_le(
             FieldElementExpression::value(Bn128Field::from(32)),
             FieldElementExpression::value(Bn128Field::from(4)),
@@ -3707,7 +3698,7 @@ mod tests {
 
     #[test]
     fn bool_and() {
-        let mut flattener = Flattener::new();
+        let mut flattener = Flattener::default();
 
         let expression = FieldElementExpression::conditional(
             BooleanExpression::bitand(
@@ -3730,7 +3721,7 @@ mod tests {
     #[test]
     fn div() {
         // a = 5 / b / b
-        let mut flattener = Flattener::new();
+        let mut flattener = Flattener::default();
         let mut statements_flattened = FlatStatements::default();
 
         let definition = ZirStatement::definition(
