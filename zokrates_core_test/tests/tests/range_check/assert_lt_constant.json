@@ -1,6 +1,6 @@
 {
-  "entry_point": "./tests/tests/range_check/assert_ge.zok",
-  "max_constraint_count": 509,
+  "entry_point": "./tests/tests/range_check/assert_lt_constant.zok",
+  "max_constraint_count": 4,
   "curves": ["Bn128"],
   "tests": [
     {
@@ -8,18 +8,8 @@
         "values": ["0"]
       },
       "output": {
-        "Err": {
-          "UnsatisfiedConstraint": {
-            "error": {
-              "SourceAssertion": {
-                "file": "./tests/tests/range_check/assert_ge.zok",
-                "position": {
-                  "line": 2,
-                  "col": 5
-                }
-              }
-            }
-          }
+        "Ok": {
+          "value": []
         }
       }
     },
@@ -28,11 +18,21 @@
         "values": ["1"]
       },
       "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2"]
+      },
+      "output": {
         "Err": {
           "UnsatisfiedConstraint": {
             "error": {
               "SourceAssertion": {
-                "file": "./tests/tests/range_check/assert_ge.zok",
+                "file": "./tests/tests/range_check/assert_lt_constant.zok",
                 "position": {
                   "line": 2,
                   "col": 5
@@ -45,21 +45,21 @@
     },
     {
       "input": {
-        "values": ["2"]
-      },
-      "output": {
-        "Ok": {
-          "value": []
-        }
-      }
-    },
-    {
-      "input": {
         "values": ["15"]
       },
       "output": {
-        "Ok": {
-          "value": []
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": {
+              "SourceAssertion": {
+                "file": "./tests/tests/range_check/assert_lt_constant.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
+            }
+          }
         }
       }
     }
