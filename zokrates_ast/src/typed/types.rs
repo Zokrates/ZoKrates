@@ -97,7 +97,7 @@ impl<'ast> PartialEq for GenericIdentifier<'ast> {
 
 impl<'ast> PartialOrd for GenericIdentifier<'ast> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+        self.index.partial_cmp(&other.index)
     }
 }
 
