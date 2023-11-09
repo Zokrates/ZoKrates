@@ -12,7 +12,6 @@ declare module "zokrates-js" {
   ) => ResolverResult;
 
   export interface CompileConfig {
-    isolate_branches?: boolean;
     debug?: boolean;
   }
 

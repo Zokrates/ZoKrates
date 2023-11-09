@@ -1,0 +1,50 @@
+{
+  "entry_point": "./tests/tests/panics/conditional_panic.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": [true]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "1",
+            "right": "0",
+            "error": {
+              "SourceAssertion": {
+                "file": "./tests/tests/panics/conditional_panic.zok",
+                "position": {
+                  "line": 7,
+                  "col": 5
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [false]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "1",
+            "right": "0",
+            "error": {
+              "SourceAssertion": {
+                "file": "./tests/tests/panics/conditional_panic.zok",
+                "position": {
+                  "line": 2,
+                  "col": 5
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
