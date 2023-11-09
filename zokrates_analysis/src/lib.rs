@@ -6,7 +6,6 @@
 
 mod assembly_transformer;
 mod boolean_array_comparator;
-mod branch_isolator;
 mod condition_redefiner;
 mod constant_argument_checker;
 mod constant_resolver;
@@ -25,7 +24,6 @@ mod variable_write_remover;
 mod zir_propagation;
 
 use self::boolean_array_comparator::BooleanArrayComparator;
-use self::branch_isolator::Isolator;
 use self::condition_redefiner::ConditionRedefiner;
 use self::constant_argument_checker::ConstantArgumentChecker;
 use self::flatten_complex_types::Flattener;
@@ -131,17 +129,6 @@ pub fn analyse<'ast, T: Field>(
     log::debug!("Static analyser: Inline constants");
     let r = ConstantResolver::inline(p);
     log::trace!("\n{}", r);
-
-    // isolate branches
-    let r = if config.isolate_branches {
-        log::debug!("Static analyser: Isolate branches");
-        let r = Isolator::isolate(r);
-        log::trace!("\n{}", r);
-        r
-    } else {
-        log::debug!("Static analyser: Branch isolation skipped");
-        r
-    };
 
     // include logs
     let r = if config.debug {

@@ -47,9 +47,8 @@ Now the two caveats:
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/conditional_panic.zok}}
 ```
-The experimental flag `--branch-isolation` can be activated in the CLI in order to restrict any unsatisfied constraint to make the execution fail only if it is in a logically executed branch. This way, the execution of the program above will always succeed.
 
->The reason for these caveats is that the program is compiled down to an arithmetic circuit. This construct does not support jumping to a branch depending on a condition as you could do on traditional architectures. Instead, all branches are inlined as if they were printed on a circuit board. The `branch-isolation` feature comes with overhead for each assertion in each branch, and this overhead compounds when deeply nesting conditionals.
+>The reason for these caveats is that the program is compiled down to an arithmetic circuit. This construct does not support jumping to a branch depending on a condition as you could do on traditional architectures. Instead, all branches are inlined as if they were printed on a circuit board.
 
 ### For loops
 
