@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.8.8] - 2023-11-09
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.8 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Improve safety in range checks (#1309, @dark64)
+- Remove expensive and buggy branch isolation (#1353, @dark64)
+- Short-circuit on compile-time constant branch conditions (#1315, @schaeff)
+- Fix invalid constant in mimc7 (#1317, @dark64)
+- Allow composite type in assembly assignment statement (#1318, @dark64)
+- Fix panic in case of nested assembly blocks (#1322, @dark64)
+- Detect division by zero on compile-time (#1326, @dark64)
+- Set webcrypto only if crypto instance is not available (nodejs) (#1338, @dark64)
+- Add missing source information (#1340, @dark64)
+- Propagate embed call (#1313, @schaeff)
+
 ## [0.8.7] - 2023-04-22
 
 ### Release

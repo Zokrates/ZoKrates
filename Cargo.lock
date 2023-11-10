@@ -3623,7 +3623,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_analysis"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "cfg-if 0.1.10",
  "lazy_static",
@@ -3669,7 +3669,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_ast"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "ark-bls12-377",
  "byteorder",
@@ -3704,7 +3704,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_bellperson"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bellperson",
  "ff 0.13.0",
@@ -3736,7 +3736,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.8.7"
+version = "0.8.8"
 dependencies = [
  "assert_cli",
  "blake2 0.8.1",
@@ -3780,7 +3780,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_codegen"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "zokrates_ast",
  "zokrates_common",
@@ -3791,14 +3791,14 @@ dependencies = [
 
 [[package]]
 name = "zokrates_common"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "zokrates_core"
-version = "0.7.6"
+version = "0.7.7"
 dependencies = [
  "cfg-if 0.1.10",
  "lazy_static",
@@ -3820,7 +3820,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_core_test"
-version = "0.2.11"
+version = "0.2.12"
 dependencies = [
  "zokrates_test",
  "zokrates_test_derive",
@@ -3828,7 +3828,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_embed"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "ark-bls12-377",
  "ark-bw6-761",
@@ -3846,7 +3846,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_field"
-version = "0.5.5"
+version = "0.5.6"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -3885,7 +3885,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_interpreter"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "ark-bls12-377",
  "num",
@@ -3901,7 +3901,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_js"
-version = "1.1.8"
+version = "1.1.9"
 dependencies = [
  "console_error_panic_hook",
  "getrandom",
@@ -3940,7 +3940,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_pest_ast"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "from-pest",
  "glob 0.2.11",
@@ -3959,7 +3959,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_proof_systems"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "blake2 0.8.1",
  "byteorder",
@@ -3976,7 +3976,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_stdlib"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "fs_extra",
  "zokrates_test",
