@@ -318,8 +318,8 @@ impl Interpreter {
                     let s = x.to_dec_string();
                     <Bn256 as ScalarEngine>::Fr::from_str(&s).unwrap()
                 };
-                let i: Vec<_> = i.iter().map(|x| to_fr(x)).collect();
-                let h: Vec<_> = h.iter().map(|x| to_fr(x)).collect();
+                let i: Vec<_> = i.iter().map(to_fr).collect();
+                let h: Vec<_> = h.iter().map(to_fr).collect();
                 assert_eq!(h.len(), 256);
                 generate_sha256_round_witness::<Bn256>(&i, &h)
                     .into_iter()
@@ -434,7 +434,7 @@ mod tests {
         #[test]
         fn execute() {
             let cond_eq = Solver::ConditionEq;
-            let inputs = vec![0];
+            let inputs = [0];
             let r = Interpreter::execute_solver(
                 &cond_eq,
                 &inputs
@@ -444,14 +444,14 @@ mod tests {
                 &[],
             )
             .unwrap();
-            let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
+            let res: Vec<Bn128Field> = [0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
 
         #[test]
         fn execute_non_eq() {
             let cond_eq = Solver::ConditionEq;
-            let inputs = vec![1];
+            let inputs = [1];
             let r = Interpreter::execute_solver(
                 &cond_eq,
                 &inputs
@@ -461,7 +461,7 @@ mod tests {
                 &[],
             )
             .unwrap();
-            let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
+            let res: Vec<Bn128Field> = [1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
     }
@@ -523,7 +523,7 @@ mod tests {
         let id = IdentifierExpression::new(Identifier::internal(0usize));
 
         // (field i0) -> i0 * i0
-        let solvers = vec![Solver::Zir(ZirFunction {
+        let solver = Solver::Zir(ZirFunction {
             arguments: vec![Parameter::new(Variable::field_element(id.id.clone()), true)],
             statements: vec![ZirStatement::ret(vec![FieldElementExpression::mul(
                 FieldElementExpression::Identifier(id.clone()),
@@ -533,13 +533,16 @@ mod tests {
             signature: Signature::new()
                 .inputs(vec![Type::FieldElement])
                 .outputs(vec![Type::FieldElement]),
-        })];
+        });
+
+        let signature = solver.get_signature();
+        let solvers = vec![solver];
 
         let inputs = vec![Bn128Field::from(2)];
         let res = Interpreter::execute_solver(
             &Solver::Ref(RefCall {
                 index: 0,
-                argument_count: 1,
+                signature,
             }),
             &inputs,
             &solvers,

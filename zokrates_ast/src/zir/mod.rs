@@ -63,8 +63,8 @@ pub struct ZirFunction<'ast, T> {
 pub type IdentifierOrExpression<'ast, T, E> =
     expressions::IdentifierOrExpression<Identifier<'ast>, E, <E as Expr<'ast, T>>::Inner>;
 
-impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl<'ast, T: fmt::Display> ZirFunction<'ast, T> {
+    fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
         writeln!(
             f,
             "({}) -> ({}) {{",
@@ -82,11 +82,17 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
         )?;
 
         for s in &self.statements {
-            s.fmt_indented(f, 1)?;
+            s.fmt_indented(f, depth + 1)?;
             writeln!(f)?;
         }
 
-        write!(f, "}}")
+        write!(f, "{}}}", "\t".repeat(depth))
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.fmt_indented(f, 0)
     }
 }
 
@@ -174,25 +180,42 @@ impl<'ast, T> WithSpan for ZirAssemblyStatement<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl<'ast, T: fmt::Display> ZirAssemblyStatement<'ast, T> {
+    fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
+        write!(f, "{}", "\t".repeat(depth))?;
         match *self {
             ZirAssemblyStatement::Assignment(ref s) => {
                 write!(
                     f,
-                    "{} <-- {};",
+                    "{} <-- (",
                     s.assignee
                         .iter()
                         .map(|a| a.to_string())
                         .collect::<Vec<_>>()
-                        .join(", "),
+                        .join(", ")
+                )?;
+                s.expression.fmt_indented(f, depth)?;
+                write!(
+                    f,
+                    ")({});",
                     s.expression
+                        .arguments
+                        .iter()
+                        .map(|a| a.id.id.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 )
             }
             ZirAssemblyStatement::Constraint(ref s) => {
                 write!(f, "{}", s)
             }
         }
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for ZirAssemblyStatement<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.fmt_indented(f, 0)
     }
 }
 
@@ -282,7 +305,7 @@ impl<'ast, T: fmt::Display> fmt::Display for MultipleDefinitionStatement<'ast, T
                 write!(f, ", ")?;
             }
         }
-        write!(f, " = {};", self.rhs)
+        write!(f, " = {}", self.rhs)
     }
 }
 
@@ -418,7 +441,7 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                 write!(f, ";")
             }
             ZirStatement::Definition(ref s) => {
-                write!(f, "{}", s)
+                write!(f, "{};", s)
             }
             ZirStatement::IfElse(ref s) => {
                 writeln!(f, "if {} {{", s.condition)?;
@@ -441,7 +464,7 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                 }
             }
             ZirStatement::MultipleDefinition(ref s) => {
-                write!(f, "{}", s)
+                write!(f, "{};", s)
             }
             ZirStatement::Log(ref e) => write!(
                 f,
@@ -462,7 +485,8 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
             ZirStatement::Assembly(s) => {
                 writeln!(f, "asm {{")?;
                 for s in &s.inner {
-                    writeln!(f, "{}{}", "\t".repeat(depth + 1), s)?;
+                    s.fmt_indented(f, depth + 1)?;
+                    writeln!(f)?;
                 }
                 write!(f, "{}}}", "\t".repeat(depth))
             }

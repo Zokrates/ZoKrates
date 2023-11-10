@@ -1161,7 +1161,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let decl_v = DeclarationVariable::new(
                         self.id_in_this_scope(arg.id.value.id),
                         decl_ty.clone(),
-                    );
+                    )
+                    .with_span(arg.id.span().in_module(module_id));
 
                     let is_mutable = arg.id.value.is_mutable;
 
@@ -1793,20 +1794,32 @@ impl<'ast, T: Field> Checker<'ast, T> {
             AssemblyStatement::Assignment(assignee, expression, constrained) => {
                 let assignee = self.check_assignee(assignee, module_id, types)?;
                 let e = self.check_expression(expression, module_id, types)?;
-
-                let e = FieldElementExpression::try_from_typed(e).map_err(|e| ErrorInner {
-                    span: Some(span),
-                    message: format!(
-                        "Expected right hand side of an assembly assignment to be of type field, found {}",
-                        e.get_type(),
-                    ),
+                let e = TypedExpression::align_to_type(e, &assignee.get_type()).map_err(|e| {
+                    ErrorInner {
+                        span: Some(span),
+                        message: format!(
+                            "Expected value of type `{}`, found `{}` of type `{}`",
+                            e.1,
+                            e.0,
+                            e.0.get_type()
+                        ),
+                    }
                 })?;
 
                 match constrained {
-                    true => {
-                        let e = FieldElementExpression::block(vec![], e);
-                        match assignee.get_type() {
-                            Type::FieldElement => Ok(vec![
+                    true => match assignee.get_type() {
+                        // in case of `lhs <== rhs` we expect lhs and rhs to be of type field
+                        Type::FieldElement => {
+                            let e = FieldElementExpression::try_from_typed(e).map_err(|e| ErrorInner {
+                                    span: Some(span),
+                                    message: format!(
+                                        "Expected right hand side of an assembly constrained assignment to be of type field, found {}",
+                                        e.get_type(),
+                                    ),
+                                })?;
+
+                            let e = FieldElementExpression::block(vec![], e);
+                            Ok(vec![
                                 TypedAssemblyStatement::assignment(
                                     assignee.clone(),
                                     e.clone().into(),
@@ -1818,18 +1831,28 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     SourceMetadata::new(module_id.display().to_string(), span.from),
                                 )
                                 .with_span(span),
-                            ]),
-                            ty => Err(ErrorInner {
-                                span: Some(span),
-                                message: format!("Assignee must be of type field, found {}", ty),
-                            }),
+                            ])
                         }
-                    }
+                        ty => Err(ErrorInner {
+                            span: Some(span),
+                            message: format!("Assignee must be of type field, found {}", ty),
+                        }),
+                    },
                     false => {
-                        let e = FieldElementExpression::block(vec![], e);
-                        Ok(vec![
-                            TypedAssemblyStatement::assignment(assignee, e.into()).with_span(span)
-                        ])
+                        // we can allow composite types in case of `<--` as no constraints are generated from this type of statement
+                        // a composite type should only consist of field types
+                        match e.get_type().is_composite_of_field() {
+                            true => {
+                                let e = TypedExpression::block(vec![], e);
+                                Ok(vec![
+                                    TypedAssemblyStatement::assignment(assignee, e).with_span(span)
+                                ])
+                            },
+                            false => Err(ErrorInner {
+                                span: Some(span),
+                                message: "Assignee must be of type field or a composite type of field elements".to_string(),
+                            })
+                        }
                     }
                 }
             }
@@ -2140,10 +2163,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         span: Some(assignee.span().in_module(module_id)),
                         message: format!("Assignment to an immutable variable `{}`", variable_name),
                     }),
-                    _ => Ok(TypedAssignee::Identifier(Variable::new(
-                        info.id,
-                        info.ty.clone(),
-                    ))),
+                    _ => Ok(TypedAssignee::Identifier(
+                        Variable::new(info.id, info.ty.clone()).with_span(span),
+                    )),
                 },
                 None => Err(ErrorInner {
                     span: Some(assignee.span().in_module(module_id)),

@@ -9,11 +9,16 @@ pub struct ZirCanonicalizer<'ast> {
 
 impl<'ast, T: Field> Folder<'ast, T> for ZirCanonicalizer<'ast> {
     fn fold_parameter(&mut self, p: Parameter<'ast>) -> Parameter<'ast> {
-        let new_id = self.identifier_map.len();
-        self.identifier_map.insert(p.id.id.clone(), new_id);
-
+        let id = match self.identifier_map.get(&p.id.id) {
+            Some(v) => Identifier::internal(*v),
+            None => {
+                let new_id = self.identifier_map.len();
+                self.identifier_map.insert(p.id.id.clone(), new_id);
+                Identifier::internal(new_id)
+            }
+        };
         Parameter {
-            id: Variable::with_id_and_type(Identifier::internal(new_id), p.id.ty),
+            id: Variable::with_id_and_type(id, p.id.ty),
             ..p
         }
     }

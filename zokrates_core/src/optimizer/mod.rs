@@ -27,9 +27,9 @@ pub fn optimize<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>>(
 
     // define all optimizer steps
     let mut redefinition_optimizer = RedefinitionOptimizer::init(&p);
-    let mut tautologies_optimizer = TautologyOptimizer::default();
+    let mut tautologies_optimizer = TautologyOptimizer;
     let mut directive_optimizer = DirectiveOptimizer::default();
-    let mut canonicalizer = Canonicalizer::default();
+    let mut canonicalizer = Canonicalizer;
     let mut duplicate_optimizer = DuplicateOptimizer::default();
 
     use zokrates_ast::ir::folder::Folder;

@@ -1,0 +1,16 @@
+import "utils/casts/field_to_u32";
+from "EMBED" import unpack;
+
+def foo<N>() -> field {
+    return 1;
+}
+
+def main() -> field {
+    u32 N = field_to_u32(1);
+    for u32 i in 0..N {
+        log("{}", i);
+    }
+    bool[1] B = unpack(1);
+    u32 P = B[0] ? 1 : 0;
+    return foo::<N>() + foo::<P>();
+}

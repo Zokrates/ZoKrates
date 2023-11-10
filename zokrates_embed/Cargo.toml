@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_embed"
-version = "0.1.10"
+version = "0.1.11"
 authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 

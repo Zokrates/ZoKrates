@@ -48,23 +48,6 @@ jobs:
           no_output_timeout: 1h
           command: RUSTFLAGS="-D warnings" ./test.sh
       - save-sccache-cache
-  wasm_test:
-    docker:
-      - image: zokrates/env:latest
-    resource_class: large
-    steps:
-      - checkout
-      - run:
-          name: Version information
-          command: rustc --version; cargo --version; rustup --version
-      - setup-sccache
-      - restore-sccache-cache
-      - run:
-          name: Test on firefox
-          command: |
-            cd zokrates_test
-            wasm-pack test --firefox --headless
-      - save-sccache-cache
   integration_test:
     docker:
       - image: zokrates/env:latest
@@ -250,7 +233,6 @@ workflows:
     jobs:
       - build
       - test
-      # - wasm_test
       - integration_test
       - zokrates_js_build
       - zokrates_js_test
@@ -308,7 +290,6 @@ workflows:
           requires:
             - build
             - test
-            # - wasm_test
             - integration_test
             - zokrates_js_build
             - zokrates_js_test

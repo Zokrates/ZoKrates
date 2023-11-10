@@ -1,0 +1,14 @@
+def yes(bool x) -> bool {
+    assert(x);
+    return x;
+}
+
+def no(bool x) -> bool {
+    assert(!x);
+    return x;
+}
+
+def main(bool condition) -> bool {
+    // this will always panic
+    return condition ? yes(condition) : no(condition);
+}

@@ -11,7 +11,7 @@ describe("umd web tests", () => {
     const page = await browser.newPage();
 
     let response = await page.goto(
-      path.dirname(import.meta.url) + "/index.html"
+      path.dirname(import.meta.url) + "/index.html",
     );
     assert(response.ok());
 

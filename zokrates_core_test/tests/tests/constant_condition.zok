@@ -1,0 +1,6 @@
+def main() {
+    field[2] a = [0; 2];
+    for u32 i in 1..2 {
+        field b = (i == 1) ? 0 : a[i - 2];
+    }
+}

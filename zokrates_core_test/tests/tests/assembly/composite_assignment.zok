@@ -1,0 +1,7 @@
+def main(field a, field b, field c) {
+    field[2] mut out = [0; 2];
+    asm {
+        out <-- [a, b];
+        out[0] * out[1] === c;
+    }
+}
