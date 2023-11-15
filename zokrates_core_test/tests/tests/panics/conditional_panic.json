@@ -1,30 +1,21 @@
 {
-  "entry_point": "./tests/tests/range_check/assert_lt_u8.zok",
-  "max_constraint_count": 29,
+  "entry_point": "./tests/tests/panics/conditional_panic.zok",
   "curves": ["Bn128"],
   "tests": [
     {
       "input": {
-        "values": ["0x01", "0x02"]
-      },
-      "output": {
-        "Ok": {
-          "value": []
-        }
-      }
-    },
-    {
-      "input": {
-        "values": ["0x02", "0x02"]
+        "values": [true]
       },
       "output": {
         "Err": {
           "UnsatisfiedConstraint": {
+            "left": "1",
+            "right": "0",
             "error": {
               "SourceAssertion": {
-                "file": "./tests/tests/range_check/assert_lt_u8.zok",
+                "file": "./tests/tests/panics/conditional_panic.zok",
                 "position": {
-                  "line": 2,
+                  "line": 7,
                   "col": 5
                 }
               }
@@ -35,14 +26,16 @@
     },
     {
       "input": {
-        "values": ["0x04", "0x02"]
+        "values": [false]
       },
       "output": {
         "Err": {
           "UnsatisfiedConstraint": {
+            "left": "1",
+            "right": "0",
             "error": {
               "SourceAssertion": {
-                "file": "./tests/tests/range_check/assert_lt_u8.zok",
+                "file": "./tests/tests/panics/conditional_panic.zok",
                 "position": {
                   "line": 2,
                   "col": 5

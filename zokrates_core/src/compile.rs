@@ -183,7 +183,7 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
 
     // flatten input program
     log::debug!("Flatten");
-    let program_flattened = from_program_and_config(typed_ast, config);
+    let program_flattened = from_program_and_config(typed_ast);
 
     // convert to ir
     log::debug!("Convert to IR");

@@ -276,13 +276,7 @@ mod internal {
             &arena,
         )
         .map_err(|ce| {
-            JsValue::from_str(
-                &ce.0
-                    .iter()
-                    .map(|e| fmt_error(e))
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            )
+            JsValue::from_str(&ce.0.iter().map(fmt_error).collect::<Vec<_>>().join("\n"))
         })?;
 
         let abi = artifacts.abi().clone();

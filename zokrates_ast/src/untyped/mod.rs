@@ -543,11 +543,8 @@ impl<'ast> fmt::Display for Range<'ast> {
             self.from
                 .as_ref()
                 .map(|e| e.to_string())
-                .unwrap_or_else(|| "".to_string()),
-            self.to
-                .as_ref()
-                .map(|e| e.to_string())
-                .unwrap_or_else(|| "".to_string())
+                .unwrap_or_default(),
+            self.to.as_ref().map(|e| e.to_string()).unwrap_or_default()
         )
     }
 }

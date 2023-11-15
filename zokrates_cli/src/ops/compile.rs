@@ -18,62 +18,71 @@ use zokrates_fs_resolver::FileSystemResolver;
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("compile")
         .about("Compiles into a runnable constraint system")
-        .arg(Arg::with_name("input")
-            .short("i")
-            .long("input")
-            .help("Path of the source code")
-            .value_name("FILE")
-            .takes_value(true)
-            .required(true)
-        ).arg(Arg::with_name("stdlib-path")
-        .long("stdlib-path")
-        .help("Path to the standard library")
-        .value_name("PATH")
-        .takes_value(true)
-        .required(false)
-        .env("ZOKRATES_STDLIB")
-        .default_value(cli_constants::DEFAULT_STDLIB_PATH.as_str())
-    ).arg(Arg::with_name("abi-spec")
-        .short("s")
-        .long("abi-spec")
-        .help("Path of the ABI specification")
-        .value_name("FILE")
-        .takes_value(true)
-        .required(false)
-        .default_value(cli_constants::ABI_SPEC_DEFAULT_PATH)
-    ).arg(Arg::with_name("output")
-        .short("o")
-        .long("output")
-        .help("Path of the output binary")
-        .value_name("FILE")
-        .takes_value(true)
-        .required(false)
-        .default_value(cli_constants::FLATTENED_CODE_DEFAULT_PATH)
-    ).arg(Arg::with_name("r1cs")
-    .short("r1cs")
-    .long("r1cs")
-    .help("Path of the output r1cs file")
-    .value_name("FILE")
-    .takes_value(true)
-    .required(false)
-    .default_value(cli_constants::CIRCOM_R1CS_DEFAULT_PATH)
-).arg(Arg::with_name("curve")
-        .short("c")
-        .long("curve")
-        .help("Curve to be used in the compilation")
-        .takes_value(true)
-        .required(false)
-        .possible_values(cli_constants::CURVES)
-        .default_value(BN128)
-    ).arg(Arg::with_name("isolate-branches")
-        .long("isolate-branches")
-        .help("Isolate the execution of branches: a panic in a branch only makes the program panic if this branch is being logically executed")
-        .required(false)
-    ).arg(Arg::with_name("debug")
-        .long("debug")
-        .help("Include logs")
-        .required(false)
-)
+        .arg(
+            Arg::with_name("input")
+                .short("i")
+                .long("input")
+                .help("Path of the source code")
+                .value_name("FILE")
+                .takes_value(true)
+                .required(true),
+        )
+        .arg(
+            Arg::with_name("stdlib-path")
+                .long("stdlib-path")
+                .help("Path to the standard library")
+                .value_name("PATH")
+                .takes_value(true)
+                .required(false)
+                .env("ZOKRATES_STDLIB")
+                .default_value(cli_constants::DEFAULT_STDLIB_PATH.as_str()),
+        )
+        .arg(
+            Arg::with_name("abi-spec")
+                .short("s")
+                .long("abi-spec")
+                .help("Path of the ABI specification")
+                .value_name("FILE")
+                .takes_value(true)
+                .required(false)
+                .default_value(cli_constants::ABI_SPEC_DEFAULT_PATH),
+        )
+        .arg(
+            Arg::with_name("output")
+                .short("o")
+                .long("output")
+                .help("Path of the output binary")
+                .value_name("FILE")
+                .takes_value(true)
+                .required(false)
+                .default_value(cli_constants::FLATTENED_CODE_DEFAULT_PATH),
+        )
+        .arg(
+            Arg::with_name("r1cs")
+                .short("r1cs")
+                .long("r1cs")
+                .help("Path of the output r1cs file")
+                .value_name("FILE")
+                .takes_value(true)
+                .required(false)
+                .default_value(cli_constants::CIRCOM_R1CS_DEFAULT_PATH),
+        )
+        .arg(
+            Arg::with_name("curve")
+                .short("c")
+                .long("curve")
+                .help("Curve to be used in the compilation")
+                .takes_value(true)
+                .required(false)
+                .possible_values(cli_constants::CURVES)
+                .default_value(BN128),
+        )
+        .arg(
+            Arg::with_name("debug")
+                .long("debug")
+                .help("Include logs")
+                .required(false),
+        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -124,10 +133,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )),
     }?;
 
-    let config = CompileConfig::default()
-        .isolate_branches(sub_matches.is_present("isolate-branches"))
-        .debug(sub_matches.is_present("debug"));
-
+    let config = CompileConfig::default().debug(sub_matches.is_present("debug"));
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
 
     log::debug!("Compile");
@@ -138,10 +144,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         .map_err(|e| {
             format!(
                 "Compilation failed:\n\n{}",
-                e.0.iter()
-                    .map(|e| fmt_error(e))
-                    .collect::<Vec<_>>()
-                    .join("\n\n")
+                e.0.iter().map(fmt_error).collect::<Vec<_>>().join("\n\n")
             )
         })?;
 

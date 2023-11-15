@@ -317,8 +317,8 @@ impl Interpreter {
                     let s = x.to_dec_string();
                     <Bn256 as ScalarEngine>::Fr::from_str(&s).unwrap()
                 };
-                let i: Vec<_> = i.iter().map(|x| to_fr(x)).collect();
-                let h: Vec<_> = h.iter().map(|x| to_fr(x)).collect();
+                let i: Vec<_> = i.iter().map(to_fr).collect();
+                let h: Vec<_> = h.iter().map(to_fr).collect();
                 assert_eq!(h.len(), 256);
                 generate_sha256_round_witness::<Bn256>(&i, &h)
                     .into_iter()
