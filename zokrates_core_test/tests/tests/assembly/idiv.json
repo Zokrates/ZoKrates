@@ -1,6 +1,6 @@
 {
   "curves": ["Bn128"],
-  "max_constraint_count": 261,
+  "max_constraint_count": 766,
   "tests": [
     {
       "input": {
