@@ -60,6 +60,7 @@ mod ast {
             Operator::new(Rule::op_add, Assoc::Left) | Operator::new(Rule::op_sub, Assoc::Left),
             Operator::new(Rule::op_mul, Assoc::Left)
                 | Operator::new(Rule::op_div, Assoc::Left)
+                | Operator::new(Rule::op_idiv, Assoc::Left)
                 | Operator::new(Rule::op_rem, Assoc::Left),
         ])
     }
@@ -81,6 +82,7 @@ mod ast {
             Rule::op_sub => Expression::binary(BinaryOperator::Sub, lhs, rhs, span),
             Rule::op_mul => Expression::binary(BinaryOperator::Mul, lhs, rhs, span),
             Rule::op_div => Expression::binary(BinaryOperator::Div, lhs, rhs, span),
+            Rule::op_idiv => Expression::binary(BinaryOperator::IDiv, lhs, rhs, span),
             Rule::op_rem => Expression::binary(BinaryOperator::Rem, lhs, rhs, span),
             Rule::op_equal => Expression::binary(BinaryOperator::Eq, lhs, rhs, span),
             Rule::op_not_equal => Expression::binary(BinaryOperator::NotEq, lhs, rhs, span),
@@ -498,6 +500,7 @@ mod ast {
         Sub,
         Mul,
         Div,
+        IDiv,
         Rem,
         Eq,
         NotEq,

@@ -1,0 +1,11 @@
+def main(field a, field b) -> (field, field) {
+    field mut q = 0;
+    field mut r = 0;
+    asm {
+        q <-- a \ b;
+        r <-- a - q * b;
+        a === b * q + r;
+    }
+    assert(r < b);
+    return (q, r);
+}
