@@ -1,3 +1,5 @@
+#pragma curve bn128
+
 import "./unpack_unchecked";
 
 // Unpack a field element as 256 big-endian bits

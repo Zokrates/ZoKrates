@@ -13,8 +13,8 @@ from "ecc/edwards" import scalarMul;
 ///    sk: Private key
 ///
 /// Returns true for pk/sk being a valid keypair, false otherwise.
-def main(field[2] pk, field sk, field[2] G, field EDWARDS_A, field EDWARDS_D, u32 bit_size) -> bool {
-    bool[256] sk_bits = unpack256(sk, bit_size);
+def main(field[2] pk, field sk) -> bool {
+    bool[256] sk_bits = unpack256(sk);
     field[2] res = scalarMul(sk_bits, G, EDWARDS_A, EDWARDS_D);
     return (res[0] == pk[0] && res[1] == pk[1]);
 }
