@@ -133,7 +133,7 @@ fn unpack256_unchecked() {
         import "utils/pack/bool/nonStrictUnpack256";
 
 		def main(private field a) {
-	        bool[256] bits = nonStrictUnpack256(a, 254);
+	        bool[256] bits = nonStrictUnpack256(a);
 			assert(bits[255]);
             return;
         }

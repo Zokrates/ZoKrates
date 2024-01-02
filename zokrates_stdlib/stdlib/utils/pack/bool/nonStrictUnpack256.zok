@@ -1,11 +1,14 @@
 import "./unpack_unchecked";
+from "field" import FIELD_SIZE_IN_BITS;
 
-// Unpack a field element as 256 big-endian bits
+// Unpack a field element as 256 big-endian bits.
+// Size of p differs among different fields. 
+// For example, for bn128 |p| is 254 bit , for bls12-381 |p| is 255.
 // Note: uniqueness of the output is not guaranteed
 // For example, `0` can map to `[0, 0, ..., 0]` or to `bits(p)`
-def main(field i, u32 bit_size) -> bool[256] {
-    assert(bit_size <= 256);
-    u32 padding_size = 256 - bit_size;
-    bool[bit_size] b = unpack_unchecked(i);
+def main(field i) -> bool[256] {
+    assert(FIELD_SIZE_IN_BITS <= 256);
+    u32 padding_size = 256 - FIELD_SIZE_IN_BITS;
+    bool[FIELD_SIZE_IN_BITS] b = unpack_unchecked(i);
     return [...[false; padding_size], ...b];
 }
