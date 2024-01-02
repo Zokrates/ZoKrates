@@ -1,6 +1,9 @@
 import "hashes/sha256/1024bitPadded" as sha256;
+import "utils/pack/u32/nonStrictUnpack256" as unpack256u;
+import "utils/pack/bool/nonStrictUnpack256" as unpack256bool;
 from "utils/casts" import cast;
 from "ecc/edwards" import add, scalarMul, onCurve, orderCheck;
+
 
 /// Verifies an EdDSA Signature.
 ///
@@ -19,30 +22,23 @@ from "ecc/edwards" import add, scalarMul, onCurve, orderCheck;
 ///    A: Curve point. Public part of the key used to create S.
 ///    M0: 256bit array. First 256bits of the message used to create S.
 ///    M1: 256bit array. Trailing 256bits of the message used to create S.
+///    EDWARDS_A: Coefficient `a` of the twisted Edwards curve
+///    EDWARDS_D: Coefficient `d` of the twisted Edwards curve
 ///
 /// Returns:
 ///     Return true for S being a valid EdDSA Signature, false otherwise.
-def main(field[2] R, field S, field[2] A, u32[8] M0, u32[8] M1, field[2] G, field EDWARDS_A, field EDWARDS_D, u32 bit_size) -> bool {
+def main(field[2] R, field S, field[2] A, u32[8] M0, u32[8] M1, field[2] G, field EDWARDS_A, field EDWARDS_D) -> bool {
     // Check if R is on curve and if it is not in a small subgroup. A is public input and can be checked offline
     assert(onCurve(R, EDWARDS_A, EDWARDS_D)); // throws if R is not on curve
     assert(orderCheck(R, EDWARDS_A, EDWARDS_D));
 
-<<<<<<< HEAD:zokrates_stdlib/stdlib/ecc/verifyEddsa.zok
-    u32[8] Rx = unpack256u(R[0], bit_size);
-    u32[8] Ax = unpack256u(A[0], bit_size);
-=======
     u32[8] Rx = unpack256u(R[0]);
     u32[8] Ax = unpack256u(A[0]);
->>>>>>> parent of 5b5af49b (nunStrictUnpack256 refactor to support 255-bits fields from bls12_381):zokrates_stdlib/stdlib/ecc/jubjub/verifyEddsa.zok
 
     u32[8] h = sha256(Rx, Ax, M0, M1);
     bool[256] hRAM = cast(h);
 
-<<<<<<< HEAD:zokrates_stdlib/stdlib/ecc/verifyEddsa.zok
-    bool[256] sBits = unpack256bool(S, bit_size);
-=======
     bool[256] sBits = unpack256bool(S);
->>>>>>> parent of 5b5af49b (nunStrictUnpack256 refactor to support 255-bits fields from bls12_381):zokrates_stdlib/stdlib/ecc/jubjub/verifyEddsa.zok
     field[2] lhs = scalarMul(sBits, G, EDWARDS_A, EDWARDS_D);
 
     field[2] AhRAM = scalarMul(hRAM, A, EDWARDS_A, EDWARDS_D);

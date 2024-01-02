@@ -3,7 +3,6 @@
 import "./proofOfOwnership" as edwardsProofOfOwnership;
 import "./verifyEddsa" as edwardsSignature;
 
-
 // The `a` coefficient of the twisted Edwards curve
 const field EDWARDS_A = -1;
 
@@ -16,16 +15,11 @@ const field[2] G = [
     44412834903739585386157632289020980010620626017712148233229312325549216099227  // Gy
 ];
 
-const u32 bit_size = 255;
-
 
 def proofOfOwnership(field[2] pk, field sk) -> bool {
-
-    return edwardsProofOfOwnership(pk, sk, G, EDWARDS_A, EDWARDS_D, bit_size);
+    return edwardsProofOfOwnership(pk, sk, G, EDWARDS_A, EDWARDS_D);
 }
 
-
 def verifyEddsa(field[2] R, field S, field[2] A, u32[8] M0, u32[8] M1) -> bool {
-
-    return edwardsSignature(R, S, A, M0, M1, G, EDWARDS_A, EDWARDS_D, bit_size);
+    return edwardsSignature(R, S, A, M0, M1, G, EDWARDS_A, EDWARDS_D);
 }
