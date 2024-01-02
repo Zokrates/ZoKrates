@@ -14,10 +14,6 @@ from "ecc/edwards" import scalarMul;
 ///    G: Generator point
 ///    EDWARDS_A: Coefficient `a` of the twisted Edwards curve
 ///    EDWARDS_D: Coefficient `d` of the twisted Edwards curve
-<<<<<<< HEAD
-=======
-///    bit_size: Bit size of the twisted Edwards curve
->>>>>>> upstream/jubjub
 ///
 /// Returns true for pk/sk being a valid keypair, false otherwise.
 def main(field[2] pk, field sk, field[2] G, field EDWARDS_A, field EDWARDS_D) -> bool {
