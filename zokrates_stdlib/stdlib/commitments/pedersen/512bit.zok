@@ -1,0 +1,22 @@
+from "ecc/babyjubjubParams" import BabyJubJubParams;
+import "ecc/edwardsAdd" as add;
+import "ecc/edwardsScalarMult" as multiply;
+import "utils/pack/bool/unpack256" as unpack256;
+
+
+// Committing a value on a field to a twisted Edwards curve via Pedersen Commitment.
+// Curve parameters are defined with the last argument
+// https://en.wikipedia.org/wiki/Twisted_Edwards_curve#Addition_on_twisted_Edwards_curves
+// The parameter input is the value to be committed, and r is the blinding factor. The output is the corresponding pedersen commit, a point on the curve.
+
+def main(field input, field r, BabyJubJubParams context) -> field[2] {
+    field[2] G = [context.Gu, context.Gv];
+
+    bool[256] inputBits = unpack256(input);
+    bool[256] rBits = unpack256(r);
+
+    field[2] inputExp = multiply(inputBits, G, context);
+    field[2] rExp = multiply(rBits, G, context);
+
+    return add(inputExp, rExp, context);
+}
