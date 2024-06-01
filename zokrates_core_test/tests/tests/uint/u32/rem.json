@@ -4,6 +4,18 @@
   "tests": [
     {
       "input": {
+        "values": ["0x00000001", "0x00000000"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": "Inverse"
+          }
+        }
+      }
+    },
+    {
+      "input": {
         "values": ["0x00000002", "0x00000004"]
       },
       "output": {

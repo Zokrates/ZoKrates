@@ -222,10 +222,10 @@ impl<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>> ProgIterator<'a
                 if matches!(s, Statement::Constraint(..)) {
                     count += 1;
                 }
-                let s: Vec<Statement<T>> = solver_indexer
+                let s: Vec<Statement<T>> = unconstrained_variable_detector
                     .fold_statement(s)
                     .into_iter()
-                    .flat_map(|s| unconstrained_variable_detector.fold_statement(s))
+                    .flat_map(|s| solver_indexer.fold_statement(s))
                     .collect();
                 for s in s {
                     serde_cbor::to_writer(&mut w, &s)?;

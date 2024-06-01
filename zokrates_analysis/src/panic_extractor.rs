@@ -89,6 +89,44 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 );
                 FieldElementExpression::div(n, d)
             }
+            FieldElementExpression::IDiv(e) => {
+                let n = self.fold_field_expression(*e.left);
+                let d = self.fold_field_expression(*e.right);
+                self.panic_buffer.push(
+                    ZirStatement::assertion(
+                        BooleanExpression::not(
+                            BooleanExpression::field_eq(
+                                d.clone().span(span),
+                                FieldElementExpression::value(T::zero()).span(span),
+                            )
+                            .span(span),
+                        )
+                        .span(span),
+                        RuntimeError::DivisionByZero,
+                    )
+                    .span(span),
+                );
+                FieldElementExpression::idiv(n, d)
+            }
+            FieldElementExpression::Rem(e) => {
+                let n = self.fold_field_expression(*e.left);
+                let d = self.fold_field_expression(*e.right);
+                self.panic_buffer.push(
+                    ZirStatement::assertion(
+                        BooleanExpression::not(
+                            BooleanExpression::field_eq(
+                                d.clone().span(span),
+                                FieldElementExpression::value(T::zero()).span(span),
+                            )
+                            .span(span),
+                        )
+                        .span(span),
+                        RuntimeError::DivisionByZero,
+                    )
+                    .span(span),
+                );
+                FieldElementExpression::rem(n, d)
+            }
             e => fold_field_expression_cases(self, e),
         }
     }
@@ -149,6 +187,25 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                     .span(span),
                 );
                 UExpression::div(n, d).into_inner()
+            }
+            UExpressionInner::Rem(e) => {
+                let n = self.fold_uint_expression(*e.left);
+                let d = self.fold_uint_expression(*e.right);
+                self.panic_buffer.push(
+                    ZirStatement::assertion(
+                        BooleanExpression::not(
+                            BooleanExpression::uint_eq(
+                                d.clone().span(span),
+                                UExpression::value(0).annotate(b).span(span),
+                            )
+                            .span(span),
+                        )
+                        .span(span),
+                        RuntimeError::DivisionByZero,
+                    )
+                    .span(span),
+                );
+                UExpression::rem(n, d).into_inner()
             }
             e => fold_uint_expression_cases(self, b, e),
         }

@@ -405,6 +405,10 @@ impl<'ast> From<pest::BinaryExpression<'ast>> for untyped::ExpressionNode<'ast> 
                 Box::new(untyped::ExpressionNode::from(*expression.left)),
                 Box::new(untyped::ExpressionNode::from(*expression.right)),
             ),
+            pest::BinaryOperator::IDiv => untyped::Expression::IDiv(
+                Box::new(untyped::ExpressionNode::from(*expression.left)),
+                Box::new(untyped::ExpressionNode::from(*expression.right)),
+            ),
             pest::BinaryOperator::Rem => untyped::Expression::Rem(
                 Box::new(untyped::ExpressionNode::from(*expression.left)),
                 Box::new(untyped::ExpressionNode::from(*expression.right)),

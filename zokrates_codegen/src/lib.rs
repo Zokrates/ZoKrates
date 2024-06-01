@@ -1278,16 +1278,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     fn euclidean_division(
         &mut self,
         statements_flattened: &mut FlatStatements<'ast, T>,
-        target_bitwidth: UBitwidth,
-        left: UExpression<'ast, T>,
-        right: UExpression<'ast, T>,
+        target_bitwidth: usize,
+        left_flattened: FlatExpression<T>,
+        right_flattened: FlatExpression<T>,
     ) -> (FlatExpression<T>, FlatExpression<T>) {
-        let left_flattened = self
-            .flatten_uint_expression(statements_flattened, left)
-            .get_field_unchecked();
-        let right_flattened = self
-            .flatten_uint_expression(statements_flattened, right)
-            .get_field_unchecked();
         let n = if left_flattened.is_linear() {
             left_flattened
         } else {
@@ -1313,8 +1307,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             vec![n.clone(), d.clone()],
         ));
 
-        let target_bitwidth = target_bitwidth.to_usize();
-
         // q in range
         let _ = self.get_bits_unchecked(
             &FlatUExpression::with_field(FlatExpression::from(q)),
@@ -1337,7 +1329,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let _ = self.get_bits_unchecked(
             &FlatUExpression::with_field(FlatExpression::add(
                 FlatExpression::sub(r.into(), d.clone()),
-                FlatExpression::value(T::from(2_u128.pow(target_bitwidth as u32))),
+                FlatExpression::value(T::from(2).pow(target_bitwidth)),
             )),
             target_bitwidth,
             target_bitwidth,
@@ -1558,21 +1550,35 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatUExpression::with_field(FlatExpression::identifier(res))
             }
             UExpressionInner::Div(e) => {
+                let left_flattened = self
+                    .flatten_uint_expression(statements_flattened, *e.left)
+                    .get_field_unchecked();
+                let right_flattened = self
+                    .flatten_uint_expression(statements_flattened, *e.right)
+                    .get_field_unchecked();
+
                 let (q, _) = self.euclidean_division(
                     statements_flattened,
-                    target_bitwidth,
-                    *e.left,
-                    *e.right,
+                    target_bitwidth.to_usize(),
+                    left_flattened,
+                    right_flattened,
                 );
 
                 FlatUExpression::with_field(q)
             }
             UExpressionInner::Rem(e) => {
+                let left_flattened = self
+                    .flatten_uint_expression(statements_flattened, *e.left)
+                    .get_field_unchecked();
+                let right_flattened = self
+                    .flatten_uint_expression(statements_flattened, *e.right)
+                    .get_field_unchecked();
+
                 let (_, r) = self.euclidean_division(
                     statements_flattened,
-                    target_bitwidth,
-                    *e.left,
-                    *e.right,
+                    target_bitwidth.to_usize(),
+                    left_flattened,
+                    right_flattened,
                 );
 
                 FlatUExpression::with_field(r)
@@ -2192,6 +2198,32 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ));
 
                 inverse.into()
+            }
+            FieldElementExpression::IDiv(e) => {
+                let left_flattened = self.flatten_field_expression(statements_flattened, *e.left);
+                let right_flattened = self.flatten_field_expression(statements_flattened, *e.right);
+
+                let (q, _) = self.euclidean_division(
+                    statements_flattened,
+                    T::get_required_bits() - 2,
+                    left_flattened,
+                    right_flattened,
+                );
+
+                q
+            }
+            FieldElementExpression::Rem(e) => {
+                let left_flattened = self.flatten_field_expression(statements_flattened, *e.left);
+                let right_flattened = self.flatten_field_expression(statements_flattened, *e.right);
+
+                let (_, r) = self.euclidean_division(
+                    statements_flattened,
+                    T::get_required_bits() - 2,
+                    left_flattened,
+                    right_flattened,
+                );
+
+                r
             }
             FieldElementExpression::Pow(e) => {
                 match e.right.into_inner() {

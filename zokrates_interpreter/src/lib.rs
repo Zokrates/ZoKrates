@@ -293,7 +293,6 @@ impl Interpreter {
                 let c = inputs[2];
                 vec![a * (b - c) + c]
             }
-
             Solver::Div => vec![inputs[0].checked_div(&inputs[1]).unwrap_or_else(T::one)],
             Solver::EuclideanDiv => {
                 use num::CheckedDiv;

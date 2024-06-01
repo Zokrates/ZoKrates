@@ -5,8 +5,8 @@ from "EMBED" import bit_array_le;
 // Unpack a field element as N big endian bits
 def main<N>(field i) -> bool[N] {
     bool[N] res = unpack_unchecked(i);
-    assert(N >= FIELD_SIZE_IN_BITS \
-                ? bit_array_le(res, [...[false; N - FIELD_SIZE_IN_BITS], ...unpack_unchecked::<FIELD_SIZE_IN_BITS>(-1)]) \
+    assert(N >= FIELD_SIZE_IN_BITS
+                ? bit_array_le(res, [...[false; N - FIELD_SIZE_IN_BITS], ...unpack_unchecked::<FIELD_SIZE_IN_BITS>(-1)])
                 : true);
     return res;
 }

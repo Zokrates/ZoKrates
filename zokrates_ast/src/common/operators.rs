@@ -38,6 +38,13 @@ impl OperatorStr for OpDiv {
 }
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+pub struct OpIDiv;
+
+impl OperatorStr for OpIDiv {
+    const STR: &'static str = "\\";
+}
+
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct OpRem;
 
 impl OperatorStr for OpRem {

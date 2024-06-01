@@ -525,6 +525,18 @@ pub fn fold_field_expression_cases<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 BinaryOrExpression::Expression(e) => e,
             }
         }
+        FieldElementExpression::IDiv(e) => {
+            match f.fold_binary_expression(&Type::FieldElement, e)? {
+                BinaryOrExpression::Binary(e) => FieldElementExpression::IDiv(e),
+                BinaryOrExpression::Expression(e) => e,
+            }
+        }
+        FieldElementExpression::Rem(e) => {
+            match f.fold_binary_expression(&Type::FieldElement, e)? {
+                BinaryOrExpression::Binary(e) => FieldElementExpression::Rem(e),
+                BinaryOrExpression::Expression(e) => e,
+            }
+        }
         FieldElementExpression::Pow(e) => {
             match f.fold_binary_expression(&Type::FieldElement, e)? {
                 BinaryOrExpression::Binary(e) => FieldElementExpression::Pow(e),

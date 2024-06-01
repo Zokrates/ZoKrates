@@ -30,13 +30,11 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::OutOfBounds(index, size) => write!(
-                f,
-                "Out of bounds index ({} >= {}) found in zir during static analysis",
-                index, size
-            ),
+            Error::OutOfBounds(index, size) => {
+                write!(f, "Out of bounds index ({} >= {})", index, size)
+            }
             Error::DivisionByZero => {
-                write!(f, "Division by zero detected in zir during static analysis",)
+                write!(f, "Division by zero detected",)
             }
             Error::AssertionFailed(err) => write!(f, "Assertion failed ({})", err),
         }
@@ -341,6 +339,42 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                         Ok(FieldElementExpression::number(n1.value / n2.value).span(e.span))
                     }
                     (e1, e2) => Ok(FieldElementExpression::div(e1, e2).span(e.span)),
+                }
+            }
+            FieldElementExpression::IDiv(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                match (left, right) {
+                    (_, FieldElementExpression::Value(n)) if n.value == T::from(0) => {
+                        Err(Error::DivisionByZero)
+                    }
+                    (e, FieldElementExpression::Value(n)) if n.value == T::from(1) => Ok(e),
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        Ok(FieldElementExpression::value(
+                            T::try_from(n1.value.to_biguint().div(n2.value.to_biguint())).unwrap(),
+                        ))
+                    }
+                    (e1, e2) => Ok(FieldElementExpression::idiv(e1, e2).span(e.span)),
+                }
+            }
+            FieldElementExpression::Rem(e) => {
+                let left = self.fold_field_expression(*e.left)?;
+                let right = self.fold_field_expression(*e.right)?;
+
+                match (left, right) {
+                    (_, FieldElementExpression::Value(n)) if n.value == T::from(0) => {
+                        Err(Error::DivisionByZero)
+                    }
+                    (_, FieldElementExpression::Value(n)) if n.value == T::from(1) => {
+                        Ok(FieldElementExpression::value(T::zero()))
+                    }
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        Ok(FieldElementExpression::value(
+                            T::try_from(n1.value.to_biguint().rem(n2.value.to_biguint())).unwrap(),
+                        ))
+                    }
+                    (e1, e2) => Ok(FieldElementExpression::rem(e1, e2).span(e.span)),
                 }
             }
             FieldElementExpression::Pow(e) => {
@@ -1088,6 +1122,72 @@ mod tests {
                     FieldElementExpression::value(Bn128Field::from(1)),
                 )),
                 Ok(FieldElementExpression::identifier("a".into()))
+            );
+
+            assert_eq!(
+                propagator.fold_field_expression(FieldElementExpression::div(
+                    FieldElementExpression::identifier("a".into()),
+                    FieldElementExpression::value(Bn128Field::from(0)),
+                )),
+                Err(Error::DivisionByZero)
+            );
+        }
+
+        #[test]
+        fn idiv() {
+            let mut propagator = ZirPropagator::default();
+
+            assert_eq!(
+                propagator.fold_field_expression(FieldElementExpression::idiv(
+                    FieldElementExpression::value(Bn128Field::from(7)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                )),
+                Ok(FieldElementExpression::value(Bn128Field::from(3)))
+            );
+
+            assert_eq!(
+                propagator.fold_field_expression(FieldElementExpression::idiv(
+                    FieldElementExpression::identifier("a".into()),
+                    FieldElementExpression::value(Bn128Field::from(1)),
+                )),
+                Ok(FieldElementExpression::identifier("a".into()))
+            );
+
+            assert_eq!(
+                propagator.fold_field_expression(FieldElementExpression::idiv(
+                    FieldElementExpression::identifier("a".into()),
+                    FieldElementExpression::value(Bn128Field::from(0)),
+                )),
+                Err(Error::DivisionByZero)
+            );
+        }
+
+        #[test]
+        fn rem() {
+            let mut propagator = ZirPropagator::default();
+
+            assert_eq!(
+                propagator.fold_field_expression(FieldElementExpression::rem(
+                    FieldElementExpression::value(Bn128Field::from(5)),
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                )),
+                Ok(FieldElementExpression::value(Bn128Field::from(1)))
+            );
+
+            assert_eq!(
+                propagator.fold_field_expression(FieldElementExpression::rem(
+                    FieldElementExpression::value(Bn128Field::from(2)),
+                    FieldElementExpression::value(Bn128Field::from(5)),
+                )),
+                Ok(FieldElementExpression::value(Bn128Field::from(2)))
+            );
+
+            assert_eq!(
+                propagator.fold_field_expression(FieldElementExpression::rem(
+                    FieldElementExpression::identifier("a".into()),
+                    FieldElementExpression::value(Bn128Field::from(1)),
+                )),
+                Ok(FieldElementExpression::value(Bn128Field::from(0)))
             );
 
             assert_eq!(
