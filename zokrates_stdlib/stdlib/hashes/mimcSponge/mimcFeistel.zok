@@ -1,3 +1,4 @@
+#pragma curve bn128;
 // MiMCFeistel configured with 220 rounds
 
 const u32 R = 220;
