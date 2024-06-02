@@ -1,0 +1,61 @@
+// Add two points on a twisted Edwards curve
+// https://en.wikipedia.org/wiki/Twisted_Edwards_curve#Addition_on_twisted_Edwards_curves
+def add(field[2] pt1, field[2] pt2, field a, field d) -> field[2] {
+    field u1 = pt1[0];
+    field v1 = pt1[1];
+    field u2 = pt2[0];
+    field v2 = pt2[1];
+
+    field u = (u1*v2 + v1*u2) / (1 + d*u1*u2*v1*v2);
+    field v = (v1*v2 - a*u1*u2) / (1 - d*u1*u2*v1*v2);
+    return [u, v];
+}
+
+// Check if a point is on a twisted Edwards curve
+// See appendix 3.3.1 of Zcash protocol specification:
+// https://github.com/zcash/zips/blob/master/protocol/protocol.pdf
+def onCurve(field[2] pt, field a, field d) -> bool {
+    field uu = pt[0] * pt[0];
+    field vv = pt[1] * pt[1];
+    field uuvv = uu * vv;
+
+    assert(a * uu + vv == 1 + d * uuvv);
+    return true;
+}
+
+// Function that implements scalar multiplication for a fixed base point
+// Reference: https://github.com/zcash-hackworks/sapling-crypto/blob/master/src/jubjub/fs.rs#L555
+def scalarMul<N>(bool[N] exponent, field[2] pt, field a, field d) -> field[2] {
+    field[2] mut res = pt;
+    field[2] mut acc = [0, 1];
+
+    for u32 i in 0..N {
+        u32 j = N - i - 1;
+        field[2] candidate = add(acc, res, a, d);
+        acc = exponent[j] ? candidate : acc;
+        res = add(res, res, a, d);
+    }
+
+    assert(onCurve(acc, a, d));
+    return acc;
+}
+
+// Negate a point on an Edwards curve
+// Twisted Edwards Curves, BBJLP-2008, section 2 pg 2
+def negate(field[2] pt) -> field[2] {
+    field u = pt[0];
+    field v = pt[1];
+    return [-u, v];
+}
+
+// Verifies that the point is not one of the low-order points.
+// If any of the points is multiplied by the cofactor, the resulting point will be infinity.
+// Returns true if the point is not one of the low-order points, false otherwise.
+// Cofactor is hard-coded to 8 for efficiency reasons
+// Reference: https://github.com/zcash-hackworks/sapling-crypto/blob/master/src/jubjub/edwards.rs#L166
+def orderCheck(field[2] pt, field a, field d) -> bool {
+    field[2] mut res = add(pt, pt, a, d); // 2*pt
+    res = add(res, res, a, d);            // 4*pt
+    res = add(res, res, a, d);            // 8*pt
+    return !(res[0] == 0 && res[1] == 1);
+}

@@ -1,6 +1,6 @@
 {
-  "entry_point": "./tests/tests/ecc/edwardsCompress.zok",
-  "curves": ["Bn128"],
+  "entry_point": "./tests/tests/ecc/jubjub/edwardsScalarMult.zok",
+  "curves": ["Bls12_381"],
   "tests": [
     {
       "input": {
