@@ -13,7 +13,7 @@
     "snarks",
     "zksnarks"
   ],
-  "license": "GPLv3",
+  "license": "MIT",
   "files": [
     "index.js",
     "index-node.js",
