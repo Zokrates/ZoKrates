@@ -3,7 +3,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams;
 // Check if a point is on a twisted Edwards curve
 // Curve parameters are defined with the last argument
 // See appendix 3.3.1 of Zcash protocol specification:
-// https://github.com/zcash/zips/blob/master/protocol/protocol.pdf
+// https://github.com/zcash/zips/blob/main/rendered/protocol/protocol.pdf
 def main(field[2] pt, BabyJubJubParams context) -> bool {
     field a = context.JUBJUB_A;
     field d = context.JUBJUB_D;
