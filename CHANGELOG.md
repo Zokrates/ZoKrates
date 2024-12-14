@@ -253,7 +253,7 @@ https://github.com/Zokrates/ZoKrates/compare/latest...develop
 - Reduce the cost of conditionals (#907, @schaeff)
 - Improve propagation on if-else expressions when consequence and alternative are equal (#905, @schaeff)
 - Fix access to constant in local function call (#910, @schaeff)
-- Fix parsing of the left hand side of definitions (#896, @schaeff)
+- Fix parsing of the left-hand side of definitions (#896, @schaeff)
 - Fix variable write remover when isolating branches (#904, @schaeff)
 - Introduce a limit of 2**20 for for-loop sizes (#902, @schaeff)
 - Run compilation test on RNG tutorial and fix bugs (#881, @axic)

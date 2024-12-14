@@ -150,7 +150,7 @@ The following example shows declaration and initialization of a variable of the 
 ```
 
 #### Assignment
-The variables within a struct instance, the so called members, can be accessed through the `.` operator as shown in the following extended example:
+The variables within a struct instance, the so-called members, can be accessed through the `.` operator as shown in the following extended example:
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/struct_assign.zok}}

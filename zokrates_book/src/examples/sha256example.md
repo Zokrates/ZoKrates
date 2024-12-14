@@ -21,7 +21,7 @@ First, we create a new file named `hashexample.zok` with the following content:
 
 The first line imports the `sha256packed` function from the ZoKrates standard library.
 
-`sha256packed` is a SHA256 implementation that is optimized for the use in the ZoKrates DSL. Here is how it works: We want to pass 512 bits of input to SHA256. However, a `field` value can only hold 254 bits due to the size of the underlying prime field we are using. As a consequence, we use four field elements, each one encoding 128 bits, to represent our input. The four elements are then concatenated in ZoKrates and passed to SHA256. Given that the resulting hash is 256 bit long, we split it in two and return each value as a 128 bit number.
+`sha256packed` is a SHA256 implementation that is optimized for the use in the ZoKrates DSL. Here is how it works: We want to pass 512 bits of input to SHA256. However, a `field` value can only hold 254 bits due to the size of the underlying prime field we are using. As a consequence, we use four field elements, each one encoding 128 bits, to represent our input. The four elements are then concatenated in ZoKrates and passed to SHA256. Given that the resulting hash is 256 bit long, we split it in two and return each value as a 128-bit number.
 
 In case you are interested in an example that is fully compliant with existing SHA256 implementations in Python or Solidity, you can have a look at this [blog](https://blog.decentriq.ch/proving-hash-pre-image-zksnarks-zokrates) post.
 
@@ -50,7 +50,7 @@ Witness:
 ["263561599766550617289250058199814760685","65303172752238645975888084098459749904"]
 ```
 
-By concatenating the outputs as 128 bit numbers, we arrive at the following value as the hash for our selected pre-image :
+By concatenating the outputs as 128-bit numbers, we arrive at the following value as the hash for our selected pre-image :
 `0xc6481e22c5ff4164af680b8cfaa5e8ed3120eeff89c4f307c4a6faaae059ce10`
 
 ## Prove knowledge of pre-image
