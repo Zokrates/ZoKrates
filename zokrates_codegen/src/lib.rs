@@ -297,7 +297,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Notes
     ///
-    /// Algorithm from [the sapling spec](https://github.com/zcash/zips/blob/master/protocol/sapling.pdf) A.3.2.2
+    /// Algorithm from [the sapling spec](https://github.com/zcash/zips/blob/main/rendered/protocol/sapling.pdf) A.3.2.2
     ///
     /// Let's assume b = [1, 1, 1, 0]
     ///
