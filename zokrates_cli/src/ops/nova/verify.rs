@@ -116,7 +116,7 @@ fn cli_nova_verify<'ast, T: NovaField>(
     let steps = instance.steps;
 
     if nova::verify_compressed(&proof, &vk, init, steps) {
-        println!("Compressed proof succesfully verified");
+        println!("Compressed proof successfully verified");
     } else {
         eprintln!("Compressed proof verification failed");
     }
