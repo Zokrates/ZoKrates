@@ -171,13 +171,13 @@ pub fn write_r1cs<T: Field, W: Write>(writer: &mut W, p: Prog<T>) -> Result<()> 
         .sum();
     writer.write_u64::<LittleEndian>(size)?;
 
-    write_constraints(writer, constraints)?;
+    write_constraints(writer, constraints, modulo_byte_count as usize)?;
 
     // section type: header
     // type
     writer.write_u32::<LittleEndian>(1)?;
     // size
-    writer.write_u64::<LittleEndian>(32 + 32)?;
+    writer.write_u64::<LittleEndian>(32 + modulo_byte_count as u64)?;
 
     // header
     write_header(writer, header)?;
@@ -196,20 +196,25 @@ pub fn write_r1cs<T: Field, W: Write>(writer: &mut W, p: Prog<T>) -> Result<()> 
 fn write_constraints<T: Field, W: Write>(
     writer: &mut W,
     constraints: Vec<Constraint<T>>,
+    modulo_byte_count: usize,
 ) -> Result<()> {
     for c in constraints {
-        write_lincomb(writer, c.0)?;
-        write_lincomb(writer, c.1)?;
-        write_lincomb(writer, c.2)?;
+        write_lincomb(writer, c.0, modulo_byte_count)?;
+        write_lincomb(writer, c.1, modulo_byte_count)?;
+        write_lincomb(writer, c.2, modulo_byte_count)?;
     }
     Ok(())
 }
 
-fn write_lincomb<T: Field, W: Write>(writer: &mut W, l: LinComb<T>) -> Result<()> {
+fn write_lincomb<T: Field, W: Write>(
+    writer: &mut W,
+    l: LinComb<T>,
+    modulo_byte_count: usize,
+) -> Result<()> {
     writer.write_u32::<LittleEndian>(l.len() as u32)?;
     for (var, coeff) in l {
         writer.write_u32::<LittleEndian>(var as u32)?;
-        let mut res = vec![0u8; 32];
+        let mut res = vec![0u8; modulo_byte_count];
         for (value, padded) in coeff.to_biguint().to_bytes_le().iter().zip(res.iter_mut()) {
             *padded = *value;
         }
@@ -231,13 +236,14 @@ mod tests {
     use std::io::Cursor;
 
     use super::*;
+    use byteorder::ReadBytesExt;
     use pretty_assertions::assert_eq;
     use zkutil::r1cs_reader;
     use zokrates_ast::{
         flat::{Parameter, Variable},
         ir::{LinComb, QuadComb, Statement},
     };
-    use zokrates_field::Bn128Field;
+    use zokrates_field::{Bn128Field, Bw6_761Field};
 
     #[test]
     fn empty() {
@@ -284,6 +290,41 @@ mod tests {
         let c = Cursor::new(buf);
 
         assert!(r1cs_reader::read(c).is_ok());
+    }
+
+    #[test]
+    fn bw6_761_sections_use_the_field_width() {
+        let prog: Prog<Bw6_761Field> = Prog {
+            module_map: Default::default(),
+            arguments: vec![],
+            return_count: 1,
+            statements: vec![Statement::constraint(
+                LinComb::one(),
+                Variable::public(0),
+                None,
+            )],
+            solvers: vec![],
+        };
+        let mut buf = Vec::new();
+
+        write_r1cs(&mut buf, prog).unwrap();
+
+        let mut cursor = Cursor::new(&buf);
+        cursor.set_position(12);
+        assert_eq!(cursor.read_u32::<LittleEndian>().unwrap(), 2);
+        let constraints_size = cursor.read_u64::<LittleEndian>().unwrap();
+        assert_eq!(constraints_size, 3 * (4 + 4 + 48));
+
+        cursor.set_position(24 + constraints_size);
+        assert_eq!(cursor.read_u32::<LittleEndian>().unwrap(), 1);
+        let header_size = cursor.read_u64::<LittleEndian>().unwrap();
+        assert_eq!(header_size, 32 + 48);
+
+        cursor.set_position(24 + constraints_size + 12 + header_size);
+        assert_eq!(cursor.read_u32::<LittleEndian>().unwrap(), 3);
+        let wire_table_size = cursor.read_u64::<LittleEndian>().unwrap();
+        assert_eq!(wire_table_size, 16);
+        assert_eq!(cursor.position() + wire_table_size, buf.len() as u64);
     }
 
     #[test]
