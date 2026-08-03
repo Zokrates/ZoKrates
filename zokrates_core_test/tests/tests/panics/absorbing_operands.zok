@@ -1,0 +1,16 @@
+def main(
+    private u32 x_mul,
+    private u32 x_and,
+    private u32 x_bool,
+    private field x_pow,
+    private u32 index
+) -> (u32, u32, bool, field, u32) {
+    u32[2] values = [11, 22];
+    return (
+        (1 / x_mul) * 0,
+        (1 / x_and) & 0,
+        (1 / x_bool == 1) && false,
+        (1 / x_pow) ** 0,
+        values[index] * 0
+    );
+}

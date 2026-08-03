@@ -1,0 +1,86 @@
+{
+  "entry_point": "./tests/tests/panics/absorbing_operands.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0x00000000", "0x00000001", "0x00000001", "1", "0x00000000"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": "Inverse"
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x00000001", "0x00000000", "0x00000001", "1", "0x00000000"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": "Inverse"
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x00000001", "0x00000001", "0x00000000", "1", "0x00000000"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": "Inverse"
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x00000001", "0x00000001", "0x00000001", "0", "0x00000000"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": "Inverse"
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x00000001", "0x00000001", "0x00000001", "1", "0x00000005"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": "SelectRangeCheck"
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x00000002", "0x00000002", "0x00000002", "7", "0x00000001"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["0x00000000", "0x00000000", false, "1", "0x00000000"]
+        }
+      }
+    }
+  ]
+}

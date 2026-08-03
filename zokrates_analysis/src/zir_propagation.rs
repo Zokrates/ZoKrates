@@ -20,6 +20,100 @@ use zokrates_field::Field;
 
 type Constants<'ast, T> = HashMap<Identifier<'ast>, ZirExpression<'ast, T>>;
 
+// ZIR propagation still runs before panic extraction, so only discard operands whose evaluation
+// cannot fail.
+fn uint_may_fail<T: Field>(e: &UExpressionInner<T>) -> bool {
+    match e {
+        UExpressionInner::Div(_) | UExpressionInner::Rem(_) | UExpressionInner::Select(_) => true,
+        UExpressionInner::Add(e) => {
+            uint_may_fail(e.left.as_inner()) || uint_may_fail(e.right.as_inner())
+        }
+        UExpressionInner::Sub(e) => {
+            uint_may_fail(e.left.as_inner()) || uint_may_fail(e.right.as_inner())
+        }
+        UExpressionInner::Mult(e) => {
+            uint_may_fail(e.left.as_inner()) || uint_may_fail(e.right.as_inner())
+        }
+        UExpressionInner::Xor(e) => {
+            uint_may_fail(e.left.as_inner()) || uint_may_fail(e.right.as_inner())
+        }
+        UExpressionInner::And(e) => {
+            uint_may_fail(e.left.as_inner()) || uint_may_fail(e.right.as_inner())
+        }
+        UExpressionInner::Or(e) => {
+            uint_may_fail(e.left.as_inner()) || uint_may_fail(e.right.as_inner())
+        }
+        UExpressionInner::LeftShift(e) => {
+            uint_may_fail(e.left.as_inner()) || uint_may_fail(e.right.as_inner())
+        }
+        UExpressionInner::RightShift(e) => {
+            uint_may_fail(e.left.as_inner()) || uint_may_fail(e.right.as_inner())
+        }
+        UExpressionInner::Not(e) => uint_may_fail(e.inner.as_inner()),
+        UExpressionInner::Conditional(e) => {
+            boolean_may_fail(&e.condition)
+                || uint_may_fail(e.consequence.as_inner())
+                || uint_may_fail(e.alternative.as_inner())
+        }
+        UExpressionInner::Identifier(_) | UExpressionInner::Value(_) => false,
+    }
+}
+
+fn field_may_fail<T: Field>(e: &FieldElementExpression<T>) -> bool {
+    match e {
+        FieldElementExpression::Div(_) | FieldElementExpression::Select(_) => true,
+        FieldElementExpression::Add(e) => field_may_fail(&e.left) || field_may_fail(&e.right),
+        FieldElementExpression::Sub(e) => field_may_fail(&e.left) || field_may_fail(&e.right),
+        FieldElementExpression::Mult(e) => field_may_fail(&e.left) || field_may_fail(&e.right),
+        FieldElementExpression::And(e) => field_may_fail(&e.left) || field_may_fail(&e.right),
+        FieldElementExpression::Or(e) => field_may_fail(&e.left) || field_may_fail(&e.right),
+        FieldElementExpression::Xor(e) => field_may_fail(&e.left) || field_may_fail(&e.right),
+        FieldElementExpression::Pow(e) => {
+            field_may_fail(&e.left) || uint_may_fail(e.right.as_inner())
+        }
+        FieldElementExpression::LeftShift(e) => {
+            field_may_fail(&e.left) || uint_may_fail(e.right.as_inner())
+        }
+        FieldElementExpression::RightShift(e) => {
+            field_may_fail(&e.left) || uint_may_fail(e.right.as_inner())
+        }
+        FieldElementExpression::Conditional(e) => {
+            boolean_may_fail(&e.condition)
+                || field_may_fail(&e.consequence)
+                || field_may_fail(&e.alternative)
+        }
+        FieldElementExpression::Identifier(_) | FieldElementExpression::Value(_) => false,
+    }
+}
+
+fn boolean_may_fail<T: Field>(e: &BooleanExpression<T>) -> bool {
+    match e {
+        BooleanExpression::Select(_) => true,
+        BooleanExpression::FieldLt(e) => field_may_fail(&e.left) || field_may_fail(&e.right),
+        BooleanExpression::FieldLe(e) => field_may_fail(&e.left) || field_may_fail(&e.right),
+        BooleanExpression::FieldEq(e) => field_may_fail(&e.left) || field_may_fail(&e.right),
+        BooleanExpression::UintLt(e) => {
+            uint_may_fail(e.left.as_inner()) || uint_may_fail(e.right.as_inner())
+        }
+        BooleanExpression::UintLe(e) => {
+            uint_may_fail(e.left.as_inner()) || uint_may_fail(e.right.as_inner())
+        }
+        BooleanExpression::UintEq(e) => {
+            uint_may_fail(e.left.as_inner()) || uint_may_fail(e.right.as_inner())
+        }
+        BooleanExpression::BoolEq(e) => boolean_may_fail(&e.left) || boolean_may_fail(&e.right),
+        BooleanExpression::Or(e) => boolean_may_fail(&e.left) || boolean_may_fail(&e.right),
+        BooleanExpression::And(e) => boolean_may_fail(&e.left) || boolean_may_fail(&e.right),
+        BooleanExpression::Not(e) => boolean_may_fail(&e.inner),
+        BooleanExpression::Conditional(e) => {
+            boolean_may_fail(&e.condition)
+                || boolean_may_fail(&e.consequence)
+                || boolean_may_fail(&e.alternative)
+        }
+        BooleanExpression::Identifier(_) | BooleanExpression::Value(_) => false,
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     OutOfBounds(usize, usize),
@@ -309,20 +403,26 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 let right = self.fold_field_expression(*e.right)?;
 
                 Ok(match (left, right) {
-                    (FieldElementExpression::Value(n), _)
-                    | (_, FieldElementExpression::Value(n))
-                        if n.value == T::from(0) =>
+                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
+                        FieldElementExpression::number(n1.value * n2.value)
+                    }
+                    (FieldElementExpression::Value(n), e)
+                    | (e, FieldElementExpression::Value(n))
+                        if n.value == T::from(0) && !field_may_fail(&e) =>
                     {
                         FieldElementExpression::number(T::from(0))
+                    }
+                    (FieldElementExpression::Value(n), e)
+                    | (e, FieldElementExpression::Value(n))
+                        if n.value == T::from(0) =>
+                    {
+                        FieldElementExpression::mul(e, FieldElementExpression::Value(n))
                     }
                     (FieldElementExpression::Value(n), e)
                     | (e, FieldElementExpression::Value(n))
                         if n.value == T::from(1) =>
                     {
                         e
-                    }
-                    (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
-                        FieldElementExpression::number(n1.value * n2.value)
                     }
                     (e1, e2) => FieldElementExpression::mul(e1, e2),
                 }
@@ -346,7 +446,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
             FieldElementExpression::Pow(e) => {
                 let exponent = self.fold_uint_expression(*e.right)?;
                 match (self.fold_field_expression(*e.left)?, exponent.into_inner()) {
-                    (_, UExpressionInner::Value(n2)) if n2.value == 0 => {
+                    (e, UExpressionInner::Value(n2)) if n2.value == 0 && !field_may_fail(&e) => {
                         Ok(FieldElementExpression::number(T::from(1)))
                     }
                     (e, UExpressionInner::Value(n2)) if n2.value == 1 => Ok(e),
@@ -370,7 +470,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                                 .unwrap(),
                         ))
                     }
-                    (e1, e2) if e1.eq(&e2) => Ok(FieldElementExpression::value(T::from(0))),
+                    (e1, e2) if e1.eq(&e2) && !field_may_fail(&e1) => {
+                        Ok(FieldElementExpression::value(T::from(0)))
+                    }
+                    (e1, e2) if e1.eq(&e2) => Ok(FieldElementExpression::bitxor(e1, e2)),
                     (e1, e2) => Ok(FieldElementExpression::bitxor(e1, e2)),
                 }
             }
@@ -379,16 +482,25 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 let e2 = self.fold_field_expression(*e.right)?;
 
                 match (e1, e2) {
-                    (_, FieldElementExpression::Value(n))
-                    | (FieldElementExpression::Value(n), _)
-                        if n.value == T::from(0) =>
-                    {
-                        Ok(FieldElementExpression::Value(n))
-                    }
                     (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
                         Ok(FieldElementExpression::value(
                             T::try_from(n1.value.to_biguint().bitand(n2.value.to_biguint()))
                                 .unwrap(),
+                        ))
+                    }
+                    (e, FieldElementExpression::Value(n))
+                    | (FieldElementExpression::Value(n), e)
+                        if n.value == T::from(0) && !field_may_fail(&e) =>
+                    {
+                        Ok(FieldElementExpression::Value(n))
+                    }
+                    (e, FieldElementExpression::Value(n))
+                    | (FieldElementExpression::Value(n), e)
+                        if n.value == T::from(0) =>
+                    {
+                        Ok(FieldElementExpression::bitand(
+                            e,
+                            FieldElementExpression::Value(n),
                         ))
                     }
                     (e1, e2) => Ok(FieldElementExpression::bitand(e1, e2)),
@@ -426,13 +538,25 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                         },
                     ) if by.value == 0 => Ok(e),
                     (
-                        _,
+                        expr,
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) if by.value as usize >= T::get_required_bits() && !field_may_fail(&expr) => {
+                        Ok(FieldElementExpression::value(T::from(0)))
+                    }
+                    (
+                        expr,
                         UExpression {
                             inner: UExpressionInner::Value(by),
                             ..
                         },
                     ) if by.value as usize >= T::get_required_bits() => {
-                        Ok(FieldElementExpression::value(T::from(0)))
+                        Ok(FieldElementExpression::left_shift(
+                            expr,
+                            UExpressionInner::Value(by).annotate(UBitwidth::B32),
+                        ))
                     }
                     (
                         FieldElementExpression::Value(n),
@@ -464,13 +588,25 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                         },
                     ) if by.value == 0 => Ok(e),
                     (
-                        _,
+                        expr,
+                        UExpression {
+                            inner: UExpressionInner::Value(by),
+                            ..
+                        },
+                    ) if by.value as usize >= T::get_required_bits() && !field_may_fail(&expr) => {
+                        Ok(FieldElementExpression::value(T::from(0)))
+                    }
+                    (
+                        expr,
                         UExpression {
                             inner: UExpressionInner::Value(by),
                             ..
                         },
                     ) if by.value as usize >= T::get_required_bits() => {
-                        Ok(FieldElementExpression::value(T::from(0)))
+                        Ok(FieldElementExpression::right_shift(
+                            expr,
+                            UExpressionInner::Value(by).annotate(UBitwidth::B32),
+                        ))
                     }
                     (
                         FieldElementExpression::Value(n),
@@ -502,12 +638,22 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (FieldElementExpression::Value(n1), FieldElementExpression::Value(n2)) => {
                         Ok(BooleanExpression::value(n1 < n2))
                     }
-                    (_, FieldElementExpression::Value(c)) if c.value == T::zero() => {
+                    (e, FieldElementExpression::Value(c))
+                        if c.value == T::zero() && !field_may_fail(&e) =>
+                    {
                         Ok(BooleanExpression::value(false))
                     }
-                    (FieldElementExpression::Value(c), _) if c.value == T::max_value() => {
+                    (e, FieldElementExpression::Value(c)) if c.value == T::zero() => Ok(
+                        BooleanExpression::field_lt(e, FieldElementExpression::Value(c)),
+                    ),
+                    (FieldElementExpression::Value(c), e)
+                        if c.value == T::max_value() && !field_may_fail(&e) =>
+                    {
                         Ok(BooleanExpression::value(false))
                     }
+                    (FieldElementExpression::Value(c), e) if c.value == T::max_value() => Ok(
+                        BooleanExpression::field_lt(FieldElementExpression::Value(c), e),
+                    ),
                     (e1, e2) => Ok(BooleanExpression::field_lt(e1, e2)),
                 }
             }
@@ -530,13 +676,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (FieldElementExpression::Value(v1), FieldElementExpression::Value(v2)) => {
                         Ok(BooleanExpression::value(v1.eq(&v2)))
                     }
-                    (e1, e2) => {
-                        if e1.eq(&e2) {
-                            Ok(BooleanExpression::value(true))
-                        } else {
-                            Ok(BooleanExpression::field_eq(e1, e2))
-                        }
+                    (e1, e2) if e1.eq(&e2) && !field_may_fail(&e1) => {
+                        Ok(BooleanExpression::value(true))
                     }
+                    (e1, e2) => Ok(BooleanExpression::field_eq(e1, e2)),
                 }
             }
             BooleanExpression::UintLt(e) => {
@@ -569,13 +712,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                         Ok(BooleanExpression::value(v1 == v2))
                     }
-                    _ => {
-                        if e1.eq(&e2) {
-                            Ok(BooleanExpression::value(true))
-                        } else {
-                            Ok(BooleanExpression::uint_eq(e1, e2))
-                        }
+                    _ if e1.eq(&e2) && !uint_may_fail(e1.as_inner()) => {
+                        Ok(BooleanExpression::value(true))
                     }
+                    _ => Ok(BooleanExpression::uint_eq(e1, e2)),
                 }
             }
             BooleanExpression::BoolEq(e) => {
@@ -586,13 +726,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (BooleanExpression::Value(v1), BooleanExpression::Value(v2)) => {
                         Ok(BooleanExpression::value(v1 == v2))
                     }
-                    (e1, e2) => {
-                        if e1.eq(&e2) {
-                            Ok(BooleanExpression::value(true))
-                        } else {
-                            Ok(BooleanExpression::bool_eq(e1, e2))
-                        }
+                    (e1, e2) if e1.eq(&e2) && !boolean_may_fail(&e1) => {
+                        Ok(BooleanExpression::value(true))
                     }
+                    (e1, e2) => Ok(BooleanExpression::bool_eq(e1, e2)),
                 }
             }
             BooleanExpression::Or(e) => {
@@ -603,10 +740,15 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (BooleanExpression::Value(v1), BooleanExpression::Value(v2)) => {
                         Ok(BooleanExpression::value(v1.value || v2.value))
                     }
-                    (_, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), _)
-                        if v.value =>
+                    (e, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), e)
+                        if v.value && !boolean_may_fail(&e) =>
                     {
                         Ok(BooleanExpression::value(true))
+                    }
+                    (e, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), e)
+                        if v.value =>
+                    {
+                        Ok(BooleanExpression::bitor(e, BooleanExpression::Value(v)))
                     }
                     (e, BooleanExpression::Value(v)) | (BooleanExpression::Value(v), e)
                         if !v.value =>
@@ -626,10 +768,15 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     {
                         Ok(e)
                     }
-                    (BooleanExpression::Value(v), _) | (_, BooleanExpression::Value(v))
-                        if !v.value =>
+                    (BooleanExpression::Value(v), e) | (e, BooleanExpression::Value(v))
+                        if !v.value && !boolean_may_fail(&e) =>
                     {
                         Ok(BooleanExpression::value(false))
+                    }
+                    (BooleanExpression::Value(v), e) | (e, BooleanExpression::Value(v))
+                        if !v.value =>
+                    {
+                        Ok(BooleanExpression::bitand(e, BooleanExpression::Value(v)))
                     }
                     (e1, e2) => Ok(BooleanExpression::bitand(e1, e2)),
                 }
@@ -717,20 +864,29 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
-                    (_, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), _)
-                        if v.value == 0 =>
+                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
+                        Ok(UExpression::value(
+                            (n1.value * n2.value) % 2_u128.pow(bitwidth.to_usize() as u32),
+                        ))
+                    }
+                    (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e)
+                        if v.value == 0 && !uint_may_fail(&e) =>
                     {
                         Ok(UExpression::value(0))
+                    }
+                    (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e)
+                        if v.value == 0 =>
+                    {
+                        Ok(UExpression::mult(
+                            e.annotate(bitwidth),
+                            UExpressionInner::Value(v).annotate(bitwidth),
+                        )
+                        .into_inner())
                     }
                     (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e)
                         if v.value == 1 =>
                     {
                         Ok(e)
-                    }
-                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        Ok(UExpression::value(
-                            (n1.value * n2.value) % 2_u128.pow(bitwidth.to_usize() as u32),
-                        ))
                     }
                     (e1, e2) => Ok(
                         UExpression::mult(e1.annotate(bitwidth), e2.annotate(bitwidth))
@@ -778,7 +934,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
                         Ok(UExpression::value(n1.value ^ n2.value))
                     }
-                    (e1, e2) if e1.eq(&e2) => Ok(UExpression::value(0)),
+                    (e1, e2) if e1.eq(&e2) && !uint_may_fail(&e1) => Ok(UExpression::value(0)),
+                    (e1, e2) if e1.eq(&e2) => Ok(UExpression::xor(
+                        e1.annotate(bitwidth),
+                        e2.annotate(bitwidth),
+                    )
+                    .into_inner()),
                     (e1, e2) => Ok(
                         UExpression::xor(e1.annotate(bitwidth), e2.annotate(bitwidth)).into_inner(),
                     ),
@@ -789,18 +950,27 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
+                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
+                        Ok(UExpression::value(n1.value & n2.value))
+                    }
                     (e, UExpressionInner::Value(n)) | (UExpressionInner::Value(n), e)
                         if n.value == 2_u128.pow(bitwidth.to_usize() as u32) - 1 =>
                     {
                         Ok(e)
                     }
-                    (_, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), _)
-                        if v.value == 0 =>
+                    (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e)
+                        if v.value == 0 && !uint_may_fail(&e) =>
                     {
                         Ok(UExpression::value(0))
                     }
-                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        Ok(UExpression::value(n1.value & n2.value))
+                    (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e)
+                        if v.value == 0 =>
+                    {
+                        Ok(UExpression::and(
+                            e.annotate(bitwidth),
+                            UExpressionInner::Value(v).annotate(bitwidth),
+                        )
+                        .into_inner())
                     }
                     (e1, e2) => Ok(
                         UExpression::and(e1.annotate(bitwidth), e2.annotate(bitwidth)).into_inner(),
@@ -812,18 +982,28 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 let e2 = self.fold_uint_expression(*e.right)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
+                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
+                        Ok(UExpression::value(n1.value | n2.value))
+                    }
                     (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e)
                         if v.value == 0 =>
                     {
                         Ok(e)
                     }
-                    (_, UExpressionInner::Value(n)) | (UExpressionInner::Value(n), _)
-                        if n.value == 2_u128.pow(bitwidth.to_usize() as u32) - 1 =>
+                    (e, UExpressionInner::Value(n)) | (UExpressionInner::Value(n), e)
+                        if n.value == 2_u128.pow(bitwidth.to_usize() as u32) - 1
+                            && !uint_may_fail(&e) =>
                     {
                         Ok(UExpression::value(n.value))
                     }
-                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        Ok(UExpression::value(n1.value | n2.value))
+                    (e, UExpressionInner::Value(n)) | (UExpressionInner::Value(n), e)
+                        if n.value == 2_u128.pow(bitwidth.to_usize() as u32) - 1 =>
+                    {
+                        Ok(UExpression::or(
+                            e.annotate(bitwidth),
+                            UExpressionInner::Value(n).annotate(bitwidth),
+                        )
+                        .into_inner())
                     }
                     (e1, e2) => Ok(
                         UExpression::or(e1.annotate(bitwidth), e2.annotate(bitwidth)).into_inner(),
@@ -835,13 +1015,22 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 let right = self.fold_uint_expression(*e.right)?;
                 match (left.into_inner(), right.into_inner()) {
                     (e, UExpressionInner::Value(by)) if by.value == 0 => Ok(e),
-                    (_, UExpressionInner::Value(by)) if by.value as u32 >= bitwidth as u32 => {
-                        Ok(UExpression::value(0))
-                    }
                     (UExpressionInner::Value(n), UExpressionInner::Value(by)) => {
                         Ok(UExpression::value(
                             (n.value << by.value) & (2_u128.pow(bitwidth as u32) - 1),
                         ))
+                    }
+                    (e, UExpressionInner::Value(by))
+                        if by.value as u32 >= bitwidth as u32 && !uint_may_fail(&e) =>
+                    {
+                        Ok(UExpression::value(0))
+                    }
+                    (e, UExpressionInner::Value(by)) if by.value as u32 >= bitwidth as u32 => {
+                        Ok(UExpression::left_shift(
+                            e.annotate(bitwidth),
+                            UExpressionInner::Value(by).annotate(UBitwidth::B32),
+                        )
+                        .into_inner())
                     }
                     (e, by) => Ok(UExpression::left_shift(
                         e.annotate(bitwidth),
@@ -855,11 +1044,20 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 let right = self.fold_uint_expression(*e.right)?;
                 match (left.into_inner(), right.into_inner()) {
                     (e, UExpressionInner::Value(by)) if by.value == 0 => Ok(e),
-                    (_, UExpressionInner::Value(by)) if by.value as u32 >= bitwidth as u32 => {
-                        Ok(UExpression::value(0))
-                    }
                     (UExpressionInner::Value(n), UExpressionInner::Value(by)) => {
                         Ok(UExpression::value(n.value >> by.value))
+                    }
+                    (e, UExpressionInner::Value(by))
+                        if by.value as u32 >= bitwidth as u32 && !uint_may_fail(&e) =>
+                    {
+                        Ok(UExpression::value(0))
+                    }
+                    (e, UExpressionInner::Value(by)) if by.value as u32 >= bitwidth as u32 => {
+                        Ok(UExpression::right_shift(
+                            e.annotate(bitwidth),
+                            UExpressionInner::Value(by).annotate(UBitwidth::B32),
+                        )
+                        .into_inner())
                     }
                     (e, by) => Ok(UExpression::right_shift(
                         e.annotate(bitwidth),
