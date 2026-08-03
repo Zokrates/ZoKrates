@@ -1,27 +1,25 @@
 //! Module containing the `DuplicateOptimizer` to remove duplicate constraints
 
 use crate::optimizer::canonicalizer::Canonicalizer;
-use std::collections::{hash_map::DefaultHasher, HashSet};
+use std::collections::HashSet;
 use zokrates_ast::ir::folder::*;
 use zokrates_ast::ir::*;
 use zokrates_field::Field;
 
-type Hash = u64;
-
-fn hash<T: Field>(s: &Statement<T>) -> Hash {
-    use std::hash::Hash;
-    use std::hash::Hasher;
-    let mut hasher = DefaultHasher::new();
-    s.hash(&mut hasher);
-    hasher.finish()
+#[derive(Debug)]
+pub struct DuplicateOptimizer<'ast, T> {
+    seen: HashSet<Statement<'ast, T>>,
 }
 
-#[derive(Debug, Default)]
-pub struct DuplicateOptimizer {
-    seen: HashSet<Hash>,
+impl<'ast, T> Default for DuplicateOptimizer<'ast, T> {
+    fn default() -> Self {
+        Self {
+            seen: HashSet::new(),
+        }
+    }
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for DuplicateOptimizer {
+impl<'ast, T: Field> Folder<'ast, T> for DuplicateOptimizer<'ast, T> {
     fn fold_program(&mut self, p: Prog<'ast, T>) -> Prog<'ast, T> {
         // in order to correctly identify duplicates, we need to first canonicalize the statements
         let mut canonicalizer = Canonicalizer;
@@ -45,15 +43,8 @@ impl<'ast, T: Field> Folder<'ast, T> for DuplicateOptimizer {
                 .into_iter()
                 .flat_map(|s| self.fold_statement(s))
                 .collect(),
-            s => {
-                let hashed = hash(&s);
-                let result = match self.seen.get(&hashed) {
-                    Some(_) => vec![],
-                    None => vec![s],
-                };
-                self.seen.insert(hashed);
-                result
-            }
+            s if self.seen.insert(s.clone()) => vec![s],
+            _ => vec![],
         }
     }
 }
@@ -61,6 +52,8 @@ impl<'ast, T: Field> Folder<'ast, T> for DuplicateOptimizer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
     use zokrates_ast::flat::Variable;
     use zokrates_field::Bn128Field;
 
@@ -152,6 +145,48 @@ mod tests {
         assert_eq!(
             DuplicateOptimizer::default().fold_program(p).collect(),
             expected
+        );
+    }
+
+    #[test]
+    fn retains_distinct_statements_with_the_same_hash() {
+        let first = Statement::constraint(
+            QuadComb::new(LinComb::one(), LinComb::from(Variable::new(0))),
+            LinComb::summand(
+                Bn128Field::from(3_778_394_870_934_714_281u64),
+                Variable::one(),
+            ),
+            None,
+        );
+        let second = Statement::constraint(
+            QuadComb::new(LinComb::one(), LinComb::from(Variable::new(1))),
+            LinComb::summand(
+                Bn128Field::from(8_137_133_173_216_420_662u64),
+                Variable::one(),
+            ),
+            None,
+        );
+        let statement_hash = |statement: &Statement<Bn128Field>| {
+            let mut hasher = DefaultHasher::new();
+            statement.hash(&mut hasher);
+            hasher.finish()
+        };
+        assert_ne!(first, second);
+        assert_eq!(statement_hash(&first), statement_hash(&second));
+
+        let program = Prog {
+            module_map: Default::default(),
+            statements: vec![first.clone(), second.clone()],
+            return_count: 0,
+            arguments: vec![],
+            solvers: vec![],
+        };
+
+        assert_eq!(
+            DuplicateOptimizer::default()
+                .fold_program(program)
+                .statements,
+            vec![first, second]
         );
     }
 }

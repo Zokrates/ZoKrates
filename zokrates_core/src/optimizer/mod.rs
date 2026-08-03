@@ -43,7 +43,7 @@ pub fn optimize<'ast, T: Field, I: IntoIterator<Item = Statement<'ast, T>>>(
                 <TautologyOptimizer as Folder<T>>::fold_argument(&mut tautologies_optimizer, a)
             })
             .map(|a| directive_optimizer.fold_argument(a))
-            .map(|a| <DuplicateOptimizer as Folder<T>>::fold_argument(&mut duplicate_optimizer, a))
+            .map(|a| duplicate_optimizer.fold_argument(a))
             .collect(),
         statements: p
             .statements
