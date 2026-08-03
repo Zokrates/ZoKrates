@@ -1,0 +1,4 @@
+def main(private u8 numerator, private u8 denominator) -> u8 {
+    u8 remainder = numerator % denominator;
+    return 0;
+}

@@ -150,6 +150,25 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 );
                 UExpression::div(n, d).into_inner()
             }
+            UExpressionInner::Rem(e) => {
+                let n = self.fold_uint_expression(*e.left);
+                let d = self.fold_uint_expression(*e.right);
+                self.panic_buffer.push(
+                    ZirStatement::assertion(
+                        BooleanExpression::not(
+                            BooleanExpression::uint_eq(
+                                d.clone().span(span),
+                                UExpression::value(0).annotate(b).span(span),
+                            )
+                            .span(span),
+                        )
+                        .span(span),
+                        RuntimeError::DivisionByZero,
+                    )
+                    .span(span),
+                );
+                UExpression::rem(n, d).into_inner()
+            }
             e => fold_uint_expression_cases(self, b, e),
         }
     }

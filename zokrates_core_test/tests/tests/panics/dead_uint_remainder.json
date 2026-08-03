@@ -1,0 +1,30 @@
+{
+  "entry_point": "./tests/tests/panics/dead_uint_remainder.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0x00", "0x00"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": "Inverse"
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x03", "0x02"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x00"
+        }
+      }
+    }
+  ]
+}
